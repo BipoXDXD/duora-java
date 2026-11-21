@@ -31,8 +31,9 @@ import org.springframework.test.annotation.DirtiesContext;
 
 /**
  * Varredura automática do axe-core (WCAG 2.0, 2.1 e 2.2, níveis A e AA) em quatro estados da
- * jornada. Complementa os ITs de acessibilidade escritos à mão; o céu, os meteoros e a cidade são
- * decorativos ({@code aria-hidden}) e ficam fora da análise.
+ * jornada. Complementa os ITs de acessibilidade escritos à mão. O céu, os meteoros e a cidade são
+ * decorativos ({@code aria-hidden}) e ficam fora da análise: cada seletor é excluído à parte,
+ * porque {@code AxeBuilder.exclude(List)} trata a lista como um único caminho de iframes.
  */
 // Aplicação nova por classe: as salas de um IT não somam com as de outro no limite de 20 salas
 // ativas (LimitesSala), que é de produção e não muda nos testes.
@@ -85,6 +86,7 @@ class AxeIT {
   void conviteSemViolacoes() {
     TerracoPagina ana = participante().abrir(raiz());
     ana.criarTerraco(ANA);
+    // Espera o servidor preencher o link: só então a tela do convite está completa.
     ana.linkDoConvite();
 
     assertSemViolacoes(ana);
@@ -120,8 +122,9 @@ class AxeIT {
   }
 
   private static void assertSemViolacoes(TerracoPagina pagina) {
-    List<Rule> violacoes =
-        new AxeBuilder(pagina.page()).withTags(TAGS).exclude(DECORATIVOS).analyze().getViolations();
+    AxeBuilder axe = new AxeBuilder(pagina.page()).withTags(TAGS);
+    DECORATIVOS.forEach(axe::exclude);
+    List<Rule> violacoes = axe.analyze().getViolations();
     assertEquals(List.of(), violacoes, () -> descrever(violacoes));
   }
 
