@@ -23,6 +23,10 @@
         <spotless.version>3.12.0</spotless.version>
         <google-java-format.version>2.0.0</google-java-format.version>
         <playwright.version>1.65.1</playwright.version>
+        <exec-maven-plugin.version>3.7.0</exec-maven-plugin.version>
+        <jacoco.version>0.8.16</jacoco.version>
+        <!-- Pula só os testes unitários (surefire); o e2e da CI usa -DskipUnitTests=true -->
+        <skipUnitTests>false</skipUnitTests>
         <!-- Motor das jornadas E2E: chromium, firefox ou webkit (-Dnavegador=...) -->
         <navegador>chromium</navegador>
     </properties>
@@ -62,6 +66,16 @@
     </dependencies>
 
     <build>
+        <pluginManagement>
+            <plugins>
+                <!-- Usado na CI para instalar o navegador do Playwright (exec:java) -->
+                <plugin>
+                    <groupId>org.codehaus.mojo</groupId>
+                    <artifactId>exec-maven-plugin</artifactId>
+                    <version>${exec-maven-plugin.version}</version>
+                </plugin>
+            </plugins>
+        </pluginManagement>
         <plugins>
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
@@ -72,6 +86,34 @@
                         <arg>-Werror</arg>
                     </compilerArgs>
                 </configuration>
+            </plugin>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-surefire-plugin</artifactId>
+                <configuration>
+                    <skipTests>${skipUnitTests}</skipTests>
+                </configuration>
+            </plugin>
+            <!-- Cobertura só como relatório (target/site/jacoco), sem limite mínimo -->
+            <plugin>
+                <groupId>org.jacoco</groupId>
+                <artifactId>jacoco-maven-plugin</artifactId>
+                <version>${jacoco.version}</version>
+                <executions>
+                    <execution>
+                        <id>prepare-agent</id>
+                        <goals>
+                            <goal>prepare-agent</goal>
+                        </goals>
+                    </execution>
+                    <execution>
+                        <id>report</id>
+                        <phase>verify</phase>
+                        <goals>
+                            <goal>report</goal>
+                        </goals>
+                    </execution>
+                </executions>
             </plugin>
             <plugin>
                 <groupId>org.springframework.boot</groupId>
