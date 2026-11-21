@@ -197,7 +197,7 @@ class PollingIT {
     avancarAteConsultar(NORMAL);
     page.waitForCondition(() -> !seguradas.isEmpty());
 
-    ana.botao("Sair").click();
+    ana.sairDoTerraco();
     assertThat(ana.tituloEncerrado()).isVisible();
     // A consulta que estava em voo falha depois da saída: não pode reagendar nem avisar.
     seguradas.removeFirst().fulfill(new Route.FulfillOptions().setStatus(500));

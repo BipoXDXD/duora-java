@@ -156,7 +156,7 @@ class RevelacaoIT {
     assertThat(som).hasAttribute("aria-pressed", "true");
     ana.page().waitForFunction("() => window.__sonda.fontes.some((f) => f.loop && f.iniciada)");
 
-    ana.botao("Sair").click();
+    ana.sairDoTerraco();
     assertThat(ana.tituloEncerrado()).isVisible();
     ana.page()
         .waitForFunction(

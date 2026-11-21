@@ -114,6 +114,7 @@ button {
 .topo {
   grid-area: topo;
   display: flex;
+  flex-wrap: wrap;
   align-items: baseline;
   justify-content: space-between;
   gap: var(--e-4);
@@ -760,6 +761,50 @@ button {
   flex: none;
 }
 
+/* Confirmação da saída: logo abaixo do "Sair", ocupando a largura do topo, sem cobrir nada. */
+.confirmar-saida {
+  flex: 1 0 100%;
+  display: grid;
+  gap: var(--e-3);
+  padding: var(--e-4);
+  border: 1px solid var(--ceu-600);
+  border-radius: var(--raio);
+  background: var(--noite-900);
+}
+
+.confirmar-saida p {
+  margin: 0;
+  color: var(--texto-2);
+  max-width: 40ch;
+}
+
+.confirmar-saida-acoes {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--e-2);
+}
+
+.confirmar-saida .botao-secundario {
+  margin-top: 0;
+}
+
+/* Vermelho só no passo de confirmação; fora dele, o "Sair" continua rebaixado. */
+.botao-perigo {
+  min-height: 44px;
+  padding: var(--e-2) var(--e-4);
+  border: 0;
+  border-radius: var(--raio);
+  background: var(--coral);
+  color: var(--noite-950);
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.botao-perigo[aria-disabled="true"] {
+  opacity: 0.7;
+  cursor: progress;
+}
+
 .motivo {
   margin: 0;
   color: var(--texto-2);
@@ -912,6 +957,13 @@ button {
     font-size: 1.25rem;
   }
 
+  /* Com a confirmação aberta, o topo cresce e deixa de ter a altura fixa. */
+  .topo:has(> .confirmar-saida:not([hidden])) {
+    height: auto;
+    min-height: var(--altura-topo);
+    padding-bottom: var(--e-4);
+  }
+
   .cena {
     min-height: 0;
     padding: 96px 0 var(--e-3);
@@ -988,6 +1040,15 @@ button {
     top: var(--altura-topo);
     z-index: 4;
   }
+
+  /* Topo alto (confirmação aberta) preso por cima cobriria a cena: ele rola com a página. */
+  .app:has(.confirmar-saida:not([hidden])) .topo {
+    position: static;
+  }
+
+  .app:has(.confirmar-saida:not([hidden])) .cena {
+    top: 0;
+  }
 }
 
 /* Alto contraste (Windows): estados que no tema dependem só de cor ou sombra. */
@@ -1003,6 +1064,7 @@ button {
   .botao-primario[aria-disabled="true"],
   .botao-secundario[aria-disabled="true"],
   .botao-sair[aria-disabled="true"],
+  .botao-perigo[aria-disabled="true"],
   .item[aria-disabled="true"],
   .lugar[aria-disabled="true"] {
     color: GrayText;

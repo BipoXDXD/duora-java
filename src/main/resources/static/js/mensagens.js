@@ -52,6 +52,13 @@ export function textoBloqueio(codigo, visao) {
   return "Indisponível agora.";
 }
 
+/** Aviso e ação do bloco que confirma a saída; sem parceiro, só o próprio terraço acaba. */
+export function textoConfirmarSaida(nomeParceiro) {
+  return nomeParceiro
+    ? { aviso: `Isso encerra o terraço para ${nomeParceiro} também.`, acao: "Encerrar para os dois" }
+    : { aviso: "Isso encerra o terraço.", acao: "Encerrar o terraço" };
+}
+
 /** motivo: SAIU | EXPIROU | SALA_INEXISTENTE | VOCE_SAIU. */
 export function textoEncerrado(motivo, nomeParceiro) {
   switch (motivo) {

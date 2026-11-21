@@ -152,6 +152,34 @@ final class TerracoPagina {
         AriaRole.HEADING, new Page.GetByRoleOptions().setName("Terraço encerrado"));
   }
 
+  Locator botaoSair() {
+    return botao("Sair");
+  }
+
+  Locator botaoContinuarNoTerraco() {
+    return botao("Continuar no terraço");
+  }
+
+  /** O bloco que pede confirmação antes de encerrar; o nome vem do texto do aviso. */
+  Locator confirmacaoDeSaida() {
+    return page.getByRole(
+        AriaRole.GROUP,
+        new Page.GetByRoleOptions().setName(Pattern.compile("^Isso encerra o terraço")));
+  }
+
+  /**
+   * "Sair" e depois a confirmação: "Encerrar para os dois" com par, "Encerrar o terraço" enquanto
+   * espera o convite.
+   */
+  void sairDoTerraco() {
+    botaoSair().click();
+    page.getByRole(
+            AriaRole.BUTTON,
+            new Page.GetByRoleOptions()
+                .setName(Pattern.compile("^Encerrar (para os dois|o terraço)$")))
+        .click();
+  }
+
   Locator botao(String nome) {
     return page.getByRole(
         AriaRole.BUTTON, new Page.GetByRoleOptions().setName(nome).setExact(true));

@@ -92,9 +92,14 @@ async function iniciar() {
       par: $("par"),
       instrucao: $("instrucao"),
       sair: $("sair"),
+      confirmarSaida: $("confirmar-saida"),
+      textoConfirmarSaida: $("confirmar-saida-texto"),
+      continuar: $("continuar"),
+      encerrar: $("encerrar"),
     },
     {
       aoEnviarApelido: entrarOuCriar,
+      aoEncerrar: sair,
       aoCriarOutro: () => {
         painel.avisar("");
         telas.mostrarEntrada(Boolean(estado.convite));
@@ -258,6 +263,7 @@ async function iniciar() {
     const foco = lembrarFoco();
     definirMomento(visao);
     $("palco").dataset.enviando = String(Boolean(estado.enviando));
+    telas.atualizarConfirmacaoSaida(visao.parceiro?.nome ?? null);
     if (visao.fase === "AGUARDANDO_PAR") {
       cena.limpar();
       telas.mostrarConvite(visao.convite ?? "");
@@ -485,6 +491,7 @@ async function iniciar() {
     estado.selecionada = null;
     cena.limpar();
     definirMomento(null);
+    telas.fecharConfirmacaoSaida();
     // O botão some com a montagem: o som não pode continuar sem controle na tela.
     definirSom(false);
   }
@@ -534,12 +541,6 @@ async function iniciar() {
 
   $("som").addEventListener("click", (evento) => {
     definirSom(evento.currentTarget.getAttribute("aria-pressed") !== "true");
-  });
-
-  $("sair").addEventListener("click", () => {
-    if ($("sair").getAttribute("aria-disabled") !== "true") {
-      sair();
-    }
   });
 
   // ------------------------------------------------------------ início

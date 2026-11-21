@@ -20,6 +20,7 @@ import com.microsoft.playwright.assertions.PlaywrightAssertions;
 import com.microsoft.playwright.options.ReducedMotion;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.atomic.AtomicInteger;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeAll;
@@ -165,12 +166,99 @@ class JornadaDoisNavegadoresIT {
   void quandoUmSaiOOutroVeOTerracoEncerrado() {
     entrarEmPar();
 
-    ana.botao("Sair").click();
+    ana.sairDoTerraco();
 
     assertThat(ana.tituloEncerrado()).isVisible();
     assertThat(bruno.tituloEncerrado()).isVisible();
     assertThat(bruno.page().locator("#encerrado-texto"))
         .hasText("Ana saiu e o terraço foi encerrado.");
+  }
+
+  @Test
+  void sairPedeConfirmacaoAntesDeEncerrar() {
+    entrarEmPar();
+    AtomicInteger saidas = contarSaidas(ana);
+
+    ana.botaoSair().click();
+
+    assertThat(ana.confirmacaoDeSaida()).isVisible();
+    assertThat(ana.confirmacaoDeSaida())
+        .hasAccessibleName("Isso encerra o terraço para Bruno também.");
+    assertThat(ana.botao("Encerrar para os dois")).isVisible();
+    assertThat(ana.botaoContinuarNoTerraco()).isFocused();
+    assertThat(ana.botaoSair()).hasAttribute("aria-expanded", "true");
+    assertThat(ana.botaoSair()).hasAttribute("aria-controls", "confirmar-saida");
+    // Uma consulta completa de Bruno depois do clique: a sala continua ativa para ele.
+    bruno.page().waitForResponse("**/api/sala", () -> {});
+    assertThat(bruno.itemDoInventario(BANCO)).isVisible();
+    assertThat(bruno.tituloEncerrado()).hasCount(0);
+    assertEquals(0, saidas.get(), "o clique em Sair não pode encerrar sozinho");
+  }
+
+  @Test
+  void continuarNoTerracoFechaAConfirmacao() {
+    entrarEmPar();
+    ana.botaoSair().click();
+
+    ana.botaoContinuarNoTerraco().click();
+
+    assertThat(ana.confirmacaoDeSaida()).hasCount(0);
+    assertThat(ana.botaoSair()).isFocused();
+    assertThat(ana.botaoSair()).hasAttribute("aria-expanded", "false");
+    assertThat(ana.itemDoInventario(TELESCOPIO)).isVisible();
+  }
+
+  @Test
+  void escCancelaAConfirmacao() {
+    entrarEmPar();
+    ana.botaoSair().click();
+    assertThat(ana.botaoContinuarNoTerraco()).isFocused();
+
+    ana.page().keyboard().press("Escape");
+
+    assertThat(ana.confirmacaoDeSaida()).hasCount(0);
+    assertThat(ana.botaoSair()).isFocused();
+    assertThat(ana.botaoSair()).hasAttribute("aria-expanded", "false");
+  }
+
+  @Test
+  void confirmarEncerraParaOsDois() {
+    entrarEmPar();
+    AtomicInteger saidas = contarSaidas(ana);
+    ana.botaoSair().click();
+
+    ana.botao("Encerrar para os dois").dblclick();
+
+    assertThat(ana.tituloEncerrado()).isFocused();
+    assertThat(bruno.tituloEncerrado()).isVisible();
+    assertEquals(1, saidas.get(), "o duplo clique deveria enviar um único POST de saída");
+  }
+
+  @Test
+  void parceiroSaiDuranteAConfirmacao() {
+    entrarEmPar();
+    ana.botaoSair().click();
+    assertThat(ana.confirmacaoDeSaida()).isVisible();
+
+    bruno.sairDoTerraco();
+
+    assertThat(ana.tituloEncerrado()).isVisible();
+    assertThat(ana.page().locator("#confirmar-saida")).isHidden();
+    assertThat(ana.page().locator("#encerrado-texto"))
+        .hasText("Bruno saiu e o terraço foi encerrado.");
+  }
+
+  @Test
+  void semParceiroAConfirmacaoEncerraSoOTerraco() {
+    ana.abrir(raiz()).criarTerraco(ANA);
+    ana.linkDoConvite();
+
+    ana.botaoSair().click();
+
+    assertThat(ana.confirmacaoDeSaida()).hasAccessibleName("Isso encerra o terraço.");
+    assertThat(ana.botao("Encerrar para os dois")).hasCount(0);
+    ana.botao("Encerrar o terraço").click();
+    assertThat(ana.tituloEncerrado()).isFocused();
   }
 
   @Test
@@ -251,6 +339,19 @@ class JornadaDoisNavegadoresIT {
     assertThat(bruno.pecaNoTerraco(MANTA, ANA, L2)).isVisible();
     bruno.colocar(LANTERNA, R1, BRUNO);
     assertThat(ana.pecaNoTerraco(LANTERNA, BRUNO, R1)).isVisible();
+  }
+
+  /** Conta os POST /api/sala/sair que a página envia daqui em diante. */
+  private static AtomicInteger contarSaidas(TerracoPagina participante) {
+    AtomicInteger saidas = new AtomicInteger();
+    participante
+        .page()
+        .onRequest(pedido -> {
+          if ("POST".equals(pedido.method()) && pedido.url().endsWith("/api/sala/sair")) {
+            saidas.incrementAndGet();
+          }
+        });
+    return saidas;
   }
 
   /** Só Tab: avança o foco até o alvo, com limite para não girar para sempre. */

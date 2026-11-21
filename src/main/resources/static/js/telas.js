@@ -1,10 +1,14 @@
-// Telas do painel fora da montagem: carregando, entrada (apelido), convite e encerrado.
-// Só mostra e esconde; quem decide a transição é o main.
+// Telas do painel fora da montagem: carregando, entrada (apelido), convite e encerrado, além do
+// bloco que confirma a saída. Só mostra e esconde; quem decide a transição é o main.
+
+import { textoConfirmarSaida } from "./mensagens.js";
 
 const CONTROLE = /\p{Cc}/u;
 
-export function criarTelas(el, { aoEnviarApelido, aoCriarOutro, avisar }) {
+export function criarTelas(el, { aoEnviarApelido, aoCriarOutro, aoEncerrar, avisar }) {
   let comConvite = false;
+  let enviandoSaida = false;
+  let acaoEncerrar = el.encerrar.textContent;
 
   el.entrada.addEventListener("submit", (evento) => {
     evento.preventDefault();
@@ -30,6 +34,48 @@ export function criarTelas(el, { aoEnviarApelido, aoCriarOutro, avisar }) {
 
   el.copiar.addEventListener("click", copiarConvite);
   el.criarOutro.addEventListener("click", aoCriarOutro);
+
+  el.sair.addEventListener("click", () => {
+    if (el.sair.getAttribute("aria-disabled") === "true") {
+      return;
+    }
+    if (el.confirmarSaida.hidden) {
+      abrirConfirmacaoSaida();
+    } else {
+      fecharConfirmacaoSaida({ focarSair: true });
+    }
+  });
+  el.continuar.addEventListener("click", () => fecharConfirmacaoSaida({ focarSair: true }));
+  el.encerrar.addEventListener("click", () => {
+    if (el.encerrar.getAttribute("aria-disabled") !== "true") {
+      aoEncerrar();
+    }
+  });
+  for (const alvo of [el.sair, el.confirmarSaida]) {
+    alvo.addEventListener("keydown", (evento) => {
+      if (evento.key === "Escape" && !el.confirmarSaida.hidden && !enviandoSaida) {
+        // Esc aqui só fecha a confirmação; a peça selecionada (se houver) continua escolhida.
+        evento.stopPropagation();
+        fecharConfirmacaoSaida({ focarSair: true });
+      }
+    });
+  }
+
+  function abrirConfirmacaoSaida() {
+    el.confirmarSaida.hidden = false;
+    el.sair.setAttribute("aria-expanded", "true");
+    el.sair.setAttribute("aria-controls", el.confirmarSaida.id);
+    el.continuar.focus();
+  }
+
+  function fecharConfirmacaoSaida({ focarSair = false } = {}) {
+    el.confirmarSaida.hidden = true;
+    el.sair.setAttribute("aria-expanded", "false");
+    el.sair.removeAttribute("aria-controls");
+    if (focarSair) {
+      el.sair.focus();
+    }
+  }
 
   function marcarErroApelido(texto) {
     el.erroApelido.textContent = texto;
@@ -68,6 +114,9 @@ export function criarTelas(el, { aoEnviarApelido, aoCriarOutro, avisar }) {
     el.par.hidden = tela !== "convite" && tela !== "montagem";
     el.instrucao.hidden = tela === "encerrado";
     el.sair.hidden = tela !== "convite" && tela !== "montagem";
+    if (el.sair.hidden) {
+      fecharConfirmacaoSaida();
+    }
   }
 
   return {
@@ -116,12 +165,25 @@ export function criarTelas(el, { aoEnviarApelido, aoCriarOutro, avisar }) {
       el.textoEncerrado.textContent = texto;
       el.tituloEncerrado.focus();
     },
+    /** Nome do parceiro (ou nulo, antes de ele entrar) no aviso e na ação da confirmação. */
+    atualizarConfirmacaoSaida(nomeParceiro) {
+      const { aviso, acao } = textoConfirmarSaida(nomeParceiro);
+      el.textoConfirmarSaida.textContent = aviso;
+      acaoEncerrar = acao;
+      if (!enviandoSaida) {
+        el.encerrar.textContent = acao;
+      }
+    },
+    fecharConfirmacaoSaida,
     enviandoSair(enviando) {
-      el.sair.textContent = enviando ? "Enviando…" : "Sair";
-      if (enviando) {
-        el.sair.setAttribute("aria-disabled", "true");
-      } else {
-        el.sair.removeAttribute("aria-disabled");
+      enviandoSaida = enviando;
+      el.encerrar.textContent = enviando ? "Enviando…" : acaoEncerrar;
+      for (const botao of [el.sair, el.encerrar]) {
+        if (enviando) {
+          botao.setAttribute("aria-disabled", "true");
+        } else {
+          botao.removeAttribute("aria-disabled");
+        }
       }
     },
   };

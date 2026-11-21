@@ -14,7 +14,14 @@
   <div class="app" data-momento="crepusculo">
     <header class="topo">
       <h1 class="titulo">Antes da primeira estrela</h1>
-      <button type="button" class="botao-sair" id="sair" hidden>Sair</button>
+      <button type="button" class="botao-sair" id="sair" aria-expanded="false" hidden>Sair</button>
+      <div class="confirmar-saida" id="confirmar-saida" role="group" aria-labelledby="confirmar-saida-texto" hidden>
+        <p id="confirmar-saida-texto">Isso encerra o terraço.</p>
+        <div class="confirmar-saida-acoes">
+          <button type="button" class="botao-secundario" id="continuar">Continuar no terraço</button>
+          <button type="button" class="botao-perigo" id="encerrar">Encerrar o terraço</button>
+        </div>
+      </div>
     </header>
 
     <section class="cena" aria-labelledby="cena-titulo">

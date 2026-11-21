@@ -201,6 +201,23 @@ class AcessibilidadeFocoIT {
   }
 
   @Test
+  void parceiroQueEntraComAConfirmacaoAbertaNaoTiraOFocoEAtualizaOTexto() {
+    TerracoPagina ana = participante();
+    TerracoPagina bruno = participante();
+    ana.abrir(raiz()).criarTerraco(ANA);
+    ana.botaoSair().click();
+    assertThat(ana.botaoContinuarNoTerraco()).isFocused();
+
+    bruno.abrir(ana.linkDoConvite()).entrarNoTerraco(BRUNO);
+
+    assertThat(ana.itemDoInventario(TELESCOPIO)).isVisible();
+    assertThat(ana.confirmacaoDeSaida())
+        .hasAccessibleName("Isso encerra o terraço para Bruno também.");
+    assertThat(ana.botao("Encerrar para os dois")).isVisible();
+    assertThat(ana.botaoContinuarNoTerraco()).isFocused();
+  }
+
+  @Test
   void revelacaoLevaOFocoAoTituloDoResultadoNosDois() {
     TerracoPagina ana = participante();
     TerracoPagina bruno = participante();

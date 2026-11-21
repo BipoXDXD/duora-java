@@ -136,12 +136,31 @@ class AcessibilidadeLayoutIT {
     TerracoPagina ana = participante(1440, 900, ReducedMotion.REDUCE);
     entrarEmPar(ana, participante(1440, 900, ReducedMotion.REDUCE));
 
-    ana.botao("Sair").focus();
+    ana.botaoSair().focus();
+    ana.page().keyboard().press("Enter");
+    Locator encerrar = ana.botao("Encerrar para os dois");
+    encerrar.focus();
     ana.page().keyboard().press("Enter");
 
     assertThat(ana.tituloEncerrado()).isFocused();
     assertNotEquals(
         "none", ana.page().evaluate("() => getComputedStyle(document.activeElement).boxShadow"));
+  }
+
+  @ParameterizedTest(name = "{0}×{1}")
+  @CsvSource({"390, 844", "1440, 900"})
+  void confirmacaoDeSaidaNaoCobreCenaNemPainel(int largura, int altura) {
+    TerracoPagina ana = participante(largura, altura, ReducedMotion.REDUCE);
+    entrarEmPar(ana, participante(largura, altura, ReducedMotion.REDUCE));
+
+    ana.botaoSair().click();
+    Locator confirmacao = ana.confirmacaoDeSaida();
+    assertThat(confirmacao).isVisible();
+
+    assertEquals("", sobreposicao(confirmacao), "no topo da página");
+    // No celular, a cena fica presa ao rolar: o bloco aberto não pode ficar por cima dela.
+    ana.page().evaluate("() => window.scrollTo(0, document.documentElement.scrollHeight)");
+    assertEquals("", sobreposicao(confirmacao), "com a página rolada até o fim");
   }
 
   @Test
@@ -254,6 +273,22 @@ class AcessibilidadeLayoutIT {
     ana.abrir(raiz()).criarTerraco(ANA);
     bruno.abrir(ana.linkDoConvite()).entrarNoTerraco(BRUNO);
     assertThat(ana.itemDoInventario(TELESCOPIO)).isVisible();
+  }
+
+  /** Vazio se o elemento não cruza a cena nem o painel; senão, diz com qual dos dois cruza. */
+  private static String sobreposicao(Locator elemento) {
+    return (String)
+        elemento.evaluate(
+            """
+            (el) => {
+              const a = el.getBoundingClientRect();
+              const cruza = (b) => a.left < b.right && b.left < a.right
+                  && a.top < b.bottom && b.top < a.bottom;
+              return [".cena", ".painel"]
+                  .filter((s) => cruza(document.querySelector(s).getBoundingClientRect()))
+                  .join(" ");
+            }
+            """);
   }
 
   private static String oQueCobre(Locator elemento) {

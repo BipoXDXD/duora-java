@@ -60,6 +60,7 @@ class ContrasteTest {
     "ambar-tinta, ambar, 4.5",
     "verde-agua, noite-800, 4.5",
     "coral, noite-800, 4.5",
+    "noite-950, coral, 4.5",
     "ambar, noite-900, 3.0",
   })
   void parDeCoresAtingeOContrasteMinimo(String frente, String fundo, double minimo) {
