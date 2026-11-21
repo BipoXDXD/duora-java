@@ -168,8 +168,11 @@ export function criarCena({ palco, camadaPecas, camadaLugares, geometria, aoEsco
       camadaLugares.replaceChildren();
       palco.dataset.selecionando = "false";
     },
+    /** Foca o primeiro lugar livre; diz se havia algum. */
     focarPrimeiroLugar() {
-      camadaLugares.querySelector(".lugar:not([aria-disabled])")?.focus();
+      const lugar = camadaLugares.querySelector(".lugar:not([aria-disabled])");
+      lugar?.focus();
+      return Boolean(lugar);
     },
   };
 }

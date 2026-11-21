@@ -183,7 +183,7 @@ export function criarTelas(el, { aoEnviarApelido, aoCriarOutro, aoEncerrar, avis
     enviandoSair(enviando) {
       enviandoSaida = enviando;
       el.encerrar.textContent = enviando ? "Enviando…" : acaoEncerrar;
-      for (const botao of [el.sair, el.encerrar]) {
+      for (const botao of [el.sair, el.continuar, el.encerrar]) {
         if (enviando) {
           botao.setAttribute("aria-disabled", "true");
         } else {

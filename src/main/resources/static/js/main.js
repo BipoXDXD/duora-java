@@ -421,12 +421,10 @@ async function iniciar() {
 
   /**
    * A recusa redesenha a cena: o lugar escolhido pode ter virado bloqueado. Com a peça ainda
-   * selecionada, o foco vai ao primeiro lugar livre; sem ela, volta à peça no inventário.
+   * selecionada e algum lugar livre, o foco vai ao primeiro deles; senão, volta à peça no inventário.
    */
   function focarAposRecusa(peca) {
-    if (estado.selecionada) {
-      cena.focarPrimeiroLugar();
-    } else {
+    if (!estado.selecionada || !cena.focarPrimeiroLugar()) {
       painel.focarItem(peca);
     }
   }
