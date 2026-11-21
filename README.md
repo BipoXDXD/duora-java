@@ -1,10 +1,20 @@
 # Duora: Antes da primeira estrela
 
+[![CI](https://github.com/BipoXDXD/<REPO>/actions/workflows/ci.yml/badge.svg)](https://github.com/BipoXDXD/<REPO>/actions/workflows/ci.yml)
+
 Demonstração local para duas pessoas. Uma cria um terraço e envia o convite; a outra entra por
 ele. Juntas, cada uma com as próprias peças (telescópio, manta e rádio de um lado; banco,
 lanterna e garrafa térmica do outro), montam o terraço em seis lugares. Quando as duas confirmam
 a mesma composição, anoitece e o céu é revelado com um resultado que depende do que cada uma
 escolheu. Dá para voltar a ajustar e revelar de novo.
+
+![Terraço em montagem no desktop: peças das duas pessoas nos seis lugares, ao crepúsculo](docs/capturas/colocacao-1440x900.webp)
+
+![Céu revelado no desktop depois que as duas pessoas confirmaram a mesma composição](docs/capturas/final-1440x900.webp)
+
+| Entrada | Montagem | Espera | Revelação |
+|---|---|---|---|
+| ![Tela de entrada no celular](docs/capturas/entrada-390x844.webp) | ![Montagem do terraço no celular](docs/capturas/colocacao-390x844.webp) | ![Espera pela confirmação da outra pessoa no celular](docs/capturas/espera-390x844.webp) | ![Céu revelado no celular](docs/capturas/final-390x844.webp) |
 
 ## Experimentar localmente
 
@@ -23,11 +33,12 @@ Pré-requisitos: JDK 25. O Maven vem pelo wrapper (`./mvnw`).
 
 ```sh
 ./mvnw verify          # formatação (Spotless), compilação com -Werror, testes de regras, API e contraste
-./mvnw -Pe2e verify    # inclui as jornadas no Chromium (Playwright), com capturas em target/e2e-capturas
+./mvnw -Pe2e verify    # inclui as jornadas nos três navegadores (Playwright), com capturas em target/e2e-capturas
 ```
 
-Na primeira execução do perfil `e2e`, o Playwright baixa o Chromium. A CI
-(`.github/workflows/ci.yml`) roda os dois comandos em jobs separados.
+Escolha o navegador com `-Dnavegador=chromium|firefox|webkit`; na primeira execução do perfil `e2e`,
+o Playwright o baixa. A CI (`.github/workflows/ci.yml`) roda o `verify` e uma matriz e2e com os
+três navegadores.
 
 ## Arquitetura
 
@@ -45,15 +56,37 @@ Na primeira execução do perfil `e2e`, o Playwright baixa o Chromium. A CI
 
 ## Assets
 
-A cena é renderizada no Blender a partir de `assets/source/blender/cena.py`; dois props vêm de
+A cena é renderizada no Blender a partir de `assets/source/blender/cena.py`; os seis props vêm de
 modelos gerados no Hi3D. Origem, licença e status de cada arquivo estão em
 [`assets/manifest.md`](assets/manifest.md), assim como o comando para regenerar os renders. Os GLBs
 originais são grandes e ficam fora do Git.
+
+## Decisões
+
+- Polling encadeado com `ETag` em vez de WebSocket: duas pessoas e mudanças lentas não pedem conexão aberta.
+- Sem Spring Security: cookie `SameSite=Strict`, conferência de `Origin` e o cabeçalho `X-Duora` cobrem o CSRF de uma API local.
+- Estado em memória: o terraço dura 30 minutos e não precisa sobreviver a um reinício.
+- Câmera ortográfica no Blender: cada prop vira um único sprite, que serve em qualquer lugar do piso sem distorção.
 
 ## Limitações
 
 - Só roda localmente (escuta em `127.0.0.1`); não há configuração de implantação.
 - O estado fica em memória: reiniciar o servidor apaga todas as salas.
-- A arte (céu, terraço e props gerados) e o áudio são candidatos a final e ainda aguardam o aceite visual e o playtest.
 - Não há contas nem histórico: a identidade é o cookie da sessão, e o terraço expira após 30
   minutos sem ação.
+
+## Status
+
+A demonstração está completa e testada. Faltam o aceite visual da arte e do áudio e o playtest com
+duas pessoas.
+
+## Para onde vai
+
+A Duora vai virar uma rede social de amizade e namoro em que cenários como este terraço são o lugar
+do encontro: pareamento por filtros de idade e distância, voz entre conexões mútuas e PWA instalável.
+O desenho e as etapas estão em [`docs/superpowers/specs/2026-11-21-duora-social-design.md`](docs/superpowers/specs/2026-11-21-duora-social-design.md).
+
+## Licença
+
+O código está sob a licença [MIT](LICENSE). Os assets (céu, props e áudio) foram gerados pelo autor
+em conta própria; origem e termos de cada um estão em [`assets/manifest.md`](assets/manifest.md).
