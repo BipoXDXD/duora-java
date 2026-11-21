@@ -9,8 +9,8 @@ Status: `PROVISÓRIO`, `Candidato a FINAL` (gerado, aguarda o aceite visual do d
 | Export | Origem | Ferramenta | Licença | Status |
 |---|---|---|---|---|
 | `cena/terraco-{crepusculo,noite}.webp` | `source/blender/cena.py` (geometria procedural) | Blender 5.3, Cycles, câmera ortográfica | Própria | Candidato a FINAL |
-| `cena/{telescopio-esq,telescopio-dir,banco,manta,radio,lanterna,garrafa}-{crepusculo,noite}.webp` | `source/modelos/*.glb` (Hi3D) importados pelo `cena.py`, malha reduzida a 8% | Hi3D (imagem Nano-Banana 2 → 3D v3.0, PBR) + Blender 5.3 | Privada (conta do dono no Hi3D) | Candidato a FINAL (aguarda aceite) |
-| `ceu/ceu-{crepusculo,noite}.webp` (2560×1440, WebP q88, `source/ceu/exportar.sh`) | `source/ceu/ceu-{crepusculo,noite}-4k.png` | Tripo `chat_image_2.5_sunburst`, quality high (noite: texto→imagem; crepúsculo: edição da noite). Lua descida ~480 px no master por edição local (PIL), igual nas duas | Privada (conta do dono no Tripo) | Candidato a FINAL |
+| `cena/{telescopio-esq,telescopio-dir,banco,manta,radio,lanterna,garrafa}-{crepusculo,noite}.webp` | `source/modelos/*.glb` (Hi3D) importados pelo `cena.py`, malha reduzida a 8% | Hi3D (imagem Nano-Banana 2 → 3D v3.0, PBR) + Blender 5.3 | Gerado pelo autor em conta própria (Hi3D / Tripo / ElevenLabs); redistribuição conforme os termos do plano do autor | Candidato a FINAL (aguarda aceite) |
+| `ceu/ceu-{crepusculo,noite}.webp` (2560×1440, WebP q88, `source/ceu/exportar.sh`) | `source/ceu/ceu-{crepusculo,noite}-4k.png` | Tripo `chat_image_2.5_sunburst`, quality high (noite: texto→imagem; crepúsculo: edição da noite). Lua descida ~480 px no master por edição local (PIL), igual nas duas | Gerado pelo autor em conta própria (Hi3D / Tripo / ElevenLabs); redistribuição conforme os termos do plano do autor | Candidato a FINAL |
 
 ### Gerações Hi3D (pela assinatura/OAuth)
 
@@ -38,7 +38,7 @@ Regenerar (sem créditos):
 
 ## Áudio
 
-Gerado no ElevenLabs (flow `1v6oSiEKugInq7KOaP0r`, "Duora — Antes da primeira estrela (áudio)"), 4 variações por som; escolhidas por medição (loudness, LRA) e espectrograma. Montagem e normalização locais: `source/audio/montar.sh` (ffmpeg); todos os exports em MP3 192 kbps a 48 kHz. Licença: conta do dono no ElevenLabs (plano Creator). Status: candidato a FINAL.
+Gerado no ElevenLabs (flow `1v6oSiEKugInq7KOaP0r`, "Duora — Antes da primeira estrela (áudio)"), 4 variações por som; escolhidas por medição (loudness, LRA) e espectrograma. Montagem e normalização locais: `source/audio/montar.sh` (ffmpeg); todos os exports em MP3 192 kbps a 48 kHz. Licença: gerado pelo autor em conta própria (Hi3D / Tripo / ElevenLabs); redistribuição conforme os termos do plano do autor. Status: candidato a FINAL.
 
 | Export | Bruto escolhido | Modelo | Geração | Tratamento |
 |---|---|---|---|---|
