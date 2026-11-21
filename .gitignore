@@ -38,9 +38,10 @@ build/
 ### Mac OS ###
 .DS_Store
 
-### Local (Claude, Serena, MCP) ###
+### Local (Claude, Serena, MCP); .claude/skills/ é versionado ###
 .claude/handoff/
 .claude/settings.local.json
+.claude/worktrees/
 .serena/
 .mcp.json
 
