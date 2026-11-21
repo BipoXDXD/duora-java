@@ -27,7 +27,7 @@ pgrep -fl "[c]lassworlds\.launcher" | grep -v RemoteMavenServer   # tem de sair 
 | `src/main/resources/static/`, `e2e/` ou fluxo da página | também `./mvnw -q -Pe2e verify -Dnavegador=chromium`, depois `firefox`, depois `webkit` (um de cada vez) |
 | Só `*.md`, `assets/source/` sem export novo ou `.claude/` | nenhum Maven; vá ao item 2 |
 
-Para iterar, filtre (`-Dtest=RegrasTest`, `-Dit.test=AxeIT`), mas o portão final é o comando da tabela, sem filtro. Proibido `-DskipTests`, `-DskipITs`, `-Dspotless.check.skip`, `@Disabled` ou `assumeTrue` para passar. Falhou: corrija a causa e rode de novo.
+Para iterar, filtre (`-Dtest=RegrasTest`, `-Dit.test=AxeIT`; para rodar só um IT, `-Dit.test=AxeIT -Dtest=none -Dsurefire.failIfNoSpecifiedTests=false`, porque sem a última flag o surefire falha com "No tests matching pattern none"), mas o portão final é o comando da tabela, sem filtro. Proibido `-DskipTests`, `-DskipITs`, `-DskipUnitTests` (só a CI o usa, no job e2e que vem depois do `verify`), `-Dspotless.check.skip`, `@Disabled` ou `assumeTrue` para passar. Falhou: corrija a causa e rode de novo.
 
 ### 2. `AxeIT` cobre a tela nova
 

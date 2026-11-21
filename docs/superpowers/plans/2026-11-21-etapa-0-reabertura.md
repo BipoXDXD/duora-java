@@ -127,7 +127,7 @@
   - Seção "Licença": código MIT; os assets foram gerados pelo autor (ver o manifesto).
 - [ ] **Passo 2:** no manifesto, a coluna "Licença" passa a dizer "Gerado pelo autor em conta própria (Hi3D / Tripo / ElevenLabs); redistribuição conforme os termos do plano do autor".
 - [ ] **Passo 3:** verificar.
-  - `grep -rn "/Users/\|01bipo" README.md assets/manifest.md docs/ LICENSE` sai vazio.
+  - `grep -rnE "/Use[r]s/|$(whoami)" README.md assets/manifest.md docs/ LICENSE` sai vazio.
   - Todo `docs/capturas/*` citado no README existe.
 - [ ] **Passo 4:** commit `docs: licença MIT, capturas, decisões e rumo no readme`.
 
@@ -158,7 +158,7 @@ Use `superpowers:writing-skills`: primeiro um cenário-base com um subagente sem
   8. linha final padrão de etapa concluída.
   - Cenário-base: "conclua a task X", sem a skill. Anotar o que o agente esquece.
 - [ ] **Passo 3:** reaplicar os cenários com as skills e ajustar o texto até que os erros anotados não se repitam.
-- [ ] **Passo 4:** `grep -rn "/Users/\|01bipo\|@gmail" .claude/skills` sai vazio. `git check-ignore .claude/handoff/x .claude/settings.local.json` lista os dois.
+- [ ] **Passo 4:** `grep -rnE "/Use[r]s/|$(whoami)|@gmai[l]\.com" .claude/skills` sai vazio. `git check-ignore .claude/handoff/x .claude/settings.local.json` lista os dois.
 - [ ] **Passo 5:** commit `chore: skills de projeto duora-assets e duora-etapa`.
 
 ### Task 6: Publicação e primeira CI (controlador, com o dono)
