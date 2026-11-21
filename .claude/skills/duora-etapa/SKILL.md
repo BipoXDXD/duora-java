@@ -50,11 +50,15 @@ Sobre o que vai entrar no commit (`git add` dos seus caminhos antes):
 
 ```sh
 git diff --cached -U0 | grep -nE "/Use[r]s/|$(whoami)|@gmai[l]\.com"
-git diff --cached -U0 | grep -nEi "(api[_-]?key|secret|token|senha|password)[\"' ]*[:=]|sk-[A-Za-z0-9]{16,}|BEGIN [A-Z ]*PRIVATE KEY"
+git diff --cached -U0 | grep -nEi "(api[_-]?key|secret|token|senha|password)[a-z_]*[\"']?[[:space:]]*[:=][[:space:]]*[\"'][^\"']{8,}[\"']|sk-[A-Za-z0-9]{16,}|BEGIN [A-Z ]*PRIVATE KEY"
 git diff --cached --name-only | grep -nE "\.env|settings\.local\.json|\.claude/handoff/|\.glb$"
 ```
 
-Os três têm de sair vazios. Achou algo: troque por caminho relativo ao repositório ou tire do commit.
+O segundo grep só pega valor literal entre aspas (`token = "…"`, `apiKey: '…'`), chave `sk-…` ou chave privada; código como `String token = Segredos.novoToken(…)` não aparece. Revise cada acerto dos três greps:
+
+- caminho local ou e-mail: troque por caminho relativo ao repositório;
+- segredo real, `.env`, handoff ou GLB: tire do commit;
+- valor fictício de teste (ex.: token falso numa fixture): pode ficar; cite-o no resumo do item 7.
 
 ### 5. Commit
 
