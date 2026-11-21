@@ -1,0 +1,20 @@
+Assets da Duora
+
+Copyright (c) 2026 BipoXDXD
+
+Os assets em `src/main/resources/static/assets/` e `docs/capturas/` estão licenciados sob a
+Creative Commons Attribution 4.0 International (CC BY 4.0):
+https://creativecommons.org/licenses/by/4.0/
+
+Atribuição: "BipoXDXD".
+
+O autor gerou as imagens, os modelos e o áudio com Hi3D, Tripo e ElevenLabs e os tratou no
+Blender e em ferramentas locais; a origem de cada arquivo está em `assets/manifest.md`.
+
+Exceções:
+- As fontes em `src/main/resources/static/assets/fonts/` seguem a SIL Open Font License 1.1,
+  com o texto da licença ao lado de cada fonte.
+- Os itens marcados como "Própria" no manifesto (geometria procedural, `cena.json`, `icone.svg`)
+  são código ou dados do projeto e seguem a licença MIT do arquivo `LICENSE`.
+
+O código-fonte do projeto segue a licença MIT (`LICENSE`).
