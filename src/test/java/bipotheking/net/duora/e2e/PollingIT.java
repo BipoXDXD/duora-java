@@ -1,27 +1,23 @@
 package bipotheking.net.duora.e2e;
 
+import static bipotheking.net.duora.e2e.Cenarios.raiz;
 import static bipotheking.net.duora.e2e.TerracoPagina.Lugar.C1;
 import static bipotheking.net.duora.e2e.TerracoPagina.Peca.TELESCOPIO;
 import static com.microsoft.playwright.assertions.PlaywrightAssertions.assertThat;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
-import com.microsoft.playwright.Browser;
-import com.microsoft.playwright.BrowserContext;
+import bipotheking.net.duora.e2e.NavegadorExtension.Participantes;
 import com.microsoft.playwright.Clock;
 import com.microsoft.playwright.Page;
-import com.microsoft.playwright.Playwright;
 import com.microsoft.playwright.Route;
-import com.microsoft.playwright.assertions.PlaywrightAssertions;
-import com.microsoft.playwright.options.ReducedMotion;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Deque;
 import java.util.List;
-import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.AfterEach;
-import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.annotation.DirtiesContext;
@@ -36,6 +32,7 @@ import org.springframework.test.annotation.DirtiesContext;
 // ativas (LimitesSala), que é de produção e não muda nos testes.
 @DirtiesContext(classMode = DirtiesContext.ClassMode.AFTER_CLASS)
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
+@ExtendWith(NavegadorExtension.class)
 class PollingIT {
 
   private static final long INICIO = 1_800_000_000_000L;
@@ -87,58 +84,36 @@ class PollingIT {
     SEGURAR
   }
 
-  private static Playwright playwright;
-  private static Browser browser;
-
   @Value("${local.server.port}")
   private int porta;
 
-  private final List<BrowserContext> contextos = new ArrayList<>();
   private final Deque<Resposta> roteiro = new ArrayDeque<>();
   private final List<Route> seguradas = new ArrayList<>();
   private Page page;
   private TerracoPagina ana;
   private int agendasVistas;
 
-  @BeforeAll
-  static void abrirNavegador() {
-    playwright = Playwright.create();
-    browser = Navegador.abrir(playwright);
-    PlaywrightAssertions.setDefaultAssertionTimeout(10_000);
-  }
-
-  @AfterAll
-  static void fecharNavegador() {
-    browser.close();
-    playwright.close();
-  }
-
   @BeforeEach
-  void anaCriaOTerracoComORelogioPausado() {
-    page = novoContexto().newPage();
-    page.clock().install(new Clock.InstallOptions().setTime(INICIO));
-    page.clock().pauseAt(INICIO + 1_000);
-    page.addInitScript(SONDA);
-    page.route("**/api/sala", this::responder);
-    ana = new TerracoPagina(page);
+  void anaCriaOTerracoComORelogioPausado(Participantes participantes) {
+    ana = participantes.novo(this::prepararComRelogioPausado);
+    page = ana.page();
 
-    ana.abrir(raiz());
+    ana.abrir(raiz(porta));
     // Sem assento: a primeira consulta (agendada em 0 ms) leva à tela de entrada.
     assertEquals(0, proximoAgendamento());
     page.clock().runFor(0);
     ana.criarTerraco("Ana");
-    ana.linkDoConvite();
+    ana.esperarLinkDoConvite();
     // A sessão nova reinicia o laço com uma consulta imediata, depois segue no ritmo normal.
     assertEquals(0, proximoAgendamento());
     page.clock().runFor(0);
     assertEquals(NORMAL, proximoAgendamento());
   }
 
+  // Roda antes de a extensão fechar os contextos: nenhuma resposta fica pendurada.
   @AfterEach
-  void fecharContextos() {
+  void soltarRespostasSeguradas() {
     seguradas.forEach(Route::abort);
-    contextos.forEach(BrowserContext::close);
-    contextos.clear();
   }
 
   @Test
@@ -214,8 +189,8 @@ class PollingIT {
   }
 
   @Test
-  void respostaNaoModificadaNaoRedesenhaNemPerdeASelecao() {
-    TerracoPagina bruno = new TerracoPagina(novoContexto().newPage());
+  void respostaNaoModificadaNaoRedesenhaNemPerdeASelecao(Participantes participantes) {
+    TerracoPagina bruno = participantes.novo();
     bruno.abrir(ana.linkDoConvite()).entrarNoTerraco("Bruno");
     assertThat(bruno.page().locator("#par")).containsText("Ana");
     avancarAteConsultar(NORMAL);
@@ -246,6 +221,13 @@ class PollingIT {
   }
 
   // ------------------------------------------------------------ apoio
+
+  private void prepararComRelogioPausado(Page pagina) {
+    pagina.clock().install(new Clock.InstallOptions().setTime(INICIO));
+    pagina.clock().pauseAt(INICIO + 1_000);
+    pagina.addInitScript(SONDA);
+    pagina.route("**/api/sala", this::responder);
+  }
 
   private void responder(Route route) {
     if (!"GET".equals(route.request().method())) {
@@ -300,19 +282,5 @@ class PollingIT {
 
   private String texto(String expressao) {
     return (String) page.evaluate("() => " + expressao);
-  }
-
-  private BrowserContext novoContexto() {
-    BrowserContext contexto =
-        browser.newContext(
-            new Browser.NewContextOptions()
-                .setViewportSize(1440, 900)
-                .setReducedMotion(ReducedMotion.REDUCE));
-    contextos.add(contexto);
-    return contexto;
-  }
-
-  private String raiz() {
-    return "http://127.0.0.1:" + porta + "/";
   }
 }

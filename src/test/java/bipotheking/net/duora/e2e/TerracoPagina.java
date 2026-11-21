@@ -71,11 +71,19 @@ final class TerracoPagina {
     botao(acao).click();
   }
 
+  /** Espera o servidor preencher o link do convite: só então a tela do convite está completa. */
+  void esperarLinkDoConvite() {
+    assertThat(campoDoConvite()).hasValue(Pattern.compile("/#convite=.+"));
+  }
+
   /** Lê o link do campo somente leitura, esperando o servidor preenchê-lo. */
   String linkDoConvite() {
-    Locator campo = page.getByLabel("Link para a outra pessoa");
-    assertThat(campo).hasValue(Pattern.compile("/#convite=.+"));
-    return campo.inputValue();
+    esperarLinkDoConvite();
+    return campoDoConvite().inputValue();
+  }
+
+  private Locator campoDoConvite() {
+    return page.getByLabel("Link para a outra pessoa");
   }
 
   Locator itemDoInventario(Peca peca) {
@@ -178,6 +186,17 @@ final class TerracoPagina {
             new Page.GetByRoleOptions()
                 .setName(Pattern.compile("^Encerrar (para os dois|o terraço)$")))
         .click();
+  }
+
+  /** Só Tab: avança o foco até o alvo, com limite para não girar para sempre. */
+  void tabularAte(Locator alvo) {
+    for (int i = 0; i < 40; i++) {
+      page.keyboard().press(Navegador.TAB);
+      if (alvo.evaluate("el => el === document.activeElement").equals(Boolean.TRUE)) {
+        return;
+      }
+    }
+    throw new AssertionError("O Tab não chegou ao alvo em 40 passos.");
   }
 
   Locator botao(String nome) {

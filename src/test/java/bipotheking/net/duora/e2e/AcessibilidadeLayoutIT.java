@@ -1,5 +1,9 @@
 package bipotheking.net.duora.e2e;
 
+import static bipotheking.net.duora.e2e.Cenarios.ANA;
+import static bipotheking.net.duora.e2e.Cenarios.BRUNO;
+import static bipotheking.net.duora.e2e.Cenarios.entrarEmPar;
+import static bipotheking.net.duora.e2e.Cenarios.raiz;
 import static bipotheking.net.duora.e2e.TerracoPagina.Lugar.C1;
 import static bipotheking.net.duora.e2e.TerracoPagina.Lugar.C2;
 import static bipotheking.net.duora.e2e.TerracoPagina.Peca.BANCO;
@@ -10,21 +14,14 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import com.microsoft.playwright.Browser;
-import com.microsoft.playwright.BrowserContext;
+import bipotheking.net.duora.e2e.NavegadorExtension.Participantes;
 import com.microsoft.playwright.Locator;
 import com.microsoft.playwright.Page;
-import com.microsoft.playwright.Playwright;
-import com.microsoft.playwright.assertions.PlaywrightAssertions;
 import com.microsoft.playwright.options.ForcedColors;
 import com.microsoft.playwright.options.ReducedMotion;
-import java.util.ArrayList;
-import java.util.List;
 import java.util.regex.Pattern;
-import org.junit.jupiter.api.AfterAll;
-import org.junit.jupiter.api.AfterEach;
-import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
 import org.springframework.beans.factory.annotation.Value;
@@ -40,10 +37,8 @@ import org.springframework.test.annotation.DirtiesContext;
 // ativas (LimitesSala), que é de produção e não muda nos testes.
 @DirtiesContext(classMode = DirtiesContext.ClassMode.AFTER_CLASS)
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
+@ExtendWith(NavegadorExtension.class)
 class AcessibilidadeLayoutIT {
-
-  private static final String ANA = "Ana";
-  private static final String BRUNO = "Bruno";
 
   /**
    * Rola o elemento até o meio da tela e, no mesmo passo (sem a tela redesenhar no meio), devolve
@@ -63,39 +58,16 @@ class AcessibilidadeLayoutIT {
       }
       """;
 
-  private static Playwright playwright;
-  private static Browser browser;
-
   @Value("${local.server.port}")
   private int porta;
-
-  private final List<BrowserContext> contextos = new ArrayList<>();
-
-  @BeforeAll
-  static void abrirNavegador() {
-    playwright = Playwright.create();
-    browser = Navegador.abrir(playwright);
-    PlaywrightAssertions.setDefaultAssertionTimeout(10_000);
-  }
-
-  @AfterAll
-  static void fecharNavegador() {
-    browser.close();
-    playwright.close();
-  }
-
-  @AfterEach
-  void fecharContextos() {
-    contextos.forEach(BrowserContext::close);
-    contextos.clear();
-  }
 
   // 640×360 = 1280×720 com zoom de 200%; 844×390 = celular deitado.
   @ParameterizedTest(name = "{0}×{1}")
   @CsvSource({"640, 360", "844, 390"})
-  void primeiroItemDasPecasFocadoNaoFicaCobertoEmTelaBaixa(int largura, int altura) {
-    TerracoPagina ana = participante(1440, 900, ReducedMotion.REDUCE);
-    entrarEmPar(ana, participante(1440, 900, ReducedMotion.REDUCE));
+  void primeiroItemDasPecasFocadoNaoFicaCobertoEmTelaBaixa(
+      int largura, int altura, Participantes participantes) {
+    TerracoPagina ana = participantes.novo();
+    entrarEmPar(ana, participantes.novo(), raiz(porta));
     ana.page().setViewportSize(largura, altura);
 
     Locator item = ana.itemDoInventario(TELESCOPIO);
@@ -106,9 +78,10 @@ class AcessibilidadeLayoutIT {
 
   @ParameterizedTest(name = "{0}×{1}")
   @CsvSource({"640, 360", "844, 390"})
-  void botaoProntoFocadoNaoFicaCobertoEmTelaBaixa(int largura, int altura) {
-    TerracoPagina ana = participante(1440, 900, ReducedMotion.REDUCE);
-    entrarEmPar(ana, participante(1440, 900, ReducedMotion.REDUCE));
+  void botaoProntoFocadoNaoFicaCobertoEmTelaBaixa(
+      int largura, int altura, Participantes participantes) {
+    TerracoPagina ana = participantes.novo();
+    entrarEmPar(ana, participantes.novo(), raiz(porta));
     ana.page().setViewportSize(largura, altura);
 
     Locator pronto = ana.botaoPronto();
@@ -118,10 +91,10 @@ class AcessibilidadeLayoutIT {
   }
 
   @Test
-  void anelDeFocoContinuaVisivelEmAltoContraste() {
-    TerracoPagina ana = participante(1440, 900, ReducedMotion.REDUCE);
+  void anelDeFocoContinuaVisivelEmAltoContraste(Participantes participantes) {
+    TerracoPagina ana = participantes.novo();
     ana.page().emulateMedia(new Page.EmulateMediaOptions().setForcedColors(ForcedColors.ACTIVE));
-    ana.abrir(raiz());
+    ana.abrir(raiz(porta));
     ana.page().getByLabel("Seu apelido").fill(ANA);
 
     ana.page().keyboard().press(Navegador.TAB);
@@ -132,14 +105,15 @@ class AcessibilidadeLayoutIT {
   }
 
   @Test
-  void tituloDoEncerradoFocadoPeloTecladoMantemOAnelDeFoco() {
-    TerracoPagina ana = participante(1440, 900, ReducedMotion.REDUCE);
-    entrarEmPar(ana, participante(1440, 900, ReducedMotion.REDUCE));
+  void tituloDoEncerradoFocadoPeloTecladoMantemOAnelDeFoco(Participantes participantes) {
+    TerracoPagina ana = participantes.novo();
+    entrarEmPar(ana, participantes.novo(), raiz(porta));
 
     ana.botaoSair().focus();
     ana.page().keyboard().press("Enter");
     Locator encerrar = ana.botao("Encerrar para os dois");
-    encerrar.focus();
+    ana.tabularAte(encerrar);
+    assertThat(encerrar).isFocused();
     ana.page().keyboard().press("Enter");
 
     assertThat(ana.tituloEncerrado()).isFocused();
@@ -149,9 +123,10 @@ class AcessibilidadeLayoutIT {
 
   @ParameterizedTest(name = "{0}×{1}")
   @CsvSource({"390, 844", "1440, 900"})
-  void confirmacaoDeSaidaNaoCobreCenaNemPainel(int largura, int altura) {
-    TerracoPagina ana = participante(largura, altura, ReducedMotion.REDUCE);
-    entrarEmPar(ana, participante(largura, altura, ReducedMotion.REDUCE));
+  void confirmacaoDeSaidaNaoCobreCenaNemPainel(
+      int largura, int altura, Participantes participantes) {
+    TerracoPagina ana = participantes.novo(largura, altura, ReducedMotion.REDUCE);
+    entrarEmPar(ana, participantes.novo(largura, altura, ReducedMotion.REDUCE), raiz(porta));
 
     ana.botaoSair().click();
     Locator confirmacao = ana.confirmacaoDeSaida();
@@ -164,10 +139,10 @@ class AcessibilidadeLayoutIT {
   }
 
   @Test
-  void itemPressionadoSeDistingueAlemDaCorEmAltoContraste() {
-    TerracoPagina ana = participante(1440, 900, ReducedMotion.REDUCE);
+  void itemPressionadoSeDistingueAlemDaCorEmAltoContraste(Participantes participantes) {
+    TerracoPagina ana = participantes.novo();
     ana.page().emulateMedia(new Page.EmulateMediaOptions().setForcedColors(ForcedColors.ACTIVE));
-    entrarEmPar(ana, participante(1440, 900, ReducedMotion.REDUCE));
+    entrarEmPar(ana, participantes.novo(), raiz(porta));
 
     ana.selecionar(TELESCOPIO);
 
@@ -176,10 +151,10 @@ class AcessibilidadeLayoutIT {
   }
 
   @Test
-  void pecaSinalizadaTemSeloEstaticoENomeComMovimentoReduzido() {
-    TerracoPagina ana = participante(1440, 900, ReducedMotion.REDUCE);
-    TerracoPagina bruno = participante(1440, 900, ReducedMotion.REDUCE);
-    entrarEmPar(ana, bruno);
+  void pecaSinalizadaTemSeloEstaticoENomeComMovimentoReduzido(Participantes participantes) {
+    TerracoPagina ana = participantes.novo();
+    TerracoPagina bruno = participantes.novo();
+    entrarEmPar(ana, bruno, raiz(porta));
     ana.colocar(TELESCOPIO, C1, ANA);
     assertThat(bruno.pecaNoTerraco(TELESCOPIO, ANA, C1)).isVisible();
     bruno.colocar(BANCO, C2, BRUNO);
@@ -193,9 +168,9 @@ class AcessibilidadeLayoutIT {
   }
 
   @Test
-  void pecaPropriaTemOSeloVoceNoNomeAcessivel() {
-    TerracoPagina ana = participante(1440, 900, ReducedMotion.REDUCE);
-    entrarEmPar(ana, participante(1440, 900, ReducedMotion.REDUCE));
+  void pecaPropriaTemOSeloVoceNoNomeAcessivel(Participantes participantes) {
+    TerracoPagina ana = participantes.novo();
+    entrarEmPar(ana, participantes.novo(), raiz(porta));
 
     ana.colocar(TELESCOPIO, C1, ANA);
 
@@ -203,9 +178,9 @@ class AcessibilidadeLayoutIT {
   }
 
   @Test
-  void rotuloVisivelDoLugarEstaContidoNoNomeAcessivel() {
-    TerracoPagina ana = participante(1440, 900, ReducedMotion.REDUCE);
-    entrarEmPar(ana, participante(1440, 900, ReducedMotion.REDUCE));
+  void rotuloVisivelDoLugarEstaContidoNoNomeAcessivel(Participantes participantes) {
+    TerracoPagina ana = participantes.novo();
+    entrarEmPar(ana, participantes.novo(), raiz(porta));
 
     ana.selecionar(TELESCOPIO);
 
@@ -216,9 +191,9 @@ class AcessibilidadeLayoutIT {
   }
 
   @Test
-  void itemBloqueadoEsmaeceSoAMiniatura() {
-    TerracoPagina ana = participante(1440, 900, ReducedMotion.REDUCE);
-    entrarEmPar(ana, participante(1440, 900, ReducedMotion.REDUCE));
+  void itemBloqueadoEsmaeceSoAMiniatura(Participantes participantes) {
+    TerracoPagina ana = participantes.novo();
+    entrarEmPar(ana, participantes.novo(), raiz(porta));
     ana.colocar(TELESCOPIO, C1, ANA);
 
     // Com uma peça no terraço, Ana espera a primeira de Bruno: a manta fica bloqueada.
@@ -230,10 +205,10 @@ class AcessibilidadeLayoutIT {
   }
 
   @Test
-  void botaoIndisponivelUsaGrayTextEmAltoContraste() {
-    TerracoPagina ana = participante(1440, 900, ReducedMotion.REDUCE);
+  void botaoIndisponivelUsaGrayTextEmAltoContraste(Participantes participantes) {
+    TerracoPagina ana = participantes.novo();
     ana.page().emulateMedia(new Page.EmulateMediaOptions().setForcedColors(ForcedColors.ACTIVE));
-    entrarEmPar(ana, participante(1440, 900, ReducedMotion.REDUCE));
+    entrarEmPar(ana, participantes.novo(), raiz(porta));
 
     Locator pronto = ana.botaoPronto();
     assertThat(pronto).hasAttribute("aria-disabled", "true");
@@ -253,26 +228,6 @@ class AcessibilidadeLayoutIT {
                     }
                     """);
     assertEquals(grayText, pronto.evaluate("(el) => getComputedStyle(el).color"));
-  }
-
-  private TerracoPagina participante(int largura, int altura, ReducedMotion movimento) {
-    BrowserContext contexto =
-        browser.newContext(
-            new Browser.NewContextOptions()
-                .setViewportSize(largura, altura)
-                .setReducedMotion(movimento));
-    contextos.add(contexto);
-    return new TerracoPagina(contexto.newPage());
-  }
-
-  private String raiz() {
-    return "http://127.0.0.1:" + porta + "/";
-  }
-
-  private void entrarEmPar(TerracoPagina ana, TerracoPagina bruno) {
-    ana.abrir(raiz()).criarTerraco(ANA);
-    bruno.abrir(ana.linkDoConvite()).entrarNoTerraco(BRUNO);
-    assertThat(ana.itemDoInventario(TELESCOPIO)).isVisible();
   }
 
   /** Vazio se o elemento não cruza a cena nem o painel; senão, diz com qual dos dois cruza. */
