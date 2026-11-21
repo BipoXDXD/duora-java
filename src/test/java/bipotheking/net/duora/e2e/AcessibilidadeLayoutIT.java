@@ -1,0 +1,273 @@
+package bipotheking.net.duora.e2e;
+
+import static bipotheking.net.duora.e2e.TerracoPagina.Lugar.C1;
+import static bipotheking.net.duora.e2e.TerracoPagina.Lugar.C2;
+import static bipotheking.net.duora.e2e.TerracoPagina.Peca.BANCO;
+import static bipotheking.net.duora.e2e.TerracoPagina.Peca.MANTA;
+import static bipotheking.net.duora.e2e.TerracoPagina.Peca.TELESCOPIO;
+import static com.microsoft.playwright.assertions.PlaywrightAssertions.assertThat;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
+import com.microsoft.playwright.Browser;
+import com.microsoft.playwright.BrowserContext;
+import com.microsoft.playwright.Locator;
+import com.microsoft.playwright.Page;
+import com.microsoft.playwright.Playwright;
+import com.microsoft.playwright.assertions.PlaywrightAssertions;
+import com.microsoft.playwright.options.ForcedColors;
+import com.microsoft.playwright.options.ReducedMotion;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.regex.Pattern;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.test.annotation.DirtiesContext;
+
+/**
+ * Achados de acessibilidade (WCAG 2.2 AA) de layout e estilo: foco não coberto em telas baixas,
+ * anel de foco e estados em alto contraste (forced-colors), sinal estático com movimento reduzido e
+ * rótulo visível contido no nome acessível.
+ */
+// Aplicação nova por classe: as salas de um IT não somam com as de outro no limite de 20 salas
+// ativas (LimitesSala), que é de produção e não muda nos testes.
+@DirtiesContext(classMode = DirtiesContext.ClassMode.AFTER_CLASS)
+@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
+class AcessibilidadeLayoutIT {
+
+  private static final String ANA = "Ana";
+  private static final String BRUNO = "Bruno";
+
+  /**
+   * Rola o elemento até o meio da tela e, no mesmo passo (sem a tela redesenhar no meio), devolve
+   * vazio se o ponto central pertence a ele; senão, descreve o que o cobre.
+   */
+  private static final String CENTRO_VISIVEL =
+      """
+      (el) => {
+        el.scrollIntoView({ block: "center" });
+        const r = el.getBoundingClientRect();
+        const x = r.left + r.width / 2;
+        const y = r.top + r.height / 2;
+        if (x < 0 || y < 0 || x > innerWidth || y > innerHeight) return `fora da tela em ${x},${y}`;
+        const topo = document.elementFromPoint(x, y);
+        if (topo !== null && (topo === el || el.contains(topo))) return "";
+        return topo === null ? "nada" : `${topo.tagName}.${topo.className} em ${x},${y}`;
+      }
+      """;
+
+  private static Playwright playwright;
+  private static Browser browser;
+
+  @Value("${local.server.port}")
+  private int porta;
+
+  private final List<BrowserContext> contextos = new ArrayList<>();
+
+  @BeforeAll
+  static void abrirNavegador() {
+    playwright = Playwright.create();
+    browser = Navegador.abrir(playwright);
+    PlaywrightAssertions.setDefaultAssertionTimeout(10_000);
+  }
+
+  @AfterAll
+  static void fecharNavegador() {
+    browser.close();
+    playwright.close();
+  }
+
+  @AfterEach
+  void fecharContextos() {
+    contextos.forEach(BrowserContext::close);
+    contextos.clear();
+  }
+
+  // 640×360 = 1280×720 com zoom de 200%; 844×390 = celular deitado.
+  @ParameterizedTest(name = "{0}×{1}")
+  @CsvSource({"640, 360", "844, 390"})
+  void primeiroItemDasPecasFocadoNaoFicaCobertoEmTelaBaixa(int largura, int altura) {
+    TerracoPagina ana = participante(1440, 900, ReducedMotion.REDUCE);
+    entrarEmPar(ana, participante(1440, 900, ReducedMotion.REDUCE));
+    ana.page().setViewportSize(largura, altura);
+
+    Locator item = ana.itemDoInventario(TELESCOPIO);
+    item.focus();
+
+    assertEquals("", oQueCobre(item));
+  }
+
+  @ParameterizedTest(name = "{0}×{1}")
+  @CsvSource({"640, 360", "844, 390"})
+  void botaoProntoFocadoNaoFicaCobertoEmTelaBaixa(int largura, int altura) {
+    TerracoPagina ana = participante(1440, 900, ReducedMotion.REDUCE);
+    entrarEmPar(ana, participante(1440, 900, ReducedMotion.REDUCE));
+    ana.page().setViewportSize(largura, altura);
+
+    Locator pronto = ana.botaoPronto();
+    pronto.focus();
+
+    assertEquals("", oQueCobre(pronto));
+  }
+
+  @Test
+  void anelDeFocoContinuaVisivelEmAltoContraste() {
+    TerracoPagina ana = participante(1440, 900, ReducedMotion.REDUCE);
+    ana.page().emulateMedia(new Page.EmulateMediaOptions().setForcedColors(ForcedColors.ACTIVE));
+    ana.abrir(raiz());
+    ana.page().getByLabel("Seu apelido").fill(ANA);
+
+    ana.page().keyboard().press(Navegador.TAB);
+
+    String estilo =
+        (String) ana.page().evaluate("() => getComputedStyle(document.activeElement).outlineStyle");
+    assertNotEquals("none", estilo);
+  }
+
+  @Test
+  void tituloDoEncerradoFocadoPeloTecladoMantemOAnelDeFoco() {
+    TerracoPagina ana = participante(1440, 900, ReducedMotion.REDUCE);
+    entrarEmPar(ana, participante(1440, 900, ReducedMotion.REDUCE));
+
+    ana.botao("Sair").focus();
+    ana.page().keyboard().press("Enter");
+
+    assertThat(ana.tituloEncerrado()).isFocused();
+    assertNotEquals(
+        "none", ana.page().evaluate("() => getComputedStyle(document.activeElement).boxShadow"));
+  }
+
+  @Test
+  void itemPressionadoSeDistingueAlemDaCorEmAltoContraste() {
+    TerracoPagina ana = participante(1440, 900, ReducedMotion.REDUCE);
+    ana.page().emulateMedia(new Page.EmulateMediaOptions().setForcedColors(ForcedColors.ACTIVE));
+    entrarEmPar(ana, participante(1440, 900, ReducedMotion.REDUCE));
+
+    ana.selecionar(TELESCOPIO);
+
+    assertNotEquals(
+        bordaSemCor(ana.itemDoInventario(MANTA)), bordaSemCor(ana.itemDoInventario(TELESCOPIO)));
+  }
+
+  @Test
+  void pecaSinalizadaTemSeloEstaticoENomeComMovimentoReduzido() {
+    TerracoPagina ana = participante(1440, 900, ReducedMotion.REDUCE);
+    TerracoPagina bruno = participante(1440, 900, ReducedMotion.REDUCE);
+    entrarEmPar(ana, bruno);
+    ana.colocar(TELESCOPIO, C1, ANA);
+    assertThat(bruno.pecaNoTerraco(TELESCOPIO, ANA, C1)).isVisible();
+    bruno.colocar(BANCO, C2, BRUNO);
+    assertThat(ana.pecaNoTerraco(BANCO, BRUNO, C2)).isVisible();
+
+    ana.pecaNoTerraco(BANCO, BRUNO, C2).click();
+
+    Locator banco = bruno.pecaNoTerraco(BANCO, BRUNO, C2);
+    assertThat(banco).hasAccessibleName(Pattern.compile("Sugerido mover"));
+    assertThat(banco.getByText("Sugerido mover")).isVisible();
+  }
+
+  @Test
+  void pecaPropriaTemOSeloVoceNoNomeAcessivel() {
+    TerracoPagina ana = participante(1440, 900, ReducedMotion.REDUCE);
+    entrarEmPar(ana, participante(1440, 900, ReducedMotion.REDUCE));
+
+    ana.colocar(TELESCOPIO, C1, ANA);
+
+    assertThat(ana.pecaNoTerraco(TELESCOPIO, ANA, C1)).hasAccessibleName(Pattern.compile("Você"));
+  }
+
+  @Test
+  void rotuloVisivelDoLugarEstaContidoNoNomeAcessivel() {
+    TerracoPagina ana = participante(1440, 900, ReducedMotion.REDUCE);
+    entrarEmPar(ana, participante(1440, 900, ReducedMotion.REDUCE));
+
+    ana.selecionar(TELESCOPIO);
+
+    Locator lugar = ana.lugarLivre(TELESCOPIO, C1);
+    String visivel = lugar.locator(".rotulo-lugar").innerText().strip();
+    String nome = lugar.getAttribute("aria-label");
+    assertTrue(nome.contains(visivel), "'" + visivel + "' fora de '" + nome + "'");
+  }
+
+  @Test
+  void itemBloqueadoEsmaeceSoAMiniatura() {
+    TerracoPagina ana = participante(1440, 900, ReducedMotion.REDUCE);
+    entrarEmPar(ana, participante(1440, 900, ReducedMotion.REDUCE));
+    ana.colocar(TELESCOPIO, C1, ANA);
+
+    // Com uma peça no terraço, Ana espera a primeira de Bruno: a manta fica bloqueada.
+    Locator item = ana.itemDoInventario(MANTA);
+    assertThat(item).hasAttribute("aria-disabled", "true");
+
+    assertEquals("1", opacidade(item));
+    assertNotEquals("1", opacidade(item.locator(".miniatura")));
+  }
+
+  @Test
+  void botaoIndisponivelUsaGrayTextEmAltoContraste() {
+    TerracoPagina ana = participante(1440, 900, ReducedMotion.REDUCE);
+    ana.page().emulateMedia(new Page.EmulateMediaOptions().setForcedColors(ForcedColors.ACTIVE));
+    entrarEmPar(ana, participante(1440, 900, ReducedMotion.REDUCE));
+
+    Locator pronto = ana.botaoPronto();
+    assertThat(pronto).hasAttribute("aria-disabled", "true");
+
+    String grayText =
+        (String)
+            ana.page()
+                .evaluate(
+                    """
+                    () => {
+                      const sonda = document.createElement("span");
+                      sonda.style.color = "GrayText";
+                      document.body.append(sonda);
+                      const cor = getComputedStyle(sonda).color;
+                      sonda.remove();
+                      return cor;
+                    }
+                    """);
+    assertEquals(grayText, pronto.evaluate("(el) => getComputedStyle(el).color"));
+  }
+
+  private TerracoPagina participante(int largura, int altura, ReducedMotion movimento) {
+    BrowserContext contexto =
+        browser.newContext(
+            new Browser.NewContextOptions()
+                .setViewportSize(largura, altura)
+                .setReducedMotion(movimento));
+    contextos.add(contexto);
+    return new TerracoPagina(contexto.newPage());
+  }
+
+  private String raiz() {
+    return "http://127.0.0.1:" + porta + "/";
+  }
+
+  private void entrarEmPar(TerracoPagina ana, TerracoPagina bruno) {
+    ana.abrir(raiz()).criarTerraco(ANA);
+    bruno.abrir(ana.linkDoConvite()).entrarNoTerraco(BRUNO);
+    assertThat(ana.itemDoInventario(TELESCOPIO)).isVisible();
+  }
+
+  private static String oQueCobre(Locator elemento) {
+    return (String) elemento.evaluate(CENTRO_VISIVEL);
+  }
+
+  private static String bordaSemCor(Locator elemento) {
+    return (String)
+        elemento.evaluate(
+            "(el) => { const s = getComputedStyle(el);"
+                + " return s.borderTopWidth + ' ' + s.borderTopStyle; }");
+  }
+
+  private static String opacidade(Locator elemento) {
+    return (String) elemento.evaluate("(el) => getComputedStyle(el).opacity");
+  }
+}
