@@ -1,0 +1,20 @@
+{
+  "task_id": "f6e4ca3f-10ac-4e86-8690-773002c81569",
+  "type": "text_to_image",
+  "status": "success",
+  "input": {
+    "prompt": "Wide painted night sky above a quiet city, for the background of a miniature rooftop diorama. Deep midnight blue gradient (#08131F at the top to #1B3A55 near the horizon), many fine small stars of varied brightness, a faint soft Milky Way band crossing diagonally, a small pale crescent moon high in the upper right third. Along the horizon, a distant low city skyline silhouette in dark blue (#16304A): varied flat-roofed buildings, a few water towers and chimneys, sparse warm amber lit windows; the top of the skyline sits at about 55% of the image height from the top, and the area below it is mostly dark building mass. Soft atmospheric haze near the horizon. Painterly, tactile, calm and elegant illustration style matching a stylized miniature diorama; no people, no text, no logos, no planes, no foreground objects, no rooftop terrace in the foreground.",
+    "quality": "high",
+    "model_version": "chat_image_2.5_sunburst"
+  },
+  "output_fields": [
+    "generated_image_url"
+  ],
+  "credits_consumed": 40,
+  "created_at": "2026-11-21T04:07:52.073363Z",
+  "completed_at": "2026-11-21T04:08:31.354512Z",
+  "files": [
+    "generated_image.png",
+    "preview.png"
+  ]
+}

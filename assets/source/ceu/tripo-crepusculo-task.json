@@ -1,0 +1,20 @@
+{
+  "task_id": "2be7bd5e-f7db-455d-b988-9805c4458647",
+  "type": "image_to_image",
+  "status": "success",
+  "input": {
+    "prompt": "Edit this exact image into the same scene at early dusk, about thirty minutes after sunset. Keep the composition, the skyline silhouette, every building, water tower and the crescent moon in exactly the same positions and shapes. Change only the light: the sky becomes a lighter dusk gradient from deep blue (#132B40) at the top to soft steel blue (#345E78) in the middle and a warm amber-peach glow (#F2BD70 at low intensity) just above the horizon; only a few of the brightest stars are visible and the Milky Way is no longer visible; the buildings are slightly lighter blue-grey silhouettes with fewer lit windows. Same painterly diorama illustration style; no text, no people.",
+    "quality": "high",
+    "model_version": "chat_image_2.5_sunburst"
+  },
+  "output_fields": [
+    "generated_image_url"
+  ],
+  "credits_consumed": 40,
+  "created_at": "2026-11-21T04:09:01.190532Z",
+  "completed_at": "2026-11-21T04:11:42.055625Z",
+  "files": [
+    "generated_image.png",
+    "preview.png"
+  ]
+}
