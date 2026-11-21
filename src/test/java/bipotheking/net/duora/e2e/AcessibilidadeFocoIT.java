@@ -13,6 +13,8 @@ import static bipotheking.net.duora.e2e.TerracoPagina.Peca.LANTERNA;
 import static bipotheking.net.duora.e2e.TerracoPagina.Peca.TELESCOPIO;
 import static com.microsoft.playwright.assertions.PlaywrightAssertions.assertThat;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 
 import bipotheking.net.duora.e2e.NavegadorExtension.Participantes;
 import com.microsoft.playwright.BrowserContext;
@@ -26,6 +28,7 @@ import java.time.Instant;
 import java.time.ZoneId;
 import java.time.ZoneOffset;
 import java.util.List;
+import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
@@ -221,6 +224,57 @@ class AcessibilidadeFocoIT {
     assertThat(ana.itemDoInventario(TELESCOPIO)).isFocused();
   }
 
+  // ------------------------------------------------------------ foco em recusa e saída
+
+  @Test
+  void lugarRecusadoPeloServidorLevaOFocoAoPrimeiroLugarLivre(Participantes participantes) {
+    TerracoPagina ana = participantes.novo(COM_SONDA);
+    TerracoPagina bruno = participantes.novo(COM_SONDA);
+    entrarEmPar(ana, bruno, raiz(porta));
+    // Bruno para de consultar a sala: continua vendo C1 livre depois que Ana o ocupa.
+    List<Route> consultasRetidas = new CopyOnWriteArrayList<>();
+    bruno
+        .page()
+        .route(
+            "**/api/sala",
+            rota -> {
+              if ("GET".equals(rota.request().method())) {
+                consultasRetidas.add(rota);
+              } else {
+                rota.resume();
+              }
+            });
+    bruno.page().waitForCondition(() -> !consultasRetidas.isEmpty());
+    ana.colocar(TELESCOPIO, C1, ANA);
+    Locator c1 = bruno.lugarLivre(BANCO, C1);
+    bruno.tabularAte(bruno.itemDoInventario(BANCO));
+    bruno.page().keyboard().press("Enter");
+    assertThat(c1).isFocused();
+
+    bruno.page().keyboard().press("Enter");
+
+    assertThat(bruno.aviso()).hasText("Ana acabou de usar este lugar. Escolha outro.");
+    assertNotNull(lugarFocado(bruno), "o foco saiu dos lugares");
+    assertNotEquals("C1", lugarFocado(bruno));
+    assertNotEquals("true", desabilitadoNoFoco(bruno));
+  }
+
+  @Test
+  void continuarDuranteOEnvioDaSaidaNaoFechaAConfirmacao(Participantes participantes) {
+    TerracoPagina ana = participantes.novo(COM_SONDA);
+    TerracoPagina bruno = participantes.novo(COM_SONDA);
+    entrarEmPar(ana, bruno, raiz(porta));
+    // A saída fica pendente: o servidor nunca recebe o POST.
+    ana.page().route("**/api/sala/sair", rota -> {});
+    ana.botaoSair().click();
+    ana.botao("Encerrar para os dois").click();
+    assertThat(ana.botao("Enviando…")).isVisible();
+
+    ana.botaoContinuarNoTerraco().click();
+
+    assertThat(ana.page().locator("#confirmar-saida")).isVisible();
+  }
+
   // ------------------------------------------------------------ estrutura
 
   @Test
@@ -345,5 +399,16 @@ class AcessibilidadeFocoIT {
   @SuppressWarnings("unchecked")
   private static List<String> anuncios(TerracoPagina pagina) {
     return (List<String>) pagina.page().evaluate("() => window.__anuncios");
+  }
+
+  /** O {@code data-lugar} do elemento focado, ou nulo quando o foco não está num lugar. */
+  private static String lugarFocado(TerracoPagina pagina) {
+    return (String) pagina.page().evaluate("() => document.activeElement?.dataset?.lugar ?? null");
+  }
+
+  /** O {@code aria-disabled} do elemento focado, ou nulo quando ele não tem o atributo. */
+  private static String desabilitadoNoFoco(TerracoPagina pagina) {
+    return (String)
+        pagina.page().evaluate("() => document.activeElement?.getAttribute('aria-disabled')");
   }
 }

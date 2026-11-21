@@ -45,7 +45,12 @@ export function criarTelas(el, { aoEnviarApelido, aoCriarOutro, aoEncerrar, avis
       fecharConfirmacaoSaida({ focarSair: true });
     }
   });
-  el.continuar.addEventListener("click", () => fecharConfirmacaoSaida({ focarSair: true }));
+  el.continuar.addEventListener("click", () => {
+    // Com a saída em envio, o bloco fica aberto até o servidor responder (como no Esc).
+    if (!enviandoSaida) {
+      fecharConfirmacaoSaida({ focarSair: true });
+    }
+  });
   el.encerrar.addEventListener("click", () => {
     if (el.encerrar.getAttribute("aria-disabled") !== "true") {
       aoEncerrar();

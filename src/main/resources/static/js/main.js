@@ -359,11 +359,15 @@ async function iniciar() {
         queueMicrotask(() => painel.focarItem(peca));
         return lugar ? null : `${PECAS[peca].nome} voltou para as suas peças.`;
       },
+      peca,
     );
   }
 
-  /** Envia uma mutação; a cena só muda com a visão aceita pelo servidor. */
-  async function enviar(acao, chamada, aoAceitar) {
+  /**
+   * Envia uma mutação; a cena só muda com a visão aceita pelo servidor. peca: a peça movida, para
+   * onde o foco volta se o servidor recusar.
+   */
+  async function enviar(acao, chamada, aoAceitar, peca = null) {
     if (estado.enviando || !estado.visao) {
       return;
     }
@@ -384,13 +388,13 @@ async function iniciar() {
       }
     } catch (erro) {
       estado.enviando = null;
-      tratarErroDeAcao(erro);
+      tratarErroDeAcao(erro, peca);
     } finally {
       estado.enviando = null;
     }
   }
 
-  function tratarErroDeAcao(erro) {
+  function tratarErroDeAcao(erro, peca) {
     if (!(erro instanceof ErroApi)) {
       throw erro;
     }
@@ -403,6 +407,9 @@ async function iniciar() {
     if (erro.visao) {
       polling.aceitar(null);
       aplicarVisao(erro.visao, { propria: true });
+      if (erro.status === 409 && peca) {
+        focarAposRecusa(peca);
+      }
     } else {
       desenhar();
       if (erro.status === 409) {
@@ -410,6 +417,18 @@ async function iniciar() {
       }
     }
     painel.avisar(mensagemDeErro(erro, estado.visao ?? visaoAntes), "erro");
+  }
+
+  /**
+   * A recusa redesenha a cena: o lugar escolhido pode ter virado bloqueado. Com a peça ainda
+   * selecionada, o foco vai ao primeiro lugar livre; sem ela, volta à peça no inventário.
+   */
+  function focarAposRecusa(peca) {
+    if (estado.selecionada) {
+      cena.focarPrimeiroLugar();
+    } else {
+      painel.focarItem(peca);
+    }
   }
 
   async function entrarOuCriar(apelido) {
