@@ -1,30 +1,19 @@
 package bipotheking.net.duora.e2e;
 
-import static bipotheking.net.duora.e2e.TerracoPagina.Lugar.C1;
-import static bipotheking.net.duora.e2e.TerracoPagina.Lugar.C2;
-import static bipotheking.net.duora.e2e.TerracoPagina.Lugar.L2;
-import static bipotheking.net.duora.e2e.TerracoPagina.Lugar.R1;
-import static bipotheking.net.duora.e2e.TerracoPagina.Peca.BANCO;
-import static bipotheking.net.duora.e2e.TerracoPagina.Peca.LANTERNA;
-import static bipotheking.net.duora.e2e.TerracoPagina.Peca.MANTA;
-import static bipotheking.net.duora.e2e.TerracoPagina.Peca.TELESCOPIO;
+import static bipotheking.net.duora.e2e.Cenarios.comporTerraco;
+import static bipotheking.net.duora.e2e.Cenarios.entrarEmPar;
+import static bipotheking.net.duora.e2e.Cenarios.raiz;
 import static com.microsoft.playwright.assertions.PlaywrightAssertions.assertThat;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import com.microsoft.playwright.Browser;
-import com.microsoft.playwright.BrowserContext;
+import bipotheking.net.duora.e2e.NavegadorExtension.Participantes;
 import com.microsoft.playwright.Locator;
 import com.microsoft.playwright.Page;
-import com.microsoft.playwright.Playwright;
-import com.microsoft.playwright.assertions.PlaywrightAssertions;
 import com.microsoft.playwright.options.ReducedMotion;
-import java.util.ArrayList;
-import java.util.List;
-import org.junit.jupiter.api.AfterAll;
-import org.junit.jupiter.api.AfterEach;
-import org.junit.jupiter.api.BeforeAll;
+import java.util.function.Consumer;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.annotation.DirtiesContext;
@@ -38,10 +27,8 @@ import org.springframework.test.annotation.DirtiesContext;
 // ativas (LimitesSala), que é de produção e não muda nos testes.
 @DirtiesContext(classMode = DirtiesContext.ClassMode.AFTER_CLASS)
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
+@ExtendWith(NavegadorExtension.class)
 class RevelacaoIT {
-
-  private static final String ANA = "Ana";
-  private static final String BRUNO = "Bruno";
 
   /**
    * Sonda na página: conta meteoros animados lançados (nós {@code .meteoro} acrescentados) e
@@ -78,38 +65,20 @@ class RevelacaoIT {
       })();
       """;
 
-  private static Playwright playwright;
-  private static Browser browser;
+  private static final Consumer<Page> COM_SONDA = page -> page.addInitScript(SONDA);
 
   @Value("${local.server.port}")
   private int porta;
 
-  private final List<BrowserContext> contextos = new ArrayList<>();
-
-  @BeforeAll
-  static void abrirNavegador() {
-    playwright = Playwright.create();
-    browser = Navegador.abrir(playwright);
-    PlaywrightAssertions.setDefaultAssertionTimeout(10_000);
-  }
-
-  @AfterAll
-  static void fecharNavegador() {
-    browser.close();
-    playwright.close();
-  }
-
-  @AfterEach
-  void fecharContextos() {
-    contextos.forEach(BrowserContext::close);
-    contextos.clear();
-  }
-
   @Test
-  void meteorosCruzamOLadoDoTelescopioUmaVezSemRecomecarComOPolling() {
-    TerracoPagina ana = participante(ReducedMotion.NO_PREFERENCE);
-    ana.page().clock().install();
-    TerracoPagina bruno = participante(ReducedMotion.REDUCE);
+  void meteorosCruzamOLadoDoTelescopioUmaVezSemRecomecarComOPolling(Participantes participantes) {
+    TerracoPagina ana =
+        participantes.novo(
+            1440,
+            900,
+            ReducedMotion.NO_PREFERENCE,
+            COM_SONDA.andThen(page -> page.clock().install()));
+    TerracoPagina bruno = participantes.novo(COM_SONDA);
 
     revelarComTelescopioEmC1(ana, bruno);
 
@@ -130,9 +99,9 @@ class RevelacaoIT {
   }
 
   @Test
-  void movimentoReduzidoMostraRiscosParadosQueSomemAoAjustar() {
-    TerracoPagina ana = participante(ReducedMotion.REDUCE);
-    TerracoPagina bruno = participante(ReducedMotion.REDUCE);
+  void movimentoReduzidoMostraRiscosParadosQueSomemAoAjustar(Participantes participantes) {
+    TerracoPagina ana = participantes.novo(COM_SONDA);
+    TerracoPagina bruno = participantes.novo(COM_SONDA);
 
     revelarComTelescopioEmC1(ana, bruno);
 
@@ -146,10 +115,10 @@ class RevelacaoIT {
   }
 
   @Test
-  void somLigadoParaQuandoAnaSaiDoTerraco() {
-    TerracoPagina ana = participante(ReducedMotion.REDUCE);
-    TerracoPagina bruno = participante(ReducedMotion.REDUCE);
-    entrarEmPar(ana, bruno);
+  void somLigadoParaQuandoAnaSaiDoTerraco(Participantes participantes) {
+    TerracoPagina ana = participantes.novo(COM_SONDA);
+    TerracoPagina bruno = participantes.novo(COM_SONDA);
+    entrarEmPar(ana, bruno, raiz(porta));
 
     Locator som = ana.botao("Som");
     som.click();
@@ -165,36 +134,9 @@ class RevelacaoIT {
     assertThat(ana.page().locator("#som")).hasAttribute("aria-pressed", "false");
   }
 
-  private TerracoPagina participante(ReducedMotion movimento) {
-    BrowserContext contexto =
-        browser.newContext(
-            new Browser.NewContextOptions().setViewportSize(1440, 900).setReducedMotion(movimento));
-    contextos.add(contexto);
-    Page page = contexto.newPage();
-    page.addInitScript(SONDA);
-    return new TerracoPagina(page);
-  }
-
-  private String raiz() {
-    return "http://127.0.0.1:" + porta + "/";
-  }
-
-  private void entrarEmPar(TerracoPagina ana, TerracoPagina bruno) {
-    ana.abrir(raiz()).criarTerraco(ANA);
-    bruno.abrir(ana.linkDoConvite()).entrarNoTerraco(BRUNO);
-    assertThat(ana.itemDoInventario(TELESCOPIO)).isVisible();
-  }
-
   private void revelarComTelescopioEmC1(TerracoPagina ana, TerracoPagina bruno) {
-    entrarEmPar(ana, bruno);
-    ana.colocar(TELESCOPIO, C1, ANA);
-    assertThat(bruno.pecaNoTerraco(TELESCOPIO, ANA, C1)).isVisible();
-    bruno.colocar(BANCO, C2, BRUNO);
-    assertThat(ana.pecaNoTerraco(BANCO, BRUNO, C2)).isVisible();
-    ana.colocar(MANTA, L2, ANA);
-    assertThat(bruno.pecaNoTerraco(MANTA, ANA, L2)).isVisible();
-    bruno.colocar(LANTERNA, R1, BRUNO);
-    assertThat(ana.pecaNoTerraco(LANTERNA, BRUNO, R1)).isVisible();
+    entrarEmPar(ana, bruno, raiz(porta));
+    comporTerraco(ana, bruno);
     ana.confirmar();
     bruno.botaoPronto().click();
     assertThat(ana.app()).hasAttribute("data-momento", "noite");

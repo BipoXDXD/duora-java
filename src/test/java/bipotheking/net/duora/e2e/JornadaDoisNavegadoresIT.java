@@ -1,5 +1,9 @@
 package bipotheking.net.duora.e2e;
 
+import static bipotheking.net.duora.e2e.Cenarios.ANA;
+import static bipotheking.net.duora.e2e.Cenarios.BRUNO;
+import static bipotheking.net.duora.e2e.Cenarios.comporTerraco;
+import static bipotheking.net.duora.e2e.Cenarios.raiz;
 import static bipotheking.net.duora.e2e.TerracoPagina.Lugar.C1;
 import static bipotheking.net.duora.e2e.TerracoPagina.Lugar.C2;
 import static bipotheking.net.duora.e2e.TerracoPagina.Lugar.L2;
@@ -12,20 +16,13 @@ import static bipotheking.net.duora.e2e.TerracoPagina.Peca.TELESCOPIO;
 import static com.microsoft.playwright.assertions.PlaywrightAssertions.assertThat;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
-import com.microsoft.playwright.Browser;
-import com.microsoft.playwright.BrowserContext;
+import bipotheking.net.duora.e2e.NavegadorExtension.Participantes;
 import com.microsoft.playwright.Locator;
-import com.microsoft.playwright.Playwright;
-import com.microsoft.playwright.assertions.PlaywrightAssertions;
-import com.microsoft.playwright.options.ReducedMotion;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicInteger;
-import org.junit.jupiter.api.AfterAll;
-import org.junit.jupiter.api.AfterEach;
-import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.annotation.DirtiesContext;
@@ -38,50 +35,24 @@ import org.springframework.test.annotation.DirtiesContext;
 // ativas (LimitesSala), que é de produção e não muda nos testes.
 @DirtiesContext(classMode = DirtiesContext.ClassMode.AFTER_CLASS)
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
+@ExtendWith(NavegadorExtension.class)
 class JornadaDoisNavegadoresIT {
-
-  private static final String ANA = "Ana";
-  private static final String BRUNO = "Bruno";
-
-  private static Playwright playwright;
-  private static Browser browser;
 
   @Value("${local.server.port}")
   private int porta;
 
-  private final List<BrowserContext> contextos = new ArrayList<>();
   private TerracoPagina ana;
   private TerracoPagina bruno;
 
-  @BeforeAll
-  static void abrirNavegador() {
-    playwright = Playwright.create();
-    browser = Navegador.abrir(playwright);
-    // O polling consulta a cada 2 s; a folga cobre máquinas lentas sem mascarar falhas.
-    PlaywrightAssertions.setDefaultAssertionTimeout(10_000);
-  }
-
-  @AfterAll
-  static void fecharNavegador() {
-    browser.close();
-    playwright.close();
-  }
-
   @BeforeEach
-  void abrirParticipantes() {
-    ana = novoParticipante();
-    bruno = novoParticipante();
-  }
-
-  @AfterEach
-  void fecharContextos() {
-    contextos.forEach(BrowserContext::close);
-    contextos.clear();
+  void abrirParticipantes(Participantes participantes) {
+    ana = participantes.novo();
+    bruno = participantes.novo();
   }
 
   @Test
   void parCompletaAComposicaoEOsDoisVeemAMesmaNoiteRevelada() {
-    ana.abrir(raiz());
+    ana.abrir(raiz(porta));
     ana.capturar("entrada");
     ana.criarTerraco(ANA);
     String convite = ana.linkDoConvite();
@@ -250,8 +221,8 @@ class JornadaDoisNavegadoresIT {
 
   @Test
   void semParceiroAConfirmacaoEncerraSoOTerraco() {
-    ana.abrir(raiz()).criarTerraco(ANA);
-    ana.linkDoConvite();
+    ana.abrir(raiz(porta)).criarTerraco(ANA);
+    ana.esperarLinkDoConvite();
 
     ana.botaoSair().click();
 
@@ -268,7 +239,7 @@ class JornadaDoisNavegadoresIT {
     Locator telescopio = ana.itemDoInventario(TELESCOPIO);
     Locator primeiroLugar = ana.lugarLivre(TELESCOPIO, C1);
 
-    tabularAte(telescopio);
+    ana.tabularAte(telescopio);
     assertFocoVisivel(telescopio);
 
     teclado.press("Enter");
@@ -290,9 +261,9 @@ class JornadaDoisNavegadoresIT {
   }
 
   @Test
-  void terceiraPessoaComOMesmoConviteNaoEntra() {
+  void terceiraPessoaComOMesmoConviteNaoEntra(Participantes participantes) {
     String convite = entrarEmPar();
-    TerracoPagina terceira = novoParticipante();
+    TerracoPagina terceira = participantes.novo();
 
     terceira.abrir(convite).entrarNoTerraco("Caio");
 
@@ -305,23 +276,9 @@ class JornadaDoisNavegadoresIT {
 
   // ------------------------------------------------------------ apoio
 
-  private TerracoPagina novoParticipante() {
-    BrowserContext contexto =
-        browser.newContext(
-            new Browser.NewContextOptions()
-                .setViewportSize(1440, 900)
-                .setReducedMotion(ReducedMotion.REDUCE));
-    contextos.add(contexto);
-    return new TerracoPagina(contexto.newPage());
-  }
-
-  private String raiz() {
-    return "http://127.0.0.1:" + porta + "/";
-  }
-
   /** Ana cria, Bruno entra pelo convite; devolve o link usado. */
   private String entrarEmPar() {
-    ana.abrir(raiz()).criarTerraco(ANA);
+    ana.abrir(raiz(porta)).criarTerraco(ANA);
     String convite = ana.linkDoConvite();
     bruno.abrir(convite).entrarNoTerraco(BRUNO);
     assertThat(ana.page().locator("#par")).containsText(BRUNO);
@@ -331,14 +288,7 @@ class JornadaDoisNavegadoresIT {
 
   private void montarComposicaoCompleta() {
     entrarEmPar();
-    ana.colocar(TELESCOPIO, C1, ANA);
-    assertThat(bruno.pecaNoTerraco(TELESCOPIO, ANA, C1)).isVisible();
-    bruno.colocar(BANCO, C2, BRUNO);
-    assertThat(ana.pecaNoTerraco(BANCO, BRUNO, C2)).isVisible();
-    ana.colocar(MANTA, L2, ANA);
-    assertThat(bruno.pecaNoTerraco(MANTA, ANA, L2)).isVisible();
-    bruno.colocar(LANTERNA, R1, BRUNO);
-    assertThat(ana.pecaNoTerraco(LANTERNA, BRUNO, R1)).isVisible();
+    comporTerraco(ana, bruno);
   }
 
   /** Conta os POST /api/sala/sair que a página envia daqui em diante. */
@@ -352,17 +302,6 @@ class JornadaDoisNavegadoresIT {
           }
         });
     return saidas;
-  }
-
-  /** Só Tab: avança o foco até o alvo, com limite para não girar para sempre. */
-  private void tabularAte(Locator alvo) {
-    for (int i = 0; i < 40; i++) {
-      ana.page().keyboard().press(Navegador.TAB);
-      if (alvo.evaluate("el => el === document.activeElement").equals(Boolean.TRUE)) {
-        return;
-      }
-    }
-    throw new AssertionError("O Tab não chegou ao alvo em 40 passos.");
   }
 
   private static void assertFocoVisivel(Locator alvo) {
