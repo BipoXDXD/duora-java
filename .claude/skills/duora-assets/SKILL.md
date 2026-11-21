@@ -67,7 +67,7 @@ Todo asset novo ou trocado ganha ou atualiza sua linha em `assets/manifest.md` *
 - **fonte:** ferramenta e modelo (ex.: `Hi3D imagem → 3D v3.0`, `Tripo chat_image_2.5_sunburst`, `eleven_text_to_sound_v3`, ou `cena.py` para edição local);
 - **task id** de cada geração na nuvem (ou "—" quando só houve edição local, citando a tarefa original do master);
 - **data** (AAAA-MM-DD);
-- **licença** (`Própria` ou `Privada (conta do dono no <serviço>)`);
+- **licença:** `CC BY 4.0 (gerado pelo autor no <serviço>)` para gerações do Hi3D, Tripo ou ElevenLabs (ver `LICENSE-ASSETS`); `Própria` para itens procedurais ou feitos em código; `SIL OFL 1.1` para fontes;
 - **status:** `PROVISÓRIO` ou `Candidato a FINAL`. Só o dono promove a `FINAL`, depois do aceite visual ou sonoro.
 
 Edição local também muda a linha: descreva o ajuste (ex.: "luz da vela mais quente no `cena.py`") e a data.

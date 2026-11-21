@@ -1,6 +1,6 @@
 # Duora: Antes da primeira estrela
 
-[![CI](https://github.com/BipoXDXD/<REPO>/actions/workflows/ci.yml/badge.svg)](https://github.com/BipoXDXD/<REPO>/actions/workflows/ci.yml)
+[![CI](https://github.com/BipoXDXD/duora/actions/workflows/ci.yml/badge.svg)](https://github.com/BipoXDXD/duora/actions/workflows/ci.yml)
 
 Demonstração local para duas pessoas. Uma cria um terraço e envia o convite; a outra entra por
 ele. Juntas, cada uma com as próprias peças (telescópio, manta e rádio de um lado; banco,
@@ -33,12 +33,12 @@ Pré-requisitos: JDK 25. O Maven vem pelo wrapper (`./mvnw`).
 
 ```sh
 ./mvnw verify          # formatação (Spotless), compilação com -Werror, testes de regras, API e contraste
-./mvnw -Pe2e verify    # inclui as jornadas nos três navegadores (Playwright), com capturas em target/e2e-capturas
+./mvnw -Pe2e verify    # inclui as jornadas Playwright no Chromium, com capturas em target/e2e-capturas
 ```
 
-Escolha o navegador com `-Dnavegador=chromium|firefox|webkit`; na primeira execução do perfil `e2e`,
-o Playwright o baixa. A CI (`.github/workflows/ci.yml`) roda o `verify` e uma matriz e2e com os
-três navegadores.
+Localmente, o perfil `e2e` roda no Chromium. Para outro navegador, use
+`-Dnavegador=chromium|firefox|webkit`; na primeira execução, o Playwright o baixa. A CI
+(`.github/workflows/ci.yml`) roda o `verify` e uma matriz e2e com os três navegadores.
 
 ## Arquitetura
 
@@ -65,7 +65,7 @@ originais são grandes e ficam fora do Git.
 
 - Polling encadeado com `ETag` em vez de WebSocket: duas pessoas e mudanças lentas não pedem conexão aberta.
 - Sem Spring Security: cookie `SameSite=Strict`, conferência de `Origin` e o cabeçalho `X-Duora` cobrem o CSRF de uma API local.
-- Estado em memória: o terraço dura 30 minutos e não precisa sobreviver a um reinício.
+- Estado em memória: o terraço expira após 30 minutos sem ação e não precisa sobreviver a um reinício.
 - Câmera ortográfica no Blender: cada prop vira um único sprite, que serve em qualquer lugar do piso sem distorção.
 
 ## Limitações
@@ -88,5 +88,9 @@ O desenho e as etapas estão em [`docs/superpowers/specs/2026-11-21-duora-social
 
 ## Licença
 
-O código está sob a licença [MIT](LICENSE). Os assets (céu, props e áudio) foram gerados pelo autor
-em conta própria; origem e termos de cada um estão em [`assets/manifest.md`](assets/manifest.md).
+- Código: licença [MIT](LICENSE), que vale só para o código.
+- Assets (céu, cena, props, áudio e capturas): [Creative Commons Attribution 4.0 International
+  (CC BY 4.0)](LICENSE-ASSETS), com atribuição a BipoXDXD. Origem de cada um em
+  [`assets/manifest.md`](assets/manifest.md).
+- Fontes: SIL Open Font License 1.1, com o texto da licença ao lado de cada arquivo em
+  `src/main/resources/static/assets/fonts/`.

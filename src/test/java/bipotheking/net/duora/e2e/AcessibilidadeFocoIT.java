@@ -231,20 +231,7 @@ class AcessibilidadeFocoIT {
     TerracoPagina ana = participantes.novo(COM_SONDA);
     TerracoPagina bruno = participantes.novo(COM_SONDA);
     entrarEmPar(ana, bruno, raiz(porta));
-    // Bruno para de consultar a sala: continua vendo C1 livre depois que Ana o ocupa.
-    List<Route> consultasRetidas = new CopyOnWriteArrayList<>();
-    bruno
-        .page()
-        .route(
-            "**/api/sala",
-            rota -> {
-              if ("GET".equals(rota.request().method())) {
-                consultasRetidas.add(rota);
-              } else {
-                rota.resume();
-              }
-            });
-    bruno.page().waitForCondition(() -> !consultasRetidas.isEmpty());
+    reterConsultas(bruno);
     ana.colocar(TELESCOPIO, C1, ANA);
     Locator c1 = bruno.lugarLivre(BANCO, C1);
     bruno.tabularAte(bruno.itemDoInventario(BANCO));
@@ -254,9 +241,44 @@ class AcessibilidadeFocoIT {
     bruno.page().keyboard().press("Enter");
 
     assertThat(bruno.aviso()).hasText("Ana acabou de usar este lugar. Escolha outro.");
-    assertNotNull(lugarFocado(bruno), "o foco saiu dos lugares");
-    assertNotEquals("C1", lugarFocado(bruno));
-    assertNotEquals("true", desabilitadoNoFoco(bruno));
+    assertFocoNumLugarLivreForaDeC1(bruno);
+  }
+
+  @Test
+  void consultaQueChegaDepoisDaRecusaMantemOFocoNumLugarLivre(Participantes participantes) {
+    TerracoPagina ana = participantes.novo(COM_SONDA);
+    TerracoPagina bruno = participantes.novo(COM_SONDA);
+    entrarEmPar(ana, bruno, raiz(porta));
+    List<Route> consultasRetidas = reterConsultas(bruno);
+    ana.colocar(TELESCOPIO, C1, ANA);
+    bruno.tabularAte(bruno.itemDoInventario(BANCO));
+    bruno.page().keyboard().press("Enter");
+    bruno.page().keyboard().press("Enter");
+    assertThat(bruno.aviso()).hasText("Ana acabou de usar este lugar. Escolha outro.");
+    assertFocoNumLugarLivreForaDeC1(bruno);
+
+    liberarConsultasEEsperarAplicar(bruno, consultasRetidas);
+
+    assertFocoNumLugarLivreForaDeC1(bruno);
+  }
+
+  @Test
+  void lugarRecusadoSemOutroLugarLivreLevaOFocoAPecaNoInventario(Participantes participantes) {
+    TerracoPagina ana = participantes.novo(COM_SONDA);
+    TerracoPagina bruno = participantes.novo(COM_SONDA);
+    entrarEmPar(ana, bruno, raiz(porta));
+    // O banco já está em C2: o único outro lugar do centro é C1, que Ana ocupa sem Bruno ver.
+    bruno.colocar(BANCO, C2, BRUNO);
+    reterConsultas(bruno);
+    ana.colocar(TELESCOPIO, C1, ANA);
+    bruno.itemDoInventario(BANCO).focus();
+    bruno.page().keyboard().press("Enter");
+    assertThat(bruno.lugarLivre(BANCO, C1)).isFocused();
+
+    bruno.page().keyboard().press("Enter");
+
+    assertThat(bruno.aviso()).not().hasText("");
+    assertThat(bruno.itemDoInventario(BANCO)).isFocused();
   }
 
   @Test
@@ -269,8 +291,10 @@ class AcessibilidadeFocoIT {
     ana.botaoSair().click();
     ana.botao("Encerrar para os dois").click();
     assertThat(ana.botao("Enviando…")).isVisible();
+    assertThat(ana.botaoContinuarNoTerraco()).hasAttribute("aria-disabled", "true");
 
-    ana.botaoContinuarNoTerraco().click();
+    // Com aria-disabled o Playwright não clica sem force; o mouse da pessoa ainda chega ao botão.
+    ana.botaoContinuarNoTerraco().click(new Locator.ClickOptions().setForce(true));
 
     assertThat(ana.page().locator("#confirmar-saida")).isVisible();
   }
@@ -395,6 +419,50 @@ class AcessibilidadeFocoIT {
   }
 
   // ------------------------------------------------------------ apoio
+
+  /** Bruno para de consultar a sala: continua vendo a cena de antes da jogada de Ana. */
+  private static List<Route> reterConsultas(TerracoPagina pagina) {
+    List<Route> consultasRetidas = new CopyOnWriteArrayList<>();
+    pagina
+        .page()
+        .route(
+            "**/api/sala",
+            rota -> {
+              if ("GET".equals(rota.request().method())) {
+                consultasRetidas.add(rota);
+              } else {
+                rota.resume();
+              }
+            });
+    pagina.page().waitForCondition(() -> !consultasRetidas.isEmpty());
+    return consultasRetidas;
+  }
+
+  /**
+   * Solta as consultas retidas e espera duas consultas novas: como o polling é encadeado, a segunda
+   * só sai depois que a primeira foi aplicada e redesenhou a cena.
+   */
+  private static void liberarConsultasEEsperarAplicar(
+      TerracoPagina pagina, List<Route> consultasRetidas) {
+    AtomicInteger consultasNovas = new AtomicInteger();
+    pagina
+        .page()
+        .onRequest(pedido -> {
+          if ("GET".equals(pedido.method()) && pedido.url().endsWith("/api/sala")) {
+            consultasNovas.incrementAndGet();
+          }
+        });
+    pagina.page().unroute("**/api/sala");
+    consultasRetidas.forEach(Route::resume);
+    pagina.page().waitForCondition(() -> consultasNovas.get() >= 2);
+  }
+
+  /** O foco está num lugar livre (sem aria-disabled) que não é o C1 recusado. */
+  private static void assertFocoNumLugarLivreForaDeC1(TerracoPagina pagina) {
+    assertNotNull(lugarFocado(pagina), "o foco saiu dos lugares");
+    assertNotEquals("C1", lugarFocado(pagina));
+    assertNotEquals("true", desabilitadoNoFoco(pagina));
+  }
 
   @SuppressWarnings("unchecked")
   private static List<String> anuncios(TerracoPagina pagina) {

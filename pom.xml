@@ -91,7 +91,7 @@
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-surefire-plugin</artifactId>
                 <configuration>
-                    <skipTests>${skipUnitTests}</skipTests>
+                    <skip>${skipUnitTests}</skip>
                 </configuration>
             </plugin>
             <!-- Cobertura só como relatório (target/site/jacoco), sem limite mínimo -->
