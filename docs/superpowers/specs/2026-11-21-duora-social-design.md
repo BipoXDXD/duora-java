@@ -16,7 +16,7 @@ Hipótese herdada (`duora-java-mvp.md` §1): uma pequena criação compartilhada
 | LGPD | **Versão leve**: termos e política curtos, consentimento simples, exclusão de conta. Sem mapa de dados, relatório de impacto ou revisão jurídica obrigatória no piloto |
 | Distância | **Raio opcional por pessoa**: cada um escolhe se o raio é obrigatório (filtro) ou só preferência (ordena, mais perto primeiro) |
 | Duração | **Encontros de ~30 min; limite só de simultaneidade: até 10 encontros ao mesmo tempo** (20 pessoas). Não há teto por pessoa nem total por janela |
-| Cenários no piloto | **Terraço + 4 novos: aquário, piquenique, cachoeira e jantar** (decisão do dono em 2026-11-22: "todos antes do piloto, ao menos 4"; escolha dos 4 delegada). Planetário, parque e fliperama ficam no backlog |
+| Cenários no piloto | **Terraço + 5 novos: aquário, piquenique, cachoeira, jantar e fliperama** (dono, 2026-11-22: "todos antes do piloto, ao menos 4", escolha delegada; depois pediu o fliperama). Planetário e parque ficam no backlog |
 | Reencontro | **Só se ninguém disse "não"**. Um "não", uma saída ou uma denúncia bloqueiam o par para sempre; conectados não voltam a ser pareados; encontro interrompido sem decisão conta como "não" |
 
 ## Escolhas minhas (podem ser corrigidas)
@@ -143,13 +143,20 @@ Cada etapa termina com uma prova demonstrável, testes verdes (`./mvnw -q verify
 
 **Prova**: as duas páginas estão publicadas e linkadas no cadastro, e o job de expiração do chat é testado.
 
-### Etapa 9b: Quatro cenários novos
+### Etapa 9b: Cenários novos
 - Um design curto por cenário (lugares, peças, o que cada composição muda na revelação), feito com brainstorming próprio antes dos assets.
 - Assets pela skill `duora-assets`: props no Hi3D → Blender → WebP q88 em 900/1800/2700; fundo/céu no Tripo; som no ElevenLabs (MP3 192 kbps/48 kHz). Confirmar saldo antes de gerar em lote.
 - Cada cenário entra com seus testes (regras + jornada e2e + axe) e passa por playtest do dono antes de valer no pareamento.
-- Ordem: aquário, piquenique, cachoeira, jantar. Cada um é independente e pode rodar em paralelo.
+- Ordem: aquário, piquenique, cachoeira, jantar (motor de composição, independentes, podem rodar em paralelo); fliperama por último (ver abaixo).
+- **Fliperama** (escolhas minhas, o dono pode reverter):
+  - jogo cooperativo **original** a dois (não recria jogo existente), rodadas de ~3 min, recorde conjunto, sem competição entre os dois;
+  - feito em **Godot 4** (conduzido pelo MCP do Godot), export web **single-thread** (dispensa COOP/COEP), servido em `/jogos/fliperama/` e embutido no encontro por iframe da mesma origem;
+  - sincronia em tempo real por **WebSocket no Spring** (repasse das entradas dos dois; o servidor guarda o placar conjunto); depende do canal de tempo real da Etapa 5;
+  - CSP: a página do jogo precisa de `script-src 'self' 'wasm-unsafe-eval'` e de `frame-ancestors 'self'` só nela; o resto do app mantém a CSP atual;
+  - assets: sprites/fundos no Tripo (2D), música e efeitos no ElevenLabs (MP3 192 kbps/48 kHz), Higgsfield se precisar de animação; o export web vai para o cache do SW;
+  - prova extra: o jogo abre em até 5 s num Android médio em 4G com cache frio.
 
-**Prova**: os 5 cenários sorteáveis no pareamento, cada um aprovado no playtest do dono.
+**Prova**: os 6 cenários sorteáveis no pareamento, cada um aprovado no playtest do dono.
 
 ### Etapa 10: Infra e entrega
 - VPS Ubuntu 24.04. Compose com `app`, `postgres`, `caddy` (TLS, cabeçalhos) e `coturn`. Firewall nas portas 443 e 3478/5349, mais a faixa de relay.
@@ -183,7 +190,7 @@ Cada etapa termina com uma prova demonstrável, testes verdes (`./mvnw -q verify
 - Final: smoke e2e contra homologação e uma janela de teste com o dono e mais uma pessoa antes do piloto.
 
 ## Backlog de cenários (ideias do dono, 2026-11-22)
-Escolhidos para o piloto (Etapa 9b): aquário, piquenique, cachoeira e jantar. Ficam no backlog: planetário (repete as estrelas do terraço), parque (se sobrepõe ao piquenique) e fliperama (exige motor de jogo em tempo real). Cada cenário segue o formato do terraço: criação a dois, ~30 min, sem placar, revelação no fim. As atividades abaixo são propostas iniciais, a validar em brainstorming próprio.
+Escolhidos para o piloto (Etapa 9b): aquário, piquenique, cachoeira, jantar e fliperama. Ficam no backlog: planetário (repete as estrelas do terraço) e parque (se sobrepõe ao piquenique). Cada cenário segue o formato do terraço: criação a dois, ~30 min, sem placar, revelação no fim. As atividades abaixo são propostas iniciais, a validar em brainstorming próprio.
 
 | Cenário | Atividade compartilhada proposta |
 |---|---|
