@@ -25,7 +25,21 @@ final class Axe {
 
   /** Falha com a lista de regras violadas; {@code estado} nomeia a tela na mensagem. */
   static void assertSemViolacoes(Page pagina, String estado) {
+    assertSemViolacoes(pagina, estado, List.of());
+  }
+
+  /**
+   * Como {@link #assertSemViolacoes(Page, String)}, só dentro dos seletores dados (cada um à
+   * parte): para estados passageiros, em que varrer a página inteira pode passar do tempo do
+   * estado.
+   */
+  static void assertSemViolacoesEm(Page pagina, String estado, List<String> escopo) {
+    assertSemViolacoes(pagina, estado, escopo);
+  }
+
+  private static void assertSemViolacoes(Page pagina, String estado, List<String> escopo) {
     AxeBuilder axe = new AxeBuilder(pagina).withTags(TAGS);
+    escopo.forEach(axe::include);
     DECORATIVOS.forEach(axe::exclude);
     List<Rule> violacoes = axe.analyze().getViolations();
     assertEquals(List.of(), violacoes, () -> descrever(estado, violacoes));

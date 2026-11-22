@@ -13,6 +13,7 @@ import com.microsoft.playwright.Locator;
 import com.microsoft.playwright.Page;
 import com.microsoft.playwright.options.AriaRole;
 import com.microsoft.playwright.options.ReducedMotion;
+import java.util.List;
 import java.util.regex.Pattern;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -77,8 +78,10 @@ class VerOQueOOutroFezIT {
                 .setName(Pattern.compile("^Banco de Bruno, centro, à direita\\..*Mudou agora$")));
     assertThat(emDestaque).isVisible();
     // O axe usa timers da página: com o relógio parado ele não termina. Ele roda com o tempo
-    // correndo, e a peça ainda em destaque depois dele prova que a varredura pegou o selo.
-    Axe.assertSemViolacoes(page, "peça do parceiro em destaque");
+    // correndo, só na cena (anel e selo) e no bloco do par e do aviso, para caber folgado nos
+    // 2,4 s; a peça ainda em destaque depois dele prova que a varredura pegou o selo.
+    Axe.assertSemViolacoesEm(
+        page, "peça do parceiro em destaque", List.of(".cena", ".par-e-aviso"));
     assertThat(emDestaque).hasAttribute("data-destaque", "true");
 
     page.clock().runFor(2500);
@@ -124,8 +127,22 @@ class VerOQueOOutroFezIT {
             .getByRole(AriaRole.BUTTON)
             .last();
 
-    ana.tabularAte(ultimoItem);
+    // Do fim da página para cima: o Shift+Tab traz o item pela borda de cima, onde ficam o topo, a
+    // cena e o bloco presos; só o scroll-padding-top o leva para baixo deles.
+    ana.page().evaluate("() => window.scrollTo(0, document.documentElement.scrollHeight)");
+    ana.botaoPronto().focus();
+    voltarAte(ana.page(), ultimoItem);
 
     assertEquals("", ultimoItem.evaluate(COBERTO_PELO_QUE_FICA_PRESO));
+  }
+
+  private static void voltarAte(Page page, Locator alvo) {
+    for (int i = 0; i < 40; i++) {
+      page.keyboard().press("Shift+" + Navegador.TAB);
+      if (alvo.evaluate("el => el === document.activeElement").equals(Boolean.TRUE)) {
+        return;
+      }
+    }
+    throw new AssertionError("O Shift+Tab não chegou ao alvo em 40 passos.");
   }
 }
