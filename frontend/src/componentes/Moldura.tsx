@@ -7,6 +7,8 @@ interface PropsMoldura {
   confirmandoSaida: boolean;
   /** Liga .ceu-pintado, que a cena usa quando a imagem do céu carregou. */
   ceuPintado: boolean;
+  /** data-tela-cheia: a noite revelada ocupa a tela do celular em pé (revelacao.css); padrão false. */
+  telaCheia?: boolean;
   children: ReactNode;
 }
 
@@ -23,7 +25,7 @@ const CLASSES_DA_MOLDURA = [
   "celular-deitado:[grid-template-areas:'cena_topo'_'cena_painel'] celular-deitado:h-dvh celular-deitado:min-h-0",
 ].join(" ");
 
-export function Moldura({ momento, confirmandoSaida, ceuPintado, children }: PropsMoldura) {
+export function Moldura({ momento, confirmandoSaida, ceuPintado, telaCheia = false, children }: PropsMoldura) {
   const classes = [CLASSES_DA_MOLDURA];
   if (confirmandoSaida) {
     classes.push("confirmando-saida");
@@ -32,7 +34,7 @@ export function Moldura({ momento, confirmandoSaida, ceuPintado, children }: Pro
     classes.push("ceu-pintado");
   }
   return (
-    <div className={classes.join(" ")} data-momento={momento}>
+    <div className={classes.join(" ")} data-momento={momento} data-tela-cheia={String(telaCheia)}>
       {children}
     </div>
   );

@@ -142,6 +142,28 @@ describe("textoResultado", () => {
     );
   });
 
+  it("textoDoResultadoTrazAsFrases", () => {
+    // Telescópio em C1 e banco em C2; manta em L1 e lanterna em L2, as duas perto do telescópio.
+    const revelada = visao({
+      fase: "REVELADO",
+      pecas: [
+        { peca: "telescopio", assento: "A", lugar: "C1" },
+        { peca: "manta", assento: "A", lugar: "L1" },
+        { peca: "radio", assento: "A", lugar: null },
+        { peca: "banco", assento: "B", lugar: "C2" },
+        { peca: "lanterna", assento: "B", lugar: "L2" },
+      ],
+      resultado: { secundariaA: "manta", secundariaB: "lanterna", ladoTelescopio: "esquerdo" },
+    });
+
+    expect(textoResultado(CENARIO, revelada).texto).toBe(
+      "O telescópio de Ana aponta para o lado esquerdo do céu, e é por ali que os meteoros passam. " +
+        "Ana trouxe a manta; Bruno, o banco e a lanterna. " +
+        "A lanterna ilumina o telescópio de perto. " +
+        "A manta ficou junto do telescópio, para as horas de espera.",
+    );
+  });
+
   it("sem parceiro, a visão revelada é contrato quebrado", () => {
     const semParceiro = visao({
       fase: "REVELADO",

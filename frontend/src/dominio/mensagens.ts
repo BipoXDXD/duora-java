@@ -101,12 +101,17 @@ export function textoMotivoConfirmacao(visao: Visao): string {
   return "";
 }
 
-/** Título e frase da noite revelada: a legenda do cenário preenchida com o resultado e os nomes. */
+/**
+ * Título e texto da noite revelada: a legenda do cenário preenchida com o resultado e os nomes,
+ * seguida das frases das peças que ficaram perto uma da outra.
+ */
 export function textoResultado(c: CenarioFront, visao: Visao): { titulo: string; texto: string } {
   if (visao.resultado === null) {
     throw new Error("Visão sem resultado: a noite ainda não foi revelada");
   }
-  return c.legenda(visao.resultado, { A: nomeNoAssento(visao, "A"), B: nomeNoAssento(visao, "B") });
+  const { titulo, texto } = c.legenda(visao.resultado, { A: nomeNoAssento(visao, "A"), B: nomeNoAssento(visao, "B") });
+  const colocadas = visao.pecas.flatMap((p) => (p.lugar === null ? [] : [{ peca: p.peca, lugar: p.lugar }]));
+  return { titulo, texto: [texto, ...c.frasesDeRelacao(colocadas)].join(" ") };
 }
 
 /** Nome de quem ocupa o assento; a noite só é revelada com os dois assentos ocupados. */

@@ -1,6 +1,9 @@
 // Meteoros da revelação: alguns riscos de luz no lado do céu para onde o telescópio
 // aponta, em sequência espaçada, e depois param. Com movimento reduzido, a mesma
-// ideia vira poucos riscos parados.
+// ideia vira poucos riscos parados. Só passam se alguma peça colocada traz o efeito "meteoros".
+
+import type { CenarioFront } from "../cenario/tipos";
+import type { VisaoPeca } from "../dominio/visao";
 
 const ESCURECIMENTO_MS = 2400;
 const PRIMEIRO_APOS_MS = 600;
@@ -25,6 +28,17 @@ const entre = (min: number, max: number) => min + Math.random() * (max - min);
 
 /** Ângulo do lado esquerdo espelhado para o direito: 150° (para baixo e à esquerda) vira 30°. */
 const angulo = (graus: number, lado: Lado | null) => (lado === "direito" ? 180 - graus : graus);
+
+/**
+ * O lado dos meteoros na revelação: o do resultado, se alguma peça colocada declara o efeito
+ * "meteoros" no cenario.json; senão, null (a cena não mostra meteoros).
+ */
+export function ladoDosMeteoros(c: CenarioFront, pecas: readonly VisaoPeca[], lado: string | null): string | null {
+  const comMeteoros = pecas.some(
+    (p) => p.lugar !== null && c.revelacao(p.peca).some((efeito) => efeito.tipo === "meteoros"),
+  );
+  return comMeteoros ? lado : null;
+}
 
 export interface OpcoesMeteoros {
   aoMeteoro?: () => void;

@@ -3,6 +3,7 @@ import type { Visao } from "../dominio/visao";
 import { naoAlcancavel } from "../sessao/naoAlcancavel";
 import type { AcoesDaSessao } from "../sessao/sessao";
 import type { EstadoDaSessao } from "../sessao/tipos";
+import type { TelaCheia } from "../useTelaCheia";
 import { Acoes, BotaoSom } from "./Acoes";
 import { Convite } from "./Convite";
 import { Encerrado } from "./Encerrado";
@@ -22,7 +23,11 @@ export interface PropsPainel {
   aoCopiarConvite: (aviso: string) => void;
   /** Alterna o som na sessão e no áudio: quem toca o som é o App. */
   aoAlternarSom: () => void;
+  /** Tela cheia da noite no celular em pé; sem ela (padrão), o resultado fica no painel. */
+  telaCheia?: TelaCheia;
 }
+
+const SEM_TELA_CHEIA: TelaCheia = { telaCheia: false, verPainel: () => {}, verCeu: () => {} };
 
 /** O que muda de uma tela para outra: o par (quando há sala), a instrução (menos no encerrado) e o bloco da tela. */
 interface TelaDoPainel {
@@ -36,7 +41,7 @@ function linkDoConvite(token: string | null): string {
 }
 
 function telaDaVez(props: Omit<PropsPainel, "refAviso">): TelaDoPainel {
-  const { estado, acoes } = props;
+  const { estado, acoes, telaCheia = SEM_TELA_CHEIA } = props;
   switch (estado.tela) {
     case "carregando":
       return { visaoDoPar: null, instrucao: "Procurando seu terraço…", conteudo: null };
@@ -77,7 +82,14 @@ function telaDaVez(props: Omit<PropsPainel, "refAviso">): TelaDoPainel {
               enviando={estado.enviando}
               acoes={acoes}
             />
-            <Resultado visao={estado.visao} enviando={estado.enviando} acoes={acoes} />
+            <Resultado
+              visao={estado.visao}
+              enviando={estado.enviando}
+              acoes={acoes}
+              telaCheia={telaCheia.telaCheia}
+              aoVerPainel={telaCheia.verPainel}
+              aoVerCeu={telaCheia.verCeu}
+            />
             <Acoes
               visao={estado.visao}
               enviando={estado.enviando}

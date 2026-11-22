@@ -19,6 +19,7 @@ export interface PropsCena {
   marcas: MarcasDaCena;
   enviando: boolean;
   momento: Momento;
+  /** Lado dos meteoros na noite; null quando nenhuma peça colocada os traz (ladoDosMeteoros). */
   ladoTelescopio: string | null;
   cenario: CenarioFront;
   aoEscolherPeca: (peca: string, minha: boolean) => void;
@@ -156,7 +157,7 @@ export function Cena({
     elemento(refPalco).dataset.enviando = String(enviando);
   }, [enviando]);
 
-  // Revelado: meteoros do lado do telescópio. Qualquer outro momento: céu sem meteoros.
+  // Revelado: meteoros do lado do telescópio, se ele está na cena. Qualquer outro momento: céu sem meteoros.
   useLayoutEffect(() => {
     if (momento === "noite") {
       meteoros.current?.mostrar(ladoTelescopio);

@@ -2,9 +2,17 @@ package bipotheking.net.duora.e2e;
 
 import static bipotheking.net.duora.e2e.Axe.assertSemViolacoes;
 import static bipotheking.net.duora.e2e.Cenarios.ANA;
+import static bipotheking.net.duora.e2e.Cenarios.BRUNO;
 import static bipotheking.net.duora.e2e.Cenarios.comporTerraco;
 import static bipotheking.net.duora.e2e.Cenarios.entrarEmPar;
 import static bipotheking.net.duora.e2e.Cenarios.raiz;
+import static bipotheking.net.duora.e2e.TerracoPagina.Lugar.C1;
+import static bipotheking.net.duora.e2e.TerracoPagina.Lugar.C2;
+import static bipotheking.net.duora.e2e.TerracoPagina.Lugar.L2;
+import static bipotheking.net.duora.e2e.TerracoPagina.Lugar.R1;
+import static bipotheking.net.duora.e2e.TerracoPagina.Peca.BANCO;
+import static bipotheking.net.duora.e2e.TerracoPagina.Peca.GARRAFA;
+import static bipotheking.net.duora.e2e.TerracoPagina.Peca.RADIO;
 import static bipotheking.net.duora.e2e.TerracoPagina.Peca.TELESCOPIO;
 import static com.microsoft.playwright.assertions.PlaywrightAssertions.assertThat;
 
@@ -70,6 +78,31 @@ class AxeIT {
     assertThat(ana.app()).hasAttribute("data-momento", "noite");
 
     assertSemViolacoes(ana.page(), "revelado");
+  }
+
+  /**
+   * A outra metade dos efeitos noturnos: o reveladoSemViolacoes já tem lanterna, manta e banco;
+   * aqui ficam o rádio (notas, sem elemento) e a garrafa (vapor), que não cabem na mesma noite.
+   */
+  @Test
+  void reveladoComRadioEVaporSemViolacoes(Participantes participantes) {
+    TerracoPagina ana = participantes.novo();
+    TerracoPagina bruno = participantes.novo();
+    entrarEmPar(ana, bruno, raiz(porta));
+    ana.colocar(TELESCOPIO, C1, ANA);
+    assertThat(bruno.pecaNoTerraco(TELESCOPIO, ANA, C1)).isVisible();
+    bruno.colocar(BANCO, C2, BRUNO);
+    assertThat(ana.pecaNoTerraco(BANCO, BRUNO, C2)).isVisible();
+    ana.colocar(RADIO, L2, ANA);
+    assertThat(bruno.pecaNoTerraco(RADIO, ANA, L2)).isVisible();
+    bruno.colocar(GARRAFA, R1, BRUNO);
+    assertThat(ana.pecaNoTerraco(GARRAFA, BRUNO, R1)).isVisible();
+    ana.confirmar();
+    bruno.botaoPronto().click();
+    assertThat(ana.app()).hasAttribute("data-momento", "noite");
+    assertThat(ana.page().locator("[data-efeito=vapor]")).hasCount(1);
+
+    assertSemViolacoes(ana.page(), "revelado com rádio e vapor");
   }
 
   @Test
