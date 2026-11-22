@@ -1,0 +1,485 @@
+/* Cena, céu, meteoros, peças, selos e lugares de css/app.css, com os mesmos valores. É o CSS próprio
+   da cena: os elementos nascem por código (cena.ts, ceu.ts, meteoros.ts), fora do alcance dos
+   utilitários. O app.css importa este arquivo em layer(components). */
+
+/* ------------------------------------------------------------ cena */
+
+.cena {
+  grid-area: cena;
+  position: relative;
+  display: grid;
+  align-items: end;
+  justify-items: center;
+  overflow: hidden;
+  padding: 0 var(--e-6) var(--e-7);
+  isolation: isolate;
+}
+
+.ceu {
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  background:
+    radial-gradient(120% 55% at 50% 100%, rgb(242 189 112 / 0.22), transparent 70%),
+    linear-gradient(180deg, var(--noite-950) 0%, var(--noite-800) 38%, var(--ceu-600) 78%, #5b7c94 100%);
+}
+
+.ceu::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(180deg, #03080e 0%, #071321 45%, #102a40 100%);
+  opacity: 0;
+  transition: opacity 2.4s ease-in-out;
+}
+
+.estrelas {
+  position: absolute;
+  inset: 0 0 30% 0;
+  width: 100%;
+  height: 70%;
+  z-index: 1;
+  opacity: 0.45;
+  transition: opacity 2.4s ease-in-out;
+}
+
+.estrelas circle {
+  fill: var(--marfim);
+}
+
+/* Silhueta da cidade presa ao palco: aparece atrás do guarda-corpo em qualquer largura. */
+.horizonte {
+  position: absolute;
+  left: -70%;
+  width: 240%;
+  top: 16%;
+  height: 20%;
+  fill: #1f3d57;
+  transition: fill 2.4s ease-in-out;
+}
+
+.janelas {
+  position: absolute;
+  left: -70%;
+  width: 240%;
+  top: 22%;
+  height: 14%;
+}
+
+.janelas span {
+  position: absolute;
+  width: 3px;
+  height: 4px;
+  background: var(--ambar);
+  opacity: 0.55;
+}
+
+.palco {
+  position: relative;
+  width: min(100%, calc((100dvh - var(--e-7) - var(--e-6)) * var(--proporcao-palco)));
+  aspect-ratio: var(--proporcao-palco);
+}
+
+.terraco {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  user-select: none;
+}
+
+.terraco-noite,
+.peca .sprite-noite {
+  opacity: 0;
+  transition: opacity 2.4s ease-in-out;
+}
+
+.app[data-momento="noite"] .ceu::after,
+.app[data-momento="noite"] .terraco-noite,
+.app[data-momento="noite"] .peca .sprite-noite {
+  opacity: 1;
+}
+
+.app[data-momento="noite"] .estrelas {
+  opacity: 1;
+}
+
+.app[data-momento="noite"] .horizonte {
+  fill: #0d2133;
+}
+
+.brilho {
+  position: absolute;
+  transform: translate(-50%, -50%);
+  aspect-ratio: 2 / 1;
+  border-radius: 50%;
+  background: radial-gradient(closest-side, rgb(255 201 130 / 0.55), rgb(255 201 130 / 0.18) 55%, transparent);
+  mix-blend-mode: screen;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 2.4s ease-in-out;
+}
+
+.halo {
+  position: absolute;
+  transform: translate(-50%, -50%);
+  aspect-ratio: 1 / 1.3;
+  border-radius: 50%;
+  background: radial-gradient(closest-side, rgb(255 214 150 / 0.95), rgb(255 190 110 / 0.45) 45%, transparent);
+  mix-blend-mode: screen;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 2.4s ease-in-out;
+}
+
+.app[data-momento="noite"] .brilho,
+.app[data-momento="noite"] .halo {
+  opacity: 1;
+}
+
+/* Céu pintado (Tripo, 16:9): o JS liga .ceu-pintado só se a imagem da noite carregar.
+   A pintura fica presa ao palco, como a silhueta SVG, para a linha dos prédios cair logo
+   acima do guarda-corpo em qualquer largura, numa escala em que a lua continua visível.
+   Acima e abaixo dela valem as cores medidas nas bordas da própria imagem (sem emenda). */
+.app {
+  --cidade-largura: 115%;
+  --cidade-esquerda: -7.5%;
+  --cidade-topo: -45.6%;
+}
+
+.cidade {
+  display: none;
+  position: absolute;
+  left: var(--cidade-esquerda);
+  width: var(--cidade-largura);
+  top: var(--cidade-topo);
+  height: 400%;
+  background-position: top center;
+  background-size: 100% auto;
+  background-repeat: no-repeat;
+  pointer-events: none;
+  z-index: -1;
+}
+
+.app.ceu-pintado .cidade {
+  display: block;
+}
+
+.cidade-crepusculo {
+  background-image: url("/assets/ceu/ceu-crepusculo-1280.webp");
+  background-image: image-set(
+    url("/assets/ceu/ceu-crepusculo-1280.webp") 1x,
+    url("/assets/ceu/ceu-crepusculo-2560.webp") 2x
+  );
+  background-color: #0d2237;
+}
+
+.cidade-noite {
+  background-image: url("/assets/ceu/ceu-noite-1280.webp");
+  background-image: image-set(url("/assets/ceu/ceu-noite-1280.webp") 1x, url("/assets/ceu/ceu-noite-2560.webp") 2x);
+  background-color: #061726;
+  opacity: 0;
+  transition: opacity 2.4s ease-in-out;
+}
+
+.app[data-momento="noite"] .cidade-noite {
+  opacity: 1;
+}
+
+.app.ceu-pintado .ceu {
+  background: #0f2d4b;
+}
+
+.app.ceu-pintado .ceu::after {
+  background: #091728;
+}
+
+/* A cidade e as estrelas já vêm na pintura: some a silhueta SVG e as estrelas recuam. */
+.app.ceu-pintado .horizonte,
+.app.ceu-pintado .janelas {
+  display: none;
+}
+
+.app.ceu-pintado .estrelas {
+  opacity: 0.12;
+}
+
+.app.ceu-pintado[data-momento="noite"] .estrelas {
+  opacity: 0.35;
+}
+
+/* ------------------------------------------------------------ meteoros (revelação) */
+
+/* Região do céu acima do terraço, no lado para onde o telescópio aponta. */
+/* Fica entre a pintura da cidade (z-index -1) e o terraço (palco, posterior no DOM). */
+.meteoros {
+  position: absolute;
+  top: 0;
+  width: 55%;
+  height: 44%;
+  pointer-events: none;
+}
+
+.meteoros[data-lado="esquerdo"] {
+  left: 0;
+}
+
+.meteoros[data-lado="direito"] {
+  right: 0;
+}
+
+.meteoro {
+  --comprimento: calc(clamp(56px, 8vw, 128px) * var(--escala, 1));
+  --percurso: calc(clamp(96px, 16vw, 260px) * var(--escala, 1));
+  position: absolute;
+  width: var(--comprimento);
+  height: 2px;
+  margin-top: -1px;
+  border-radius: 1px;
+  background: linear-gradient(90deg, rgb(245 241 231 / 0), rgb(245 241 231 / 0.35) 55%, #fffaf0);
+  transform-origin: left center;
+  opacity: 0;
+  animation: risco 1.3s cubic-bezier(0.3, 0, 0.6, 1) forwards;
+}
+
+/* Cabeça do risco: um ponto um pouco mais quente na ponta. */
+.meteoro::after {
+  content: "";
+  position: absolute;
+  right: -2px;
+  top: -1px;
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: #fffaf0;
+  box-shadow: 0 0 6px 1px rgb(247 211 158 / 0.7);
+}
+
+@keyframes risco {
+  0% {
+    opacity: 0;
+    transform: rotate(var(--angulo)) translateX(0) scaleX(0.25);
+  }
+  15% {
+    opacity: 1;
+  }
+  70% {
+    opacity: 0.9;
+  }
+  100% {
+    opacity: 0;
+    transform: rotate(var(--angulo)) translateX(var(--percurso)) scaleX(1);
+  }
+}
+
+/* Movimento reduzido: os mesmos riscos, parados e discretos. */
+.meteoro-parado {
+  opacity: 0.4;
+  transform: rotate(var(--angulo));
+  animation: none;
+}
+
+.meteoro-parado::after {
+  box-shadow: 0 0 4px rgb(247 211 158 / 0.5);
+}
+
+.camada-pecas,
+.camada-lugares {
+  position: absolute;
+  inset: 0;
+}
+
+.camada-lugares {
+  pointer-events: none;
+}
+
+/* Peças: o botão é o recorte do sprite; a âncora é o ponto no piso. */
+
+.peca {
+  position: absolute;
+  padding: 0;
+  border: 0;
+  background: none;
+  cursor: pointer;
+  border-radius: var(--raio);
+  transition:
+    filter var(--transicao),
+    transform var(--transicao);
+}
+
+.peca img {
+  display: block;
+  width: 100%;
+  height: auto;
+  pointer-events: none;
+  user-select: none;
+}
+
+.peca .sprite-noite {
+  position: absolute;
+  max-width: none;
+  height: auto;
+}
+
+.peca[data-dono="parceiro"] {
+  cursor: help;
+}
+
+.peca[aria-pressed="true"] {
+  filter: drop-shadow(0 0 6px rgb(242 189 112 / 0.9));
+}
+
+.peca[data-sinalizada="true"] {
+  animation: chamar 1.4s ease-in-out 3;
+}
+
+@keyframes chamar {
+  50% {
+    transform: translateY(-6px);
+  }
+}
+
+.selo {
+  position: absolute;
+  transform: translate(-50%, 0);
+  padding: 0 var(--e-2);
+  border-radius: 999px;
+  background: var(--noite-800);
+  color: var(--marfim);
+  font-size: 0.75rem;
+  font-weight: 600;
+  line-height: 1.6;
+  white-space: nowrap;
+  pointer-events: none;
+}
+
+.peca[data-dono="voce"] .selo {
+  background: var(--ambar);
+  color: var(--ambar-tinta);
+}
+
+/* Sinal do parceiro: selo fixo acima da peça, independente da animação. */
+.peca .selo-sinal {
+  top: 0;
+  transform: translate(-50%, -100%);
+  background: var(--coral);
+  color: var(--noite-950);
+}
+
+/* Lugares: elipse no piso dentro de um alvo de toque de 44px. */
+
+.lugar {
+  position: absolute;
+  display: grid;
+  place-items: center;
+  min-width: 44px;
+  min-height: 44px;
+  transform: translate(-50%, -50%);
+  padding: 0;
+  border: 0;
+  background: none;
+  cursor: pointer;
+  pointer-events: auto;
+}
+
+.lugar::before {
+  content: "";
+  width: 100%;
+  aspect-ratio: 2 / 1;
+  border-radius: 50%;
+  border: 2px dashed var(--marfim);
+  background: rgb(245 241 231 / 0.16);
+  transition:
+    background var(--transicao),
+    border-color var(--transicao);
+}
+
+.lugar:hover::before,
+.lugar:focus-visible::before {
+  border-style: solid;
+  border-color: var(--ambar);
+  background: rgb(242 189 112 / 0.35);
+}
+
+.lugar:focus-visible {
+  box-shadow: none;
+}
+
+.lugar:focus-visible::before {
+  box-shadow: var(--foco);
+}
+
+.lugar[aria-disabled="true"] {
+  cursor: not-allowed;
+}
+
+.lugar[aria-disabled="true"]::before {
+  border-style: solid;
+  border-color: var(--coral);
+  background: rgb(240 154 145 / 0.12);
+}
+
+.lugar .rotulo-lugar {
+  position: absolute;
+  top: calc(100% - 6px);
+  padding: 0 var(--e-2);
+  border-radius: 999px;
+  background: var(--noite-900);
+  color: var(--texto-2);
+  font-size: 0.75rem;
+  white-space: nowrap;
+}
+
+.palco[data-enviando="true"] .peca,
+.palco[data-enviando="true"] .lugar {
+  cursor: progress;
+}
+
+/* ------------------------------------------------------------ mobile */
+
+@media (max-width: 860px) {
+  .cena {
+    min-height: 0;
+    padding: 96px 0 var(--e-3);
+  }
+
+  .app {
+    --cidade-largura: 100%;
+    --cidade-esquerda: 0%;
+    --cidade-topo: -37.3%;
+  }
+
+  /* As bordas do bloco podem sair da tela; as peças ficam maiores. */
+  .palco {
+    width: 112%;
+    margin-inline: -6%;
+  }
+
+  .lugar .rotulo-lugar {
+    display: none;
+  }
+}
+
+/* Só em tela alta a cena fica presa: em tela baixa (zoom de 200%, celular deitado)
+   ela cobriria o painel e o foco (WCAG 1.4.10 e 2.4.11). */
+@media (max-width: 860px) and (min-height: 700px) {
+  /* A cena fica visível enquanto o painel rola: escolher a peça e o lugar sem perder nenhum dos dois. */
+  .cena {
+    position: sticky;
+    top: var(--altura-topo);
+    z-index: 4;
+  }
+
+  .app.confirmando-saida .cena {
+    top: 0;
+  }
+}
+
+/* Alto contraste (Windows): estados que no tema dependem só de cor ou sombra. */
+@media (forced-colors: active) {
+  .lugar[aria-disabled="true"] {
+    color: GrayText;
+    border-color: GrayText;
+  }
+}
