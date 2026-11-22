@@ -36,7 +36,7 @@ Gere na nuvem **só** quando o objeto ou som novo não existe em nenhum master. 
 - Render 3D: edite `assets/source/blender/cena.py` (materiais, luzes, `_GIROS_PADRAO`, `_MEDIDAS`) e rerenderize.
 - Céu: edite o master 4K localmente e reexporte com `assets/source/ceu/exportar.sh`.
 - Áudio: ajuste `assets/source/audio/montar.sh` e rode de novo.
-- Efeito que vive no CSS (ex.: `.halo` e `.brilho` da lanterna à noite): confira `src/main/resources/static/css/app.css` antes de mexer no render; o brilho percebido soma render + CSS.
+- Efeito que vive no CSS (ex.: `.halo` e `.brilho` da lanterna à noite): confira `frontend/src/estilos/cena.css` antes de mexer no render; o brilho percebido soma render + CSS.
 
 Nunca retoque o `.webp` ou `.mp3` exportado direto (PIL, editor de imagem): o export tem de sair do master pelo pipeline, senão a próxima regeneração desfaz o retoque.
 
@@ -51,7 +51,7 @@ Nunca retoque o `.webp` ou `.mp3` exportado direto (PIL, editor de imagem): o ex
    Sem `DUORA_SO`, renderiza tudo. `DUORA_AMOSTRAS=32` acelera as iterações; o render final usa o padrão (96). A saída precisa terminar com `DUORA_OK`.
 4. **Confira** que os dois momentos saíram nas três larguras (`<prop>-crepusculo-{900,1800,2700}.webp` e `<prop>-noite-{900,1800,2700}.webp`) e que `cena/cena.json` mudou junto: o render parcial atualiza as medidas do prop, e o JSON entra no mesmo commit.
 5. **Olhe** o resultado (abra o `.webp`) antes de declarar pronto.
-6. **Mudou asset em `static/`:** rode o `ServiceWorkerVersaoTest` (`./mvnw -q test -Dtest=ServiceWorkerVersaoTest`) e atualize o `CACHE_VERSION` do `src/main/resources/static/sw.js` com o valor que a falha mostra. Sem isso, o service worker segue servindo o asset antigo do cache.
+6. **Mudou asset em `static/`:** o `sw.js` é gerado no build do front (`pluginServiceWorker`), com o `CACHE_VERSION` tirado da impressão dos arquivos servidos. Rode `./mvnw -q verify`: o `ServiceWorkerVersaoTest` confere que a versão acompanhou o asset novo. Um asset novo que deva abrir offline também entra em `assetsDoShell` no `frontend/vite.config.ts`.
 
 ## Verificação do formato
 

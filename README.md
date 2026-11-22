@@ -92,8 +92,10 @@ instalado; por isso todo job e2e instala também o `chromium`.
   (`/api`), expiração por varredura agendada e respostas de erro em `application/problem+json`.
   O contrato está descrito na própria API: visão sempre do ponto de vista de quem pede, `ETag` com
   `304` no polling.
-- Frontend em HTML, CSS e JavaScript nativos (`src/main/resources/static`), sem build: módulos ES,
-  polling encadeado de 2 s com recuo em falhas (2, 4, 8 e 15 s).
+- Frontend em React, TypeScript e Tailwind (`frontend/`), construído pelo Vite no build do Maven e
+  servido pelo Spring em `/app/` (arquivos com hash, cache imutável); os binários de `/assets/` ficam
+  em `src/main/resources/static`. Polling encadeado de 2 s com recuo em falhas (2, 4, 8 e 15 s), num
+  chunk próprio.
 - Segurança: credencial em cookie `HttpOnly; SameSite=Strict` (o servidor guarda só o hash),
   convite de uso único separado da credencial, mutações exigem o cabeçalho `X-Duora`, e `Origin` e
   `Host` são conferidos contra uma allowlist local (proteção contra CSRF e DNS rebinding).
