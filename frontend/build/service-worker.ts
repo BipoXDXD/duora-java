@@ -14,20 +14,25 @@ export interface OpcoesDoServiceWorker {
 export interface OpcoesDaGeracao {
   /** A raiz do front, onde está src/sw/sw.ts. */
   raizDoFront: string;
-  /** A saída do build do app, com .vite/manifest.json. */
+  /** A saída do build do app. */
   outDir: string;
   /** Caminho absoluto da pasta estática servida junto da saída. */
   raizEstatica: string;
   assetsDoShell: readonly string[];
+  /** O manifest do Vite, relativo a outDir (o `build.manifest` quando é um caminho). */
+  manifest?: string;
 }
 
-const PASTA_DO_MANIFEST = ".vite";
+const PASTA_DO_VITE = ".vite";
+const MANIFEST_PADRAO = `${PASTA_DO_VITE}/manifest.json`;
 const SW = "sw.js";
 const ENTRADA_DO_APP = "index.html";
 
 /**
  * Gera o sw.js ao fim do build. Só age quando o build escreve o manifest: os testes que constroem o
- * app para olhar o CSS ou os avisos desligam o manifest, e aí não há shell para listar.
+ * app para olhar o CSS ou os avisos desligam o manifest, e aí não há shell para listar. O recado
+ * sai como info, não como aviso: o teste de avisos exige um build sem avisos, e o Maven registra o
+ * stderr como [ERROR].
  */
 export function pluginServiceWorker(opcoes: OpcoesDoServiceWorker): Plugin {
   let config: ResolvedConfig | undefined;
@@ -39,7 +44,12 @@ export function pluginServiceWorker(opcoes: OpcoesDoServiceWorker): Plugin {
     },
     async closeBundle(erro) {
       // O closeBundle roda mesmo quando o build falha; aí a saída pode estar incompleta.
-      if (erro !== undefined || config === undefined || config.build.manifest === false) {
+      if (erro !== undefined || config === undefined) {
+        return;
+      }
+      const { manifest } = config.build;
+      if (manifest === false) {
+        config.logger.info("duora:service-worker: build sem manifest, sw.js não gerado");
         return;
       }
       await gerarServiceWorker({
@@ -47,6 +57,7 @@ export function pluginServiceWorker(opcoes: OpcoesDoServiceWorker): Plugin {
         outDir: resolve(config.root, config.build.outDir),
         raizEstatica: resolve(config.root, opcoes.raizEstatica),
         assetsDoShell: opcoes.assetsDoShell,
+        manifest: manifest === true ? MANIFEST_PADRAO : manifest,
       });
     },
   };
@@ -54,13 +65,15 @@ export function pluginServiceWorker(opcoes: OpcoesDoServiceWorker): Plugin {
 
 /**
  * Lê o manifest do Vite, monta o SHELL, calcula a impressão do que será servido, compila
- * src/sw/sw.ts como script clássico e grava `<outDir>/sw.js`; por fim apaga `.vite/`, que não deve
- * ser público. Um item do SHELL sem arquivo falha o build antes de gravar qualquer coisa.
+ * src/sw/sw.ts como script clássico e grava `<outDir>/sw.js`; por fim apaga o manifest e `.vite/`,
+ * que não devem ser públicos. Um item do SHELL sem arquivo falha o build antes de gravar qualquer coisa.
  */
 export async function gerarServiceWorker(opcoes: OpcoesDaGeracao): Promise<void> {
-  const pastaDoManifest = join(opcoes.outDir, PASTA_DO_MANIFEST);
-  const manifest = JSON.parse(readFileSync(join(pastaDoManifest, "manifest.json"), "utf-8")) as Manifest;
+  const caminhoDoManifest = (opcoes.manifest ?? MANIFEST_PADRAO).split(sep).join("/");
+  const arquivoDoManifest = join(opcoes.outDir, caminhoDoManifest);
+  const manifest = JSON.parse(readFileSync(arquivoDoManifest, "utf-8")) as Manifest;
   const servidos = arquivosServidos(opcoes.outDir, opcoes.raizEstatica);
+  servidos.delete(caminhoDoManifest);
   const shell = montarShell(manifest, opcoes.assetsDoShell);
 
   const ausentes = shell.filter((url) => !servidos.has(arquivoDaUrl(url)));
@@ -76,7 +89,8 @@ export async function gerarServiceWorker(opcoes: OpcoesDaGeracao): Promise<void>
     join(opcoes.outDir, SW),
     `const CACHE_VERSION = "duora-${versao}";\nconst SHELL = ${JSON.stringify(shell)};\n\n${codigo}`,
   );
-  rmSync(pastaDoManifest, { recursive: true, force: true });
+  rmSync(arquivoDoManifest, { force: true });
+  rmSync(join(opcoes.outDir, PASTA_DO_VITE), { recursive: true, force: true });
 }
 
 /** "/" e o HTML, o manifest do PWA, a entrada com os seus imports e css (em recursão) e os assets. */
@@ -120,7 +134,7 @@ function arquivosServidos(outDir: string, raizEstatica: string): Map<string, str
   const servidos = new Map<string, string>();
   for (const raiz of [raizEstatica, outDir]) {
     for (const caminho of arquivosEm(raiz)) {
-      if (caminho !== SW && !caminho.startsWith(`${PASTA_DO_MANIFEST}/`)) {
+      if (caminho !== SW && !caminho.startsWith(`${PASTA_DO_VITE}/`)) {
         servidos.set(caminho, join(raiz, caminho));
       }
     }
