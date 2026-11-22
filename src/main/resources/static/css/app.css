@@ -958,7 +958,7 @@ button {
   }
 
   /* Com a confirmação aberta, o topo cresce e deixa de ter a altura fixa. */
-  .topo:has(> .confirmar-saida:not([hidden])) {
+  .app.confirmando-saida .topo {
     height: auto;
     min-height: var(--altura-topo);
     padding-bottom: var(--e-4);
@@ -1042,11 +1042,11 @@ button {
   }
 
   /* Topo alto (confirmação aberta) preso por cima cobriria a cena: ele rola com a página. */
-  .app:has(.confirmar-saida:not([hidden])) .topo {
+  .app.confirmando-saida .topo {
     position: static;
   }
 
-  .app:has(.confirmar-saida:not([hidden])) .cena {
+  .app.confirmando-saida .cena {
     top: 0;
   }
 }

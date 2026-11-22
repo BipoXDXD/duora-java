@@ -78,6 +78,9 @@ final class NavegadorExtension
 
     private static final int LARGURA = 1440;
     private static final int ALTURA = 900;
+    private static final int LARGURA_CELULAR = 390;
+    private static final int ALTURA_CELULAR = 844;
+    private static final double DENSIDADE_CELULAR = 3;
 
     private final Playwright playwright;
     private final Browser browser;
@@ -103,11 +106,37 @@ final class NavegadorExtension
     }
 
     TerracoPagina novo(int largura, int altura, ReducedMotion movimento, Consumer<Page> preparar) {
-      BrowserContext contexto =
-          browser.newContext(
-              new Browser.NewContextOptions()
-                  .setViewportSize(largura, altura)
-                  .setReducedMotion(movimento));
+      return novo(
+          new Browser.NewContextOptions()
+              .setViewportSize(largura, altura)
+              .setReducedMotion(movimento),
+          preparar);
+    }
+
+    /**
+     * Contexto com as opções como vêm (aparelho, densidade, toque); só põe movimento reduzido se
+     * elas não disserem nada sobre movimento.
+     */
+    TerracoPagina novo(Browser.NewContextOptions opcoes) {
+      return novo(opcoes, page -> {});
+    }
+
+    /** Celular em pé: 390×844, densidade 3, tela de toque e layout de celular (meta viewport). */
+    TerracoPagina novoCelular() {
+      return novo(
+          new Browser.NewContextOptions()
+              .setViewportSize(LARGURA_CELULAR, ALTURA_CELULAR)
+              .setDeviceScaleFactor(DENSIDADE_CELULAR)
+              .setIsMobile(true)
+              .setHasTouch(true)
+              .setReducedMotion(ReducedMotion.REDUCE));
+    }
+
+    private TerracoPagina novo(Browser.NewContextOptions opcoes, Consumer<Page> preparar) {
+      if (opcoes.reducedMotion == null) {
+        opcoes.setReducedMotion(ReducedMotion.REDUCE);
+      }
+      BrowserContext contexto = browser.newContext(opcoes);
       contextos.add(contexto);
       Page page = contexto.newPage();
       preparar.accept(page);

@@ -77,6 +77,7 @@ async function iniciar() {
 
   const telas = criarTelas(
     {
+      app,
       entrada: $("entrada"),
       apelido: $("apelido"),
       erroApelido: $("apelido-erro"),
