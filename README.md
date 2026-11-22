@@ -35,6 +35,11 @@ O front fica em `frontend/` (React 19, TypeScript, Tailwind e Vite). O `./mvnw` 
 em `frontend/node/` e roda instalação, lint, testes e build do front; o build vai para
 `target/vite/` e entra no jar, servido pelo Spring em `/app/`.
 
+No primeiro build (e na CI até o cache valer), o log mostra
+`[ERROR] Downloading the pnpm … binary for …`. É esperado: o pnpm avisa o download no stderr, e o
+`frontend-maven-plugin` registra todo stderr como `[ERROR]`. O build não falha por isso; uma falha
+de verdade aparece no código de saída.
+
 Para mexer no front com recarga instantânea, suba o Spring em 8080 e o Vite em outro terminal:
 
 ```sh
