@@ -1,8 +1,10 @@
 // Tipos da sessão do terraço, compartilhados pelo controlador (sessao.ts) e pelos componentes.
 
+import type { Momento } from "../dominio/dados";
 import type { Visao } from "../dominio/visao";
 
-export type Tela = "carregando" | "entrada" | "convite" | "montagem" | "encerrado";
+/** As telas saem da própria união do estado: uma tela nova só precisa entrar em EstadoDaTela. */
+export type Tela = EstadoDaTela["tela"];
 
 /** Ação em envio; enquanto uma está em voo, as outras são ignoradas. */
 export type Acao = "entrada" | "pecas" | "retirar" | "sinal" | "pronto" | "ajustar" | "sair";
@@ -26,6 +28,6 @@ export type EstadoDaSessao = EstadoDaTela & {
   enviando: Acao | null;
   confirmandoSaida: boolean;
   somLigado: boolean;
-  momento: "crepusculo" | "noite";
+  momento: Momento;
   ladoTelescopio: string | null;
 };
