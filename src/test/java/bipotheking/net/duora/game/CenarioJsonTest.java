@@ -21,6 +21,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.regex.MatchResult;
 import java.util.regex.Pattern;
+import java.util.stream.Stream;
 import org.junit.jupiter.api.Test;
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.json.JsonMapper;
@@ -36,7 +37,11 @@ class CenarioJsonTest {
   private static final JsonNode JSON = ler(PASTA.resolve("cenario.json"));
   private static final JsonNode CENA = ler(PASTA.resolve("cena").resolve("cena.json"));
 
-  /** Marcador da legenda: {@code {chave}} ou {@code {chave.campo}}, como em {@code legenda.ts}. */
+  /**
+   * Marcador da legenda: {@code {chave}} ou {@code {chave.campo}}. Equivale ao de {@code
+   * legenda.ts} só nos casos de até um nível: aqui o resto depois do primeiro ponto vira o campo,
+   * enquanto o TS recusa um terceiro nível.
+   */
   private static final Pattern MARCADOR = Pattern.compile("\\{([^{}.]*)(?:\\.([^{}]*))?}");
 
   private static final Set<String> NOMES_DAS_PESSOAS = Set.of("nomeA", "nomeB");
@@ -95,6 +100,7 @@ class CenarioJsonTest {
     conhecidas.addAll(NOMES_DAS_PESSOAS);
 
     assertThat(marcadoresDaLegenda())
+        .isNotEmpty()
         .extracting(marcador -> marcador.group(1))
         .isSubsetOf(conhecidas);
   }
@@ -121,10 +127,13 @@ class CenarioJsonTest {
     return CENARIO.desfecho().de(completa, CENARIO).valores();
   }
 
+  /** Marcadores do título e do texto, lidos em separado para a emenda não criar nem esconder um. */
   private static List<MatchResult> marcadoresDaLegenda() {
     JsonNode legenda = JSON.get("legenda");
-    String modelos = legenda.get("titulo").stringValue() + legenda.get("texto").stringValue();
-    return MARCADOR.matcher(modelos).results().toList();
+    return Stream.of("titulo", "texto")
+        .map(campo -> legenda.get(campo).stringValue())
+        .flatMap(modelo -> MARCADOR.matcher(modelo).results())
+        .toList();
   }
 
   private static JsonNode ler(Path arquivo) {

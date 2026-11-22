@@ -53,13 +53,6 @@ class ShellDoServiceWorkerTest {
   }
 
   @Test
-  void variantesDoDadosJsSaoAsDoCenaJson() {
-    List<Integer> doCenaJson = JsonPath.read(cenaJson(), "$.variantes");
-
-    assertThat(Estaticos.variantesDoDadosJs()).isEqualTo(doCenaJson);
-  }
-
-  @Test
   void cadaSpriteTemArquivoEmCadaMomentoELargura() {
     String cena = cenaJson();
     Map<String, Map<String, Object>> props = JsonPath.read(cena, "$.props");

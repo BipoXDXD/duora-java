@@ -8,6 +8,6 @@ describe("escolherVariante", () => {
     [1440, 2, 2700],
     [4000, 1, 2700],
   ])("largura %i com dpr %i usa a família %i", (larguraCss, dpr, esperada) => {
-    expect(escolherVariante(larguraCss, dpr)).toBe(esperada);
+    expect(escolherVariante(larguraCss, dpr, [900, 1800, 2700])).toBe(esperada);
   });
 });

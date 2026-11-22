@@ -85,6 +85,7 @@ Spec: `docs/superpowers/specs/2026-11-21-duora-social-design.md`. Ordem: 0 → 1
 - **Regras:** `game.Regras` é estática e recebe o `Cenario` como 1º parâmetro em toda função pública (`Regras.colocar(Cenario, Estado, …)`), inclusive as que etapas seguintes criarem.
 - **Catálogo:** `game.CatalogoDeCenarios` (Java puro: `porId(String) → Optional<Cenario>`, `todos()`) é montado como bean por `room/CenariosConfig`; registrar um cenário é acrescentar um `@Bean Cenario` ali. O catálogo fica em `game/` mesmo quando `room/` virar `encontro/` (Etapa 5).
 - **API:** `POST /api/salas` aceita `{"cenario": "<id>"}` (ausente ou `null` → `"terraco"`); id desconhecido ou fora do padrão → `422 CENARIO_INVALIDO`, sem criar sala. A `Visao` traz `cenario` (o id) como 1º campo.
+- **Cenário da sala no front:** o front pré-carrega o terraço (`CENARIO_PADRAO`) para a primeira pintura e, quando a visão traz `cenario` diferente do carregado, carrega o `cenario.json` daquele id e remonta o app com ele; id desconhecido mostra a tela de erro de cenário. Dono: Etapa 9b, Task 2b (`Visao.cenario` no TS e `OpcoesDaSessao.aoTrocarCenario`); a Etapa 4 reaproveita esse caminho. Até essa task, nenhuma sala com cenário diferente do terraço é aberta pelo front.
 - **Front:** o valibot só é importado por `frontend/src/cenario/ler.ts` (guarda no ESLint), que lê `cenario.json` e `cena.json` com esquema estrito (`strictObject`) e devolve um `CenarioFront`; os consumidores usam só os métodos dele (`peca`, `lugar`, `sprite`, `som`, `revelacao`, `legenda`…), nunca o JSON cru.
 - **Efeitos:** a chave `revelacao` do `cenario.json` mapeia peça → `Efeito[]`; na 1b a união `Efeito` tem `brilho-piso` e `halo`, e as etapas seguintes só acrescentam variantes.
 - **Espelho conferido:** o `CenarioJsonTest` confere o `cenario.json` contra o `Cenario` do servidor (id, nome, peças com dono, zona e obrigatoriedade, lugares).
@@ -178,7 +179,7 @@ Valem sobre as seções "Decisões do dono" dos planos.
 - **Controlador na política de privacidade:** "o responsável pelo Duora".
 - **"Sair" na 1c:** mostra uma tela neutra; a decisão privada chega na Etapa 5.
 - **Prova de voz:** no emulador, forçado a passar pelo TURN, repetida na Etapa 10 com o coturn da VPS.
-- **JS inicial da 1a:** acima de 80 KB gzip, aceitar até +10 KB; além disso, avaliar preact/compat.
+- **JS inicial (da 1a em diante):** teto 90 KB gzip, que é o limite do `TamanhoDoJsInicialTest` (`LIMITE_BYTES = 92_160`), e meta 80 KB; os planos verificam o teto. Acima do teto, avaliar preact/compat.
 - **Critério do piloto e rampa de capacidade (3 → 5 → 10):** confirmar com o dono antes de abrir o cadastro na Etapa 11.
 - **Paridade com o mercado (2026-11-22), padrões configuráveis aceitos pelo dono:** idade aprovada com `AgeRange.Low ≥ 21`, recusada com `AgeRange.High < 18`, prova de vida com confiança ≥ 90; contas com menos de 7 dias: 200 mensagens, 10 imagens e 3 convites privados por dia; triagem de imagem bloqueia com pontuação NSFW ≥ 0,90 e manda à fila de 0,50 a 0,90.
 - **Feedback pós-encontro:** sai da Etapa 11 (Task 2) para a Etapa 5 (Task 18), com a migração `V89`; a Etapa 11 só o mede.

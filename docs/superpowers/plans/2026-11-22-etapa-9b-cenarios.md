@@ -33,7 +33,7 @@
   - Conventional Commits em pt-BR com o trailer `Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>`;
   - `-Xlint:all -Werror`, Spotless, lint do front com `--max-warnings 0`;
   - E2E sem skip nos 3 navegadores, `AxeIT` em toda tela ou estado novo;
-  - JS inicial ≤ 80 KB gzip (`TamanhoDoJsInicialTest`).
+  - JS inicial: teto 90 KB gzip (`TamanhoDoJsInicialTest`, `LIMITE_BYTES = 92_160`), meta 80 KB; a 1b terminou em 84,80 KB. Voltar a 80 KB seria uma task de corte explícita, não um passo de verificação.
 - **Um pesado por vez:** Maven, Blender, export do Godot, compilação de template, Docker e emulador usam a trava `mkdir /private/tmp/claude-501/duora-pesado.lock` (e `rmdir` ao fim) e `caffeinate -dims`. Gerações na nuvem (Hi3D, Tripo, ElevenLabs) não pegam a trava.
 - **Formatos (sem exceção):** imagem em WebP q88 (props em 900/1800/2700; fundos em 1280/2560), áudio em MP3 192 kbps / 48 kHz. Masters em `assets/source/`. Cada asset tem linha em `assets/manifest.md` no mesmo commit, com status `Candidato a FINAL`; só o dono promove a `FINAL`.
 - **Geração:** 3D no Hi3D (assinatura, imagem Nano-Banana 2 → 3D v3.0). Fallback pago só pela decisão D2. 2D no Tripo `chat_image_2.5_sunburst` 4K, com `tripo_plan` coberto pela decisão D1. Áudio no ElevenLabs: uma chamada por som, `generations_count` no padrão, nunca repetir a chamada para tentar de novo.
@@ -325,7 +325,7 @@ Coordenadas em metros, no piso da cena (x lateral, y profundidade, z altura, com
 3. Despacha **um agente novo, que não implementou o cenário**. Pelo Playwright MCP, ele joga:
    - Ana em 1440×900;
    - Bruno num contexto isolado de celular, criado por `browser_run_code_unsafe` (`browser.newContext({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true })`).
-   - O encontro é aberto pelo caminho vigente: sala anônima com `"cenario":"<id>"` antes da Etapa 5; convite privado com o cenário depois.
+   - O encontro é aberto pelo caminho vigente: sala anônima com `"cenario":"<id>"` antes da Etapa 5; convite privado com o cenário depois. Nos dois casos o front carrega o cenário pela `visao.cenario` (Task 2b, pré-requisito do playtest).
 4. **Roteiro:**
    1. entrar;
    2. composição completa com uma sugestão com destino aceita e uma ignorada;
@@ -380,8 +380,7 @@ Coordenadas em metros, no piso da cena (x lateral, y profundidade, z altura, com
 **Arquivos:**
 - Modificar:
   - `frontend/src/cenario/{ler.ts,tipos.ts,legenda.ts}` (a leitura valibot fica só no `ler.ts`), `frontend/src/cena/efeitos.ts`, `frontend/src/estilos/revelacao.css`;
-  - `frontend/src/componentes/{Resultado,Moldura}.tsx` (o título vem do cenário);
-  - `frontend/src/dominio/dados.ts` (o sprite da base vem de `geometria.base`, com padrão `"terraco"`);
+  - `frontend/src/componentes/{Resultado,Moldura}.tsx` (o título vem do cenário); o fundo da cena já vem de `cenario.json` → `fundo` (`CenarioFront.fundo`, 1b), sem mudança aqui;
   - `src/main/resources/static/assets/cenarios/terraco/cenario.json` (`titulo` "Antes da primeira estrela", sem mudar mais nada).
 - Criar: `frontend/src/cenario/variacoes.ts`, `src/test/java/bipotheking/net/duora/e2e/CenarioPagina.java`
 - Teste: `ler.test.ts` (todo `cenario.json` do disco), `legenda.test.ts`, `efeitos.test.ts`, `variacoes.test.ts`; `src/test/java/bipotheking/net/duora/game/CenarioJsonTest.java` (parametrizado); `e2e/CenarioFrontIT.java`; `VisualIT`/`ComparacaoVisualTest` (terraço idêntico)
@@ -415,7 +414,7 @@ Coordenadas em metros, no piso da cena (x lateral, y profundidade, z altura, com
     - `cardumeUsaSpriteDaGeometria`: o `sprite` existe em `cena.json.props`;
     - `peloMenosQuatroFinaisDiferentes`: pelo menos 4 pares (título, texto) distintos, com Ana/Bruno fixos. O terraço fica isento deste teste.
   - `CenarioPagina` (e2e, page object sobre o `TerracoPagina`):
-    - `static CenarioPagina abrirEmPar(Page ana, Page bruno, String cenario)`: sala anônima com `cenario` antes da Etapa 5; `entrarEmParComContas` + convite com cenário depois;
+    - `static CenarioPagina abrirEmPar(Page ana, Page bruno, String cenario)`: sala anônima com `cenario` antes da Etapa 5; `entrarEmParComContas` + convite com cenário depois. Com `cenario` diferente de `"terraco"`, só depois da Task 2b;
     - `void colocar(Page quem, String nomeDaPeca, String nomeDoLugar)`;
     - `void confirmarOsDois()`;
     - `String titulo(Page)` e `String texto(Page)`;
@@ -438,10 +437,46 @@ Coordenadas em metros, no piso da cena (x lateral, y profundidade, z altura, com
   - `CenarioFrontIT.variacaoDoDesfechoApareceNaNoite`: a rota troca o `cenario.json` do terraço por um com `variacoes.ladoTelescopio.esquerdo = [{tipo:"tom",cor:"#112233",opacidade:0.1}]` e telescópio em C1 → depois de revelar, um `[data-efeito=tom][data-variacao=ladoTelescopio]`.
 - [ ] **Passo 2:** RED.
 - [ ] **Passo 3:** implementar. A `Moldura` usa `cenario.titulo` no heading, e o texto do terraço não muda.
-- [ ] **Passo 4:** rodar `pnpm test`, `./mvnw -q verify`, a suíte e2e em chromium, o `CenarioFrontIT` + `AxeIT` em firefox e webkit, e a comparação visual do terraço contra o "depois" da 1c, tudo verde. `TamanhoDoJsInicialTest` ≤ 80 KB.
+- [ ] **Passo 4:** rodar `pnpm test`, `./mvnw -q verify`, a suíte e2e em chromium, o `CenarioFrontIT` + `AxeIT` em firefox e webkit, e a comparação visual do terraço contra o "depois" da 1c, tudo verde. `TamanhoDoJsInicialTest`: teto 90 KB (teste), meta 80 KB.
 - [ ] **Passo 5:** commits separados:
   - `refactor(front): título e base da cena vindos do cenário` (comportamento idêntico);
   - `feat(cenario): efeitos de partículas, cardume, arco-íris e tom, e variações pelo desfecho`.
+
+### Task 2b: Front carrega o cenário da sala
+
+Até aqui o front carrega sempre o terraço (`CENARIO_PADRAO` em `cenario/carregar.ts`, chamado por `iniciarApp` em `inicio.tsx`) e não lê `visao.cenario` (R13 da 1b). Uma sala de outro cenário quebraria no render: o primeiro `c.peca("<peça do aquário>")` lança e a tela fica branca. Esta task fecha o elo; **nenhuma sala com cenário diferente do terraço é aberta pelo front antes dela** (Passo 3 das Tasks 4, 7, 10 e 13, playtests e `CenarioPagina.abrirEmPar` com outro id).
+
+**Arquivos:**
+- Modificar:
+  - `frontend/src/dominio/visao.ts` (`Visao.cenario`);
+  - `frontend/src/sessao/sessao.ts` (`OpcoesDaSessao.aoTrocarCenario`);
+  - `frontend/src/App.tsx` (recebe e repassa `aoTrocarCenario` à `criarSessao`);
+  - `frontend/src/inicio.tsx` (guarda o cenário carregado e troca pelo da sala);
+  - `frontend/src/cenario/carregar.ts` (só o comentário do `CENARIO_PADRAO`: passa a ser o cenário pré-carregado da primeira pintura, não o cenário fixo);
+  - fixtures de `Visao` nos testes do front: acrescentar `cenario: "terraco"` (mudança mecânica, sem trocar valor esperado).
+- Teste: `frontend/src/sessao/sessao.test.ts`, `frontend/src/inicio.test.tsx`, `src/test/java/bipotheking/net/duora/e2e/CenarioFrontIT.java`.
+
+**Interfaces:**
+- Consome: `Visao.cenario` do back (1b: 1º campo da `Visao`, já no `SalaApiTest.visaoTemExatamenteOsCamposDoContrato`); `carregarCenario(id)`, `CENARIO_PADRAO`, `CenarioFront.id`, `ErroCenario` (`cenario/`); `ErroDeCenario` (`componentes/`); `cenarioDoTerraco()` e `CENARIO_MINIMO` (`teste/`).
+- Produz:
+  - `interface Visao { cenario: string; … }` (1º campo, como no back);
+  - `OpcoesDaSessao.aoTrocarCenario: (id: string) => void`. Quando chega uma visão com `visao.cenario !== cenario.id` (polling, `criarSala`, `entrar` ou resposta de mutação; todas passam por `aplicarVisao`/`comecarSessao`), a sessão **não aplica a visão** (nenhum `cenario.peca` com peça de outro cenário), para o polling e chama `aoTrocarCenario(visao.cenario)` uma única vez;
+  - `iniciarApp(raiz, convite, carregar = carregarCenario): Promise<Root>` (mesma assinatura): continua pré-carregando `CENARIO_PADRAO` antes de montar (a primeira pintura não muda) e monta um componente de raiz que guarda o cenário em estado. `aoTrocarCenario(id)` chama `carregar(id)`:
+    - sucesso → remonta o `App` com `key={cenario.id}` e `convite={null}` (sessão, som e céu novos; o `iniciar()` da sessão nova retoma a sala pelo cookie de assento em `GET /api/sala`);
+    - falha (id desconhecido, fora do padrão ou JSON inválido) → `console.error` com o detalhe e a tela `<ErroDeCenario />` já existente ("Não foi possível carregar o cenário. Recarregue a página.").
+
+- [ ] **Passo 1:** escrever os testes.
+  - `sessao.test.ts`:
+    - `visaoDeOutroCenarioPedeATrocaSemAplicar`: sessão com `cenarioDoTerraco()`; o polling entrega uma visão em `MONTANDO` com `cenario: "minimo"` e a `pedra` colocada → `aoTrocarCenario` chamado uma vez com `"minimo"`, `obter().tela` continua `"carregando"` e o polling parado;
+    - `visaoDoMesmoCenarioNaoPedeTroca`: visão com `cenario: "terraco"` → `aoTrocarCenario` não chamado e tela `"montagem"`.
+  - `inicio.test.tsx`:
+    - `salaDeOutroCenarioRemontaComOCenarioDaSala`: o stub de `fetch` responde ao `GET /api/sala` com uma visão de `cenario: "minimo"`; o `carregar` falso devolve `cenarioDoTerraco()` para `"terraco"` e `CENARIO_MINIMO` para `"minimo"` → `carregar` chamado com `"terraco"` e depois `"minimo"`, o `#palco` desenha `button[data-peca='pedra']` e não há `[role=alert]`;
+    - `salaDeCenarioDesconhecidoMostraATelaDeErro`: visão com `cenario: "vulcao"` e `carregar("vulcao")` rejeitando com `ErroCenario` → o alerta com o texto da `ErroDeCenario` e `console.error` chamado.
+  - `CenarioFrontIT.salaDeCenarioDesconhecidoMostraErroNaTela`: a rota de `**/api/sala**` busca a resposta real e reescreve o `cenario` da visão para `"vulcao"`; Ana cria a sala → `getByRole(ALERT)` com "Não foi possível carregar o cenário. Recarregue a página." e o heading "Antes da primeira estrela" visível.
+- [ ] **Passo 2:** RED (o TS não declara `Visao.cenario` nem `aoTrocarCenario`; o e2e mostra o terraço com a visão trocada).
+- [ ] **Passo 3:** implementar. Atualizar o comentário do `CENARIO_PADRAO` e as fixtures de `Visao` (`cenario: "terraco"`).
+- [ ] **Passo 4:** `pnpm test`, `pnpm lint`, `./mvnw -q verify` e o `CenarioFrontIT` + `PwaIT` + `AxeIT` em chromium, firefox e webkit (um por vez), tudo verde; o terraço continua idêntico. `TamanhoDoJsInicialTest`: teto 90 KB (teste), meta 80 KB.
+- [ ] **Passo 5:** commit `feat(front): carrega o cenário da sala pela visão`.
 
 ### Task 3: Aquário — assets
 
@@ -498,7 +533,7 @@ Coordenadas em metros, no piso da cena (x lateral, y profundidade, z altura, com
   - `e2e/AxeIT.java` (estados "aquário montagem" e "aquário revelação").
 
 **Interfaces:**
-- Consome: `Cenario`, `Zona`, `Lugar`, `Peca`, `Desfecho`, `Resultado`, `Regras.*(Cenario, ...)` (1b/1c); `CenarioPagina` (Task 2); assets da Task 3 (`cena.json`, sprites `peixe`).
+- Consome: `Cenario`, `Zona`, `Lugar`, `Peca`, `Desfecho`, `Resultado`, `Regras.*(Cenario, ...)` (1b/1c); `CenarioPagina` (Task 2); o front que carrega o cenário da sala (Task 2b); assets da Task 3 (`cena.json`, sprites `peixe`).
 - Produz:
   - `public final class Aquario`:
     - `CENARIO` com id `"aquario"` e o `nome` provisório (ver "Nome de exibição" nas restrições globais);
@@ -1077,7 +1112,7 @@ Pergunta que o spike responde: **o export web single-thread do Godot 4, sem `uns
 - [ ] **Passo 3:** implementar. Commits separados:
   - `refactor(game): atividade do cenário como tipo selado` (só a Montagem, com a suíte verde);
   - `feat(fliperama): jogo embutido no encontro`.
-- [ ] **Passo 4:** `./mvnw -q verify`, `pnpm test`, o `FliperamaIT` + `AxeIT` nos 3 navegadores (um por vez) e o `TamanhoDoJsInicialTest` ≤ 80 KB (o jogo não entra no JS inicial), tudo verde.
+- [ ] **Passo 4:** `./mvnw -q verify`, `pnpm test`, o `FliperamaIT` + `AxeIT` nos 3 navegadores (um por vez) e o `TamanhoDoJsInicialTest` dentro do teto de 90 KB (teste; meta 80 KB; o jogo não entra no JS inicial), tudo verde.
 
 ### Task 21: Prova de 5 s no Android e playtest do fliperama
 
@@ -1135,6 +1170,7 @@ Precedente: o álbum do Gartic Phone. Cada pessoa põe uma peça por vez sem ver
 - **Pré-requisitos:**
   - Task 1: depois da 1b Task 3, quando os assets já estão em `assets/cenarios/terraco`.
   - Task 2: depois da 1c.
+  - Task 2b: depois da 1c (não depende da Task 2) e antes de qualquer sala com cenário diferente do terraço aberta pelo front: Passo 3 das Tasks 4, 7, 10 e 13 e os playtests.
   - Tasks 15 e 17: podem começar logo depois da 1c, porque não dependem de conta. O spike cedo reduz o risco do fliperama.
 - **Assets (Tasks 3, 6, 9, 12):** depois da Task 1, em paralelo, no máximo 4 subagentes ao mesmo tempo, somando todas as tasks.
   - As gerações na nuvem (Hi3D, Tripo, ElevenLabs) correm em paralelo.
@@ -1142,7 +1178,7 @@ Precedente: o álbum do Gartic Phone. Cada pessoa põe uma peça por vez sem ver
   - Cada worktree precisa dos GLBs do seu cenário (passo 1 do pipeline da skill).
 - **Dados (Tasks 4, 7, 10, 13):**
   - Passos 1–2 (Java: `Cenario`, `Desfecho`, testes e catálogo): só dependem da 1b, e podem correr junto dos assets.
-  - Passos 3–4 (`cenario.json`, e2e, axe): esperam a Task 2 e a task de assets do mesmo cenário.
+  - Passos 3–4 (`cenario.json`, e2e, axe): esperam as Tasks 2 e 2b e a task de assets do mesmo cenário.
   - O catálogo recebe uma linha por cenário; o merge resolve à mão.
 - **Playtests (Tasks 5, 8, 11, 14):** depois da task de dados do cenário, e portanto depois da 1c. Um playtest por vez na máquina (um servidor só, e Playwright MCP serializado).
 - **Fliperama:**

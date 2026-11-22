@@ -21,12 +21,12 @@ function visao(pecas: VisaoPeca[]): Visao {
 }
 
 /** Monta o #palco com as duas camadas e desenha as peças com o cenário dado. */
-function desenhar(cenario: CenarioFront, pecas: VisaoPeca[]): HTMLElement {
+function desenhar(cenario: CenarioFront, pecas: VisaoPeca[], fundos: HTMLElement[] = []): HTMLElement {
   const palco = document.createElement("div");
   palco.id = "palco";
   const camadaPecas = document.createElement("div");
   const camadaLugares = document.createElement("div");
-  palco.append(camadaPecas, camadaLugares);
+  palco.append(...fundos, camadaPecas, camadaLugares);
   document.body.append(palco);
   criarCena({
     palco,
@@ -55,6 +55,18 @@ describe("criarCena", () => {
     expect(palco.querySelector<HTMLElement>(".halo")?.style.width).toBe(
       `${(((pxPorMetro * 0.75) / largura) * 100).toFixed(3)}%`,
     );
+  });
+
+  it("fundo e sprites usam as variantes do cena.json do cenário", () => {
+    // Com a lista padrão (900, 1800, 2700), a largura do jsdom escolheria 1800.
+    const c: CenarioFront = { ...CENARIO_MINIMO, geometria: { ...CENARIO_MINIMO.geometria, variantes: [2700] } };
+    const fundo = document.createElement("img");
+    fundo.className = "terraco-crepusculo";
+
+    const palco = desenhar(c, [{ peca: "pedra", assento: "B", lugar: "P1" }], [fundo]);
+
+    expect(fundo.src).toMatch(/\/chao-crepusculo-2700\.webp$/);
+    expect(palco.querySelector<HTMLImageElement>(".sprite-crepusculo")?.src).toMatch(/\/pedra-crepusculo-2700\.webp$/);
   });
 
   it("peça sem efeito não ganha brilho", () => {

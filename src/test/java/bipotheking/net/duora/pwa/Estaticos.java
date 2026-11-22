@@ -21,8 +21,6 @@ final class Estaticos {
   /** O Surefire roda na raiz do módulo, então o caminho relativo aponta para a saída do build. */
   static final Path RAIZ = Path.of("target", "classes", "static");
 
-  private static final Path DADOS_TS = Path.of("frontend", "src", "dominio", "dados.ts");
-
   private static final Pattern ITEM_ENTRE_ASPAS = Pattern.compile("\"([^\"]+)\"");
   private static final Pattern ATRIBUTO = Pattern.compile("\\s([a-z-]+)=\"([^\"]*)\"");
 
@@ -52,11 +50,6 @@ final class Estaticos {
 
   static List<String> shell() {
     return itensEntreAspas(grupo(texto("sw.js"), "(?s)const SHELL = \\[(.*?)\\];"));
-  }
-
-  static List<Integer> variantesDoDadosJs() {
-    String lista = grupo(ler(DADOS_TS), "export const VARIANTES = \\[([^\\]]*)\\];");
-    return Stream.of(lista.split(",")).map(String::strip).map(Integer::valueOf).toList();
   }
 
   /**
