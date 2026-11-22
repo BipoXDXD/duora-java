@@ -63,5 +63,7 @@
 @custom-variant hover (&:hover);
 @custom-variant celular (@media (max-width: 860px));
 @custom-variant celular-alto (@media (max-width: 860px) and (min-height: 700px));
-/* Depois de celular: 844×390 casa com as duas, e a ordem de registro decide a cascata. */
-@custom-variant celular-deitado (@media (max-width: 860px) and (max-height: 500px) and (orientation: landscape));
+/* Depois de celular: 844×390 casa com as duas, e a ordem de registro decide a cascata. Vai até 960 px
+   (Pixel 7 deitado tem ~862 px) e, entre 861 e 960, não tem o celular: as classes celular: que o
+   deitado usa vêm repetidas com celular-deitado:. */
+@custom-variant celular-deitado (@media (max-width: 960px) and (max-height: 500px) and (orientation: landscape));

@@ -53,7 +53,11 @@ function IconePendente() {
 /** "O que falta": some quando a noite é revelada. */
 export function Falta({ visao }: { visao: Visao }) {
   return (
-    <section className="falta celular:order-4" aria-labelledby="falta-titulo" hidden={visao.fase === "REVELADO"}>
+    <section
+      className="falta celular:order-4 celular-deitado:order-4"
+      aria-labelledby="falta-titulo"
+      hidden={visao.fase === "REVELADO"}
+    >
       <h2 id="falta-titulo" className={SUBTITULO}>
         O que falta
       </h2>

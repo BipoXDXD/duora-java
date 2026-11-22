@@ -30,6 +30,8 @@ const CLASSES_DO_TOPO = [
   "celular:group-[.confirmando-saida]:pb-(--e-4)",
   // Deitado, o topo divide a coluna com o painel e pode quebrar em duas linhas (zoom de 200%).
   "celular-deitado:h-auto celular-deitado:min-h-(--altura-topo) celular-deitado:py-(--e-2)",
+  "celular-deitado:items-center celular-deitado:px-(--e-4) celular-deitado:bg-noite-950",
+  "celular-deitado:group-[.confirmando-saida]:pb-(--e-4)",
   "celular-alto:sticky celular-alto:top-0 celular-alto:z-5 celular-alto:group-[.confirmando-saida]:static",
 ].join(" ");
 
@@ -55,7 +57,7 @@ export function Topo({
   const indisponivel = enviandoSaida ? true : undefined;
   return (
     <header className={CLASSES_DO_TOPO}>
-      <h1 className="titulo m-0 font-titulo font-semibold text-[1.75rem] leading-[1.1] tracking-[-0.01em] celular:text-[1.25rem]">
+      <h1 className="titulo m-0 font-titulo font-semibold text-[1.75rem] leading-[1.1] tracking-[-0.01em] celular:text-[1.25rem] celular-deitado:text-[1.25rem]">
         Antes da primeira estrela
       </h1>
       <button
