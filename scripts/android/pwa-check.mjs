@@ -9,7 +9,7 @@
 //
 // Passos (PASSOS): adb reverse da porta e abre a URL no Chrome; consulta pelo CDP o manifest e
 // Page.getInstallabilityErrors; confere que o terraço em pé usa a largura 1800 (currentSrc +
-// escolherVariante do app) e só então captura a tela em pé (<nome>-em-pe.png); captura a tela
+// escolherVariante da Cena) e só então captura a tela em pé (<nome>-em-pe.png); captura a tela
 // deitada (<nome>-deitado.png) e devolve a rotação de antes; instala pelo menu "Install app" e
 // confirma WebAPK (pacote org.chromium.webapk.*) ou atalho fixado no launcher; abre o app
 // instalado, exige display-mode standalone sem a barra do navegador e captura
@@ -377,14 +377,21 @@ function capturarTela(adb, arquivo) {
 // refeita no próprio Chrome acusa.
 const VARIANTE_ESPERADA_EM_PE = 1800;
 
-/**
- * Lê pelo CDP a imagem que o Chrome escolheu para o terraço e refaz a conta do cena.js com o
- * escolherVariante do próprio app; exige as duas iguais a VARIANTE_ESPERADA_EM_PE.
- */
-async function verificarTerraco(cdp) {
-  const { result, exceptionDetails } = await cdp.enviar('Runtime.evaluate', {
-    expression: `(async () => {
-      const { escolherVariante, VARIANTES } = await import('/js/dados.js');
+// Larguras dos renders do terraço e a regra de escolha, iguais às de frontend/src/dominio/dados.ts.
+// O front empacotado não expõe o módulo à página; se a regra ou as larguras mudarem lá, a captura
+// em pé deixa de bater com VARIANTE_ESPERADA_EM_PE e o verificarTerraco acusa.
+const VARIANTES = [900, 1800, 2700];
+
+/** A menor variante que cobre larguraCss × dpr, ou a maior quando nenhuma cobre. */
+export function escolherVariante(larguraCss, dpr, variantes) {
+  const ordenadas = [...variantes].sort((a, b) => a - b);
+  return ordenadas.find((v) => v >= larguraCss * dpr) ?? ordenadas.at(-1);
+}
+
+/** Expressão avaliada na página: mede o palco, espera o terraço carregar e refaz a conta. */
+export function expressaoDoTerraco() {
+  return `(async () => {
+      const escolherVariante = ${escolherVariante.toString()};
       const palco = document.getElementById('palco');
       const larguraCss = palco.getBoundingClientRect().width || innerWidth;
       const dpr = devicePixelRatio || 1;
@@ -393,9 +400,18 @@ async function verificarTerraco(cdp) {
       while (!(terraco.complete && terraco.currentSrc) && Date.now() < limite) {
         await new Promise((r) => setTimeout(r, 250));
       }
-      return { larguraCss, dpr, escolhida: escolherVariante(larguraCss, dpr, VARIANTES),
+      return { larguraCss, dpr, escolhida: escolherVariante(larguraCss, dpr, ${JSON.stringify(VARIANTES)}),
         currentSrc: terraco.currentSrc };
-    })()`,
+    })()`;
+}
+
+/**
+ * Lê pelo CDP a imagem que o Chrome escolheu para o terraço e refaz a conta da Cena com a mesma
+ * regra; exige as duas iguais a VARIANTE_ESPERADA_EM_PE.
+ */
+async function verificarTerraco(cdp) {
+  const { result, exceptionDetails } = await cdp.enviar('Runtime.evaluate', {
+    expression: expressaoDoTerraco(),
     awaitPromise: true, returnByValue: true,
   });
   if (exceptionDetails) {
