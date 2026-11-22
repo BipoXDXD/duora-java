@@ -63,3 +63,62 @@ Spec: `docs/superpowers/specs/2026-11-21-duora-social-design.md`. Ordem: 0 → 1
 - **Execução:** pela skill subagent-driven-development, com agentes Opus High e no máximo 4 simultâneos.
 - **Commits:** Conventional Commits em pt-BR, com o trailer `Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>`.
 - **Decisões do dono:** um plano que precise de uma escolha que só o dono pode fazer (fornecedor, custo, algo irreversível) a lista numa seção "Decisões do dono", com opções e uma recomendação, e não bloqueia o resto.
+
+## Princípios de engenharia (pedido do dono, 2026-11-22)
+Valem as regras de `~/.claude/knowledge/regras-globais.md`: Qualidade de código, Design patterns, Arquitetura, Sistemas distribuídos e dados, Testes. Os revisores citam o smell ou o refactoring pelo nome (Fowler, Clean Code) e a regra violada.
+
+**Clean Code e Refactoring**
+- Commit de refatoração separado de commit de comportamento, sempre com testes verdes.
+- "Make the change easy, then make the easy change": um plano que mexe em código ruim começa com uma task de refatoração.
+- Funções curtas com nome de intenção, sem flag argument, guard clauses, "parse, don't validate" na fronteira (tipos de domínio nascem válidos) e módulos profundos.
+
+**Clean Architecture**
+- **Dependências:** o domínio (`game/`, regras de `pareamento/`, `encontro/`, `conexao/`) não importa Spring web, JDBC nem Jackson. As portas são interfaces no núcleo, e os adapters ficam na infraestrutura, com o sufixo `...Adapter` ou o nome da tecnologia.
+- **Portas:** só onde há borda real: `Clock`, `EnvioDeEmail`, `VerificacaoHumana`, `ProcessadorDeImagem`, `EnvioDePush`, `CredenciaisTurn` e os repositórios. Nada de interface 1:1 por reflexo.
+- **Boundary:** parcial por padrão, com a completa só quando a parcial começar a custar.
+- **Fronteiras com fitness functions (ArchUnit no `verify`):**
+  - nenhum ciclo entre módulos;
+  - nenhum módulo importa as classes internas de outro, só a API pública dele (package-private por padrão);
+  - o domínio não depende de `org.springframework.web` nem `..jdbc..`;
+  - a ArchUnit entra na Etapa 2.
+- **ADR:** toda decisão significativa vira `docs/adr/NNNN-titulo.md`. As retroativas são: 0001 monólito modular + Postgres, 0002 SSE + POST, 0003 motor de cenários, 0004 front React, 0005 PWA e cache por impressão.
+
+**GoF, só quando o problema existe**
+- **Strategy:** `Desfecho` por cenário, como função ou record.
+- **State:** as fases do encontro, com tipo selado (`sealed interface`) e `switch` exaustivo em vez de enum mais ifs espalhados.
+- **Adapter:** em volta do Resend, do Turnstile, do libvips, do Web Push e do coturn.
+- **Observer:** pelos eventos do Spring (`ApplicationEventPublisher`) só quando houver vários efeitos independentes, por exemplo encontro encerrado → decisão, métricas e notificação.
+- **Proibido:** Singleton manual e `static` mutável. A injeção é sempre pelo construtor.
+
+**DDIA**
+- **Sem dual write:** e-mail, push e eventos para outros módulos saem por transactional outbox (tabela `outbox` na mesma transação, despachante com retry, backoff e jitter, idempotente).
+- **Idempotência:** POSTs repetíveis (pedir link mágico, decidir, aceitar convite, enviar mensagem) aceitam o cabeçalho `Idempotency-Key`, gravado com o efeito, com `UNIQUE` e limpeza automática.
+- **Concorrência:**
+  - sem read-modify-write;
+  - o encontro usa versão otimista (`versao`) e UPDATE condicional;
+  - invariantes viram constraints, por exemplo um encontro ativo por conta com índice único parcial e um par já decidido "não" com `UNIQUE (menor_id, maior_id)`;
+  - o pareamento retira da fila com `SELECT ... FOR UPDATE SKIP LOCKED` numa transação curta.
+- **Ordem e tempo:**
+  - o `Last-Event-ID` do SSE e a ordem do chat vêm de uma sequência do banco, nunca de timestamp;
+  - instantes em `timestamptz` UTC;
+  - durações medidas com relógio monotônico.
+- **Robustez:**
+  - timeout em toda chamada externa (Resend, Turnstile, Push, libvips via processo);
+  - filas, pools e consultas limitados;
+  - todo acúmulo (sessões, tokens, outbox, chaves de idempotência, chat de 30 dias) tem job de limpeza e métrica de tamanho.
+- **Logs:** estruturados (JSON), com correlation ID por requisição desde a Etapa 2.
+
+**Skills a usar (superpowers e mattpocock)**
+| Momento | Skill |
+|---|---|
+| Ideia nova ou etapa sem spec | `superpowers:brainstorming`; `mattpocock-skills:grilling` para apertar requisitos |
+| Modelagem de domínio (contas, encontro, conexão, moderação) | `mattpocock-skills:domain-modeling` |
+| Desenho de módulo ou interface antes do plano | `mattpocock-skills:codebase-design` (com duas alternativas, regra 34) |
+| Plano | `superpowers:writing-plans` |
+| Execução | `superpowers:subagent-driven-development`; implementadores com `superpowers:test-driven-development` ou `mattpocock-skills:tdd` |
+| Bug ou teste instável | `superpowers:systematic-debugging` ou `mattpocock-skills:diagnosing-bugs` |
+| Dúvida técnica ou de biblioteca | `mattpocock-skills:research` + Context7 |
+| Experimento descartável (WebRTC, Godot, SSE) | `mattpocock-skills:prototype` |
+| Revisão | `superpowers:requesting-code-review`, `mattpocock-skills:code-review`; ao receber, `superpowers:receiving-code-review` |
+| Antes de dizer "pronto" | `superpowers:verification-before-completion`, depois `duora-etapa` |
+| Fechar a branch | `superpowers:finishing-a-development-branch` |
