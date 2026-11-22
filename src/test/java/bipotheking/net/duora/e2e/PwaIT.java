@@ -155,6 +155,9 @@ class PwaIT {
     page.reload();
 
     assertThat(page).hasTitle(TITULO);
+    // A tela de erro do cenário tem o mesmo título: o app só montou se o palco existe sem alerta.
+    assertThat(page.locator("#palco")).isAttached();
+    assertThat(page.locator("[role=alert]")).hasCount(0);
   }
 
   /**
