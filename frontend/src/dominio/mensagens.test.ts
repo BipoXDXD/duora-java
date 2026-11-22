@@ -123,6 +123,30 @@ describe("textoResultado", () => {
         "Ana trouxe a manta; Bruno, o banco e a lanterna.",
     });
   });
+
+  it("do lado de B, os nomes seguem os assentos", () => {
+    const deB = visao({
+      fase: "REVELADO",
+      voce: { assento: "B", nome: "Bruno" },
+      parceiro: { assento: "A", nome: "Ana", conectado: true },
+      resultado: { secundariaA: "radio", secundariaB: "garrafa", ladoTelescopio: "oeste" },
+    });
+
+    expect(textoResultado(deB).texto).toBe(
+      "O telescópio de Ana aponta para o lado oeste do céu, e é por ali que os meteoros passam. " +
+        "Ana trouxe o rádio; Bruno, o banco e a garrafa térmica.",
+    );
+  });
+
+  it("sem parceiro, a visão revelada é contrato quebrado", () => {
+    const semParceiro = visao({
+      fase: "REVELADO",
+      parceiro: null,
+      resultado: { secundariaA: "manta", secundariaB: "lanterna", ladoTelescopio: "leste" },
+    });
+
+    expect(() => textoResultado(semParceiro)).toThrow("Visão revelada sem quem está no assento B");
+  });
 });
 
 describe("textoPecasDoParceiro", () => {

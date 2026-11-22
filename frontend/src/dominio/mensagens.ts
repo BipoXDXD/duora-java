@@ -103,20 +103,27 @@ export function textoResultado(visao: Visao): { titulo: string; texto: string } 
     throw new Error("Visão sem resultado: a noite ainda não foi revelada");
   }
   const { secundariaA, secundariaB, ladoTelescopio } = visao.resultado;
-  const nomes: Partial<Record<Assento, string>> = { [visao.voce.assento]: visao.voce.nome };
-  if (visao.parceiro) {
-    nomes[visao.parceiro.assento] = visao.parceiro.nome;
-  }
   const a = dadosDaPeca(secundariaA);
   const b = dadosDaPeca(secundariaB);
-  const nomeA = String(nomes.A);
-  const nomeB = String(nomes.B);
+  const nomeA = nomeNoAssento(visao, "A");
+  const nomeB = nomeNoAssento(visao, "B");
   return {
     titulo: `Uma noite de ${a.nome.toLowerCase()} e ${b.nome.toLowerCase()}`,
     texto:
       `O telescópio de ${nomeA} aponta para o lado ${ladoTelescopio} do céu, e é por ali que os meteoros passam. ` +
       `${nomeA} trouxe ${a.artigo}; ${nomeB}, o banco e ${b.artigo}.`,
   };
+}
+
+/** Nome de quem ocupa o assento; a noite só é revelada com os dois assentos ocupados. */
+function nomeNoAssento(visao: Visao, assento: Assento): string {
+  if (visao.voce.assento === assento) {
+    return visao.voce.nome;
+  }
+  if (visao.parceiro?.assento === assento) {
+    return visao.parceiro.nome;
+  }
+  throw new Error(`Visão revelada sem quem está no assento ${assento}`);
 }
 
 /** O que o parceiro fez com as peças dele entre duas visões; null se nada mudou. */
