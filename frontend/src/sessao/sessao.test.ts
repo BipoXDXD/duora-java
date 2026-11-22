@@ -331,4 +331,100 @@ describe("criarSessao", () => {
 
     expect([ligado, sessao.obter().somLigado]).toEqual([true, false]);
   });
+
+  it("nova tentativa de entrar limpa o erro do apelido", async () => {
+    const respostas = [
+      () => Promise.reject(new ErroApi({ status: 400, codigo: "APELIDO_INVALIDO" })),
+      () => Promise.reject(new ErroApi({ status: 0, codigo: "REDE" })),
+    ];
+    const { sessao, doPolling } = montar({
+      api: { criarSala: vi.fn(() => respostas.shift()?.() ?? pendente()) },
+    });
+    sessao.iniciar();
+    doPolling().aoFalhar(new ErroApi({ status: 401, codigo: "SEM_ASSENTO" }), null);
+    await sessao.enviarApelido("");
+
+    await sessao.enviarApelido("Ana");
+
+    expect(sessao.obter()).toMatchObject({ tela: "entrada", erroApelido: "" });
+  });
+
+  it("limparErroApelido apaga o erro marcado pelo servidor", async () => {
+    const { sessao, doPolling } = montar({
+      api: { criarSala: vi.fn(() => Promise.reject(new ErroApi({ status: 400, codigo: "APELIDO_INVALIDO" }))) },
+    });
+    sessao.iniciar();
+    doPolling().aoFalhar(new ErroApi({ status: 401, codigo: "SEM_ASSENTO" }), null);
+    await sessao.enviarApelido("");
+
+    sessao.limparErroApelido();
+
+    expect(sessao.obter()).toMatchObject({ tela: "entrada", erroApelido: "" });
+  });
+
+  it("parar desliga o polling", () => {
+    const { sessao, polling } = montar();
+    sessao.iniciar();
+
+    sessao.parar();
+
+    expect(polling.parar).toHaveBeenCalledOnce();
+  });
+
+  it("409 sem visão redesenha e consulta a sala na hora", async () => {
+    const recusa = new ErroApi({ status: 409, codigo: "VERSAO_OBSOLETA" });
+    const { sessao, aviso, polling } = naSala(visao(), {
+      api: { moverPeca: vi.fn(() => Promise.reject(recusa)) },
+    });
+    await sessao.escolherPeca("telescopio", true);
+
+    await sessao.escolherLugar("C1", null);
+
+    expect(polling.consultarAgora).toHaveBeenCalledOnce();
+    expect(sessao.obter()).toMatchObject({ tela: "montagem", enviando: null });
+    expect(aviso.avisar).toHaveBeenLastCalledWith("A composição mudou; veja a versão atual.", "erro");
+  });
+
+  it("409 com visão em que a peça deixou de estar selecionável devolve o foco ao item", async () => {
+    const resultado = { secundariaA: "manta", secundariaB: "lanterna", ladoTelescopio: "esquerda" };
+    const recusa = new ErroApi({ status: 409, codigo: "FASE_INVALIDA", visao: visao({ fase: "REVELADO", resultado }) });
+    const { sessao } = naSala(visao(), { api: { moverPeca: vi.fn(() => Promise.reject(recusa)) } });
+    await sessao.escolherPeca("telescopio", true);
+    sessao.consumirFoco();
+
+    await sessao.escolherLugar("C1", null);
+
+    expect(sessao.consumirFoco()).toEqual({ alvo: "item", peca: "telescopio" });
+  });
+
+  it("sair com erro fora da API reabre o polling e avisa", async () => {
+    const { sessao, polling, aviso } = naSala(visao(), {
+      api: { sair: vi.fn(() => Promise.reject(new TypeError("quebrou"))) },
+    });
+
+    await sessao.encerrar();
+
+    expect(sessao.obter()).toMatchObject({ tela: "montagem", enviando: null });
+    expect(polling.iniciar).toHaveBeenCalledTimes(2);
+    expect(aviso.avisar).toHaveBeenLastCalledWith("O servidor não aceitou o pedido (0). Tente de novo.", "erro");
+  });
+
+  it("erro fora da API no polling mantém a tela, apaga a noite e o som e avisa", () => {
+    const resultado = { secundariaA: "manta", secundariaB: "lanterna", ladoTelescopio: "esquerda" };
+    const { sessao, doPolling, aviso } = naSala(visao({ fase: "REVELADO", resultado }));
+    sessao.alternarSom();
+
+    doPolling().aoFalhar(new TypeError("quebrou"), null);
+
+    expect(sessao.obter()).toMatchObject({
+      tela: "montagem",
+      somLigado: false,
+      momento: "crepusculo",
+      ladoTelescopio: null,
+    });
+    expect(aviso.avisar).toHaveBeenLastCalledWith(
+      "Algo deu errado ao falar com o servidor. Recarregue a página.",
+      "erro",
+    );
+  });
 });
