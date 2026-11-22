@@ -26,8 +26,21 @@ export function sprite(peca, lugar) {
   return peca;
 }
 
-export function urlSprite(nome, momento) {
-  return `/assets/cena/${nome}-${momento}.webp`;
+/**
+ * Largura do render (família do terraço) para a tela: a menor variante que cobre
+ * larguraCss × dpr, ou a maior quando nenhuma cobre.
+ */
+export function escolherVariante(larguraCss, dpr, variantes) {
+  const ordenadas = [...variantes].sort((a, b) => a - b);
+  const alvo = larguraCss * dpr;
+  return ordenadas.find((v) => v >= alvo) ?? ordenadas[ordenadas.length - 1];
+}
+
+/** Miniaturas do inventário têm 56 px: a família menor basta em qualquer densidade. */
+export const LARGURA_MINIATURA = 900;
+
+export function urlSprite(nome, momento, largura) {
+  return `/assets/cena/${nome}-${momento}-${largura}.webp`;
 }
 
 export async function carregarCena() {

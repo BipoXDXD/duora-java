@@ -3,10 +3,14 @@
 Uso (headless, sem créditos):
     /Applications/Blender.app/Contents/MacOS/Blender -b -P assets/source/blender/cena.py -- <raiz-do-projeto>
 
-Saídas em src/main/resources/static/assets/cena/:
-    terraco-crepusculo.webp, terraco-noite.webp  (terraço sem props, fundo transparente)
-    <prop>-crepusculo.webp, <prop>-noite.webp     (prop recortado com sombra)
-    cena.json                                     (tamanhos, âncoras e lugares em px)
+Saídas em src/main/resources/static/assets/cena/, cada imagem em três larguras (VARIANTES):
+    terraco-<momento>-<largura>.webp  (terraço sem props, fundo transparente)
+    <prop>-<momento>-<largura>.webp   (prop recortado com sombra, na escala do terraço da família)
+    cena.json                         (tamanhos, âncoras e lugares em px de referência, 1800 de largura)
+
+Renderiza uma vez na largura mestre (DUORA_LARGURA, padrão 2700) e reduz para cada variante
+com o cwebp (qualidade 88). O recorte dos props cai na grade de um pixel da variante menor,
+então as três larguras têm medidas inteiras e exatas.
 
 Câmera ortográfica fixa: o mesmo sprite serve em qualquer lugar do piso.
 O céu não é renderizado; fica no CSS para permitir a transição e os meteoros.
@@ -15,6 +19,8 @@ O céu não é renderizado; fica no CSS para permitir a transição e os meteoro
 import json
 import math
 import os
+import shutil
+import subprocess
 import sys
 
 import bpy
@@ -25,7 +31,14 @@ from mathutils import Vector
 RAIZ = sys.argv[sys.argv.index("--") + 1] if "--" in sys.argv else os.getcwd()
 SAIDA = os.path.join(RAIZ, "src/main/resources/static/assets/cena")
 TEMP = os.path.join(RAIZ, "target/blender")
+# Referência das coordenadas do cena.json: largura 1800; a altura sai do enquadramento.
 LARGURA, ALTURA = 1800, 870
+VARIANTES = (900, 1800, 2700)
+LARGURA_MESTRE = int(os.environ.get("DUORA_LARGURA", str(max(VARIANTES))))
+if LARGURA_MESTRE % min(VARIANTES):
+    raise SystemExit(f"DUORA_LARGURA tem de ser múltiplo de {min(VARIANTES)}: {LARGURA_MESTRE}")
+# Pixels do mestre que viram um pixel da menor variante: o recorte cai nessa grade.
+GRADE = LARGURA_MESTRE // min(VARIANTES)
 AMOSTRAS = int(os.environ.get("DUORA_AMOSTRAS", "96"))
 
 # Lugares no piso (metros). C = área de observação, L/R = laterais.
@@ -487,8 +500,8 @@ def configurar_render():
     cena.cycles.samples = AMOSTRAS
     cena.cycles.use_denoising = True
     cena.render.film_transparent = True
-    cena.render.resolution_x = LARGURA
-    cena.render.resolution_y = ALTURA
+    cena.render.resolution_x = LARGURA_MESTRE
+    cena.render.resolution_y = altura_mestre()
     cena.render.resolution_percentage = 100
     cena.view_settings.view_transform = "Standard"
     cena.view_settings.look = "None"
@@ -557,7 +570,7 @@ def enquadrar(cam, raiz, margem=0.03, folga_topo=0.12):
     centro_v = ((v0 + v1) / 2 - 0.5) * sy + cam.data.shift_y * escala + (v1 - v0) * sy * folga_topo / 2
     cam.data.ortho_scale = largura_u
     ALTURA = int(round(LARGURA * altura_u / largura_u / 2) * 2)
-    cena.render.resolution_y = ALTURA
+    cena.render.resolution_y = altura_mestre()
     cam.data.shift_x = centro_u / largura_u
     cam.data.shift_y = centro_v / largura_u
 
@@ -589,8 +602,16 @@ def pixel(cam, ponto):
     return round(c.x * LARGURA, 1), round((1 - c.y) * ALTURA, 1)
 
 
+def altura_mestre():
+    """Altura do render mestre: ALTURA é par, então a altura de cada variante também é inteira."""
+    return ALTURA * LARGURA_MESTRE // LARGURA
+
+
 def recortar(origem, destino):
-    """Recorta a área com alfa e salva em WebP; devolve (x0, y0, largura, altura) em px."""
+    """Recorta a área com alfa num PNG; devolve (x0, y0, largura, altura) em px do mestre.
+
+    As bordas caem na GRADE para que cada variante tenha largura e altura inteiras.
+    """
     img = bpy.data.images.load(origem)
     w, h = img.size
     px = np.array(img.pixels[:], dtype=np.float32).reshape(h, w, 4)[::-1]
@@ -598,30 +619,51 @@ def recortar(origem, destino):
     visivel = px[:, :, 3] > 0.04
     linhas = np.where(visivel.sum(axis=1) > 2)[0]
     colunas = np.where(visivel.sum(axis=0) > 2)[0]
-    margem = 4
-    y0, y1 = max(linhas[0] - margem, 0), min(linhas[-1] + margem + 1, h)
-    x0, x1 = max(colunas[0] - margem, 0), min(colunas[-1] + margem + 1, w)
+    margem = 4 * LARGURA_MESTRE // LARGURA
+
+    def na_grade(inicio, fim, limite):
+        inicio = max(inicio - margem, 0) // GRADE * GRADE
+        fim = min(-(-(fim + margem + 1) // GRADE) * GRADE, limite)
+        return int(inicio), int(fim)
+
+    y0, y1 = na_grade(linhas[0], linhas[-1], h)
+    x0, x1 = na_grade(colunas[0], colunas[-1], w)
     recorte = px[y0:y1, x0:x1][::-1]
     nova = bpy.data.images.new(os.path.basename(destino), x1 - x0, y1 - y0, alpha=True)
     nova.pixels = recorte.ravel()
     nova.filepath_raw = destino
-    nova.file_format = "WEBP"
-    nova.save(quality=QUALIDADE_WEBP)
+    nova.file_format = "PNG"
+    nova.save()
     bpy.data.images.remove(img)
     bpy.data.images.remove(nova)
-    return int(x0), int(y0), int(x1 - x0), int(y1 - y0)
+    return x0, y0, x1 - x0, y1 - y0
 
 
 # Padrão único para todas as imagens da página (cena e céu): WebP qualidade 88.
 QUALIDADE_WEBP = 88
 
 
-def renderizar_webp(caminho, qualidade=QUALIDADE_WEBP):
-    ajustes = bpy.context.scene.render.image_settings
-    ajustes.file_format = "WEBP"
-    ajustes.quality = qualidade
-    renderizar(caminho)
-    ajustes.file_format = "PNG"
+def _cwebp():
+    caminho = shutil.which("cwebp") or next(
+        (c for c in ("/opt/homebrew/bin/cwebp", "/usr/local/bin/cwebp") if os.path.exists(c)), None
+    )
+    if not caminho:
+        raise SystemExit("cwebp não encontrado: instale o libwebp (brew install webp)")
+    return caminho
+
+
+def exportar_variantes(png, nome, momento):
+    """Grava <nome>-<momento>-<v>.webp para cada variante, reduzindo o PNG mestre."""
+    img = bpy.data.images.load(png)
+    w, h = img.size
+    bpy.data.images.remove(img)
+    cwebp = _cwebp()
+    for v in VARIANTES:
+        comando = [cwebp, "-quiet", "-q", str(QUALIDADE_WEBP)]
+        if v != LARGURA_MESTRE:
+            comando += ["-resize", str(w * v // LARGURA_MESTRE), str(h * v // LARGURA_MESTRE)]
+        destino = os.path.join(SAIDA, f"{nome}-{momento}-{v}.webp")
+        subprocess.run([*comando, png, "-o", destino], check=True)
 
 
 # ---------------------------------------------------------------- principal
@@ -644,6 +686,7 @@ def main():
         "largura": LARGURA,
         "altura": ALTURA,
         "pxPorMetro": round(LARGURA / cam.data.ortho_scale, 2),
+        "variantes": list(VARIANTES),
         "lugares": {k: dict(zip(("x", "y"), pixel(cam, (x, y, 0)))) for k, (x, y) in LUGARES.items()},
         "props": {},
     }
@@ -655,7 +698,9 @@ def main():
         if not so or so == "terraco":
             sombra.hide_render = True
             ocultar(terraco, False)
-            renderizar_webp(os.path.join(SAIDA, f"terraco-{momento}.webp"))
+            png = os.path.join(TEMP, f"terraco-{momento}.png")
+            renderizar(png)
+            exportar_variantes(png, "terraco", momento)
 
         sombra.hide_render = False
         ocultar(terraco, True)
@@ -685,7 +730,9 @@ def main():
             raiz = construir()
             png = os.path.join(TEMP, f"{nome}-{momento}.png")
             renderizar(png)
-            x0, y0, w, h = recortar(png, os.path.join(SAIDA, f"{nome}-{momento}.webp"))
+            recorte = os.path.join(TEMP, f"{nome}-{momento}-recorte.png")
+            x0, y0, w, h = (n * LARGURA // LARGURA_MESTRE for n in recortar(png, recorte))
+            exportar_variantes(recorte, nome, momento)
             dados["props"].setdefault(nome, {})[momento] = {
                 "largura": w,
                 "altura": h,
@@ -706,6 +753,7 @@ def main():
         with open(arquivo_json, encoding="utf-8") as f:
             existente = json.load(f)
         existente["props"].update(dados["props"])
+        existente["variantes"] = dados["variantes"]
         dados = existente
     with open(arquivo_json, "w", encoding="utf-8") as f:
         json.dump(dados, f, ensure_ascii=False, indent=2)

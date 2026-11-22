@@ -1,13 +1,26 @@
 // Desenha o terraço a partir da visão da sala. Não decide regras: usa os lugares
 // permitidos que a visão traz para a peça selecionada.
 
-import { LUGARES, PECAS, sprite, urlSprite } from "./dados.js";
+import { escolherVariante, LUGARES, PECAS, sprite, urlSprite } from "./dados.js";
 
 const pct = (valor, total) => `${((valor / total) * 100).toFixed(3)}%`;
 
 export function criarCena({ palco, camadaPecas, camadaLugares, geometria, aoEscolherPeca, aoEscolherLugar }) {
   const { largura, altura } = geometria;
   const diametroLugar = geometria.pxPorMetro * 0.95;
+  // Uma família por carregamento, escolhida depois do layout: terraço e sprites na mesma escala.
+  const variante = escolherVariante(
+    palco.getBoundingClientRect().width || window.innerWidth,
+    window.devicePixelRatio || 1,
+    geometria.variantes,
+  );
+  for (const momento of ["crepusculo", "noite"]) {
+    const terraco = palco.querySelector(`.terraco-${momento}`);
+    const url = urlSprite("terraco", momento, variante);
+    if (terraco && !terraco.src.endsWith(url)) {
+      terraco.src = url;
+    }
+  }
 
   function desenharPecas(visao, selecionada) {
     const fragmento = document.createDocumentFragment();
@@ -68,14 +81,14 @@ export function criarCena({ palco, camadaPecas, camadaLugares, geometria, aoEsco
       }
 
       const img = new Image();
-      img.src = urlSprite(nome, "crepusculo");
+      img.src = urlSprite(nome, "crepusculo", variante);
       img.alt = "";
       img.className = "sprite-crepusculo";
       botao.append(img);
 
       // O sprite da noite tem outro recorte (sombra em outra direção): alinhar pela âncora.
       const imgNoite = new Image();
-      imgNoite.src = urlSprite(nome, "noite");
+      imgNoite.src = urlSprite(nome, "noite", variante);
       imgNoite.alt = "";
       imgNoite.loading = "lazy";
       imgNoite.className = "sprite-noite";
@@ -201,7 +214,10 @@ export function desenharCeu(svgEstrelas, janelas) {
   }
 }
 
-/** Liga o céu pintado só se as duas imagens carregarem; senão ficam gradientes e silhueta SVG. */
+/**
+ * Liga o céu pintado só se as duas imagens carregarem; senão ficam gradientes e silhueta SVG.
+ * Pré-carrega a mesma largura que o image-set do CSS escolhe (1x → 1280, 2x → 2560).
+ */
 export function prepararCeuPintado(app) {
   const carregar = (url) =>
     new Promise((resolve, reject) => {
@@ -210,7 +226,8 @@ export function prepararCeuPintado(app) {
       imagem.addEventListener("error", reject, { once: true });
       imagem.src = url;
     });
-  Promise.all(["/assets/ceu/ceu-crepusculo.webp", "/assets/ceu/ceu-noite.webp"].map(carregar))
+  const largura = (window.devicePixelRatio || 1) > 1 ? 2560 : 1280;
+  Promise.all(["crepusculo", "noite"].map((momento) => carregar(`/assets/ceu/ceu-${momento}-${largura}.webp`)))
     .then(() => app.classList.add("ceu-pintado"))
     .catch(() => {});
 }

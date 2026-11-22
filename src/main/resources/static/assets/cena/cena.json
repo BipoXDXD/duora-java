@@ -2,6 +2,11 @@
   "largura": 1800,
   "altura": 1186,
   "pxPorMetro": 201.15,
+  "variantes": [
+    900,
+    1800,
+    2700
+  ],
   "lugares": {
     "C1": {
       "x": 734.5,
@@ -31,41 +36,41 @@
   "props": {
     "telescopio-esq": {
       "crepusculo": {
-        "largura": 517,
-        "altura": 393,
-        "ancoraX": 175.0,
+        "largura": 518,
+        "altura": 394,
+        "ancoraX": 176.0,
         "ancoraY": 340.4
       },
       "noite": {
-        "largura": 641,
+        "largura": 642,
         "altura": 386,
-        "ancoraX": 469.0,
+        "ancoraX": 470.0,
         "ancoraY": 340.4
       }
     },
     "telescopio-dir": {
       "crepusculo": {
-        "largura": 551,
+        "largura": 554,
         "altura": 428,
-        "ancoraX": 173.0,
+        "ancoraX": 174.0,
         "ancoraY": 364.4
       },
       "noite": {
-        "largura": 607,
-        "altura": 423,
-        "ancoraX": 430.0,
+        "largura": 610,
+        "altura": 424,
+        "ancoraX": 432.0,
         "ancoraY": 364.4
       }
     },
     "banco": {
       "crepusculo": {
         "largura": 438,
-        "altura": 229,
-        "ancoraX": 175.0,
+        "altura": 230,
+        "ancoraX": 174.0,
         "ancoraY": 166.4
       },
       "noite": {
-        "largura": 427,
+        "largura": 428,
         "altura": 218,
         "ancoraX": 268.0,
         "ancoraY": 166.4
@@ -73,37 +78,37 @@
     },
     "manta": {
       "crepusculo": {
-        "largura": 294,
-        "altura": 185,
-        "ancoraX": 147.0,
+        "largura": 296,
+        "altura": 186,
+        "ancoraX": 148.0,
         "ancoraY": 110.4
       },
       "noite": {
-        "largura": 302,
+        "largura": 304,
         "altura": 174,
-        "ancoraX": 171.0,
+        "ancoraX": 172.0,
         "ancoraY": 110.4
       }
     },
     "radio": {
       "crepusculo": {
-        "largura": 209,
-        "altura": 212,
+        "largura": 210,
+        "altura": 214,
         "ancoraX": 76.0,
-        "ancoraY": 179.4
+        "ancoraY": 180.4
       },
       "noite": {
-        "largura": 239,
-        "altura": 212,
-        "ancoraX": 163.0,
-        "ancoraY": 179.4
+        "largura": 240,
+        "altura": 214,
+        "ancoraX": 164.0,
+        "ancoraY": 180.4
       }
     },
     "lanterna": {
       "crepusculo": {
-        "largura": 188,
-        "altura": 204,
-        "ancoraX": 57.0,
+        "largura": 190,
+        "altura": 206,
+        "ancoraX": 58.0,
         "ancoraY": 170.4
       },
       "noite": {
@@ -115,16 +120,16 @@
     },
     "garrafa": {
       "crepusculo": {
-        "largura": 194,
-        "altura": 217,
-        "ancoraX": 69.0,
-        "ancoraY": 177.4
+        "largura": 196,
+        "altura": 220,
+        "ancoraX": 70.0,
+        "ancoraY": 178.4
       },
       "noite": {
-        "largura": 243,
-        "altura": 209,
+        "largura": 242,
+        "altura": 210,
         "ancoraX": 176.0,
-        "ancoraY": 177.4
+        "ancoraY": 178.4
       }
     }
   }

@@ -9,9 +9,9 @@ Status: `PROVISÓRIO`, `Candidato a FINAL` (gerado, aguarda o aceite visual do d
 
 | Export | Origem | Ferramenta | Licença | Status |
 |---|---|---|---|---|
-| `cena/terraco-{crepusculo,noite}.webp` | `source/blender/cena.py` (geometria procedural) | Blender 5.3, Cycles, câmera ortográfica | Própria | Candidato a FINAL |
-| `cena/{telescopio-esq,telescopio-dir,banco,manta,radio,lanterna,garrafa}-{crepusculo,noite}.webp` | `source/modelos/*.glb` (Hi3D) importados pelo `cena.py`, malha reduzida a 8% | Hi3D (imagem Nano-Banana 2 → 3D v3.0, PBR) + Blender 5.3 | CC BY 4.0 (gerado pelo autor no Hi3D) | Candidato a FINAL (aguarda aceite) |
-| `ceu/ceu-{crepusculo,noite}.webp` (2560×1440, WebP q88, `source/ceu/exportar.sh`) | `source/ceu/ceu-{crepusculo,noite}-4k.png` | Tripo `chat_image_2.5_sunburst`, quality high (noite: texto→imagem; crepúsculo: edição da noite). Lua descida ~480 px no master por edição local (PIL), igual nas duas | CC BY 4.0 (gerado pelo autor no Tripo) | Candidato a FINAL |
+| `cena/terraco-{crepusculo,noite}-{900,1800,2700}.webp` | `source/blender/cena.py` (geometria procedural) | Blender 5.3, Cycles, câmera ortográfica; mestre em 2700 px reduzido pelo `cwebp` (2026-11-22) | Própria | Candidato a FINAL |
+| `cena/{telescopio-esq,telescopio-dir,banco,manta,radio,lanterna,garrafa}-{crepusculo,noite}-{900,1800,2700}.webp` | `source/modelos/*.glb` (Hi3D) importados pelo `cena.py`, malha reduzida a 8% | Hi3D (imagem Nano-Banana 2 → 3D v3.0, PBR) + Blender 5.3 | CC BY 4.0 (gerado pelo autor no Hi3D) | Candidato a FINAL (aguarda aceite) |
+| `ceu/ceu-{crepusculo,noite}-{1280,2560}.webp` (1280×720 e 2560×1440, WebP q88, `source/ceu/exportar.sh`, 2026-11-22) | `source/ceu/ceu-{crepusculo,noite}-4k.png` | Tripo `chat_image_2.5_sunburst`, quality high (noite: texto→imagem; crepúsculo: edição da noite). Lua descida ~480 px no master por edição local (PIL), igual nas duas | CC BY 4.0 (gerado pelo autor no Tripo) | Candidato a FINAL |
 
 ### Gerações Hi3D (pela assinatura/OAuth)
 
@@ -27,8 +27,10 @@ Status: `PROVISÓRIO`, `Candidato a FINAL` (gerado, aguarda o aceite visual do d
 Total Hi3D: 6 × (4 + 45) = 294 pts. Total Tripo (céu): 2 × 40 = 80 créditos (tarefas `f6e4ca3f-10ac-4e86-8690-773002c81569` e `2be7bd5e-f7db-455d-b988-9805c4458647`; `source/ceu/tripo-*-task.json`).
 
 Os GLBs têm ~48 MB (≈2 milhões de faces, texturas 8K) e ficam fora do Git (`.gitignore`). Para baixar de novo, use `get_task_outputs` no MCP do Hi3D com o ID da tarefa 3D e salve em `assets/source/modelos/<nome>.glb`. Sem o GLB, o `cena.py` volta ao prop procedural. Giros padrão: telescópio 90°, banco 180° (encosto para a câmera), demais 0°. A vela da lanterna vem apagada no modelo; o brilho noturno é um halo + poço de luz em CSS.
-| `cena/cena.json` | Gerado pelo mesmo script | Blender | Própria | Gerado |
+| `cena/cena.json` | Gerado pelo mesmo script; medidas em px de referência (1800 de largura) e `variantes` | Blender | Própria | Gerado |
 | `icone.svg` | Desenhado à mão (vetor) | — | Própria | Candidato a FINAL |
+
+Larguras (2026-11-22): o `cena.py` renderiza uma vez na largura mestre (`DUORA_LARGURA`, padrão 2700) e exporta cada imagem em 900, 1800 e 2700 px (a largura do terraço da família; um prop da família 900 tem metade do tamanho da 1800). O recorte dos props cai na grade de 3 px do mestre, então as três famílias têm medidas exatas. A página escolhe a família pela largura do palco × densidade da tela (`escolherVariante` em `js/dados.js`); o céu usa `image-set()` com 1280 (1x) e 2560 (2x).
 
 Regenerar (sem créditos):
 
