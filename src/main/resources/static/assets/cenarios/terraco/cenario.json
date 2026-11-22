@@ -1,0 +1,57 @@
+{
+  "id": "terraco",
+  "nome": "Terraço das Estrelas Cadentes",
+  "fundo": "terraco",
+  "zonas": {
+    "centro": {
+      "descricao": "Vai na área de observação, no centro",
+      "instrucao": "na área de observação, no centro",
+      "checklist": "{nome} no centro"
+    },
+    "lateral": {
+      "descricao": "Vai em um dos lugares laterais",
+      "instrucao": "em um lugar lateral",
+      "checklist": ""
+    }
+  },
+  "lugares": {
+    "C1": { "nome": "centro, à esquerda" },
+    "C2": { "nome": "centro, à direita" },
+    "L1": { "nome": "fundo, à esquerda" },
+    "L2": { "nome": "frente, à esquerda" },
+    "R1": { "nome": "fundo, à direita" },
+    "R2": { "nome": "frente, à direita" }
+  },
+  "pecas": {
+    "telescopio": { "nome": "Telescópio", "artigo": "o telescópio", "assento": "A", "zona": "centro", "obrigatoria": true },
+    "manta": { "nome": "Manta", "artigo": "a manta", "assento": "A", "zona": "lateral", "obrigatoria": false },
+    "radio": { "nome": "Rádio", "artigo": "o rádio", "assento": "A", "zona": "lateral", "obrigatoria": false },
+    "banco": { "nome": "Banco", "artigo": "o banco", "assento": "B", "zona": "centro", "obrigatoria": true },
+    "lanterna": { "nome": "Lanterna", "artigo": "a lanterna", "assento": "B", "zona": "lateral", "obrigatoria": false },
+    "garrafa": {
+      "nome": "Garrafa térmica",
+      "artigo": "a garrafa térmica",
+      "assento": "B",
+      "zona": "lateral",
+      "obrigatoria": false
+    }
+  },
+  "sprites": {
+    "telescopio": { "padrao": "telescopio-esq", "porLugar": { "C2": "telescopio-dir" }, "semLugar": "telescopio-dir" }
+  },
+  "revelacao": {
+    "lanterna": [
+      { "tipo": "brilho-piso", "largura": 2.4 },
+      { "tipo": "halo", "alturaProjetada": 0.3464, "largura": 0.75 }
+    ]
+  },
+  "sons": {
+    "ambiente": { "volume": 0.35 },
+    "meteoro": { "volume": 0.5 },
+    "revelacao": { "volume": 0.6 }
+  },
+  "legenda": {
+    "titulo": "Uma noite de {secundariaA.nomeMinusculo} e {secundariaB.nomeMinusculo}",
+    "texto": "O telescópio de {nomeA} aponta para o lado {ladoTelescopio} do céu, e é por ali que os meteoros passam. {nomeA} trouxe {secundariaA.artigo}; {nomeB}, o banco e {secundariaB.artigo}."
+  }
+}

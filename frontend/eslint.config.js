@@ -22,6 +22,20 @@ export default defineConfig([
     },
   },
   {
+    // O formato dos JSON do cenário é conhecido só por ler.ts; o resto do front usa o CenarioFront (R12).
+    files: ["**/*.{ts,tsx}"],
+    ignores: ["src/cenario/ler.ts"],
+    rules: {
+      "no-restricted-imports": [
+        "error",
+        {
+          paths: [{ name: "valibot", message: "Só src/cenario/ler.ts importa o valibot; use o CenarioFront." }],
+          patterns: [{ group: ["valibot/*"], message: "Só src/cenario/ler.ts importa o valibot; use o CenarioFront." }],
+        },
+      ],
+    },
+  },
+  {
     files: ["**/*.js"],
     extends: [js.configs.recommended],
     languageOptions: { globals: globals.node },
