@@ -26,6 +26,7 @@ export interface PropsCena {
   cenario: CenarioFront;
   aoEscolherPeca: (peca: string, minha: boolean) => void;
   aoEscolherLugar: (lugar: string, bloqueio: string | null) => void;
+  aoTocarAbertura: () => void;
   aoMeteoro: () => void;
   ref?: Ref<CenaRef>;
 }
@@ -49,13 +50,18 @@ function lembrarFoco(camadas: readonly HTMLElement[]): () => void {
   if (!(ativo instanceof HTMLElement) || camada === undefined) {
     return () => {};
   }
-  const { peca, lugar } = ativo.dataset;
+  const { peca, lugar, abertura } = ativo.dataset;
   const tag = ativo.localName;
   return () => {
     if (document.activeElement && document.activeElement !== document.body) {
       return;
     }
-    const seletor = lugar ? `${tag}[data-lugar="${lugar}"]` : `${tag}[data-peca="${peca ?? ""}"]`;
+    const seletor =
+      abertura !== undefined
+        ? `${tag}[data-abertura]`
+        : lugar
+          ? `${tag}[data-lugar="${lugar}"]`
+          : `${tag}[data-peca="${peca ?? ""}"]`;
     camada.querySelector<HTMLElement>(seletor)?.focus();
   };
 }
@@ -69,6 +75,7 @@ export function Cena({
   cenario,
   aoEscolherPeca,
   aoEscolherLugar,
+  aoTocarAbertura,
   aoMeteoro,
   ref,
 }: PropsCena) {
@@ -86,6 +93,7 @@ export function Cena({
 
   const escolherPeca = useEffectEvent(aoEscolherPeca);
   const escolherLugar = useEffectEvent(aoEscolherLugar);
+  const tocarAbertura = useEffectEvent(aoTocarAbertura);
   const avisarMeteoro = useEffectEvent(aoMeteoro);
 
   // O handle lê cena.current na hora da chamada: não precisa ser refeito a cada render.
@@ -135,6 +143,9 @@ export function Cena({
       },
       aoEscolherLugar: (lugar, bloqueio) => {
         escolherLugar(lugar, bloqueio);
+      },
+      aoTocarAbertura: () => {
+        tocarAbertura();
       },
     });
     return () => {

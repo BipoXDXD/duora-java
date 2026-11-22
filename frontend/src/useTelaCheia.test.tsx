@@ -17,6 +17,7 @@ const VISAO: Visao = {
   sinal: null,
   resultado: { secundariaA: "manta", secundariaB: "lanterna", ladoTelescopio: "esquerdo" },
   ajuste: null,
+  abertura: null,
 };
 
 function montagem(momento: Momento): EstadoDaSessao {

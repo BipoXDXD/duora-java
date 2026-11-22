@@ -2,7 +2,7 @@
 
 import type { CenarioFront } from "../cenario/tipos";
 import { type ErroComCodigo, mensagemDeErro, textoConexaoDoParceiro, textoPecasDoParceiro } from "../dominio/mensagens";
-import type { Visao } from "../dominio/visao";
+import { aberturaAtiva, lanternasAcenderam, type Visao } from "../dominio/visao";
 import type { Acao } from "./tipos";
 
 /**
@@ -19,6 +19,10 @@ export function novidade(c: CenarioFront, anterior: Visao, visao: Visao, propria
     (anterior.sinal?.peca !== sinal.peca ||
       anterior.sinal.deAssento !== sinal.deAssento ||
       anterior.sinal.lugar !== sinal.lugar);
+  // Vale também para quem deu o segundo toque: a resposta da própria ação traz as lanternas acesas.
+  if (lanternasAcenderam(anterior, visao)) {
+    return "As lanternas acenderam.";
+  }
   if (sinalNovo) {
     return `${parceiro} sugeriu mover ${c.peca(sinal.peca).artigo}: ${c.lugar(sinal.lugar).nome}.`;
   }
@@ -28,7 +32,10 @@ export function novidade(c: CenarioFront, anterior: Visao, visao: Visao, propria
     return pecas;
   }
   if (!anterior.parceiro && visao.parceiro) {
-    return `${parceiro} entrou no terraço. Escolham as primeiras peças.`;
+    // Na abertura, o painel ainda não mostra as peças: o convite vem das lanternas, sem palavras.
+    return aberturaAtiva(visao)
+      ? `${parceiro} entrou no terraço.`
+      : `${parceiro} entrou no terraço. Escolham as primeiras peças.`;
   }
   if (anterior.fase === "MONTANDO" && visao.fase === "REVELADO") {
     return "Os dois confirmaram. Olhem o céu.";
@@ -76,6 +83,10 @@ export function instrucao(
   enviando: Acao | null,
   sugerindo: string | null = null,
 ): string {
+  // A abertura é sem palavras: a lanterna na cena é o único convite, também durante o toque.
+  if (aberturaAtiva(visao)) {
+    return "";
+  }
   if (enviando) {
     return "Enviando…";
   }

@@ -18,7 +18,12 @@ function candidatos(fase: Fase, raiz: Raiz): (HTMLElement | null)[] {
     case "REVELADO":
       return [raiz.querySelector<HTMLElement>("#resultado-titulo"), raiz.querySelector<HTMLElement>("#som")];
     case "MONTANDO":
-      return [raiz.querySelector<HTMLElement>("#inventario button"), raiz.querySelector<HTMLElement>("#pronto")];
+      // A lanterna só existe durante a abertura, quando o inventário está escondido.
+      return [
+        raiz.querySelector<HTMLElement>("button[data-abertura]"),
+        raiz.querySelector<HTMLElement>("#inventario button"),
+        raiz.querySelector<HTMLElement>("#pronto"),
+      ];
   }
 }
 

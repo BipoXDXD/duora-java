@@ -51,6 +51,8 @@ export interface Sessao {
   confirmar: () => Promise<void>;
   /** Pede o ajuste (ou aceita o do outro): até a F5, é o que o "Ajustar de novo" faz. */
   ajustar: () => Promise<void>;
+  /** Toca a própria lanterna da abertura; quem acende as duas é o servidor. */
+  tocarAbertura: () => Promise<void>;
   enviarApelido: (apelido: string) => Promise<void>;
   /** O campo voltou a ter um apelido válido: o erro do servidor some (a validação fica na tela). */
   limparErroApelido: () => void;
@@ -75,6 +77,7 @@ export type AcoesDaSessao = Pick<
   | "retirar"
   | "confirmar"
   | "ajustar"
+  | "tocarAbertura"
   | "criarOutro"
   | "enviarApelido"
   | "limparErroApelido"
@@ -682,6 +685,13 @@ export function criarSessao({
         "ajustar",
         () => api.pedirAjuste(),
         (visao) => (visao.fase === "MONTANDO" ? "De volta à montagem. As confirmações foram zeradas." : null),
+      ),
+    // O foco fica na lanterna (a cena o devolve no redesenho) ou, se ela sumiu, vai às peças.
+    tocarAbertura: () =>
+      enviar(
+        "abertura",
+        () => api.tocarAbertura(),
+        () => null,
       ),
     enviarApelido: entrarOuCriar,
     limparErroApelido() {

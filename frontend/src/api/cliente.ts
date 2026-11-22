@@ -49,6 +49,8 @@ export interface Api {
   pedirAjuste: () => Promise<Resposta>;
   /** Recusa o pedido do outro ou cancela o próprio. */
   recusarAjuste: () => Promise<Resposta>;
+  /** Toca a própria lanterna da abertura; o servidor acende as duas se o outro tocou na janela. */
+  tocarAbertura: () => Promise<Resposta>;
   sair: () => Promise<Resposta>;
 }
 
@@ -140,5 +142,6 @@ export const api: Api = {
   marcarPronto: (versao, pronto) => requisitar("POST", "/sala/pronto", { corpo: { versao, pronto } }),
   pedirAjuste: () => requisitar("POST", "/sala/ajustar"),
   recusarAjuste: () => requisitar("POST", "/sala/ajustar/recusar"),
+  tocarAbertura: () => requisitar("POST", "/sala/abertura"),
   sair: () => requisitar("POST", "/sala/sair"),
 };

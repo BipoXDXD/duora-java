@@ -47,6 +47,17 @@ export interface VisaoAjuste {
   deAssento: Assento;
 }
 
+/**
+ * A abertura "acender junto" da montagem. ativa: ainda esperando os dois; voceTocou/outroTocou: um
+ * toque dentro da janela; acesa: os dois tocaram a tempo (concluída pelo tempo, fica apagada).
+ */
+export interface VisaoAbertura {
+  ativa: boolean;
+  voceTocou: boolean;
+  outroTocou: boolean;
+  acesa: boolean;
+}
+
 /** Desfecho do cenário: chave → valor, na ordem que o servidor manda (terraço: secundariaA, secundariaB, ladoTelescopio). */
 export type VisaoResultado = Readonly<Record<string, string>>;
 
@@ -62,4 +73,16 @@ export interface Visao {
   sinal: VisaoSinal | null;
   resultado: VisaoResultado | null;
   ajuste: VisaoAjuste | null;
+  /** Só na montagem de um cenário com abertura; continua (concluída) até a revelação. */
+  abertura: VisaoAbertura | null;
+}
+
+/** A abertura ainda espera os dois: sem instrução, sem peças no painel, só as lanternas na cena. */
+export function aberturaAtiva(visao: Visao): boolean {
+  return visao.abertura?.ativa === true;
+}
+
+/** A abertura acabou de acender entre duas visões (concluída pelo tempo, ela fica apagada). */
+export function lanternasAcenderam(anterior: Visao, visao: Visao): boolean {
+  return aberturaAtiva(anterior) && visao.abertura?.ativa === false && visao.abertura.acesa;
 }

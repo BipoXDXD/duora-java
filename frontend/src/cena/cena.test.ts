@@ -18,6 +18,7 @@ function visao(pecas: VisaoPeca[]): Visao {
     sinal: null,
     resultado: null,
     ajuste: null,
+    abertura: null,
   };
 }
 
@@ -40,6 +41,7 @@ function montarCena(cenario: CenarioFront, pecas: VisaoPeca[], fundos: HTMLEleme
     cenario,
     aoEscolherPeca: () => {},
     aoEscolherLugar: () => {},
+    aoTocarAbertura: () => {},
   });
   cena.desenhar(visao(pecas), { selecionada: null, sugerindo: null, destaques: [] });
   return { palco, cena };

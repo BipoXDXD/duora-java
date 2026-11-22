@@ -60,6 +60,17 @@ export interface Relacao {
   readonly perto: string;
 }
 
+/**
+ * A abertura "acender junto": uma lanterna de mão por lado, no lugar do assento, com o sprite do
+ * cena.json em escala menor. Os dois tocam a própria quase juntos para acendê-las.
+ */
+export interface AberturaDoCenario {
+  readonly tipo: "acender-junto";
+  readonly sprite: string;
+  readonly escala: number;
+  readonly lugares: Readonly<Record<Assento, string>>;
+}
+
 export interface CenarioFront {
   readonly id: string;
   readonly nome: string;
@@ -80,5 +91,7 @@ export interface CenarioFront {
   /** Até duas frases dos pares de peças colocadas perto, na ordem do cenario.json. */
   frasesDeRelacao(colocadas: readonly PecaNoLugar[]): readonly string[];
   revelacao(peca: string): readonly Efeito[];
+  /** A abertura da montagem; null quando o cenário não declara uma. */
+  abertura(): AberturaDoCenario | null;
   legenda(resultado: Readonly<Record<string, string>>, nomes: Readonly<Record<Assento, string>>): Legenda;
 }

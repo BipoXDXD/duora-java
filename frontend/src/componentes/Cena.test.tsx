@@ -1,11 +1,15 @@
 import { act, render, screen } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { Momento } from "../dominio/dados";
-import type { Visao, VisaoPeca } from "../dominio/visao";
-import { cenarioDoTerraco } from "../teste/cenarioDoTerraco";
+import type { CenarioFront } from "../cenario/tipos";
+import type { Visao, VisaoAbertura, VisaoPeca } from "../dominio/visao";
+import { cenarioDoTerraco, cenarioDoTerracoComAbertura } from "../teste/cenarioDoTerraco";
 import { Cena } from "./Cena";
 
 const CENARIO = cenarioDoTerraco();
+const COM_ABERTURA = cenarioDoTerracoComAbertura();
+
+const ABERTURA_ATIVA: VisaoAbertura = { ativa: true, voceTocou: false, outroTocou: false, acesa: false };
 
 /** Ana no assento B; Bruno no A, dono do telescópio e da manta. */
 function visaoDeAna(pecas: VisaoPeca[], versao = 1): Visao {
@@ -21,6 +25,7 @@ function visaoDeAna(pecas: VisaoPeca[], versao = 1): Visao {
     sinal: null,
     resultado: null,
     ajuste: null,
+    abertura: null,
   };
 }
 
@@ -47,6 +52,8 @@ interface Extras {
   enviando?: boolean;
   momento?: Momento;
   ladoTelescopio?: string | null;
+  cenario?: CenarioFront;
+  aoTocarAbertura?: () => void;
 }
 
 function desenhar(
@@ -58,6 +65,8 @@ function desenhar(
     enviando = false,
     momento = "crepusculo",
     ladoTelescopio = null,
+    cenario = CENARIO,
+    aoTocarAbertura = () => {},
   }: Extras = {},
 ) {
   return (
@@ -67,9 +76,10 @@ function desenhar(
       enviando={enviando}
       momento={momento}
       ladoTelescopio={ladoTelescopio}
-      cenario={CENARIO}
+      cenario={cenario}
       aoEscolherPeca={() => {}}
       aoEscolherLugar={() => {}}
+      aoTocarAbertura={aoTocarAbertura}
       aoMeteoro={() => {}}
     />
   );
@@ -191,6 +201,73 @@ describe("Cena", () => {
     rerender(desenhar(visaoDeAna([lanterna], 2)));
 
     expect(document.activeElement).toBe(container.querySelector("button[data-peca=lanterna]"));
+  });
+
+  it("lanternaPropriaEUmBotaoComNomeESemFrase", () => {
+    render(desenhar({ ...visaoDeAna([]), abertura: ABERTURA_ATIVA }, null, { cenario: COM_ABERTURA }));
+
+    const lanterna = screen.getByRole("button", { name: "Acender sua lanterna" });
+    expect(lanterna).toHaveAttribute("data-abertura");
+    expect(lanterna).toHaveTextContent("");
+    expect(screen.getAllByRole("button")).toHaveLength(1);
+  });
+
+  it("tocarALanternaPedeOToque", () => {
+    const aoTocarAbertura = vi.fn();
+    render(desenhar({ ...visaoDeAna([]), abertura: ABERTURA_ATIVA }, null, { cenario: COM_ABERTURA, aoTocarAbertura }));
+
+    act(() => {
+      screen.getByRole("button", { name: "Acender sua lanterna" }).click();
+    });
+
+    expect(aoTocarAbertura).toHaveBeenCalledOnce();
+  });
+
+  it("lanternaDoOutroTremulaQuandoEleToca", () => {
+    // Ana está no assento B: a lanterna de Bruno é a do lado A.
+    const { container, rerender } = render(
+      desenhar({ ...visaoDeAna([]), abertura: ABERTURA_ATIVA }, null, { cenario: COM_ABERTURA }),
+    );
+    expect(container.querySelector('[data-lanterna="A"] [data-efeito="tremular"]')).toBeNull();
+
+    rerender(
+      desenhar({ ...visaoDeAna([]), abertura: { ...ABERTURA_ATIVA, outroTocou: true } }, null, {
+        cenario: COM_ABERTURA,
+      }),
+    );
+
+    expect(container.querySelector('[data-lanterna="A"] [data-efeito="tremular"]')).not.toBeNull();
+    expect(container.querySelector('[data-lanterna="B"] [data-efeito="tremular"]')).toBeNull();
+  });
+
+  it("focoNaLanternaSobreviveAoRedesenho", () => {
+    const { rerender } = render(
+      desenhar({ ...visaoDeAna([]), abertura: ABERTURA_ATIVA }, null, { cenario: COM_ABERTURA }),
+    );
+    screen.getByRole("button", { name: "Acender sua lanterna" }).focus();
+
+    rerender(
+      desenhar({ ...visaoDeAna([]), abertura: { ...ABERTURA_ATIVA, voceTocou: true } }, null, {
+        cenario: COM_ABERTURA,
+      }),
+    );
+
+    expect(document.activeElement).toBe(screen.getByRole("button", { name: "Acender sua lanterna" }));
+  });
+
+  it("lanternasAcesasBrilhamSemBotao", () => {
+    const acesa: VisaoAbertura = { ativa: false, voceTocou: true, outroTocou: true, acesa: true };
+    const { container } = render(desenhar({ ...visaoDeAna([]), abertura: acesa }, null, { cenario: COM_ABERTURA }));
+
+    expect(screen.queryByRole("button", { name: "Acender sua lanterna" })).toBeNull();
+    expect(container.querySelectorAll('[data-lanterna] [data-efeito="brilho"]')).toHaveLength(2);
+  });
+
+  it("aberturaPeloTempoNaoDesenhaLanternas", () => {
+    const apagada: VisaoAbertura = { ativa: false, voceTocou: false, outroTocou: false, acesa: false };
+    const { container } = render(desenhar({ ...visaoDeAna([]), abertura: apagada }, null, { cenario: COM_ABERTURA }));
+
+    expect(container.querySelector("[data-lanterna]")).toBeNull();
   });
 
   it("aguardandoParLimpaAsCamadas", () => {
