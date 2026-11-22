@@ -25,6 +25,10 @@
         <playwright.version>1.65.1</playwright.version>
         <exec-maven-plugin.version>3.7.0</exec-maven-plugin.version>
         <jacoco.version>0.8.16</jacoco.version>
+        <frontend-maven-plugin.version>2.0.2</frontend-maven-plugin.version>
+        <!-- Node e pnpm do front, baixados pelo frontend-maven-plugin em frontend/node -->
+        <node.version>v26.13.0</node.version>
+        <pnpm.version>12.18.0</pnpm.version>
         <!-- Pula só os testes unitários (surefire); o e2e da CI usa -DskipUnitTests=true -->
         <skipUnitTests>false</skipUnitTests>
         <!-- Motor das jornadas E2E: chromium, firefox ou webkit (-Dnavegador=...) -->
@@ -118,6 +122,71 @@
             <plugin>
                 <groupId>org.springframework.boot</groupId>
                 <artifactId>spring-boot-maven-plugin</artifactId>
+            </plugin>
+            <!-- Front (frontend/): lint, build do Vite em target/vite e Vitest.
+                 target/vite ainda não é recurso: o app servido segue o de src/main/resources/static. -->
+            <plugin>
+                <groupId>com.github.eirslett</groupId>
+                <artifactId>frontend-maven-plugin</artifactId>
+                <version>${frontend-maven-plugin.version}</version>
+                <configuration>
+                    <workingDirectory>frontend</workingDirectory>
+                    <installDirectory>frontend</installDirectory>
+                </configuration>
+                <executions>
+                    <execution>
+                        <id>install-node-and-pnpm</id>
+                        <phase>initialize</phase>
+                        <goals>
+                            <goal>install-node-and-pnpm</goal>
+                        </goals>
+                        <configuration>
+                            <nodeVersion>${node.version}</nodeVersion>
+                            <pnpmVersion>${pnpm.version}</pnpmVersion>
+                        </configuration>
+                    </execution>
+                    <execution>
+                        <id>pnpm-install</id>
+                        <phase>initialize</phase>
+                        <goals>
+                            <goal>pnpm</goal>
+                        </goals>
+                        <configuration>
+                            <arguments>install --frozen-lockfile</arguments>
+                        </configuration>
+                    </execution>
+                    <execution>
+                        <id>pnpm-lint</id>
+                        <phase>process-sources</phase>
+                        <goals>
+                            <goal>pnpm</goal>
+                        </goals>
+                        <configuration>
+                            <arguments>run lint</arguments>
+                        </configuration>
+                    </execution>
+                    <execution>
+                        <id>pnpm-build</id>
+                        <phase>generate-resources</phase>
+                        <goals>
+                            <goal>pnpm</goal>
+                        </goals>
+                        <configuration>
+                            <arguments>run build</arguments>
+                        </configuration>
+                    </execution>
+                    <execution>
+                        <id>pnpm-test</id>
+                        <phase>test</phase>
+                        <goals>
+                            <goal>pnpm</goal>
+                        </goals>
+                        <configuration>
+                            <arguments>test</arguments>
+                            <skip>${skipUnitTests}</skip>
+                        </configuration>
+                    </execution>
+                </executions>
             </plugin>
             <plugin>
                 <groupId>com.diffplug.spotless</groupId>

@@ -24,7 +24,17 @@ jobs:
           distribution: temurin
           java-version: "25"
           cache: maven
-      - name: Verificar (formatação, compilação, testes unitários e de API)
+      - name: Restaurar o Node e o pnpm do front
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: frontend/node
+          key: node-v26.13.0-pnpm-12.18.0
+      - name: Restaurar o store do pnpm
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ~/.local/share/pnpm/store
+          key: pnpm-store-${{ hashFiles('frontend/pnpm-lock.yaml') }}
+      - name: Verificar (formatação, compilação, front, testes unitários e de API)
         run: ./mvnw -B -q verify
       - name: Publicar relatório de cobertura
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
@@ -50,6 +60,16 @@ jobs:
           distribution: temurin
           java-version: "25"
           cache: maven
+      - name: Restaurar o Node e o pnpm do front
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: frontend/node
+          key: node-v26.13.0-pnpm-12.18.0
+      - name: Restaurar o store do pnpm
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ~/.local/share/pnpm/store
+          key: pnpm-store-${{ hashFiles('frontend/pnpm-lock.yaml') }}
       - name: Restaurar o cache dos navegadores do Playwright
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:

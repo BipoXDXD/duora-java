@@ -1,0 +1,79 @@
+/* Fontes, reset e foco de css/app.css. O app.css importa este arquivo em layer(base): utilitário vence reset. */
+
+@font-face {
+  font-family: "Atkinson Hyperlegible Next";
+  src: url("/assets/fonts/atkinson-next-400.woff2") format("woff2");
+  font-weight: 400;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Atkinson Hyperlegible Next";
+  src: url("/assets/fonts/atkinson-next-600.woff2") format("woff2");
+  font-weight: 600;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Fraunces";
+  src: url("/assets/fonts/fraunces-600.woff2") format("woff2");
+  font-weight: 600;
+  font-display: swap;
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  background: var(--noite-900);
+  color: var(--marfim);
+  font-family: var(--fonte);
+  font-size: 1rem;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+}
+
+button {
+  font: inherit;
+  color: inherit;
+}
+
+:focus-visible {
+  /* Contorno transparente: invisível no tema, vira cor do sistema em alto contraste (box-shadow some lá). */
+  outline: 2px solid transparent;
+  outline-offset: 2px;
+  box-shadow: var(--foco);
+}
+
+[hidden] {
+  display: none !important;
+}
+
+.so-leitor {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+/* Alto contraste (Windows): o anel de foco usa a cor do sistema. */
+@media (forced-colors: active) {
+  :focus-visible {
+    outline-color: Highlight;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+  }
+}
