@@ -23,7 +23,8 @@ import org.springframework.test.annotation.DirtiesContext;
 
 /**
  * Layout no celular, em pé e deitado, e na tela larga: nenhuma fase rola para o lado, e a
- * confirmação de saída aberta solta o topo sem depender de {@code :has()}.
+ * confirmação de saída aberta solta o topo sem depender de {@code :has()}, e fechada tira a classe
+ * que o solta.
  */
 // Aplicação nova por classe: as salas de um IT não somam com as de outro no limite de 20 salas
 // ativas (LimitesSala), que é de produção e não muda nos testes.
@@ -83,6 +84,34 @@ class LayoutCelularIT {
     assertEquals(
         "static",
         ana.page().evaluate("() => getComputedStyle(document.querySelector('.topo')).position"));
+  }
+
+  @Test
+  void continuarTiraAClasseDaConfirmacao(Participantes participantes) {
+    TerracoPagina ana = confirmacaoAbertaNoCelular(participantes);
+
+    ana.botaoContinuarNoTerraco().click();
+
+    assertThat(ana.confirmacaoDeSaida()).isHidden();
+    assertThat(ana.app()).not().containsClass("confirmando-saida");
+  }
+
+  @Test
+  void escTiraAClasseDaConfirmacao(Participantes participantes) {
+    TerracoPagina ana = confirmacaoAbertaNoCelular(participantes);
+
+    ana.page().keyboard().press("Escape");
+
+    assertThat(ana.confirmacaoDeSaida()).isHidden();
+    assertThat(ana.app()).not().containsClass("confirmando-saida");
+  }
+
+  private TerracoPagina confirmacaoAbertaNoCelular(Participantes participantes) {
+    TerracoPagina ana = participantes.novoCelular();
+    entrarEmPar(ana, participantes.novo(), raiz(porta));
+    ana.botaoSair().click();
+    assertThat(ana.app()).containsClass("confirmando-saida");
+    return ana;
   }
 
   private static Browser.NewContextOptions opcoes(int largura, int altura) {

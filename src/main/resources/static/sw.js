@@ -1,9 +1,10 @@
 // Service worker do Duora: guarda o shell para o app abrir sem rede. Nunca toca na API.
 // Os binários de /assets/ vêm do cache primeiro; o JSON de /assets/ (o cena.json) vem da rede
 // primeiro, porque sem skipWaiting o worker antigo segue no controle quando chega um JS novo, e o
-// JS novo não pode ler dados velhos. Ao mudar o shell ou um binário de /assets/, troque a versão:
-// o activate apaga o cache antigo.
-const CACHE_VERSION = "duora-v1";
+// JS novo não pode ler dados velhos. A versão é a impressão dos arquivos de static/ (menos este):
+// mudou um arquivo, o ServiceWorkerVersaoTest falha e mostra o valor novo; o activate apaga o
+// cache antigo.
+const CACHE_VERSION = "duora-436a539dd5e9";
 
 const SHELL = [
   "/",
@@ -32,7 +33,12 @@ const SHELL = [
 ];
 
 self.addEventListener("install", (evento) => {
-  evento.waitUntil(caches.open(CACHE_VERSION).then((cache) => cache.addAll(SHELL)));
+  // cache "reload": o shell novo vem do servidor, nunca de uma cópia do cache HTTP do navegador.
+  evento.waitUntil(
+    caches
+      .open(CACHE_VERSION)
+      .then((cache) => cache.addAll(SHELL.map((url) => new Request(url, { cache: "reload" })))),
+  );
 });
 
 self.addEventListener("activate", (evento) => {
@@ -61,7 +67,10 @@ self.addEventListener("fetch", (evento) => {
     return;
   }
   if (pedido.mode === "navigate") {
-    evento.respondWith(fetch(pedido).catch(() => caches.match("/")));
+    // Sem rede e sem o shell guardado, um erro de rede explícito em vez de undefined.
+    evento.respondWith(
+      fetch(pedido).catch(() => caches.match("/").then((guardada) => guardada ?? Response.error())),
+    );
   } else if (url.pathname.startsWith("/assets/") && url.pathname.endsWith(".json")) {
     evento.respondWith(primeiroDaRede(pedido, { guardar: true }));
   } else if (url.pathname.startsWith("/assets/")) {

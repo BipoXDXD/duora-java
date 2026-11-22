@@ -9,8 +9,10 @@
 //
 // Passos: adb reverse da porta; abre a URL no Chrome; consulta pelo CDP o manifest e
 // Page.getInstallabilityErrors; instala pelo menu "Install app"/"Add to home screen";
-// confirma WebAPK (pacote org.chromium.webapk.*) ou atalho fixado no launcher; tira
-// screenshots em target/android/. Sai com código 1 em qualquer falha.
+// confere que o terraço em pé usa a largura 1800 (currentSrc + escolherVariante do app);
+// captura a tela deitada (<nome>-deitado.png) e devolve a rotação de antes; confirma WebAPK
+// (pacote org.chromium.webapk.*) ou atalho fixado no launcher; tira screenshots em
+// target/android/. Sai com código 1 em qualquer falha.
 //
 // Sem conta Google no emulador, a Play Store recusa instalar o WebAPK e o Chrome cai
 // para atalho fixado; por isso o padrão aceita atalho e --exigir-webapk o recusa.
@@ -181,9 +183,19 @@ function abrirSessao(wsUrl) {
 }
 
 async function verificarInstalabilidade(cdp) {
+  // O ready resolve com o worker ainda em "activating"; o app só registra depois do load, então
+  // espera o "activated" pelo statechange.
   const sw = await cdp.enviar('Runtime.evaluate', {
     expression: `Promise.race([
-      navigator.serviceWorker ? navigator.serviceWorker.ready.then((r) => r.active ? r.active.state : 'sem-ativo') : 'sem-suporte',
+      navigator.serviceWorker
+        ? navigator.serviceWorker.ready.then(({ active }) => {
+          if (!active) return 'sem-ativo';
+          if (active.state === 'activated') return active.state;
+          return new Promise((r) => active.addEventListener('statechange', () => {
+            if (active.state === 'activated' || active.state === 'redundant') r(active.state);
+          }));
+        })
+        : 'sem-suporte',
       new Promise((r) => setTimeout(() => r('timeout'), 15000))])`,
     awaitPromise: true, returnByValue: true,
   });
@@ -276,6 +288,74 @@ function capturarTela(adb, arquivo) {
   return arquivo;
 }
 
+// ---- Terraço e rotação -----------------------------------------------------
+
+// Pixel 7 em pé: tela de 412 px CSS, palco a 112% (≈ 462 px) × densidade 2,625 ≈ 1212 px, e
+// escolherVariante(…, [900, 1800, 2700]) dá 1800. Se o aparelho ou as larguras mudarem, a conta
+// refeita no próprio Chrome acusa.
+const VARIANTE_ESPERADA_EM_PE = 1800;
+
+/**
+ * Lê pelo CDP a imagem que o Chrome escolheu para o terraço e refaz a conta do cena.js com o
+ * escolherVariante do próprio app; exige as duas iguais a VARIANTE_ESPERADA_EM_PE.
+ */
+async function verificarTerraco(cdp) {
+  const { result, exceptionDetails } = await cdp.enviar('Runtime.evaluate', {
+    expression: `(async () => {
+      const { escolherVariante, VARIANTES } = await import('/js/dados.js');
+      const palco = document.getElementById('palco');
+      const larguraCss = palco.getBoundingClientRect().width || innerWidth;
+      const dpr = devicePixelRatio || 1;
+      const terraco = document.querySelector('.terraco-crepusculo');
+      const limite = Date.now() + 15000;
+      while (!(terraco.complete && terraco.currentSrc) && Date.now() < limite) {
+        await new Promise((r) => setTimeout(r, 250));
+      }
+      return { larguraCss, dpr, escolhida: escolherVariante(larguraCss, dpr, VARIANTES),
+        currentSrc: terraco.currentSrc };
+    })()`,
+    awaitPromise: true, returnByValue: true,
+  });
+  if (exceptionDetails) {
+    throw new Falha(`leitura do terraço falhou: ${exceptionDetails.exception?.description ?? exceptionDetails.text}`);
+  }
+  const terraco = { ...result.value, esperada: VARIANTE_ESPERADA_EM_PE };
+  log(`terraço: ${terraco.currentSrc || '(sem imagem)'}; escolherVariante(${terraco.larguraCss} × ${terraco.dpr}) = ${terraco.escolhida}`);
+  if (terraco.escolhida !== VARIANTE_ESPERADA_EM_PE) {
+    throw new Falha(`escolherVariante deu ${terraco.escolhida}, não ${VARIANTE_ESPERADA_EM_PE}: revise VARIANTE_ESPERADA_EM_PE`);
+  }
+  if (!terraco.currentSrc.endsWith(`-${VARIANTE_ESPERADA_EM_PE}.webp`)) {
+    throw new Falha(`terraço em ${terraco.currentSrc || '(sem imagem)'}, esperado -${VARIANTE_ESPERADA_EM_PE}.webp`);
+  }
+  return terraco;
+}
+
+function lerRotacao(adb) {
+  return {
+    automatica: adb.shell('settings get system accelerometer_rotation').trim(),
+    usuario: adb.shell('settings get system user_rotation').trim(),
+  };
+}
+
+function aplicarRotacao(adb, { automatica, usuario }) {
+  // "null" é o valor de settings get para chave nunca gravada; aí vale o padrão do sistema.
+  if (usuario !== 'null') adb.shell(`settings put system user_rotation ${usuario}`);
+  if (automatica !== 'null') adb.shell(`settings put system accelerometer_rotation ${automatica}`);
+}
+
+/** Trava a tela deitada (rotação 1 = 90°), captura e devolve a rotação de antes. */
+async function capturarDeitado(adb, arquivo) {
+  const antes = lerRotacao(adb);
+  try {
+    aplicarRotacao(adb, { automatica: '0', usuario: '1' });
+    await esperar(2500);
+    return capturarTela(adb, arquivo);
+  } finally {
+    aplicarRotacao(adb, antes);
+    await esperar(1500);
+  }
+}
+
 // ---- Fluxo -----------------------------------------------------------------
 
 async function main() {
@@ -307,6 +387,9 @@ async function main() {
     if (inst.erros.length || inst.manifestErros.length) {
       throw new Falha(`PWA não instalável: ${[...inst.erros, ...inst.manifestErros].join('; ')}`);
     }
+
+    resultado.terraco = await verificarTerraco(cdp);
+    resultado.screenshotDeitado = await capturarDeitado(adb, join(SAIDA, `${args.nome}-deitado.png`));
 
     if (!args['sem-instalar']) {
       resultado.instalacao = await instalar(adb, `${base}/`);

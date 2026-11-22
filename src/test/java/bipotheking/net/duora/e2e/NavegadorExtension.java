@@ -116,7 +116,9 @@ final class NavegadorExtension
 
     /**
      * Contexto com as opções como vêm (aparelho, densidade, toque); só põe movimento reduzido e
-     * service worker bloqueado se elas não disserem nada sobre isso.
+     * service worker bloqueado se elas não disserem nada sobre isso. Esses padrões são gravados no
+     * próprio {@code opcoes} recebido ({@code reducedMotion} e {@code serviceWorkers}), então
+     * reaproveitar o objeto num segundo contexto leva os mesmos valores.
      */
     TerracoPagina novo(Browser.NewContextOptions opcoes) {
       return novo(opcoes, page -> {});
