@@ -49,13 +49,14 @@ Nunca retoque o `.webp` ou `.mp3` exportado direto (PIL, editor de imagem): o ex
    DUORA_SO=lanterna /Applications/Blender.app/Contents/MacOS/Blender -b -P assets/source/blender/cena.py -- "$PWD"
    ```
    Sem `DUORA_SO`, renderiza tudo. `DUORA_AMOSTRAS=32` acelera as iterações; o render final usa o padrão (96). A saída precisa terminar com `DUORA_OK`.
-4. **Confira** que os dois momentos saíram (`<prop>-crepusculo.webp` e `<prop>-noite.webp`) e que `cena/cena.json` mudou junto: o render parcial atualiza as medidas do prop, e o JSON entra no mesmo commit.
+4. **Confira** que os dois momentos saíram nas três larguras (`<prop>-crepusculo-{900,1800,2700}.webp` e `<prop>-noite-{900,1800,2700}.webp`) e que `cena/cena.json` mudou junto: o render parcial atualiza as medidas do prop, e o JSON entra no mesmo commit.
 5. **Olhe** o resultado (abra o `.webp`) antes de declarar pronto.
+6. **Mudou asset em `static/`:** rode o `ServiceWorkerVersaoTest` (`./mvnw -q test -Dtest=ServiceWorkerVersaoTest`) e atualize o `CACHE_VERSION` do `src/main/resources/static/sw.js` com o valor que a falha mostra. Sem isso, o service worker segue servindo o asset antigo do cache.
 
 ## Verificação do formato
 
 ```sh
-file src/main/resources/static/assets/cena/lanterna-noite.webp      # RIFF ... Web/P image
+file src/main/resources/static/assets/cena/lanterna-noite-1800.webp # RIFF ... Web/P image
 ffprobe -v error -show_entries stream=codec_name,sample_rate,bit_rate -of csv=p=0 \
   src/main/resources/static/assets/audio/meteoro.mp3                 # mp3,48000,192000
 ```
@@ -81,6 +82,7 @@ Edição local também muda a linha: descreva o ajuste (ex.: "luz da vela mais q
 | Exportar PNG, JPEG ou WebP com qualidade padrão | WebP qualidade 88, sempre |
 | Usar o MP3 do ElevenLabs como veio (44,1 kHz / 128 kbps) | Passe por `montar.sh` / `ffmpeg -ar 48000 -b:a 192k` |
 | Gerar imagem 2D no Hi3D | 2D é no Tripo `chat_image_2.5_sunburst` 4K |
-| Esquecer o `cena.json` ou um dos momentos | Commit leva `<prop>-crepusculo.webp`, `<prop>-noite.webp` e `cena.json` |
+| Esquecer o `cena.json`, um dos momentos ou uma largura | Commit leva `<prop>-crepusculo-<largura>.webp` e `<prop>-noite-<largura>.webp` nas três larguras, e o `cena.json` |
+| Trocar asset em `static/` sem mudar o `CACHE_VERSION` | Rode o `ServiceWorkerVersaoTest` e copie para o `sw.js` o valor que a falha mostra |
 | Pular o manifesto ou marcar `FINAL` por conta própria | Linha completa, status `Candidato a FINAL` |
 | Versionar GLB, brutos não escolhidos ou masters gigantes | Respeite o `.gitignore`; o manifesto diz como baixar de novo |

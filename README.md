@@ -44,6 +44,30 @@ A porta tem de ser a mesma nos dois lados do `adb reverse`: o servidor só aceit
 conta como origem segura, que o service worker exige. A prova automatizada roda num emulador
 Android, com os scripts de `scripts/android/`.
 
+### Emulador Android (só local)
+
+Os scripts de `scripts/android/` rodam só na máquina de desenvolvimento: a CI não os executa. A
+imagem padrão do emulador é arm64 (`google_apis_playstore;arm64-v8a`), feita para Mac com Apple
+Silicon; em outra arquitetura, troque-a por `DUORA_AVD_IMAGEM`. Precisa de Node 22 ou mais novo
+para o `pwa-check.mjs`.
+
+```sh
+scripts/android/emulador.sh instalar   # SDK, imagem com Play Store e o AVD duora-pixel (Pixel 7)
+scripts/android/emulador.sh subir      # liga o emulador sem janela e espera o boot
+scripts/android/emulador.sh status     # SDK, AVD e se o emulador está ligado
+scripts/android/emulador.sh descer     # desliga o emulador
+
+./mvnw spring-boot:run                 # em outro terminal; a porta padrão é 8080
+node scripts/android/pwa-check.mjs --porta 8080
+```
+
+O `pwa-check.mjs` abre o app no Chrome do emulador, confere a instalabilidade pelo DevTools, exige o
+terraço na largura 1800 com o aparelho em pé, captura a tela deitada e instala o app. O resultado
+(JSON e capturas) fica em `target/android/`.
+
+Atenção: `emulador.sh instalar` aceita sozinho as licenças do Android SDK (`sdkmanager
+--licenses`). Leia as licenças antes de rodar se isso importa para você.
+
 ## Testes
 
 ```sh
