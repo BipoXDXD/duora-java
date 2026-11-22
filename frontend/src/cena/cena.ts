@@ -11,12 +11,13 @@ const MOMENTOS: readonly Momento[] = ["crepusculo", "noite"];
 
 /**
  * Escolhe a família pela largura do palco já medido × densidade da tela e aponta os dois
- * fundos do cenário para ela. Devolve a largura escolhida.
+ * fundos do cenário para ela, entre as variantes do cena.json. Devolve a largura escolhida.
  */
 export function mostrarTerraco(palco: HTMLElement, c: CenarioFront): number {
   const variante = escolherVariante(
     palco.getBoundingClientRect().width || window.innerWidth,
     window.devicePixelRatio || 1,
+    c.geometria.variantes,
   );
   for (const momento of MOMENTOS) {
     const terraco = palco.querySelector<HTMLImageElement>(`.terraco-${momento}`);

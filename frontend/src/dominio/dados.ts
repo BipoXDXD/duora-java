@@ -1,13 +1,10 @@
 // Tipos e medidas da arte da cena; os textos e os nomes de arquivo vêm do cenário (cenario/).
 
-/** Larguras renderizadas pelo cena.py; o cena.json traz a mesma lista em "variantes". */
-export const VARIANTES = [900, 1800, 2700];
-
 /**
- * Largura do render (família do terraço) para a tela: a menor variante que cobre
+ * Largura do render (família do cenário) para a tela: a menor das variantes do cena.json que cobre
  * larguraCss × dpr, ou a maior quando nenhuma cobre.
  */
-export function escolherVariante(larguraCss: number, dpr: number, variantes: readonly number[] = VARIANTES): number {
+export function escolherVariante(larguraCss: number, dpr: number, variantes: readonly number[]): number {
   const ordenadas = [...variantes].sort((a, b) => a - b);
   const alvo = larguraCss * dpr;
   const escolhida = ordenadas.find((v) => v >= alvo) ?? ordenadas.at(-1);
