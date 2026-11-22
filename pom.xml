@@ -25,6 +25,9 @@
         <playwright.version>1.65.1</playwright.version>
         <exec-maven-plugin.version>3.7.0</exec-maven-plugin.version>
         <jacoco.version>0.8.16</jacoco.version>
+        <!-- 2.0.x, não a 1.15.1 do plano: o pnpm 11+ troca o bin/pnpm.cjs por bin/pnpm.mjs mais um
+             binário nativo, e a 1.15.1 falha com "Could not link to pnpm executable". O suporte
+             entrou na 2.0.1 ("Use pnpm .mjs file if it exists to support 11+"). Ver o ADR 0004. -->
         <frontend-maven-plugin.version>2.0.2</frontend-maven-plugin.version>
         <!-- Node e pnpm do front, baixados pelo frontend-maven-plugin em frontend/node -->
         <node.version>v26.13.0</node.version>
