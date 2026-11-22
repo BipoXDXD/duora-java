@@ -4,7 +4,7 @@
 
 **Objetivo:** uma pessoa com conta e perfil escolhe encontro **público** (entra na fila contínua e é pareada com alguém compatível) ou **privado** (gera um convite de uso único e escolhe o cenário), e as duas chegam ao mesmo cenário.
 
-> **Emenda 2026-11-22 (paridade com o mercado):** liquidez visível (tempo de espera estimado e horários com mais gente, Task 11 nova), notificações confiáveis e discretas (Task 8 ajustada: no máximo 1 aviso por dia, nunca de madrugada, texto que não expõe nada na tela bloqueada), "só encontros com verificados" (Task 2), conta pausada fora da fila (Tasks 5 e 6) e limite de convites de conta nova (Task 7).
+> **Emenda 2026-11-22 (paridade com o mercado):** liquidez visível (tempo de espera estimado e horários com mais gente, Task 11 nova), notificações confiáveis e discretas (Task 8 ajustada: no máximo 1 aviso por dia, nunca de madrugada, texto que não expõe nada na tela bloqueada), conta pausada fora da fila (Tasks 5 e 6) e limite de convites de conta nova (Task 7).
 
 **Arquitetura:**
 - **Domínio puro** em `pareamento/dominio/` (sem Spring, JDBC nem Jackson): `Compatibilidade` e `Pareador.parear`, chamados a cada ciclo de 5 s por `sala/CicloDePareamento`.
@@ -46,9 +46,9 @@
 Nomes publicados nos planos das Etapas 1b, 2, 3 e 9. Se divergirem na `main`, ajuste os usos aqui, sem mudar o comportamento.
 - **1b:** `room.CatalogoDeCenarios.porId(String) -> Optional<Cenario>`; `Cenario.id()`; `Salas.criar(Apelido, Cenario)`; `Visao.cenario`.
 - **2 (`conta/`, `web/`):** `ContaId(UUID valor)`; `@ContaAtual` (padrão `cadastroConcluido = true`; o `ExigeSessao` já dá 401 `NAO_AUTENTICADO` e 403 `CONTA_INDISPONIVEL`); `ConsultaDeContas.porId(ContaId) -> Optional<ContaResumo>` com `estado()` e `OptionalInt idadeEm(LocalDate hoje)`; `AoExcluirConta.excluir(ContaId)`; `LimiteDeTaxa`/`LimiteExcedido`; `ErroDeNegocio(CodigoDeErro, String)`; `GeradorDeIds.novo()`; testes `BancoDeTeste`, `ContasDeTeste.criar(String apelido, LocalDate nascimento) -> ContaDeTeste(ContaId id, String cookie)`, `RelogioDeTeste`, `Participantes.novoComConta(ContaDeTeste)`.
-- **3 (`perfil/`):** `Perfis` com `publico`, `preferencias`, `celula`, `boolean prontoParaFila(ContaId)` (falso com a conta pausada) e `boolean pausada(ContaId)`; `PerfilPublico(ContaId conta, String apelido, Optional<String> fotoBorradaUrl, Optional<String> pronomes, boolean verificado)`; `Preferencias(Set<Intencao> intencao, FaixaEtaria faixaEtaria, Raio raio, boolean raioObrigatorio, Optional<Genero> generoProprio, Set<Genero> generosBuscados, boolean soVerificados)` (Etapa 3 Task 9); `FaixaEtaria.contem(int)`; `Raio.km() -> OptionalInt`; `enum Genero`; `CelulaGeohash(String valor)` com `double distanciaKm(CelulaGeohash)`; `Localizacoes.consentida(ContaId)` e `Localizacoes.atualizar(ContaId, double, double)`; teste `PerfisDeTeste.definir(ContaId, String apelido, Preferencias, Optional<CelulaGeohash>)`.
+- **3 (`perfil/`):** `Perfis` com `publico`, `preferencias`, `celula`, `boolean prontoParaFila(ContaId)` (falso com a conta pausada) e `boolean pausada(ContaId)`; `PerfilPublico(ContaId conta, String apelido, Optional<String> fotoBorradaUrl, Optional<String> pronomes, boolean verificado)`; `Preferencias(Set<Intencao> intencao, FaixaEtaria faixaEtaria, Raio raio, boolean raioObrigatorio, Optional<Genero> generoProprio, Set<Genero> generosBuscados)` (Etapa 3 Task 6; a Task 9 não a muda); `FaixaEtaria.contem(int)`; `Raio.km() -> OptionalInt`; `enum Genero`; `CelulaGeohash(String valor)` com `double distanciaKm(CelulaGeohash)`; `Localizacoes.consentida(ContaId)` e `Localizacoes.atualizar(ContaId, double, double)`; teste `PerfisDeTeste.definir(ContaId, String apelido, Preferencias, Optional<CelulaGeohash>)`.
 - **9 (`retencao/`):** `PoliticaDeRetencao { String nome(); Duration prazo(); int expirar(Instant limite); }`, rodada diariamente pela `ExpiracaoDeDados`.
-- **2 (paridade):** `ContaResumo.verificada()`; `conta.LimitesDeContaNova.consumir(ContaId, TipoDeLimiteNovo.CONVITE)` (429 `LIMITE_DE_CONTA_NOVA`).
+- **2 (paridade):** `conta.LimitesDeContaNova.consumir(ContaId, TipoDeLimiteNovo.CONVITE)` (429 `LIMITE_DE_CONTA_NOVA`).
 - **Se a Etapa 2 já entregou outbox ou idempotência com outros nomes,** use os dela e pule a parte correspondente da Task 0.
 
 ## Decisões de planejamento (o dono pode reverter)
@@ -138,15 +138,15 @@ Nomes publicados nos planos das Etapas 1b, 2, 3 e 9. Se divergirem na `main`, aj
 - Teste: `pareamento/dominio/{CompatibilidadeTest,PareadorTest}.java`, fixture `pareamento/dominio/CandidatoBuilder.java`
 
 **Interfaces (produz):**
-- `public record Candidato(ContaId conta, Instant entrouEm, int idade, Preferencias preferencias, Optional<CelulaGeohash> celula, boolean verificado)`.
+- `public record Candidato(ContaId conta, Instant entrouEm, int idade, Preferencias preferencias, Optional<CelulaGeohash> celula)`. Sem campo `verificado`: toda conta ATIVA é verificada (Etapa 2), e o filtro "só verificados" saiu (dono, 2026-11-22).
 - `public record ParDeContas(ContaId menor, ContaId maior)`: `static ParDeContas de(ContaId a, ContaId b)` (ordena por `UUID.compareTo`; iguais ⇒ `IllegalArgumentException`), `boolean contem(ContaId)`, `ContaId outro(ContaId)`.
 - `public record ParPareado(Candidato a, Candidato b, Set<Intencao> intencoes)`: `a` é quem espera há mais tempo; `ParDeContas par()`.
 - `public record ResultadoDoCiclo(List<ParPareado> pares, List<Candidato> semPar)`.
-- `public final class Compatibilidade`: `static Set<Intencao> intencoesEmComum(Candidato a, Candidato b)` (NAMORO só se o gênero passa nos dois sentidos) e `static boolean compativeis(Candidato a, Candidato b)` (intenções em comum, idade de cada um na faixa do outro, raio obrigatório de cada lado, e `soVerificados` de cada lado exige o outro `verificado`).
+- `public final class Compatibilidade`: `static Set<Intencao> intencoesEmComum(Candidato a, Candidato b)` (NAMORO só se o gênero passa nos dois sentidos) e `static boolean compativeis(Candidato a, Candidato b)` (intenções em comum, idade de cada um na faixa do outro, raio obrigatório de cada lado).
 - `public final class Pareador`: `static ResultadoDoCiclo parear(List<Candidato> fila, Set<ParDeContas> vetados, int vagas, Instant agora, Duration ciclo)`.
 
 - [ ] **Passo 1:** escrever os testes (valores à mão; células da tabela da Etapa 3: `6gyf4`–`6gycf` ≈ 4,89 km, `6gyf4`–`6gyft` ≈ 16,62 km, `6gyf4`–`6gysh` ≈ 47,46 km, `6gyf4`–`6gxp9` ≈ 58,03 km).
-  - `CompatibilidadeTest`: `amizadeComAmizadeECompativel`; `amizadeComNamoroSoNaoE`; `idadeNaBordaDaFaixaECompativel` (25–30, idade 30) e `idadeUmAnoForaNaoE` (31); `faixaDeUmLadoBastaParaRecusar`; `namoroExigeGeneroNosDoisSentidos`; `namoroEAmizadeComGeneroIncompativelSobraAmizade`; `raioObrigatorioDeUmLadoFiltra` (`ATE_5_KM` obrigatório, `6gyf4` × `6gyft`); `mesmoCasoSoPreferenciaNaoFiltra`; `raioNaBordaPassa` (`ATE_5_KM` com `6gyf4` × `6gycf`); `raioObrigatorioSemCelulaNaoE` (P3); `semLimiteObrigatorioNaoFiltra`; `soVerificadosDeUmLadoRecusaNaoVerificado`; `soVerificadosAceitaVerificado`.
+  - `CompatibilidadeTest`: `amizadeComAmizadeECompativel`; `amizadeComNamoroSoNaoE`; `idadeNaBordaDaFaixaECompativel` (25–30, idade 30) e `idadeUmAnoForaNaoE` (31); `faixaDeUmLadoBastaParaRecusar`; `namoroExigeGeneroNosDoisSentidos`; `namoroEAmizadeComGeneroIncompativelSobraAmizade`; `raioObrigatorioDeUmLadoFiltra` (`ATE_5_KM` obrigatório, `6gyf4` × `6gyft`); `mesmoCasoSoPreferenciaNaoFiltra`; `raioNaBordaPassa` (`ATE_5_KM` com `6gyf4` × `6gycf`); `raioObrigatorioSemCelulaNaoE` (P3); `semLimiteObrigatorioNaoFiltra`.
   - `PareadorTest`: `filaVaziaNaoGeraPares`; `umaPessoaFicaSemPar`; `doisCompativeisFormamUmPar` (`a` entrou antes); `parVetadoNaoEPareado`; `vagasLimitamOsPares` (6 compatíveis, 2 vagas ⇒ os 4 mais antigos); `vagaZeroNaoParea`; `quemEsperaMaisEscolhePrimeiro`; `empateNoMesmoCicloVaiParaOMaisPerto` (A em t0; B e C no mesmo ciclo; C em `6gycf`, B em `6gysh` ⇒ {A,C}); `distanciaDesconhecidaFicaPorUltimo`; `ninguemEmDoisPares`; `resultadoNaoDependeDaOrdemDaLista`.
 - [ ] **Passo 2:** RED (não compila).
 - [ ] **Passo 3:** implementar. O `Pareador` ordena por (`entrouEm`, UUID) e, para cada pessoa sem par, escolhe pela chave de P2: `(ciclosDeEspera desc, distância asc com desconhecida = +∞, entrouEm asc, UUID asc)`, com `ciclosDeEspera = Duration.between(entrouEm, agora).dividedBy(ciclo)`. Para em `vagas` pares. Funções curtas, sem flag argument.
@@ -196,7 +196,7 @@ Nomes publicados nos planos das Etapas 1b, 2, 3 e 9. Se divergirem na `main`, aj
 **Interfaces:**
 - Consome: Tasks 1, 2 e 4; `Perfis`, `ConsultaDeContas`, `Localizacoes`.
 - Produz:
-  - `V50`: `fila_espera(conta_id uuid primary key references conta(id), entrou_em timestamptz not null, idade int not null check (idade >= 18), preferencias jsonb not null, celula char(5), verificado boolean not null, ausente_desde timestamptz)`; índice `(entrou_em)`. `preferencias` é coluna de extensão serializada pelo adapter `FilaJdbc` (P8).
+  - `V50`: `fila_espera(conta_id uuid primary key references conta(id), entrou_em timestamptz not null, idade int not null check (idade >= 18), preferencias jsonb not null, celula char(5), ausente_desde timestamptz)`; índice `(entrou_em)`. `preferencias` é coluna de extensão serializada pelo adapter `FilaJdbc` (P8).
   - `public enum SituacaoNaFila { AGUARDANDO_COMPATIVEL, AGUARDANDO_VAGA, PAREADO }`.
   - `public record EstadoNaFila(SituacaoNaFila situacao, Instant desde, @Nullable Integer posicao, @Nullable Integer estimativaMinutos, @Nullable String encontroId, @Nullable String cenario)`; o JSON tem exatamente essas chaves.
   - Portas (borda real entre `sala/` e o módulo do encontro; implementadas na Task 6 pela ponte e na Etapa 5 por `encontro/`):

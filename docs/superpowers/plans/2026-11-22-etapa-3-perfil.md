@@ -4,7 +4,7 @@
 
 **Objetivo:** cada conta tem perfil (apelido, intenção, bio, foto aprovada), preferências de pareamento, dados de namoro com consentimento e uma célula de localização; o perfil aparece borrado para terceiros e nítido só para quem é dono dele.
 
-> **Emenda 2026-11-22 (paridade com o mercado):** a Task 9 (nova) acrescenta orientação e pronomes granulares com "prefiro descrever", o selo "verificado" e a preferência "só encontros com verificados", e a pausa da conta sem apagá-la.
+> **Emenda 2026-11-22 (paridade com o mercado):** a Task 9 (nova) acrescenta orientação e pronomes granulares com "prefiro descrever", o selo "verificado" e a pausa da conta sem apagá-la. (Ajuste do dono, 2026-11-22: a preferência "só encontros com verificados" saiu, porque a verificação é obrigatória para ATIVA e o filtro não teria efeito.)
 
 **Arquitetura:** o pacote `perfil/` segue as camadas da Etapa 2. A raiz é a API pública e os casos de uso (`Perfis`, projeções, `Localizacoes`, `FilaDeFotos`, `AcessoAFoto`). `perfil/dominio/` é Java puro: tipos que nascem válidos (`Apelido`, `Bio`, `FaixaEtaria`, `DadosDeNamoro`, `CelulaGeohash`), o agregado `Perfil` e as portas de repositório. `perfil/web/` tem os controllers, e `perfil/infra/` os adapters JDBC: Spring Data JDBC com `@Version` para o agregado e `JdbcClient` com `UPDATE` condicional para as partes satélites, todas chaveadas por `conta_id`. A porta `ProcessadorDeImagem` (adapter libvips por processo) e o `ArmazemDeImagens` ficam em `web/`, porque a Etapa 5 reusa os dois para as imagens do chat. Outras etapas leem perfis só pela interface `Perfis`, que devolve projeções prontas (`PerfilPublico`, `PerfilCompleto`, `Preferencias`, `CelulaGeohash`), nunca as tabelas. Os nomes públicos seguem o que o plano da Etapa 4 (`2026-11-22-etapa-4-salas-pareamento.md`) já consome. A decisão de privacidade por projeção (célula, foto borrada, namoro isolado) vira ADR na Task 6.
 
@@ -221,7 +221,7 @@ V25 é da Task 9; V26–V39 ficam reservados para correções. T7 e T8 tocam o r
 **Interfaces:**
 - Consome: T1–T5, `ConsultaDeContas.porId` (Etapa 2) para a idade, `AcessoAFoto` (T5).
 - Produz:
-  - `public record PerfilPublico(ContaId conta, String apelido, Optional<String> fotoBorradaUrl)` (a Task 9 acrescenta `pronomes` e `verificado`; o mesmo para `PerfilCompleto` e `Preferencias`): o que se vê no encontro (Etapas 4 e 5). Sem foto aprovada → vazio (a interface desenha a silhueta).
+  - `public record PerfilPublico(ContaId conta, String apelido, Optional<String> fotoBorradaUrl)` (a Task 9 acrescenta `pronomes` e `verificado`; o mesmo para `PerfilCompleto`): o que se vê no encontro (Etapas 4 e 5). Sem foto aprovada → vazio (a interface desenha a silhueta).
   - `public record PerfilCompleto(ContaId conta, String apelido, int idade, Set<Intencao> intencao, String bio, Optional<String> fotoUrl)`: o que uma conexão vê (Etapa 6). A URL aponta para a nítida.
   - `public record Preferencias(Set<Intencao> intencao, FaixaEtaria faixaEtaria, Raio raio, boolean raioObrigatorio, Optional<Genero> generoProprio, Set<Genero> generosBuscados)`: projeção para o pareamento da Etapa 4. `generoProprio` e `generosBuscados` vêm preenchidos só quando há dados de namoro consentidos; senão, vazio e conjunto vazio. Nunca vai para o cliente.
   - `public interface Perfis`: `Optional<PerfilPublico> publico(ContaId conta)`; `Optional<PerfilCompleto> completo(ContaId conta)`; `Optional<Preferencias> preferencias(ContaId conta)`; `Optional<CelulaGeohash> celula(ContaId conta)`; `boolean prontoParaFila(ContaId conta)` (perfil com apelido e intenções, e conta ATIVA). Só contas ATIVA aparecem; as outras dão vazio. A idade vem de `ConsultaDeContas` (Etapa 2).
@@ -273,18 +273,17 @@ V25 é da Task 9; V26–V39 ficam reservados para correções. T7 e T8 tocam o r
 
 **Prova da etapa:** `PerfilIT.perfilBorradoParaTerceirosENitidoParaOTitular` verde nos três navegadores, mais `LocalizacaoApiTest.gravaSoACelula` e `NamoroApiTest.trocarParaAmizadeApagaDados`.
 
-### Task 9: Orientação, pronomes, selo "verificado", "só verificados" e pausa (paridade, 2026-11-22)
+### Task 9: Orientação, pronomes, selo "verificado" e pausa (paridade, 2026-11-22)
 
 **Arquivos:**
 - Criar: `db/migration/V25__identidade_e_pausa.sql`
 - Criar: raiz `perfil/{Orientacao,Pronomes,Identidade,ServicoDeIdentidade,PausaDaConta}.java`; domínio `perfil/dominio/{DadosDeIdentidade,RepositorioDeIdentidade}.java`; web `perfil/web/{IdentidadeController,PausaController}.java`; infra `perfil/infra/IdentidadeJdbc.java`
-- Modificar: `perfil/{PerfilPublico,PerfilCompleto,Preferencias,ConsultaDePerfis,ServicoDePreferencias}.java`, `perfil/web/PreferenciasController.java`, `frontend/src/telas/perfil/{MeuPerfil,Preferencias}.tsx`, `frontend/src/componentes/FotoOuSilhueta.tsx` (selo)
+- Modificar: `perfil/{PerfilPublico,PerfilCompleto,ConsultaDePerfis}.java`, `frontend/src/telas/perfil/MeuPerfil.tsx`, `frontend/src/componentes/FotoOuSilhueta.tsx` (selo)
 - Criar: `frontend/src/telas/perfil/{Identidade,PausarConta}.tsx` + testes, `frontend/src/componentes/SeloVerificado.tsx`
-- Teste: `perfil/{IdentidadeApiTest,PausaApiTest,SoVerificadosApiTest}.java`, `perfil/ConsultaDePerfisTest.java` (casos novos), `e2e/IdentidadeEPausaIT.java`; Modificar: `AxeIT`
+- Teste: `perfil/{IdentidadeApiTest,PausaApiTest,SeloVerificadoApiTest}.java`, `perfil/ConsultaDePerfisTest.java` (casos novos), `e2e/IdentidadeEPausaIT.java`; Modificar: `AxeIT`
 
 **Esquema (V25):**
 - `identidade(conta_id uuid pk references conta(id) on delete cascade, orientacao text check (orientacao in ('HETEROSSEXUAL','GAY','LESBICA','BISSEXUAL','PANSSEXUAL','ASSEXUAL','DEMISSEXUAL','QUEER','QUESTIONANDO','OUTRA')), descricao_orientacao text check (char_length(descricao_orientacao) between 1 and 40), mostrar_orientacao boolean not null default false, orientacao_consentida_em timestamptz, pronomes text check (pronomes in ('ELA_DELA','ELE_DELE','ELU_DELU','OUTROS')), descricao_pronomes text check (char_length(descricao_pronomes) between 1 and 20), check ((orientacao = 'OUTRA') = (descricao_orientacao is not null)), check ((pronomes = 'OUTROS') = (descricao_pronomes is not null)), check (orientacao is null or orientacao_consentida_em is not null))`.
-- `alter table preferencias add column so_verificados boolean not null default false`.
 - `alter table perfil add column pausada_em timestamptz`.
 
 **Interfaces:**
@@ -297,17 +296,16 @@ V25 é da Task 9; V26–V39 ficam reservados para correções. T7 e T8 tocam o r
   - Projeções (assinaturas finais):
     - `PerfilPublico(ContaId conta, String apelido, Optional<String> fotoBorradaUrl, Optional<String> pronomes, boolean verificado)` — `pronomes` já como texto de exibição (`ela/dela` ou a descrição);
     - `PerfilCompleto(ContaId conta, String apelido, int idade, Set<Intencao> intencao, String bio, Optional<String> fotoUrl, Optional<String> pronomes, Optional<String> orientacao, boolean verificado)` — `orientacao` só com `mostrar_orientacao`;
-    - `Preferencias(Set<Intencao> intencao, FaixaEtaria faixaEtaria, Raio raio, boolean raioObrigatorio, Optional<Genero> generoProprio, Set<Genero> generosBuscados, boolean soVerificados)`.
-  - `PUT /api/perfil/preferencias` aceita `soVerificados` (mesma regra de versão da T2). Como a verificação é obrigatória para ATIVA (Etapa 2), hoje todo candidato da fila é verificado; a preferência fica pronta para quando houver contas não verificadas (ex.: verificação vencida) e o pareamento a respeita (Etapa 4 Task 2).
+    - `Preferencias` não muda nesta task (sem filtro "só verificados": toda conta ATIVA é verificada, Etapa 2).
   - Pausa: `POST /api/perfil/pausa` → 204 (grava `pausada_em` se nulo); `DELETE /api/perfil/pausa` → 204; `GET /api/perfil` ganha `"pausada": bool`. `Perfis.prontoParaFila` passa a exigir `pausada_em is null`; `public boolean pausada(ContaId)`. Conexões, conversas e a conta seguem intactas; a Etapa 4 tira a conta pausada da fila e não manda o push "alguém compatível". Texto da tela: título `Pausar a conta`, `Enquanto a conta estiver pausada, você não entra na fila nem recebe avisos de pessoas compatíveis. Suas conexões e conversas continuam.`, botões `Pausar` e `Voltar a aparecer`.
   - `SeloVerificado`: ícone + texto `Verificado` (nunca só cor), no encontro, no perfil e nas conexões.
 - [ ] **Passo 1:** testes.
   - `IdentidadeApiTest`: `pronomesOpcionaisEPublicos` (o `GET /api/perfis/{id}` de terceiro traz `pronomes`); `orientacaoSemConsentimentoRecebe422`; `orientacaoNuncaApareceParaTerceiro` (canário no corpo de `/api/perfis/{id}`); `orientacaoSoParaConexaoComMostrar` (via `Perfis.completo`: vazia com `mostrar=false`, presente com `true`); `prefiroDescreverExigeTexto`; `descricaoDe21CaracteresNosPronomesRecebe422`; `apagarOrientacaoLimpaOConsentimento`; `exclusaoApagaIdentidade`.
-  - `SoVerificadosApiTest`: `preferenciaGravaEVoltaNaProjecao`; `publicoTrazVerificadoDaConta`.
+  - `SeloVerificadoApiTest`: `publicoTrazVerificadoDaConta` (conta com `verificacao_idade` `APROVADA` → `verificado: true`); `semAprovacaoNaoTrazSelo` (linha `DUVIDA` → `verificado: false`).
   - `PausaApiTest`: `pausadaNaoFicaProntaParaFila`; `pausarDuasVezesE204`; `voltarAAparecerReabre`; `pausaNaoMexeNasConexoes` (sem conexões nesta etapa: confere só que a conta segue ATIVA e o perfil intacto).
-  - `ConsultaDePerfisTest`: `preferenciasTrazSoVerificados`; `completoTrazPronomesEOrientacaoSoComMostrar`.
+  - `ConsultaDePerfisTest`: `completoTrazPronomesEOrientacaoSoComMostrar`.
   - Vitest: `orientacaoPedeConsentimento`; `seloTemTextoAlemDoIcone`; `pausarMostraOTextoExato`.
   - `IdentidadeEPausaIT.pausarEVoltar` (pausa pela tela, `GET /api/perfil` traz `pausada: true`, volta a aparecer e traz `false`; o efeito na fila é testado na Etapa 4 Task 5); `AxeIT`: `identidadeSemViolacoes`, `pausaSemViolacoes`.
 - [ ] **Passo 2:** rodar; falha.
 - [ ] **Passo 3:** implementar. As Etapas 4, 5 e 6 consomem as projeções com os campos novos; se já estiverem na `main`, ajustar os usos no mesmo commit, sem mudar comportamento.
-- [ ] **Passo 4:** testes verdes nos três navegadores. Commit `feat(perfil): orientação e pronomes, selo verificado, só verificados e pausa`.
+- [ ] **Passo 4:** testes verdes nos três navegadores. Commit `feat(perfil): orientação e pronomes, selo verificado e pausa`.
