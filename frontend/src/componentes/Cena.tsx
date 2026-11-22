@@ -2,10 +2,11 @@
 // de DOM exatas que ela faz. O React só renderiza a moldura vazia e liga as camadas por ref.
 
 import { useEffectEvent, useImperativeHandle, useLayoutEffect, useRef, type Ref, type RefObject } from "react";
-import { criarCena, mostrarTerraco, type CenaImperativa } from "../cena/cena";
+import { criarCena, type CenaImperativa } from "../cena/cena";
 import { desenharCeu } from "../cena/ceu";
 import { criarMeteoros, type Meteoros } from "../cena/meteoros";
-import { VARIANTES, type Geometria, type Momento } from "../dominio/dados";
+import type { CenarioFront } from "../cenario/tipos";
+import type { Momento } from "../dominio/dados";
 import type { Visao } from "../dominio/visao";
 
 export interface CenaRef {
@@ -19,7 +20,7 @@ export interface PropsCena {
   enviando: boolean;
   momento: Momento;
   ladoTelescopio: string | null;
-  geometria: Geometria;
+  cenario: CenarioFront;
   aoEscolherPeca: (peca: string, minha: boolean) => void;
   aoEscolherLugar: (lugar: string, bloqueio: string | null) => void;
   aoMeteoro: () => void;
@@ -60,7 +61,7 @@ export function Cena({
   enviando,
   momento,
   ladoTelescopio,
-  geometria,
+  cenario,
   aoEscolherPeca,
   aoEscolherLugar,
   aoMeteoro,
@@ -88,14 +89,11 @@ export function Cena({
     [],
   );
 
-  // Céu, terraço e meteoros não dependem da sessão: nascem com a cena.
+  // Céu e meteoros não dependem da sessão: nascem com a cena. O fundo vem com o criarCena.
   useLayoutEffect(() => {
     const estrelas = elemento(refEstrelas);
     const janelas = elemento(refJanelas);
     desenharCeu(estrelas, janelas);
-    // O <img> do terraço nasce sem src, para não baixar duas larguras: a família sai do palco já
-    // medido, sem esperar o cena.json.
-    mostrarTerraco(elemento(refPalco), VARIANTES);
     const movimentoReduzido = window.matchMedia("(prefers-reduced-motion: reduce)");
     const instancia = criarMeteoros(elemento(refMeteoros), {
       aoMeteoro: () => {
@@ -122,7 +120,7 @@ export function Cena({
       palco: elemento(refPalco),
       camadaPecas: elemento(refPecas),
       camadaLugares: elemento(refLugares),
-      geometria,
+      cenario,
       aoEscolherPeca: (peca, minha) => {
         escolherPeca(peca, minha);
       },
@@ -133,7 +131,7 @@ export function Cena({
     return () => {
       cena.current = null;
     };
-  }, [geometria]);
+  }, [cenario]);
 
   useLayoutEffect(() => {
     const atual = cena.current;
@@ -147,7 +145,7 @@ export function Cena({
       atual.desenhar(visao, selecionada);
     }
     devolverFoco();
-  }, [geometria, visao, selecionada]);
+  }, [cenario, visao, selecionada]);
 
   useLayoutEffect(() => {
     elemento(refPalco).dataset.enviando = String(enviando);

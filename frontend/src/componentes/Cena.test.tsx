@@ -1,23 +1,11 @@
 import { act, render, screen } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import type { Geometria, MedidasSprite, Momento } from "../dominio/dados";
+import type { Momento } from "../dominio/dados";
 import type { Visao, VisaoPeca } from "../dominio/visao";
+import { cenarioDoTerraco } from "../teste/cenarioDoTerraco";
 import { Cena } from "./Cena";
 
-const MEDIDAS: MedidasSprite = { largura: 200, altura: 150, ancoraX: 100, ancoraY: 120 };
-
-/** Dois lugares (um de cada zona) e os sprites que eles usam. */
-const GEOMETRIA: Geometria = {
-  largura: 1800,
-  altura: 1186,
-  pxPorMetro: 100,
-  variantes: [900],
-  lugares: { C1: { x: 700, y: 600 }, L2: { x: 300, y: 900 } },
-  props: {
-    manta: { crepusculo: MEDIDAS, noite: MEDIDAS },
-    "telescopio-esq": { crepusculo: MEDIDAS, noite: MEDIDAS },
-  },
-};
+const CENARIO = cenarioDoTerraco();
 
 /** Ana no assento B; Bruno no A, dono do telescópio e da manta. */
 function visaoDeAna(pecas: VisaoPeca[], versao = 1): Visao {
@@ -64,7 +52,7 @@ function desenhar(
       enviando={enviando}
       momento={momento}
       ladoTelescopio={ladoTelescopio}
-      geometria={GEOMETRIA}
+      cenario={CENARIO}
       aoEscolherPeca={() => {}}
       aoEscolherLugar={() => {}}
       aoMeteoro={() => {}}

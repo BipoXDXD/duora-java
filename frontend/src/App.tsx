@@ -48,11 +48,11 @@ function useSessaoIniciada(sessao: Sessao): void {
 }
 
 /** .ceu-pintado só quando as imagens do céu carregaram. */
-function useCeuPintado(): boolean {
+function useCeuPintado(cenario: CenarioFront): boolean {
   const [pintado, setPintado] = useState(false);
   useEffect(() => {
     let montado = true;
-    void prepararCeuPintado().then((carregou) => {
+    void prepararCeuPintado(cenario).then((carregou) => {
       if (montado) {
         setPintado(carregou);
       }
@@ -60,7 +60,7 @@ function useCeuPintado(): boolean {
     return () => {
       montado = false;
     };
-  }, []);
+  }, [cenario]);
   return pintado;
 }
 
@@ -109,7 +109,7 @@ export function App({ convite, cenario }: { convite: string | null; cenario: Cen
   const refCena = useRef<CenaRef>(null);
   const [aviso] = useState(criarAvisoAdiado);
   const [sessao] = useState(() => criarSessao({ api, aviso, convite, cenario }));
-  const [som] = useState(criarSom);
+  const [som] = useState(() => criarSom(cenario));
 
   useLayoutEffect(() => {
     if (refAviso.current !== null) {
@@ -119,7 +119,7 @@ export function App({ convite, cenario }: { convite: string | null; cenario: Cen
 
   const estado = useSessao(sessao, refCena);
   useSessaoIniciada(sessao);
-  const ceuPintado = useCeuPintado();
+  const ceuPintado = useCeuPintado(cenario);
   useSomDaSessao(som, estado);
   useEscCancelaSelecao(sessao);
 
@@ -143,7 +143,7 @@ export function App({ convite, cenario }: { convite: string | null; cenario: Cen
           enviando={estado.enviando !== null}
           momento={estado.momento}
           ladoTelescopio={estado.ladoTelescopio}
-          geometria={cenario.geometria}
+          cenario={cenario}
           aoEscolherPeca={(peca, minha) => void sessao.escolherPeca(peca, minha)}
           aoEscolherLugar={(lugar, bloqueio) => void sessao.escolherLugar(lugar, bloqueio)}
           aoMeteoro={() => {
