@@ -1,7 +1,7 @@
 // @vitest-environment node
 import { createHash } from "node:crypto";
 import { expect, it } from "vitest";
-import { impressao } from "./impressao.ts";
+import { impressao } from "./impressao";
 
 const texto = (valor: string) => new TextEncoder().encode(valor);
 

@@ -10,6 +10,7 @@
     "noUncheckedIndexedAccess": true,
     "verbatimModuleSyntax": true,
     "erasableSyntaxOnly": true,
+    // O loader do vite.config.ts pede a extensão nos imports relativos (vite.config.ts → build/).
     "allowImportingTsExtensions": true,
     "noUnusedLocals": true,
     "noUnusedParameters": true,
