@@ -1,7 +1,9 @@
-import { render, screen, within } from "@testing-library/react";
+import { screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 import type { Visao, VisaoPeca } from "../dominio/visao";
+import { CENARIO_MINIMO } from "../teste/cenarioMinimo";
+import { renderComCenario } from "../teste/comCenario";
 import { Inventario } from "./Inventario";
 
 function peca(peca: string, lugar: string | null, bloqueio: string | null = null): VisaoPeca {
@@ -27,7 +29,7 @@ const MONTANDO = visao([peca("telescopio", "C1"), peca("manta", "L1"), peca("rad
 
 function renderizar(v: Visao, mudancas: Partial<Parameters<typeof Inventario>[0]> = {}) {
   const props = { visao: v, selecionada: null, enviando: null, aoEscolher: vi.fn(), aoRetirar: vi.fn(), ...mudancas };
-  render(<Inventario {...props} />);
+  renderComCenario(<Inventario {...props} />);
   return props;
 }
 
@@ -106,5 +108,22 @@ describe("Inventario", () => {
     expect(props.aoRetirar).not.toHaveBeenCalled();
     expect(props.aoEscolher).not.toHaveBeenCalled();
     expect(item(/^Rádio/)).toHaveAttribute("aria-disabled", "true");
+  });
+
+  it("cenário mínimo usa os nomes dele", () => {
+    const minimo: Visao = {
+      ...visao([]),
+      pecas: [
+        { peca: "pedra", assento: "A", lugar: null, lugaresPermitidos: [], bloqueio: null },
+        { peca: "folha", assento: "B", lugar: null },
+      ],
+    };
+
+    renderComCenario(
+      <Inventario visao={minimo} selecionada={null} enviando={null} aoEscolher={vi.fn()} aoRetirar={vi.fn()} />,
+      CENARIO_MINIMO,
+    );
+
+    expect(within(item(/^Pedra/)).getByText("Vai em qualquer lugar")).toBeInTheDocument();
   });
 });

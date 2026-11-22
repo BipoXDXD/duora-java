@@ -40,11 +40,8 @@ export interface VisaoSinal {
   deAssento: Assento;
 }
 
-export interface VisaoResultado {
-  secundariaA: string;
-  secundariaB: string;
-  ladoTelescopio: string;
-}
+/** Desfecho do cenário: chave → valor, na ordem que o servidor manda (terraço: secundariaA, secundariaB, ladoTelescopio). */
+export type VisaoResultado = Readonly<Record<string, string>>;
 
 export interface Visao {
   fase: Fase;

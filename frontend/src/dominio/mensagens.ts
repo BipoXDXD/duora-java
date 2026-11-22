@@ -1,6 +1,6 @@
 // Textos montados no cliente a partir dos códigos e dados estruturados da API.
 
-import { dadosDaPeca, dadosDoLugar } from "./dados";
+import type { CenarioFront } from "../cenario/tipos";
 import type { Assento, Visao } from "./visao";
 
 /** O que as mensagens leem de um erro da API (o ErroApi do cliente satisfaz este tipo). */
@@ -97,22 +97,12 @@ export function textoMotivoConfirmacao(visao: Visao): string {
   return "";
 }
 
-/** Título e frase da noite revelada, a partir de resultado { secundariaA, secundariaB, ladoTelescopio }. */
-export function textoResultado(visao: Visao): { titulo: string; texto: string } {
+/** Título e frase da noite revelada: a legenda do cenário preenchida com o resultado e os nomes. */
+export function textoResultado(c: CenarioFront, visao: Visao): { titulo: string; texto: string } {
   if (visao.resultado === null) {
     throw new Error("Visão sem resultado: a noite ainda não foi revelada");
   }
-  const { secundariaA, secundariaB, ladoTelescopio } = visao.resultado;
-  const a = dadosDaPeca(secundariaA);
-  const b = dadosDaPeca(secundariaB);
-  const nomeA = nomeNoAssento(visao, "A");
-  const nomeB = nomeNoAssento(visao, "B");
-  return {
-    titulo: `Uma noite de ${a.nome.toLowerCase()} e ${b.nome.toLowerCase()}`,
-    texto:
-      `O telescópio de ${nomeA} aponta para o lado ${ladoTelescopio} do céu, e é por ali que os meteoros passam. ` +
-      `${nomeA} trouxe ${a.artigo}; ${nomeB}, o banco e ${b.artigo}.`,
-  };
+  return c.legenda(visao.resultado, { A: nomeNoAssento(visao, "A"), B: nomeNoAssento(visao, "B") });
 }
 
 /** Nome de quem ocupa o assento; a noite só é revelada com os dois assentos ocupados. */
@@ -127,7 +117,7 @@ function nomeNoAssento(visao: Visao, assento: Assento): string {
 }
 
 /** O que o parceiro fez com as peças dele entre duas visões; null se nada mudou. */
-export function textoPecasDoParceiro(anterior: Visao, visao: Visao): string | null {
+export function textoPecasDoParceiro(c: CenarioFront, anterior: Visao, visao: Visao): string | null {
   const nome = nomeDoParceiro(visao);
   const lugarAntes = new Map(anterior.pecas.map((p) => [p.peca, p.lugar]));
   const frases: string[] = [];
@@ -140,11 +130,11 @@ export function textoPecasDoParceiro(anterior: Visao, visao: Visao): string | nu
     if (antes === agora) {
       continue;
     }
-    const { artigo } = dadosDaPeca(p.peca);
+    const { artigo } = c.peca(p.peca);
     if (!agora) {
       frases.push(`${nome} tirou ${artigo} do terraço.`);
     } else {
-      frases.push(`${nome} ${antes ? "moveu" : "colocou"} ${artigo}: ${dadosDoLugar(agora).nome}.`);
+      frases.push(`${nome} ${antes ? "moveu" : "colocou"} ${artigo}: ${c.lugar(agora).nome}.`);
     }
   }
   return frases.length ? frases.join(" ") : null;

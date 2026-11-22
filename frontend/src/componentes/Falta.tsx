@@ -1,12 +1,13 @@
-import { dadosDaPeca } from "../dominio/dados";
+import { useCenario } from "../cenario/contexto";
+import { interpolar } from "../cenario/legenda";
+import type { CenarioFront } from "../cenario/tipos";
 import type { Visao, VisaoPeca } from "../dominio/visao";
 import { SUBTITULO } from "./estilos";
 
-const ehObrigatoria = (p: VisaoPeca) => dadosDaPeca(p.peca).obrigatoria === true;
-const temSegundaColocada = (lista: VisaoPeca[]) => lista.some((p) => !ehObrigatoria(p) && p.lugar !== null);
-
-/** As quatro metas do terraço, com o que cada uma diz e se já foi cumprida. */
-function linhasDaFalta(visao: Visao): [texto: string, feito: boolean][] {
+/** As quatro metas da composição, com o que cada uma diz e se já foi cumprida. */
+export function linhasDaFalta(c: CenarioFront, visao: Visao): [texto: string, feito: boolean][] {
+  const ehObrigatoria = (p: VisaoPeca) => c.peca(p.peca).obrigatoria;
+  const temSegundaColocada = (lista: VisaoPeca[]) => lista.some((p) => !ehObrigatoria(p) && p.lugar !== null);
   const nomeParceiro = visao.parceiro?.nome ?? "a outra pessoa";
   const minhas = visao.pecas.filter((p) => p.assento === visao.voce.assento);
   const dele = visao.pecas.filter((p) => p.assento !== visao.voce.assento);
@@ -15,10 +16,13 @@ function linhasDaFalta(visao: Visao): [texto: string, feito: boolean][] {
     throw new Error("Visão sem a peça central de quem pede");
   }
   const centralDele = dele.find(ehObrigatoria);
+  const naZona = (p: VisaoPeca, nome = c.peca(p.peca).nome) =>
+    interpolar(c.zona(c.peca(p.peca).zona).checklist, { nome }, c);
   return [
-    [`${dadosDaPeca(minhaCentral.peca).nome} no centro`, minhaCentral.lugar !== null],
+    [naZona(minhaCentral), minhaCentral.lugar !== null],
     [
-      `${centralDele ? dadosDaPeca(centralDele.peca).nome : "Peça central"} no centro (${nomeParceiro})`,
+      // Antes de o parceiro aparecer, a peça central dele vai na mesma zona da minha.
+      `${centralDele ? naZona(centralDele) : naZona(minhaCentral, "Peça central")} (${nomeParceiro})`,
       Boolean(centralDele?.lugar),
     ],
     ["Sua segunda peça", temSegundaColocada(minhas)],
@@ -52,6 +56,7 @@ function IconePendente() {
 
 /** "O que falta": some quando a noite é revelada. */
 export function Falta({ visao }: { visao: Visao }) {
+  const c = useCenario();
   return (
     <section
       className="falta celular:order-4 celular-deitado:order-4"
@@ -62,7 +67,7 @@ export function Falta({ visao }: { visao: Visao }) {
         O que falta
       </h2>
       <ul id="falta" className="grid gap-(--e-1) m-0 p-0 list-none text-texto-2">
-        {linhasDaFalta(visao).map(([texto, feito], posicao) => (
+        {linhasDaFalta(c, visao).map(([texto, feito], posicao) => (
           // As quatro linhas são fixas e posicionais: a posição é a identidade.
           <li key={posicao} className="flex items-center gap-(--e-2) data-[feito=true]:text-texto-3" data-feito={feito}>
             {feito ? <IconeFeito /> : <IconePendente />}

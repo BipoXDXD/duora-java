@@ -1,6 +1,8 @@
-import { render, screen, within } from "@testing-library/react";
+import { screen, within } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 import type { Visao, VisaoPeca } from "../dominio/visao";
+import { CENARIO_MINIMO } from "../teste/cenarioMinimo";
+import { renderComCenario } from "../teste/comCenario";
 import { Falta } from "./Falta";
 
 function visao(
@@ -26,7 +28,7 @@ const dele = (peca: string, lugar: string | null): VisaoPeca => ({ peca, assento
 
 describe("Falta", () => {
   it("quatro linhas, cada uma com o estado para o leitor de tela", () => {
-    render(
+    renderComCenario(
       <Falta
         visao={visao([minha("telescopio", "C1"), minha("manta", null), dele("banco", null), dele("lanterna", "R1")])}
       />,
@@ -43,7 +45,7 @@ describe("Falta", () => {
   });
 
   it("antes de o parceiro aparecer, fala da outra pessoa e da peça central", () => {
-    render(<Falta visao={visao([minha("telescopio", null), minha("manta", null)], null)} />);
+    renderComCenario(<Falta visao={visao([minha("telescopio", null), minha("manta", null)], null)} />);
 
     expect(screen.getAllByRole("listitem").map((li) => li.textContent)).toEqual([
       "Telescópio no centro, falta",
@@ -51,5 +53,11 @@ describe("Falta", () => {
       "Sua segunda peça, falta",
       "Segunda peça de a outra pessoa, falta",
     ]);
+  });
+
+  it("checklist vem da zona do cenário", () => {
+    renderComCenario(<Falta visao={visao([minha("pedra", "P1"), dele("folha", null)])} />, CENARIO_MINIMO);
+
+    expect(screen.getAllByRole("listitem")[0]).toHaveTextContent("Pedra na cena");
   });
 });

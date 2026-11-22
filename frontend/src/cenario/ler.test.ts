@@ -1,5 +1,4 @@
 import { describe, expect, it } from "vitest";
-import { LUGARES, PECAS } from "../dominio/dados";
 import { cenarioDoTerraco, jsonsDoTerraco } from "../teste/cenarioDoTerraco";
 import { CENARIO_MINIMO } from "../teste/cenarioMinimo";
 import { lerCenario } from "./ler";
@@ -35,15 +34,59 @@ describe("lerCenario: validação", () => {
     expect(c.nome).toBe("Terraço das Estrelas Cadentes");
   });
 
-  it("bate com as constantes de hoje", () => {
+  it("bate com as peças e os lugares do terraço", () => {
     const c = cenarioDoTerraco();
 
-    for (const [id, dados] of Object.entries(PECAS)) {
-      expect(c.peca(id)).toEqual({ ...dados, obrigatoria: dados.obrigatoria === true });
-    }
-    for (const [id, dados] of Object.entries(LUGARES)) {
-      expect(c.lugar(id)).toEqual(dados);
-    }
+    expect(c.peca("telescopio")).toEqual({
+      nome: "Telescópio",
+      artigo: "o telescópio",
+      assento: "A",
+      zona: "centro",
+      obrigatoria: true,
+    });
+    expect(c.peca("manta")).toEqual({
+      nome: "Manta",
+      artigo: "a manta",
+      assento: "A",
+      zona: "lateral",
+      obrigatoria: false,
+    });
+    expect(c.peca("radio")).toEqual({
+      nome: "Rádio",
+      artigo: "o rádio",
+      assento: "A",
+      zona: "lateral",
+      obrigatoria: false,
+    });
+    expect(c.peca("banco")).toEqual({
+      nome: "Banco",
+      artigo: "o banco",
+      assento: "B",
+      zona: "centro",
+      obrigatoria: true,
+    });
+    expect(c.peca("lanterna")).toEqual({
+      nome: "Lanterna",
+      artigo: "a lanterna",
+      assento: "B",
+      zona: "lateral",
+      obrigatoria: false,
+    });
+    expect(c.peca("garrafa")).toEqual({
+      nome: "Garrafa térmica",
+      artigo: "a garrafa térmica",
+      assento: "B",
+      zona: "lateral",
+      obrigatoria: false,
+    });
+    expect(["C1", "C2", "L1", "L2", "R1", "R2"].map((id) => c.lugar(id).nome)).toEqual([
+      "centro, à esquerda",
+      "centro, à direita",
+      "fundo, à esquerda",
+      "frente, à esquerda",
+      "fundo, à direita",
+      "frente, à direita",
+    ]);
   });
 
   it("falta de artigo aponta o caminho", () => {

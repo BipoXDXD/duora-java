@@ -6,7 +6,6 @@
 import { type Api, ErroApi, type Resposta } from "../api/cliente";
 import { criarPolling as criarPollingPadrao, type GanchosDoPolling, type Polling } from "../api/polling";
 import type { CenarioFront } from "../cenario/tipos";
-import { dadosDaPeca } from "../dominio/dados";
 import { type ErroComCodigo, mensagemDeErro, textoEncerrado } from "../dominio/mensagens";
 import type { Visao } from "../dominio/visao";
 import type { Aviso } from "./aviso";
@@ -88,7 +87,13 @@ function exigirVisao(resposta: Resposta): Visao {
   return resposta.visao;
 }
 
-export function criarSessao({ api, aviso, convite, criarPolling = criarPollingPadrao }: OpcoesDaSessao): Sessao {
+export function criarSessao({
+  api,
+  aviso,
+  convite,
+  cenario,
+  criarPolling = criarPollingPadrao,
+}: OpcoesDaSessao): Sessao {
   const estado = {
     convite,
     visao: null as Visao | null,
@@ -144,7 +149,7 @@ export function criarSessao({ api, aviso, convite, criarPolling = criarPollingPa
     if (visao.fase === "AGUARDANDO_PAR") {
       return { tela: "convite", visao };
     }
-    return { tela: "montagem", visao, selecionada, instrucao: instrucao(visao, selecionada, enviando) };
+    return { tela: "montagem", visao, selecionada, instrucao: instrucao(cenario, visao, selecionada, enviando) };
   }
 
   /** Revelado: noite com meteoros do lado do telescópio. Qualquer outra fase: crepúsculo. */
@@ -156,7 +161,7 @@ export function criarSessao({ api, aviso, convite, criarPolling = criarPollingPa
       confirmandoSaida: estado.confirmandoSaida,
       somLigado: estado.somLigado,
       momento: noite ? "noite" : "crepusculo",
-      ladoTelescopio: noite ? (estado.visao?.resultado?.ladoTelescopio ?? null) : null,
+      ladoTelescopio: noite ? (estado.visao?.resultado?.["ladoTelescopio"] ?? null) : null,
     };
   }
 
@@ -209,7 +214,7 @@ export function criarSessao({ api, aviso, convite, criarPolling = criarPollingPa
     if (!selecaoContinua(visao, estado.selecionada)) {
       estado.selecionada = null;
     }
-    let texto = anterior ? novidade(anterior, visao, propria) : null;
+    let texto = anterior ? novidade(cenario, anterior, visao, propria) : null;
     if (!anterior && estado.convite) {
       // Abrir o próprio convite no mesmo navegador cai na sala que já existe.
       estado.convite = null;
@@ -233,7 +238,7 @@ export function criarSessao({ api, aviso, convite, criarPolling = criarPollingPa
       await enviar(
         "sinal",
         () => api.sinalizar(peca),
-        () => `Você sugeriu que ${String(visao.parceiro?.nome)} mova ${dadosDaPeca(peca).artigo}.`,
+        () => `Você sugeriu que ${String(visao.parceiro?.nome)} mova ${cenario.peca(peca).artigo}.`,
       );
       return;
     }
@@ -265,7 +270,7 @@ export function criarSessao({ api, aviso, convite, criarPolling = criarPollingPa
       () => {
         estado.selecionada = null;
         pedirFoco({ alvo: "item", peca });
-        return lugar ? null : `${dadosDaPeca(peca).nome} voltou para as suas peças.`;
+        return lugar ? null : `${cenario.peca(peca).nome} voltou para as suas peças.`;
       },
       peca,
     );
