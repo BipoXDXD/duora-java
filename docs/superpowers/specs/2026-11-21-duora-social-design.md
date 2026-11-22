@@ -10,7 +10,7 @@ Hipótese herdada (`duora-java-mvp.md` §1): uma pequena criação compartilhada
 | Ambição | **Piloto aberto**: cadastro público, sem convite, com pessoas reais. Começa pequeno e cresce conforme validar |
 | Jornada | **Encontro primeiro**: a pessoa define filtros, é pareada e as duas fazem a atividade no cenário com apelido e foto borrada. Depois cada uma decide em privado; o perfil completo, o chat e a voz só abrem se as duas disserem sim |
 | Quando | **Sem horário fixo** (dono, 2026-11-22). Quem abre o encontro escolhe: **público** (o pareamento traz alguém compatível a qualquer hora) ou **privado** (só por convite, via link). Substitui as janelas marcadas |
-| Stack | **Evoluir o Duora Java** (Spring Boot 4.1, Java 25, JS nativo) |
+| Stack | **Evoluir o Duora Java** (Spring Boot 4.2, Java 25, JS nativo) |
 | Hospedagem | **VPS + Docker Compose** (Caddy, PostgreSQL, coturn no mesmo host), no padrão do `infra/` do projeto C# |
 | Critério de namoro | **Gênero + quem quer conhecer**: compatível nos dois sentidos. Gênero em lista inclusiva mais "prefiro descrever" |
 | LGPD | **Versão leve**: termos e política curtos, consentimento simples, exclusão de conta. Sem mapa de dados, relatório de impacto ou revisão jurídica obrigatória no piloto |
@@ -32,6 +32,7 @@ Hipótese herdada (`duora-java-mvp.md` §1): uma pequena criação compartilhada
 - **Sair é sempre unilateral** (segurança): qualquer um sai a qualquer momento e vai à decisão privada. O que exige os dois é **encerrar antes dos 30 min de comum acordo**.
 - **Links:** domínio em destaque, só `http(s)` (nada de `javascript:`/`data:`), `rel="noopener noreferrer nofollow ugc"`, aviso "você vai sair do Duora" ao clicar, sem prévia automática.
 - **Imagens:** liberadas só quando os dois aceitam após um aviso explícito (e qualquer um desliga a qualquer momento); até 5 MB; reprocessadas no servidor (WebP q88, sem metadados); chegam borradas com toque para ver; denunciáveis; expiram com o chat do encontro (30 dias).
+- **Sem imagens sensíveis** (dono, 2026-11-22): nudez, sexo, violência explícita e conteúdo chocante são proibidos nos termos e no aviso de envio. Denúncia de imagem a esconde na hora para quem denunciou e a manda à fila do admin; confirmada, a conta é banida (sessões derrubadas, fora da fila e das conexões).
 - **Tempo real**: SSE (servidor→cliente) mais POST, em vez de WebSocket. Assim reaproveito os filtros `MesmaOrigem`/`X-Duora` e o modelo MVC atual. O polling com ETag do terraço continua como plano B.
 - **Sair, denunciar e bloquear** ficam visíveis em todas as telas desde a primeira etapa social. O bloqueio é bilateral e o bloqueado não fica sabendo.
 - **Repo público + MIT**: mantidos, porque é só código, sem dados nem segredos. A revalidação acontece na Etapa 0.
@@ -151,7 +152,7 @@ Playtest por agente (2026-11-22): primeira ação clara; contribuição do outro
 **Prova**: a chamada se completa através de NAT via TURN.
 
 ### Etapa 8: Moderação e painel admin
-- Denúncia de imagem e de link do chat, com a imagem/mensagem como contexto.
+- Denúncia de imagem e de link do chat, com a imagem/mensagem como contexto. Imagem sensível confirmada → banimento.
 - Papel ADMIN.
 - Filas de denúncias (com contexto limitado às mensagens denunciadas) e de fotos.
 - Banimento, que derruba sessões e retira a pessoa das filas.
