@@ -165,3 +165,16 @@ Cada etapa termina com uma prova demonstrável, testes verdes (`./mvnw -q verify
 - Testcontainers para o banco, uma suíte com Docker por vez.
 - Provas manuais listadas em cada etapa, num Android real.
 - Final: smoke e2e contra homologação e uma janela de teste com o dono e mais uma pessoa antes do piloto.
+
+## Backlog de cenários (ideias do dono, 2026-11-22)
+Fora do piloto (não-objetivo "novos cenários além do terraço"); a decisão de qual entra vem da Etapa 11. Cada cenário segue o formato do terraço: criação a dois, ~30 min, sem placar, revelação no fim. As atividades abaixo são propostas iniciais, a validar em brainstorming próprio.
+
+| Cenário | Atividade compartilhada proposta |
+|---|---|
+| Parque | Montar juntos um canto do parque (banco, árvore, pipa, lago) e ver o pôr do sol mudar conforme a composição |
+| Cachoeira | Escolher a trilha e o mirante; a combinação decide a luz e o arco-íris na revelação |
+| Planetário | Cada um posiciona estrelas e os dois desenham uma constelação nova, batizada no fim |
+| Aquário | Compor um tanque (plantas, pedras, peixes); a revelação acende a iluminação e os peixes nadam |
+| Jantar | Montar a mesa e escolher pratos a dois; a revelação é o jantar servido com a trilha escolhida |
+| Piquenique | Preparar a toalha e a cesta; o clima e os passantes reagem às escolhas |
+| Fliperama | Jogo cooperativo original a dois (sem recriar jogos existentes); um recorde conjunto, não competição |
