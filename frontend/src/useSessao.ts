@@ -70,6 +70,10 @@ function aplicarFoco(pedido: PedidoDeFoco, cena: CenaRef | null): void {
         focarItem(pedido.peca);
       }
       return;
+    case "peca-na-cena":
+      // O botão, não os efeitos da peça, que também têm data-peca.
+      focarPorSeletor(`#pecas button[data-peca="${pedido.peca}"]`);
+      return;
     default:
       naoAlcancavel(pedido);
   }

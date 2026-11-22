@@ -10,7 +10,7 @@ import { type ErroComCodigo, mensagemDeErro, textoEncerrado } from "../dominio/m
 import type { Visao } from "../dominio/visao";
 import type { Aviso } from "./aviso";
 import { type Agendar, agendarComSetTimeout, DURACAO_DESTAQUE_MS, pecasQueMudaram } from "./destaques";
-import { instrucao, novidade } from "./novidade";
+import { instrucao, novidade, textoRecusaDoSinal, textoSinalEnviado } from "./novidade";
 import type { Acao, EstadoDaSessao, EstadoDaTela, PedidoDeFoco } from "./tipos";
 
 export type { Acao, EstadoDaSessao, EstadoDaTela, PedidoDeFoco, Tela } from "./tipos";
@@ -35,9 +35,18 @@ export interface Sessao {
   iniciar: () => void;
   /** Para o polling (desmontagem, StrictMode); iniciar() retoma. */
   parar: () => void;
+  /**
+   * Na montagem, a própria peça liga ou desliga a seleção; a do parceiro, a sugestão de destino
+   * para ela. As duas não convivem: escolher uma desfaz a outra.
+   */
   escolherPeca: (peca: string, minha: boolean) => Promise<void>;
-  /** bloqueio: o motivo de o lugar não aceitar a peça selecionada ("ocupado"...), ou null. */
+  /**
+   * Coloca a peça selecionada no lugar ou, durante a sugestão, sugere o lugar ao parceiro.
+   * bloqueio: o motivo de o lugar não aceitar a peça selecionada ("ocupado"...), ou null.
+   */
   escolherLugar: (lugar: string, bloqueio: string | null) => Promise<void>;
+  /** Leva a própria peça ao lugar (o "Mover …" de uma sugestão do parceiro). */
+  moverPara: (peca: string, lugar: string) => Promise<void>;
   retirar: () => Promise<void>;
   confirmar: () => Promise<void>;
   /** Pede o ajuste (ou aceita o do outro): até a F5, é o que o "Ajustar de novo" faz. */
@@ -61,7 +70,14 @@ export interface Sessao {
  */
 export type AcoesDaSessao = Pick<
   Sessao,
-  "escolherPeca" | "retirar" | "confirmar" | "ajustar" | "criarOutro" | "enviarApelido" | "limparErroApelido"
+  | "escolherPeca"
+  | "moverPara"
+  | "retirar"
+  | "confirmar"
+  | "ajustar"
+  | "criarOutro"
+  | "enviarApelido"
+  | "limparErroApelido"
 >;
 
 /** Telas sem sala; com visão, a tela sai da fase dela. */
@@ -90,6 +106,19 @@ function selecaoContinua(visao: Visao, selecionada: string | null): boolean {
   );
 }
 
+/** Destinos que a peça do parceiro aceita como sugestão; vazio fora da montagem ou para peça própria. */
+function destinosSugeriveis(visao: Visao, peca: string | null): readonly string[] {
+  if (visao.fase !== "MONTANDO") {
+    return [];
+  }
+  const daVez = visao.pecas.find((p) => p.peca === peca && p.assento !== visao.voce.assento);
+  return daVez?.destinosSugeriveis ?? [];
+}
+
+/** A sugestão segue de pé na visão nova: a peça do parceiro ainda tem para onde ir. */
+const sugestaoContinua = (visao: Visao, sugerindo: string | null): boolean =>
+  destinosSugeriveis(visao, sugerindo).length > 0;
+
 /** Erro fora da API (um defeito, não uma resposta) lido como ErroComCodigo, para a mensagem genérica. */
 function comoErroComCodigo(erro: unknown): ErroComCodigo {
   return erro instanceof ErroApi ? erro : { codigo: "DESCONHECIDO", status: 0, motivo: null };
@@ -115,6 +144,8 @@ export function criarSessao({
     convite,
     visao: null as Visao | null,
     selecionada: null as string | null,
+    // A peça do parceiro cujo destino você está escolhendo; nunca junto com a selecionada.
+    sugerindo: null as string | null,
     // Ação aguardando o servidor; só uma por vez.
     enviando: null as Acao | null,
     // Para dizer quem saiu depois que a visão já foi descartada.
@@ -162,7 +193,7 @@ export function criarSessao({
   // ------------------------------------------------------------ retrato
 
   function telaAtual(): EstadoDaTela {
-    const { visao, selecionada, enviando } = estado;
+    const { visao, selecionada, sugerindo, enviando } = estado;
     if (visao === null) {
       return estado.semVisao;
     }
@@ -173,9 +204,9 @@ export function criarSessao({
       tela: "montagem",
       visao,
       selecionada,
-      sugerindo: null,
+      sugerindo,
       destaques,
-      instrucao: instrucao(cenario, visao, selecionada, enviando),
+      instrucao: instrucao(cenario, visao, selecionada, enviando, sugerindo),
     };
   }
 
@@ -277,6 +308,9 @@ export function criarSessao({
     if (!selecaoContinua(visao, estado.selecionada)) {
       estado.selecionada = null;
     }
+    if (!sugestaoContinua(visao, estado.sugerindo)) {
+      estado.sugerindo = null;
+    }
     if (anterior) {
       destacar(pecasQueMudaram(anterior, visao));
     }
@@ -295,24 +329,21 @@ export function criarSessao({
 
   // ------------------------------------------------------------ ações
 
-  async function escolherPeca(peca: string, minha: boolean): Promise<void> {
+  /** Não espera o servidor: seleção e sugestão são só da tela até a escolha do lugar. */
+  function escolherPeca(peca: string, minha: boolean): Promise<void> {
     const visao = estado.visao;
-    if (!visao || visao.fase !== "MONTANDO" || estado.enviando) {
-      return;
-    }
-    if (!minha) {
-      // Até a escolha do destino (F3), sugere o primeiro destino livre; sem destino, o toque não faz nada.
-      const destino = visao.pecas.find((p) => p.peca === peca)?.destinosSugeriveis?.[0];
-      if (destino === undefined) {
-        return;
+    if (visao?.fase === "MONTANDO" && !estado.enviando) {
+      if (minha) {
+        alternarSelecao(peca);
+      } else {
+        alternarSugestao(visao, peca);
       }
-      await enviar(
-        "sinal",
-        () => api.sinalizar(peca, destino),
-        () => `Você sugeriu que ${String(visao.parceiro?.nome)} mova ${cenario.peca(peca).artigo}.`,
-      );
-      return;
     }
+    return Promise.resolve();
+  }
+
+  function alternarSelecao(peca: string): void {
+    estado.sugerindo = null;
     estado.selecionada = estado.selecionada === peca ? null : peca;
     if (estado.selecionada) {
       pedirFoco({ alvo: "primeiro-lugar" });
@@ -320,8 +351,39 @@ export function criarSessao({
     publicar();
   }
 
+  /** A mesma peça desliga a sugestão; sem destino sugerível, o toque não faz nada. */
+  function alternarSugestao(visao: Visao, peca: string): void {
+    if (estado.sugerindo === peca) {
+      estado.sugerindo = null;
+    } else if (sugestaoContinua(visao, peca)) {
+      estado.selecionada = null;
+      estado.sugerindo = peca;
+      pedirFoco({ alvo: "primeiro-lugar" });
+    } else {
+      return;
+    }
+    publicar();
+  }
+
+  async function sugerir(peca: string, lugar: string): Promise<void> {
+    await enviar(
+      "sinal",
+      () => api.sinalizar(peca, lugar),
+      (nova) => {
+        estado.sugerindo = null;
+        pedirFoco({ alvo: "peca-na-cena", peca });
+        return textoSinalEnviado(cenario, nova, peca, lugar);
+      },
+      peca,
+    );
+  }
+
   async function escolherLugar(lugar: string, bloqueio: string | null): Promise<void> {
     if (estado.enviando) {
+      return;
+    }
+    if (estado.sugerindo) {
+      await sugerir(estado.sugerindo, lugar);
       return;
     }
     if (bloqueio) {
@@ -387,11 +449,11 @@ export function criarSessao({
         return;
       }
       estado.enviando = null;
-      tratarErroDeAcao(erro, peca);
+      tratarErroDeAcao(erro, acao, peca);
     }
   }
 
-  function tratarErroDeAcao(erro: unknown, peca: string | null): void {
+  function tratarErroDeAcao(erro: unknown, acao: Acao, peca: string | null): void {
     if (!(erro instanceof ErroApi)) {
       // Um defeito, não uma resposta: a tela sai do "enviando" e avisa antes de o erro seguir.
       publicar();
@@ -407,7 +469,11 @@ export function criarSessao({
     if (erro.visao) {
       polling.aceitar(null);
       if (erro.status === 409 && peca) {
-        focarAposRecusa(erro.visao, peca);
+        if (acao === "sinal") {
+          focarAposRecusaDoSinal(erro.visao, peca);
+        } else {
+          focarAposRecusa(erro.visao, peca);
+        }
       }
       aplicarVisao(erro.visao, true);
     } else {
@@ -416,7 +482,16 @@ export function criarSessao({
         polling.consultarAgora();
       }
     }
-    aviso.avisar(mensagemDeErro(erro, estado.visao ?? visaoAntes), "erro");
+    const visaoDoTexto = estado.visao ?? visaoAntes;
+    aviso.avisar(
+      acao === "sinal" ? textoRecusaDoSinal(erro, visaoDoTexto) : mensagemDeErro(erro, visaoDoTexto),
+      "erro",
+    );
+  }
+
+  /** Com destinos de sobra, a sugestão continua e o foco vai ao primeiro; senão, volta à peça. */
+  function focarAposRecusaDoSinal(visao: Visao, peca: string): void {
+    pedirFoco(sugestaoContinua(visao, estado.sugerindo) ? { alvo: "primeiro-lugar" } : { alvo: "peca-na-cena", peca });
   }
 
   /**
@@ -485,6 +560,7 @@ export function criarSessao({
   function comecarSessao(visao: Visao, etag: string | null): void {
     estado.visao = null;
     estado.selecionada = null;
+    estado.sugerindo = null;
     estado.ultimoParceiro = null;
     polling.parar();
     polling.aceitar(etag);
@@ -524,6 +600,7 @@ export function criarSessao({
     estado.enviando = null;
     estado.visao = null;
     estado.selecionada = null;
+    estado.sugerindo = null;
     estado.confirmandoSaida = false;
     apagarDestaques();
     // O botão some com a montagem: o som não pode continuar sem controle na tela.
@@ -587,6 +664,7 @@ export function criarSessao({
     },
     escolherPeca,
     escolherLugar,
+    moverPara: (peca, lugar) => moverPeca(peca, lugar, "pecas"),
     retirar: () => moverPeca(estado.selecionada, null, "retirar"),
     confirmar: () =>
       enviar(
@@ -623,6 +701,13 @@ export function criarSessao({
     },
     encerrar: sair,
     cancelarSelecao() {
+      const sugerida = estado.sugerindo;
+      if (sugerida) {
+        estado.sugerindo = null;
+        pedirFoco({ alvo: "peca-na-cena", peca: sugerida });
+        publicar();
+        return;
+      }
       const peca = estado.selecionada;
       if (!peca) {
         return;

@@ -5,6 +5,7 @@ import static bipotheking.net.duora.e2e.Cenarios.BRUNO;
 import static bipotheking.net.duora.e2e.Cenarios.entrarEmPar;
 import static bipotheking.net.duora.e2e.Cenarios.raiz;
 import static bipotheking.net.duora.e2e.TerracoPagina.Lugar.C1;
+import static bipotheking.net.duora.e2e.TerracoPagina.Lugar.R1;
 import static bipotheking.net.duora.e2e.TerracoPagina.Lugar.R2;
 import static bipotheking.net.duora.e2e.TerracoPagina.Peca.LANTERNA;
 import static bipotheking.net.duora.e2e.TerracoPagina.Peca.MANTA;
@@ -161,6 +162,7 @@ class AcessibilidadeLayoutIT {
     assertThat(ana.pecaNoTerraco(LANTERNA, BRUNO, R2)).isVisible();
 
     ana.pecaNoTerraco(LANTERNA, BRUNO, R2).click();
+    ana.destinoSugerivel(LANTERNA, R1).click();
 
     Locator lanterna = bruno.pecaNoTerraco(LANTERNA, BRUNO, R2);
     assertThat(lanterna).hasAccessibleName(Pattern.compile("Sugerido mover"));

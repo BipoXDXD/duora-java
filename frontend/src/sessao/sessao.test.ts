@@ -9,6 +9,12 @@ import { criarSessao, type EstadoDaTela } from "./sessao";
 
 const BRUNO = { assento: "B", nome: "Bruno", conectado: true } as const;
 const BANCO_EM_C2: VisaoPeca = { peca: "banco", assento: "B", lugar: "C2", destinosSugeriveis: ["C1"] };
+const LANTERNA_EM_R2: VisaoPeca = {
+  peca: "lanterna",
+  assento: "B",
+  lugar: "R2",
+  destinosSugeriveis: ["L1", "L2", "R1"],
+};
 
 function visao(mudancas: Partial<Visao> = {}): Visao {
   return {
@@ -29,6 +35,18 @@ function visao(mudancas: Partial<Visao> = {}): Visao {
     ajuste: null,
     ...mudancas,
   };
+}
+
+/** Bruno no assento B, com a sugestão de Ana para a lanterna dele ir ao R1. */
+function visaoDeBrunoComSinal(mudancas: Partial<Visao> = {}): Visao {
+  return visao({
+    versao: 4,
+    voce: { assento: "B", nome: "Bruno" },
+    parceiro: { assento: "A", nome: "Ana", conectado: true },
+    pecas: [{ peca: "lanterna", assento: "B", lugar: "R2", lugaresPermitidos: ["L1", "R1"], bloqueio: null }],
+    sinal: { peca: "lanterna", deAssento: "A", lugar: "R1" },
+    ...mudancas,
+  });
 }
 
 const resposta = (v: Visao | null, etag: string | null = '"v"'): Resposta => ({ naoMudou: false, visao: v, etag });
@@ -265,20 +283,147 @@ describe("criarSessao", () => {
     });
 
     await sessao.escolherPeca("banco", false);
+    await sessao.escolherLugar("C1", null);
 
     expect(api.sinalizar).toHaveBeenCalledWith("banco", "C1");
-    expect(aviso.avisar).toHaveBeenLastCalledWith("Você sugeriu que Bruno mova o banco.");
+    expect(aviso.avisar).toHaveBeenLastCalledWith("Você sugeriu que Bruno mova o banco: centro, à esquerda.");
   });
 
-  it("sinalEnviaOPrimeiroDestinoSugerivel", async () => {
-    const lanterna: VisaoPeca = { peca: "lanterna", assento: "B", lugar: "R2", destinosSugeriveis: ["L1", "L2", "R1"] };
-    const { sessao, api } = naSala(visao({ pecas: [lanterna] }), {
+  it("sugerirChamaSinalizarComPecaELugar", async () => {
+    const { sessao, api } = naSala(visao({ pecas: [LANTERNA_EM_R2] }), {
       api: { sinalizar: vi.fn(() => Promise.resolve(resposta(visao({ versao: 4 })))) },
     });
 
     await sessao.escolherPeca("lanterna", false);
+    expect(api.sinalizar).not.toHaveBeenCalled();
+    expect(sessao.obter()).toMatchObject({
+      sugerindo: "lanterna",
+      instrucao: "Escolha onde a lanterna de Bruno ficaria melhor. Esc cancela.",
+    });
+    expect(sessao.consumirFoco()).toEqual({ alvo: "primeiro-lugar" });
 
-    expect(api.sinalizar).toHaveBeenCalledExactlyOnceWith("lanterna", "L1");
+    await sessao.escolherLugar("R1", null);
+
+    expect(api.sinalizar).toHaveBeenCalledExactlyOnceWith("lanterna", "R1");
+    expect(sessao.obter()).toMatchObject({ sugerindo: null });
+  });
+
+  it("tocarDeNovoNaPecaSugeridaDesligaASugestao", async () => {
+    const { sessao } = naSala(visao({ pecas: [LANTERNA_EM_R2] }));
+    await sessao.escolherPeca("lanterna", false);
+
+    await sessao.escolherPeca("lanterna", false);
+
+    expect(sessao.obter()).toMatchObject({ sugerindo: null, selecionada: null });
+  });
+
+  it("escCancelaASugestao", async () => {
+    const { sessao, api } = naSala(visao({ pecas: [LANTERNA_EM_R2] }));
+    await sessao.escolherPeca("lanterna", false);
+    sessao.consumirFoco();
+
+    sessao.cancelarSelecao();
+
+    expect(sessao.obter()).toMatchObject({ sugerindo: null });
+    expect(sessao.consumirFoco()).toEqual({ alvo: "peca-na-cena", peca: "lanterna" });
+    expect(api.sinalizar).not.toHaveBeenCalled();
+  });
+
+  it("selecionarPropriaCancelaSugestao", async () => {
+    const { sessao } = naSala(visao({ pecas: [...visao().pecas, LANTERNA_EM_R2] }));
+    await sessao.escolherPeca("lanterna", false);
+
+    await sessao.escolherPeca("telescopio", true);
+
+    expect(sessao.obter()).toMatchObject({ sugerindo: null, selecionada: "telescopio" });
+  });
+
+  it("sugerirCancelaASelecaoPropria", async () => {
+    const { sessao } = naSala(visao({ pecas: [...visao().pecas, LANTERNA_EM_R2] }));
+    await sessao.escolherPeca("telescopio", true);
+
+    await sessao.escolherPeca("lanterna", false);
+
+    expect(sessao.obter()).toMatchObject({ sugerindo: "lanterna", selecionada: null });
+  });
+
+  it("focoVoltaAPecaDepoisDeSugerir", async () => {
+    const { sessao } = naSala(visao({ pecas: [LANTERNA_EM_R2] }), {
+      api: { sinalizar: vi.fn(() => Promise.resolve(resposta(visao({ versao: 4, pecas: [LANTERNA_EM_R2] })))) },
+    });
+    await sessao.escolherPeca("lanterna", false);
+    sessao.consumirFoco();
+
+    await sessao.escolherLugar("R1", null);
+
+    expect(sessao.consumirFoco()).toEqual({ alvo: "peca-na-cena", peca: "lanterna" });
+  });
+
+  it("sugestaoSomeQuandoAPecaFicaSemDestino", async () => {
+    const { sessao, doPolling } = naSala(visao({ pecas: [LANTERNA_EM_R2] }));
+    await sessao.escolherPeca("lanterna", false);
+
+    doPolling().aoReceber(visao({ versao: 4, pecas: [{ ...LANTERNA_EM_R2, destinosSugeriveis: [] }] }));
+
+    expect(sessao.obter()).toMatchObject({ sugerindo: null });
+  });
+
+  it("recusaDoSinalPorLugarOcupadoMantemASugestaoComTextoProprio", async () => {
+    const recusa = new ErroApi({
+      status: 409,
+      codigo: "LUGAR_OCUPADO",
+      visao: visao({ versao: 4, pecas: [{ ...LANTERNA_EM_R2, destinosSugeriveis: ["L1", "L2"] }] }),
+    });
+    const { sessao, aviso } = naSala(visao({ pecas: [LANTERNA_EM_R2] }), {
+      api: { sinalizar: vi.fn(() => Promise.reject(recusa)) },
+    });
+    await sessao.escolherPeca("lanterna", false);
+    sessao.consumirFoco();
+
+    await sessao.escolherLugar("R1", null);
+
+    expect(sessao.obter()).toMatchObject({ sugerindo: "lanterna" });
+    expect(sessao.consumirFoco()).toEqual({ alvo: "primeiro-lugar" });
+    expect(aviso.avisar).toHaveBeenLastCalledWith("Este lugar não está mais livre. Escolha outro.", "erro");
+  });
+
+  it("recusaDoSinalPorPecaAlheiaDizQueAPecaESua", async () => {
+    const recusa = new ErroApi({ status: 409, codigo: "PECA_ALHEIA", visao: visao({ versao: 4 }) });
+    const { sessao, aviso } = naSala(visao({ pecas: [LANTERNA_EM_R2] }), {
+      api: { sinalizar: vi.fn(() => Promise.reject(recusa)) },
+    });
+    await sessao.escolherPeca("lanterna", false);
+
+    await sessao.escolherLugar("R1", null);
+
+    expect(aviso.avisar).toHaveBeenLastCalledWith(
+      "Essa peça é sua. Para mudá-la de lugar, escolha-a em Suas peças.",
+      "erro",
+    );
+  });
+
+  it("moverParaLevaAPecaAoLugarSugerido", async () => {
+    const { sessao, api } = naSala(visaoDeBrunoComSinal(), {
+      api: { moverPeca: vi.fn(() => Promise.resolve(resposta(visaoDeBrunoComSinal({ versao: 5, sinal: null })))) },
+    });
+
+    await sessao.moverPara("lanterna", "R1");
+
+    expect(api.moverPeca).toHaveBeenCalledExactlyOnceWith("lanterna", "R1", 4);
+    expect(sessao.consumirFoco()).toEqual({ alvo: "item", peca: "lanterna" });
+  });
+
+  it("aceiteDepoisQueODestinoFoiOcupadoMostraAviso", async () => {
+    const semSinal = visaoDeBrunoComSinal({ versao: 5, sinal: null });
+    const recusa = new ErroApi({ status: 409, codigo: "LUGAR_OCUPADO", visao: semSinal });
+    const { sessao, aviso } = naSala(visaoDeBrunoComSinal(), {
+      api: { moverPeca: vi.fn(() => Promise.reject(recusa)) },
+    });
+
+    await sessao.moverPara("lanterna", "R1");
+
+    expect(aviso.avisar).toHaveBeenLastCalledWith("Ana acabou de usar este lugar. Escolha outro.", "erro");
+    expect(sessao.obter()).toMatchObject({ tela: "montagem", visao: { sinal: null } });
   });
 
   it("sinalSemDestinoSugerivelEIgnorado", async () => {

@@ -1,7 +1,7 @@
 // Textos que a sessão deriva da visão: o que mudou do lado do parceiro e a instrução da vez.
 
 import type { CenarioFront } from "../cenario/tipos";
-import { textoConexaoDoParceiro, textoPecasDoParceiro } from "../dominio/mensagens";
+import { type ErroComCodigo, mensagemDeErro, textoConexaoDoParceiro, textoPecasDoParceiro } from "../dominio/mensagens";
 import type { Visao } from "../dominio/visao";
 import type { Acao } from "./tipos";
 
@@ -16,9 +16,11 @@ export function novidade(c: CenarioFront, anterior: Visao, visao: Visao, propria
   const sinalNovo =
     sinal !== null &&
     sinal.deAssento !== visao.voce.assento &&
-    (anterior.sinal?.peca !== sinal.peca || anterior.sinal.deAssento !== sinal.deAssento);
+    (anterior.sinal?.peca !== sinal.peca ||
+      anterior.sinal.deAssento !== sinal.deAssento ||
+      anterior.sinal.lugar !== sinal.lugar);
   if (sinalNovo) {
-    return `${parceiro} sugeriu mover ${c.peca(sinal.peca).artigo}.`;
+    return `${parceiro} sugeriu mover ${c.peca(sinal.peca).artigo}: ${c.lugar(sinal.lugar).nome}.`;
   }
   // Só o parceiro mexe nas peças dele: vale também quando a visão veio da própria ação.
   const pecas = textoPecasDoParceiro(c, anterior, visao);
@@ -43,13 +45,45 @@ export function novidade(c: CenarioFront, anterior: Visao, visao: Visao, propria
   return frases.filter(Boolean).join(" ") || null;
 }
 
-/** A instrução da montagem: o próximo passo de quem está na tela. */
-export function instrucao(c: CenarioFront, visao: Visao, selecionada: string | null, enviando: Acao | null): string {
+/** O aviso de quem sugeriu, depois que o servidor aceitou o sinal. */
+export function textoSinalEnviado(c: CenarioFront, visao: Visao, peca: string, lugar: string): string {
+  return `Você sugeriu que ${String(visao.parceiro?.nome)} mova ${c.peca(peca).artigo}: ${c.lugar(lugar).nome}.`;
+}
+
+/**
+ * A recusa de um sinal. Os textos gerais de PECA_ALHEIA e LUGAR_OCUPADO falam de colocar a própria
+ * peça; aqui a peça é do parceiro e o lugar pode estar ocupado por qualquer um dos dois.
+ */
+export function textoRecusaDoSinal(erro: ErroComCodigo, visao: Visao | null): string {
+  switch (erro.codigo) {
+    case "PECA_ALHEIA":
+      return "Essa peça é sua. Para mudá-la de lugar, escolha-a em Suas peças.";
+    case "LUGAR_OCUPADO":
+      return "Este lugar não está mais livre. Escolha outro.";
+    default:
+      return mensagemDeErro(erro, visao);
+  }
+}
+
+/**
+ * A instrução da montagem: o próximo passo de quem está na tela. sugerindo: a peça do parceiro
+ * cujo destino você está escolhendo.
+ */
+export function instrucao(
+  c: CenarioFront,
+  visao: Visao,
+  selecionada: string | null,
+  enviando: Acao | null,
+  sugerindo: string | null = null,
+): string {
   if (enviando) {
     return "Enviando…";
   }
   if (visao.fase === "REVELADO") {
     return "Olhem para cima.";
+  }
+  if (sugerindo) {
+    return `Escolha onde ${c.peca(sugerindo).artigo} de ${String(visao.parceiro?.nome)} ficaria melhor. Esc cancela.`;
   }
   if (selecionada) {
     const { artigo, zona } = c.peca(selecionada);

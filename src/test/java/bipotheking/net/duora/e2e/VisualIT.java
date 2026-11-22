@@ -6,6 +6,7 @@ import static bipotheking.net.duora.e2e.Cenarios.raiz;
 import static bipotheking.net.duora.e2e.TerracoPagina.Lugar.C1;
 import static bipotheking.net.duora.e2e.TerracoPagina.Lugar.C2;
 import static bipotheking.net.duora.e2e.TerracoPagina.Lugar.L2;
+import static bipotheking.net.duora.e2e.TerracoPagina.Lugar.R1;
 import static bipotheking.net.duora.e2e.TerracoPagina.Lugar.R2;
 import static bipotheking.net.duora.e2e.TerracoPagina.Peca.BANCO;
 import static bipotheking.net.duora.e2e.TerracoPagina.Peca.LANTERNA;
@@ -128,6 +129,9 @@ class VisualIT {
     capturas.gravar(ana, "com-pecas");
 
     bruno.pecaNoTerraco(MANTA, ANA, L2).click();
+    assertThat(bruno.destinoSugerivel(MANTA, R1)).isVisible();
+    capturas.gravar(bruno, "sugerindo");
+    bruno.destinoSugerivel(MANTA, R1).click();
     Locator manta = ana.pecaNoTerraco(MANTA, ANA, L2);
     assertThat(manta).hasAttribute("data-sinalizada", "true");
     capturas.gravar(ana, "sinal");
