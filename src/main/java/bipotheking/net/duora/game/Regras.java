@@ -30,8 +30,9 @@ public final class Regras {
 
   /**
    * Toque de quem na abertura ativa: se o outro tocou há no máximo {@link
-   * DefinicaoDeAbertura#janela()}, as lanternas acendem e a abertura conclui. Tocar depois da
-   * conclusão não muda nada. Nunca muda a versão.
+   * DefinicaoDeAbertura#janela()}, as lanternas acendem e a abertura conclui. O máximo vale antes
+   * do toque: tocar depois dele conclui apagada (como {@link #avancarAbertura}), sem acender. Tocar
+   * depois da conclusão não muda nada. Nunca muda a versão.
    */
   public static Decisao tocarAbertura(Cenario cenario, Estado estado, Assento quem, Instant agora) {
     if (!(estado.fase() instanceof Fase.Montando montando)) {
@@ -42,10 +43,14 @@ public final class Regras {
     if (abertura.isEmpty() || definicao.isEmpty()) {
       return recusar(Recusa.FASE_INVALIDA);
     }
-    if (!abertura.get().ativa()) {
+    Abertura tocada =
+        abertura
+            .get()
+            .avancada(agora, definicao.get().maximo())
+            .tocada(quem, agora, definicao.get().janela());
+    if (tocada == abertura.get()) {
       return aceitar(estado);
     }
-    Abertura tocada = abertura.get().tocada(quem, agora, definicao.get().janela());
     return aceitar(comFase(estado, new Fase.Montando(Optional.of(tocada))));
   }
 

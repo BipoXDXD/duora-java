@@ -103,6 +103,14 @@ class AberturaTest {
   }
 
   @Test
+  void toqueDepoisDoMaximoNaoAcende() {
+    Estado tocado = tocar(tocar(emAbertura(), A, 88_000), B, 91_000);
+
+    assertThat(abertura(tocado).acesa()).isFalse();
+    assertThat(abertura(tocado).concluidaEm()).contains(em(90_000));
+  }
+
+  @Test
   void toqueDepoisDeConcluidaNaoMudaNada() {
     Estado acesa = acesa();
 
