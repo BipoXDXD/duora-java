@@ -61,9 +61,16 @@ class SalaController {
         .body(entrada.visao());
   }
 
-  /** O {@code ETag} acompanha o corpo; com {@code If-None-Match} igual, o Spring responde 304. */
+  /**
+   * Sem cookie (ausente ou vazio) não há assento a consultar: 204, sem corpo nem {@code ETag}, para
+   * a primeira carga não registrar erro. O {@code ETag} acompanha o corpo; com {@code
+   * If-None-Match} igual, o Spring responde 304.
+   */
   @GetMapping("/sala")
   ResponseEntity<Visao> consultar(@CookieValue(name = CookieAssento.NOME) Optional<String> token) {
+    if (token.filter(valor -> !valor.isEmpty()).isEmpty()) {
+      return ResponseEntity.noContent().build();
+    }
     Salas.Assentado eu = salas.localizar(token);
     Visao visao = eu.sala().consultar(eu.assento());
     return ResponseEntity.ok().eTag(etag(visao)).body(visao);

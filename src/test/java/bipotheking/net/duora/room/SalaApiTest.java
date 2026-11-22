@@ -153,16 +153,32 @@ class SalaApiTest {
         .andExpect(jsonPath("$.convite").value(nullValue()));
   }
 
+  @Test
+  void obterSalaSemCookieRespondeSemConteudo() throws Exception {
+    mvc.perform(get("/api/sala"))
+        .andExpect(status().isNoContent())
+        .andExpect(content().string(""))
+        .andExpect(header().doesNotExist(HttpHeaders.ETAG))
+        .andExpect(header().string(HttpHeaders.CACHE_CONTROL, "no-store"));
+  }
+
+  @Test
+  void obterSalaComCookieVazioRespondeSemConteudo() throws Exception {
+    mvc.perform(get("/api/sala").cookie(new Cookie(CookieAssento.NOME, "")))
+        .andExpect(status().isNoContent())
+        .andExpect(content().string(""))
+        .andExpect(header().doesNotExist(HttpHeaders.ETAG));
+  }
+
   @ParameterizedTest
   @CsvSource({
-    "GET, /api/sala",
     "POST, /api/sala/pecas",
     "POST, /api/sala/sinal",
     "POST, /api/sala/pronto",
     "POST, /api/sala/ajustar",
     "POST, /api/sala/sair"
   })
-  void semCookieNaoHaAssento(String metodo, String caminho) throws Exception {
+  void mutacaoSemCookieContinua401(String metodo, String caminho) throws Exception {
     mvc.perform(
             request(HttpMethod.valueOf(metodo), caminho)
                 .header(MesmaOrigem.CABECALHO, "1")

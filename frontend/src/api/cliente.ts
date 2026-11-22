@@ -123,7 +123,14 @@ async function requisitar(
 export const api: Api = {
   criarSala: (apelido) => requisitar("POST", "/salas", { corpo: { apelido } }),
   entrar: (convite, apelido) => requisitar("POST", "/salas/entrar", { corpo: { convite, apelido } }),
-  obterSala: (etag) => requisitar("GET", "/sala", { etag }),
+  obterSala: async (etag) => {
+    const resposta = await requisitar("GET", "/sala", { etag });
+    // R1: o 204 da sala quer dizer "sem cookie", o mesmo caminho do antigo 401.
+    if (!resposta.naoMudou && resposta.visao === null) {
+      throw new ErroApi({ status: 401, codigo: "SEM_ASSENTO" });
+    }
+    return resposta;
+  },
   moverPeca: (peca, lugar, versaoEsperada) =>
     requisitar("POST", "/sala/pecas", { corpo: { peca, lugar, versaoEsperada } }),
   sinalizar: (peca) => requisitar("POST", "/sala/sinal", { corpo: { peca } }),
