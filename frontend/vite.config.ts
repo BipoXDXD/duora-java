@@ -50,6 +50,9 @@ export default defineConfig(({ command }) => ({
     },
   },
   server: {
+    // As fixtures do Vitest leem os JSON do cenário direto de RAIZ_ESTATICA (teste/cenarioDoTerraco.ts),
+    // fora da raiz do Vite; o diretório já é público (publicDir no dev).
+    fs: { allow: [".", RAIZ_ESTATICA] },
     proxy: {
       "/api": "http://127.0.0.1:8080",
     },
