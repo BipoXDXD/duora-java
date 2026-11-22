@@ -19,7 +19,7 @@ export type PedidoDeFoco =
 /** Cada tela só carrega o que existe nela (State com tipo selado). */
 export type EstadoDaTela =
   | { tela: "carregando" }
-  | { tela: "entrada"; comConvite: boolean; erroApelido: string; aviso: string | null }
+  | { tela: "entrada"; comConvite: boolean; erroApelido: string }
   | { tela: "convite"; visao: Visao }
   | { tela: "montagem"; visao: Visao; selecionada: string | null; instrucao: string }
   | { tela: "encerrado"; texto: string };

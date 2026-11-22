@@ -80,9 +80,14 @@ export function Cena({
   const escolherLugar = useEffectEvent(aoEscolherLugar);
   const avisarMeteoro = useEffectEvent(aoMeteoro);
 
-  useImperativeHandle(ref, () => ({
-    focarPrimeiroLugar: () => cena.current?.focarPrimeiroLugar() ?? false,
-  }));
+  // O handle lê cena.current na hora da chamada: não precisa ser refeito a cada render.
+  useImperativeHandle(
+    ref,
+    () => ({
+      focarPrimeiroLugar: () => cena.current?.focarPrimeiroLugar() ?? false,
+    }),
+    [],
+  );
 
   // Céu, terraço e meteoros não dependem da sessão: nascem com a cena.
   useLayoutEffect(() => {

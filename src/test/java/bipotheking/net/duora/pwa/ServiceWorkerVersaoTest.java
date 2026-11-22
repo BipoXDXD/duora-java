@@ -22,7 +22,10 @@ class ServiceWorkerVersaoTest {
     String esperada = "duora-" + impressao().substring(0, 12);
 
     assertThat(Estaticos.versaoDoCache())
-        .as("Atualize em sw.js: const CACHE_VERSION = \"%s\";", esperada)
+        .as(
+            "O pluginServiceWorker (frontend/build/service-worker.ts) deveria gerar"
+                + " const CACHE_VERSION = \"%s\";",
+            esperada)
         .isEqualTo(esperada);
   }
 

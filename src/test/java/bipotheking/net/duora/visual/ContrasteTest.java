@@ -5,8 +5,9 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
 
 import java.io.IOException;
-import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.regex.Matcher;
@@ -16,12 +17,15 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
 
 /**
- * Contraste WCAG 2.x dos pares de cor em uso, lidos dos tokens de {@code static/css/app.css}. Texto
- * normal exige 4,5:1; o anel de foco (componente de interface) exige 3:1.
+ * Contraste WCAG 2.x dos pares de cor em uso, lidos dos tokens de {@code
+ * frontend/src/estilos/tokens.css}. Texto normal exige 4,5:1; o anel de foco (componente de
+ * interface) exige 3:1.
  */
 class ContrasteTest {
 
-  private static final String CSS = "static/css/app.css";
+  /** O Surefire roda na raiz do módulo, então o caminho relativo aponta para o código-fonte. */
+  private static final Path CSS = Path.of("frontend", "src", "estilos", "tokens.css");
+
   private static final Pattern TOKEN =
       Pattern.compile("--([a-z0-9-]+)\\s*:\\s*(#[0-9a-fA-F]{6})\\s*;");
 
@@ -29,13 +33,7 @@ class ContrasteTest {
 
   @BeforeAll
   static void lerTokens() throws IOException {
-    String css;
-    try (InputStream entrada = ContrasteTest.class.getClassLoader().getResourceAsStream(CSS)) {
-      if (entrada == null) {
-        fail("Arquivo " + CSS + " não está no classpath.");
-      }
-      css = new String(entrada.readAllBytes(), StandardCharsets.UTF_8);
-    }
+    String css = Files.readString(CSS, StandardCharsets.UTF_8);
     tokens = new HashMap<>();
     Matcher m = TOKEN.matcher(css);
     while (m.find()) {

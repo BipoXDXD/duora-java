@@ -6,7 +6,7 @@ import { Entrada } from "./Entrada";
 describe("Entrada", () => {
   it("apelido vazio mostra o erro e foca o campo, sem enviar", async () => {
     const aoEnviar = vi.fn();
-    render(<Entrada comConvite={false} enviando={false} erro="" aoEnviar={aoEnviar} />);
+    render(<Entrada comConvite={false} enviando={false} erro="" aoEnviar={aoEnviar} aoCorrigir={vi.fn()} />);
 
     await userEvent.click(screen.getByRole("button", { name: "Criar terraço" }));
 
@@ -18,14 +18,14 @@ describe("Entrada", () => {
   });
 
   it("com convite, o botão diz Entrar no terraço", () => {
-    render(<Entrada comConvite enviando={false} erro="" aoEnviar={vi.fn()} />);
+    render(<Entrada comConvite enviando={false} erro="" aoEnviar={vi.fn()} aoCorrigir={vi.fn()} />);
 
     expect(screen.getByRole("button", { name: "Entrar no terraço" })).toBeInTheDocument();
   });
 
   it("apelido válido vai sem espaços nas pontas", async () => {
     const aoEnviar = vi.fn();
-    render(<Entrada comConvite={false} enviando={false} erro="" aoEnviar={aoEnviar} />);
+    render(<Entrada comConvite={false} enviando={false} erro="" aoEnviar={aoEnviar} aoCorrigir={vi.fn()} />);
 
     await userEvent.type(screen.getByLabelText("Seu apelido"), "  Ana {Enter}");
 
@@ -34,7 +34,7 @@ describe("Entrada", () => {
 
   it("durante o envio, o botão diz Enviando… e não envia de novo", async () => {
     const aoEnviar = vi.fn();
-    render(<Entrada comConvite={false} enviando erro="" aoEnviar={aoEnviar} />);
+    render(<Entrada comConvite={false} enviando erro="" aoEnviar={aoEnviar} aoCorrigir={vi.fn()} />);
     await userEvent.type(screen.getByLabelText("Seu apelido"), "Ana");
 
     const botao = screen.getByRole("button", { name: "Enviando…" });
@@ -45,8 +45,18 @@ describe("Entrada", () => {
   });
 
   it("o erro do servidor aparece no campo e some quando o apelido volta a valer", async () => {
-    const { rerender } = render(<Entrada comConvite={false} enviando={false} erro="" aoEnviar={vi.fn()} />);
-    rerender(<Entrada comConvite={false} enviando={false} erro="Apelido indisponível." aoEnviar={vi.fn()} />);
+    const { rerender } = render(
+      <Entrada comConvite={false} enviando={false} erro="" aoEnviar={vi.fn()} aoCorrigir={vi.fn()} />,
+    );
+    rerender(
+      <Entrada
+        comConvite={false}
+        enviando={false}
+        erro="Apelido indisponível."
+        aoEnviar={vi.fn()}
+        aoCorrigir={vi.fn()}
+      />,
+    );
     const campo = screen.getByLabelText("Seu apelido");
     expect(campo).toHaveAttribute("aria-invalid", "true");
 
@@ -54,5 +64,22 @@ describe("Entrada", () => {
 
     expect(campo).not.toHaveAttribute("aria-invalid");
     expect(screen.queryByText("Apelido indisponível.")).not.toBeInTheDocument();
+  });
+
+  it("avisa que o apelido foi corrigido quando o campo volta a valer depois de um erro", async () => {
+    const aoCorrigir = vi.fn();
+    render(
+      <Entrada
+        comConvite={false}
+        enviando={false}
+        erro="Apelido indisponível."
+        aoEnviar={vi.fn()}
+        aoCorrigir={aoCorrigir}
+      />,
+    );
+
+    await userEvent.type(screen.getByLabelText("Seu apelido"), "Bia");
+
+    expect(aoCorrigir).toHaveBeenCalled();
   });
 });

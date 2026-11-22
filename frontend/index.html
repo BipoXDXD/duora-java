@@ -4,10 +4,34 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Antes da primeira estrela</title>
+    <meta name="color-scheme" content="dark" />
+    <link rel="icon" href="/assets/icone.svg" type="image/svg+xml" />
     <link rel="manifest" href="/manifest.webmanifest" />
+    <meta name="theme-color" content="#132B40" />
+    <link rel="apple-touch-icon" href="/assets/icones/apple-touch-180.png" />
+    <link rel="preload" href="/assets/fonts/atkinson-next-400.woff2" as="font" type="font/woff2" crossorigin />
+    <script type="module" src="/src/main.tsx"></script>
   </head>
   <body>
-    <div id="raiz"></div>
-    <script type="module" src="/src/main.tsx"></script>
+    <!-- Esqueleto da primeira pintura (título e céu) enquanto o JS chega; o createRoot o substitui. -->
+    <div id="raiz">
+      <div
+        class="app group grid grid-cols-[minmax(0,1fr)_var(--largura-painel)] grid-rows-[auto_minmax(0,1fr)] [grid-template-areas:'cena_topo'_'cena_painel'] h-dvh min-h-[560px] celular:grid-cols-[minmax(0,1fr)] celular:grid-rows-[auto_auto_auto] celular:[grid-template-areas:'topo'_'cena'_'painel'] celular:h-auto celular:min-h-dvh"
+        data-momento="crepusculo"
+      >
+        <header
+          class="topo [grid-area:topo] flex flex-wrap items-baseline justify-between gap-(--e-4) px-(--e-6) pt-(--e-6) pb-0 bg-noite-800 celular:items-center celular:h-(--altura-topo) celular:px-(--e-4) celular:py-0 celular:bg-noite-950 celular:group-[.confirmando-saida]:h-auto celular:group-[.confirmando-saida]:min-h-(--altura-topo) celular:group-[.confirmando-saida]:pb-(--e-4) celular-alto:sticky celular-alto:top-0 celular-alto:z-5 celular-alto:group-[.confirmando-saida]:static"
+        >
+          <h1
+            class="titulo m-0 font-titulo font-semibold text-[1.75rem] leading-[1.1] tracking-[-0.01em] celular:text-[1.25rem]"
+          >
+            Antes da primeira estrela
+          </h1>
+        </header>
+        <section class="cena">
+          <div class="ceu"></div>
+        </section>
+      </div>
+    </div>
   </body>
 </html>
