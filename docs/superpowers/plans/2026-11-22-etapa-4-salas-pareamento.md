@@ -4,6 +4,8 @@
 
 **Objetivo:** uma pessoa com conta e perfil escolhe encontro **público** (entra na fila contínua e é pareada com alguém compatível) ou **privado** (gera um convite de uso único e escolhe o cenário), e as duas chegam ao mesmo cenário.
 
+> **Emenda 2026-11-22 (paridade com o mercado):** liquidez visível (tempo de espera estimado e horários com mais gente, Task 11 nova), notificações confiáveis e discretas (Task 8 ajustada: no máximo 1 aviso por dia, nunca de madrugada, texto que não expõe nada na tela bloqueada), "só encontros com verificados" (Task 2), conta pausada fora da fila (Tasks 5 e 6) e limite de convites de conta nova (Task 7).
+
 **Arquitetura:**
 - **Domínio puro** em `pareamento/dominio/` (sem Spring, JDBC nem Jackson): `Compatibilidade` e `Pareador.parear`, chamados a cada ciclo de 5 s por `sala/CicloDePareamento`.
 - **Fila no banco:** `fila_espera` guarda a entrada com um retrato do candidato (idade, preferências, célula). O ciclo retira os candidatos com `SELECT ... FOR UPDATE SKIP LOCKED` numa transação curta, pareia em memória, apaga os pareados e publica os eventos na mesma transação.
@@ -18,7 +20,7 @@
 
 ## Restrições globais
 - Valem os contratos entre etapas, inclusive "Princípios de engenharia", e as restrições das Etapas 0, 1 e 1b: Conventional Commits em pt-BR com o trailer `Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>`; comando pesado um por vez com a trava `mkdir /private/tmp/claude-501/duora-pesado.lock` e `caffeinate -dims`; `-Xlint:all -Werror`; Spotless; um comportamento por teste; E2E sem skip nos três navegadores; commit de refatoração separado de commit de comportamento.
-- Migrações desta etapa: **V50–V69**. Usadas: V50 `fila_espera`, V51 `par_vetado`, V52 `cenario_jogado`, V53 `push_inscricao`, V54 `evento_conta`, V55 `outbox` e V56 `idempotencia` (as duas últimas só se a Etapa 2 não as criou).
+- Migrações desta etapa: **V50–V69**. Usadas: V50 `fila_espera`, V51 `par_vetado`, V52 `cenario_jogado`, V53 `push_inscricao`, V54 `evento_conta`, V55 `outbox` e V56 `idempotencia` (as duas últimas só se a Etapa 2 não as criou), V57 `espera_concluida` (Task 11).
 - Domínio puro em `pareamento/dominio/`: nada de `org.springframework..`, `java.sql..`, `..jdbc..` nem Jackson. A regra entra na suíte ArchUnit da Etapa 2.
 - Todo tempo vem do `Clock`; ids pelo `GeradorDeIds` (UUID v7); erros por `ErroDeNegocio` com um `enum CodigoSala implements CodigoDeErro` (corpo `application/problem+json` com `codigo` e `mensagem` = `detail`); limites por `LimiteDeTaxa.consumir(regra, chave)` com `duora.limites.<regra>.capacidade|periodo`.
 - Capacidade: **até 10 encontros simultâneos** (`duora.encontros.maximo-simultaneos=10`), contando públicos e privados.
@@ -34,7 +36,9 @@
   - estado vazio com avisos: "Ninguém compatível agora. Vamos te avisar quando alguém chegar.";
   - estado vazio sem avisos: "Ninguém compatível agora. Fique nesta tela ou ative os avisos.";
   - capacidade cheia: "Todos os encontros estão ocupados. Você é a {n}ª pessoa na fila. Tempo estimado: cerca de {m} min.";
-  - push: título "Duora", corpo "Alguém compatível está esperando agora." (sem apelido, foto ou distância).
+  - push: título "Duora", corpo "Alguém compatível está esperando agora." (sem apelido, foto ou distância), com `tag` `duora-compativel` (uma notificação substitui a anterior) e sem imagem;
+  - liquidez (Task 11): "Espera típica agora: cerca de {m} min." e "Costuma ter mais gente às {h1}h, {h2}h e {h3}h." (só com amostra suficiente; senão, nada).
+- **Etiqueta de notificação (pesquisa de segurança e UX, 4.3):** aviso de reengajamento ("alguém compatível") no máximo 1 por conta a cada 24 h e nunca entre 22h e 8h de `America/Sao_Paulo`; aviso de evento real (mensagem, chamada) segue as regras da Etapa 6. Nenhum push falso. A permissão só é pedida por gesto ("Ativar avisos"), e `requestPermission()` com `'default'` é tratado como "ainda não", sem insistir.
 - O service worker nunca guarda `/api` e só passa a tratar `push` e `notificationclick` além do que já faz.
 - Front: `pnpm --dir frontend exec vitest run <arquivo>` com o Node/pnpm fixados pela 1a.
 
@@ -42,8 +46,9 @@
 Nomes publicados nos planos das Etapas 1b, 2, 3 e 9. Se divergirem na `main`, ajuste os usos aqui, sem mudar o comportamento.
 - **1b:** `room.CatalogoDeCenarios.porId(String) -> Optional<Cenario>`; `Cenario.id()`; `Salas.criar(Apelido, Cenario)`; `Visao.cenario`.
 - **2 (`conta/`, `web/`):** `ContaId(UUID valor)`; `@ContaAtual` (padrão `cadastroConcluido = true`; o `ExigeSessao` já dá 401 `NAO_AUTENTICADO` e 403 `CONTA_INDISPONIVEL`); `ConsultaDeContas.porId(ContaId) -> Optional<ContaResumo>` com `estado()` e `OptionalInt idadeEm(LocalDate hoje)`; `AoExcluirConta.excluir(ContaId)`; `LimiteDeTaxa`/`LimiteExcedido`; `ErroDeNegocio(CodigoDeErro, String)`; `GeradorDeIds.novo()`; testes `BancoDeTeste`, `ContasDeTeste.criar(String apelido, LocalDate nascimento) -> ContaDeTeste(ContaId id, String cookie)`, `RelogioDeTeste`, `Participantes.novoComConta(ContaDeTeste)`.
-- **3 (`perfil/`):** `Perfis` com `publico`, `preferencias`, `celula` e `boolean prontoParaFila(ContaId)`; `PerfilPublico(ContaId conta, String apelido, Optional<String> fotoBorradaUrl)`; `Preferencias(Set<Intencao> intencao, FaixaEtaria faixaEtaria, Raio raio, boolean raioObrigatorio, Optional<Genero> generoProprio, Set<Genero> generosBuscados)`; `FaixaEtaria.contem(int)`; `Raio.km() -> OptionalInt`; `enum Genero`; `CelulaGeohash(String valor)` com `double distanciaKm(CelulaGeohash)`; `Localizacoes.consentida(ContaId)` e `Localizacoes.atualizar(ContaId, double, double)`; teste `PerfisDeTeste.definir(ContaId, String apelido, Preferencias, Optional<CelulaGeohash>)`.
+- **3 (`perfil/`):** `Perfis` com `publico`, `preferencias`, `celula`, `boolean prontoParaFila(ContaId)` (falso com a conta pausada) e `boolean pausada(ContaId)`; `PerfilPublico(ContaId conta, String apelido, Optional<String> fotoBorradaUrl, Optional<String> pronomes, boolean verificado)`; `Preferencias(Set<Intencao> intencao, FaixaEtaria faixaEtaria, Raio raio, boolean raioObrigatorio, Optional<Genero> generoProprio, Set<Genero> generosBuscados, boolean soVerificados)` (Etapa 3 Task 9); `FaixaEtaria.contem(int)`; `Raio.km() -> OptionalInt`; `enum Genero`; `CelulaGeohash(String valor)` com `double distanciaKm(CelulaGeohash)`; `Localizacoes.consentida(ContaId)` e `Localizacoes.atualizar(ContaId, double, double)`; teste `PerfisDeTeste.definir(ContaId, String apelido, Preferencias, Optional<CelulaGeohash>)`.
 - **9 (`retencao/`):** `PoliticaDeRetencao { String nome(); Duration prazo(); int expirar(Instant limite); }`, rodada diariamente pela `ExpiracaoDeDados`.
+- **2 (paridade):** `ContaResumo.verificada()`; `conta.LimitesDeContaNova.consumir(ContaId, TipoDeLimiteNovo.CONVITE)` (429 `LIMITE_DE_CONTA_NOVA`).
 - **Se a Etapa 2 já entregou outbox ou idempotência com outros nomes,** use os dela e pule a parte correspondente da Task 0.
 
 ## Decisões de planejamento (o dono pode reverter)
@@ -53,7 +58,7 @@ Nomes publicados nos planos das Etapas 1b, 2, 3 e 9. Se divergirem na `main`, aj
 - **P4. Privado com capacidade cheia:** o convidado recebe 503 `CAPACIDADE_CHEIA` com `Retry-After: 60` e o convite continua valendo; convite aberto não reserva vaga.
 - **P5. Pareado ausente:** quem não pedir o assento em 60 s é tirado; o presente volta à fila com o `entrouEm` original; sem veto.
 - **P6. Sorteio:** vence o cenário sorteável jogado por menos pessoas do par (0, 1 ou 2), empate pelo `RandomGenerator` injetado. `duora.cenarios.sorteaveis=terraco` hoje; a 9b libera cada cenário depois do playtest.
-- **P7. Push "alguém compatível":** a quem tem inscrição, **não** está na fila, é compatível nos dois sentidos com alguém que já esperou um ciclo inteiro e não recebeu aviso nas últimas 2 h; até 50 por ciclo.
+- **P7. Push "alguém compatível":** a quem tem inscrição, **não** está na fila, não está pausado, é compatível nos dois sentidos com alguém que já esperou um ciclo inteiro e não recebeu aviso nas últimas **24 h**; nunca entre 22h e 8h de São Paulo; até 50 por ciclo.
 - **P8. Retrato do candidato na entrada:** a fila grava idade, preferências e célula no momento da entrada; mudar preferências vale na próxima entrada. Evita N+1 a cada ciclo.
 
 ## Foco de revisão
@@ -133,15 +138,15 @@ Nomes publicados nos planos das Etapas 1b, 2, 3 e 9. Se divergirem na `main`, aj
 - Teste: `pareamento/dominio/{CompatibilidadeTest,PareadorTest}.java`, fixture `pareamento/dominio/CandidatoBuilder.java`
 
 **Interfaces (produz):**
-- `public record Candidato(ContaId conta, Instant entrouEm, int idade, Preferencias preferencias, Optional<CelulaGeohash> celula)`.
+- `public record Candidato(ContaId conta, Instant entrouEm, int idade, Preferencias preferencias, Optional<CelulaGeohash> celula, boolean verificado)`.
 - `public record ParDeContas(ContaId menor, ContaId maior)`: `static ParDeContas de(ContaId a, ContaId b)` (ordena por `UUID.compareTo`; iguais ⇒ `IllegalArgumentException`), `boolean contem(ContaId)`, `ContaId outro(ContaId)`.
 - `public record ParPareado(Candidato a, Candidato b, Set<Intencao> intencoes)`: `a` é quem espera há mais tempo; `ParDeContas par()`.
 - `public record ResultadoDoCiclo(List<ParPareado> pares, List<Candidato> semPar)`.
-- `public final class Compatibilidade`: `static Set<Intencao> intencoesEmComum(Candidato a, Candidato b)` (NAMORO só se o gênero passa nos dois sentidos) e `static boolean compativeis(Candidato a, Candidato b)` (intenções em comum, idade de cada um na faixa do outro, raio obrigatório de cada lado).
+- `public final class Compatibilidade`: `static Set<Intencao> intencoesEmComum(Candidato a, Candidato b)` (NAMORO só se o gênero passa nos dois sentidos) e `static boolean compativeis(Candidato a, Candidato b)` (intenções em comum, idade de cada um na faixa do outro, raio obrigatório de cada lado, e `soVerificados` de cada lado exige o outro `verificado`).
 - `public final class Pareador`: `static ResultadoDoCiclo parear(List<Candidato> fila, Set<ParDeContas> vetados, int vagas, Instant agora, Duration ciclo)`.
 
 - [ ] **Passo 1:** escrever os testes (valores à mão; células da tabela da Etapa 3: `6gyf4`–`6gycf` ≈ 4,89 km, `6gyf4`–`6gyft` ≈ 16,62 km, `6gyf4`–`6gysh` ≈ 47,46 km, `6gyf4`–`6gxp9` ≈ 58,03 km).
-  - `CompatibilidadeTest`: `amizadeComAmizadeECompativel`; `amizadeComNamoroSoNaoE`; `idadeNaBordaDaFaixaECompativel` (25–30, idade 30) e `idadeUmAnoForaNaoE` (31); `faixaDeUmLadoBastaParaRecusar`; `namoroExigeGeneroNosDoisSentidos`; `namoroEAmizadeComGeneroIncompativelSobraAmizade`; `raioObrigatorioDeUmLadoFiltra` (`ATE_5_KM` obrigatório, `6gyf4` × `6gyft`); `mesmoCasoSoPreferenciaNaoFiltra`; `raioNaBordaPassa` (`ATE_5_KM` com `6gyf4` × `6gycf`); `raioObrigatorioSemCelulaNaoE` (P3); `semLimiteObrigatorioNaoFiltra`.
+  - `CompatibilidadeTest`: `amizadeComAmizadeECompativel`; `amizadeComNamoroSoNaoE`; `idadeNaBordaDaFaixaECompativel` (25–30, idade 30) e `idadeUmAnoForaNaoE` (31); `faixaDeUmLadoBastaParaRecusar`; `namoroExigeGeneroNosDoisSentidos`; `namoroEAmizadeComGeneroIncompativelSobraAmizade`; `raioObrigatorioDeUmLadoFiltra` (`ATE_5_KM` obrigatório, `6gyf4` × `6gyft`); `mesmoCasoSoPreferenciaNaoFiltra`; `raioNaBordaPassa` (`ATE_5_KM` com `6gyf4` × `6gycf`); `raioObrigatorioSemCelulaNaoE` (P3); `semLimiteObrigatorioNaoFiltra`; `soVerificadosDeUmLadoRecusaNaoVerificado`; `soVerificadosAceitaVerificado`.
   - `PareadorTest`: `filaVaziaNaoGeraPares`; `umaPessoaFicaSemPar`; `doisCompativeisFormamUmPar` (`a` entrou antes); `parVetadoNaoEPareado`; `vagasLimitamOsPares` (6 compatíveis, 2 vagas ⇒ os 4 mais antigos); `vagaZeroNaoParea`; `quemEsperaMaisEscolhePrimeiro`; `empateNoMesmoCicloVaiParaOMaisPerto` (A em t0; B e C no mesmo ciclo; C em `6gycf`, B em `6gysh` ⇒ {A,C}); `distanciaDesconhecidaFicaPorUltimo`; `ninguemEmDoisPares`; `resultadoNaoDependeDaOrdemDaLista`.
 - [ ] **Passo 2:** RED (não compila).
 - [ ] **Passo 3:** implementar. O `Pareador` ordena por (`entrouEm`, UUID) e, para cada pessoa sem par, escolhe pela chave de P2: `(ciclosDeEspera desc, distância asc com desconhecida = +∞, entrouEm asc, UUID asc)`, com `ciclosDeEspera = Duration.between(entrouEm, agora).dividedBy(ciclo)`. Para em `vagas` pares. Funções curtas, sem flag argument.
@@ -191,7 +196,7 @@ Nomes publicados nos planos das Etapas 1b, 2, 3 e 9. Se divergirem na `main`, aj
 **Interfaces:**
 - Consome: Tasks 1, 2 e 4; `Perfis`, `ConsultaDeContas`, `Localizacoes`.
 - Produz:
-  - `V50`: `fila_espera(conta_id uuid primary key references conta(id), entrou_em timestamptz not null, idade int not null check (idade >= 18), preferencias jsonb not null, celula char(5), ausente_desde timestamptz)`; índice `(entrou_em)`. `preferencias` é coluna de extensão serializada pelo adapter `FilaJdbc` (P8).
+  - `V50`: `fila_espera(conta_id uuid primary key references conta(id), entrou_em timestamptz not null, idade int not null check (idade >= 18), preferencias jsonb not null, celula char(5), verificado boolean not null, ausente_desde timestamptz)`; índice `(entrou_em)`. `preferencias` é coluna de extensão serializada pelo adapter `FilaJdbc` (P8).
   - `public enum SituacaoNaFila { AGUARDANDO_COMPATIVEL, AGUARDANDO_VAGA, PAREADO }`.
   - `public record EstadoNaFila(SituacaoNaFila situacao, Instant desde, @Nullable Integer posicao, @Nullable Integer estimativaMinutos, @Nullable String encontroId, @Nullable String cenario)`; o JSON tem exatamente essas chaves.
   - Portas (borda real entre `sala/` e o módulo do encontro; implementadas na Task 6 pela ponte e na Etapa 5 por `encontro/`):
@@ -201,7 +206,7 @@ Nomes publicados nos planos das Etapas 1b, 2, 3 e 9. Se divergirem na `main`, aj
   - `public record Coordenadas(double latitude, double longitude)` (só em trânsito, nunca gravada).
   - `Fila`: `EstadoNaFila entrar(ContaId conta, Optional<Coordenadas> posicao)`, `void desistir(ContaId)`, `Optional<EstadoNaFila> estado(ContaId)`.
   - Rotas: `POST /api/fila` com `{ "latitude"?, "longitude"? }` (os dois ou nenhum; com coordenadas e localização consentida, chama `Localizacoes.atualizar` e descarta a coordenada) ⇒ 200 `EstadoNaFila`; `GET /api/fila` (200 ou 404 `FORA_DA_FILA`); `DELETE /api/fila` (204, idempotente).
-  - Códigos em `CodigoSala`: `PERFIL_INCOMPLETO` (422, `prontoParaFila` falso), `JA_EM_ENCONTRO` (409), `FORA_DA_FILA` (404).
+  - Códigos em `CodigoSala`: `PERFIL_INCOMPLETO` (422, `prontoParaFila` falso por perfil), `CONTA_PAUSADA` (422, `Sua conta está pausada. Volte a aparecer em Meu perfil para entrar na fila.`), `JA_EM_ENCONTRO` (409), `FORA_DA_FILA` (404).
   - `posicao` e `estimativaMinutos` só em `AGUARDANDO_VAGA`: a posição é a ordem por `entrouEm`; a estimativa são os minutos (para cima) até o `ceil(posicao/2)`-ésimo término previsto, ou `null`.
   - `fila.estado` é publicado só quando muda para a conta.
 
@@ -209,6 +214,7 @@ Nomes publicados nos planos das Etapas 1b, 2, 3 e 9. Se divergirem na `main`, aj
   - `entrarComPerfilProntoAguardaCompativel` (chaves exatas do JSON).
   - `entrarDuasVezesMantemUmaEntradaEOEntrouEm` (Foco 3).
   - `perfilIncompletoRecebe422ENadaGrava`.
+  - `contaPausadaRecebe422ContaPausada`.
   - `jaEmEncontroRecebe409`.
   - `coordenadaSemConsentimentoRecebe422` e `coordenadaComConsentimentoAtualizaACelula` (a coordenada não aparece em nenhuma tabela da fila).
   - `capacidadeCheiaMostraPosicaoEEstimativa` (ocupação 10, términos +4, +9, +14 min; a 3ª pessoa vê posição 3 e 9 min).
@@ -241,7 +247,7 @@ Nomes publicados nos planos das Etapas 1b, 2, 3 e 9. Se divergirem na `main`, aj
     5. por par: sorteia o cenário, `abrirPareado`, `historico.registrar` dos dois, apaga as duas linhas, `canal.publicar` de `fila.pareado`; se a transação reverter, uma `TransactionSynchronization.afterCompletion` cancela as salas abertas em memória (a Etapa 5 grava o encontro na mesma transação e dispensa a compensação).
   - Depois do commit, chama `AvisoDeCompativel.executar()` (Task 8) se existir.
 
-- [ ] **Passo 1:** `CicloDePareamentoTest` (`BancoDeTeste`, `RelogioDeTeste`, `executar()` à mão): `doisCompativeisSaoPareadosEAvisados` (mesmo `encontroId`, `cenario` `terraco`, fila vazia, duas linhas em `cenario_jogado`); `parVetadoContinuaNaFila`; `capacidadeCheiaNaoParea`; `semStreamPor60sSaiDaFila` (59 s fica, 61 s sai; Foco 4); `contaSuspensaDuranteAEsperaSai`; `pareadoAusenteCancelaEDevolveOPresente` (P5); `doisCiclosSimultaneosNaoDuplicamPessoa` (duas threads em `executar()` com latch ⇒ cada conta em no máximo um par; Foco 5); `falhaAoAbrirRevertETudo` (abertura falsa que lança no 2º par ⇒ fila intacta e nenhum evento).
+- [ ] **Passo 1:** `CicloDePareamentoTest` (`BancoDeTeste`, `RelogioDeTeste`, `executar()` à mão): `doisCompativeisSaoPareadosEAvisados` (mesmo `encontroId`, `cenario` `terraco`, fila vazia, duas linhas em `cenario_jogado`); `parVetadoContinuaNaFila`; `capacidadeCheiaNaoParea`; `semStreamPor60sSaiDaFila` (59 s fica, 61 s sai; Foco 4); `contaSuspensaDuranteAEsperaSai`; `contaPausadaDuranteAEsperaSai` (o passo 2 do ciclo também remove quem `Perfis.pausada`); `pareadoAusenteCancelaEDevolveOPresente` (P5); `doisCiclosSimultaneosNaoDuplicamPessoa` (duas threads em `executar()` com latch ⇒ cada conta em no máximo um par; Foco 5); `falhaAoAbrirRevertETudo` (abertura falsa que lança no 2º par ⇒ fila intacta e nenhum evento).
 - [ ] **Passo 2:** `PonteDeEncontrosTest`: `reivindicarEmiteCookieQueAbreASala`; `reivindicarDeNovoInvalidaOTokenAnterior`; `contaDeForaRecebe404SemDados`; `ativosContaSoSalasComConta`.
 - [ ] **Passo 3:** RED; implementar; verde; rodar também `SalaApiTest`, `ConcorrenciaTest` e `CenarioApiTest` sem mudar asserções. Commit `feat(sala): ciclo de pareamento com SKIP LOCKED abre o cenário para o par`.
 
@@ -260,8 +266,9 @@ Nomes publicados nos planos das Etapas 1b, 2, 3 e 9. Se divergirem na `main`, aj
   - Códigos: `CONVITE_INVALIDO` (404, também para convite usado, encerrado ou par vetado), `CONVITE_PROPRIO` (422), `CAPACIDADE_CHEIA` (503 + `Retry-After: 60`, P4), `JA_EM_ENCONTRO` (409).
   - Veto de qualquer motivo exceto `CONECTADOS` ⇒ `CONVITE_INVALIDO` (o bloqueado não fica sabendo). `CONECTADOS` só vale no pareamento público; a Etapa 6 restringe o convite a conexões ativas.
   - Ao entrar, `historico.registrar` dos dois.
+  - Ao criar, `LimitesDeContaNova.consumir(criador, CONVITE)` na mesma transação (conta com menos de 7 dias: 3 por dia).
 
-- [ ] **Passo 1:** testes: `criarDevolveConviteECookie`; `criarSemCenarioSorteiaUmSorteavel`; `cenarioForaDosSorteaveisRecebe422`; `convidadoEntraEOsDoisVeemOMesmoCenario`; `conviteEDeUsoUnico` (terceira conta: 404, corpo sem apelido); `criadorAbrindoOProprioConviteRecebe422`; `parVetadoPorNaoRecebeConviteInvalido` (status e corpo iguais aos de um token inexistente); `paresConectadosPodemUsarConvite`; `capacidadeCheiaRecebe503EConviteSegueValendo`; `jaEmEncontroRecebe409`; `mesmaIdempotencyKeyDevolveAMesmaResposta` (a segunda chamada não cria outro assento).
+- [ ] **Passo 1:** testes: `criarDevolveConviteECookie`; `criarSemCenarioSorteiaUmSorteavel`; `cenarioForaDosSorteaveisRecebe422`; `convidadoEntraEOsDoisVeemOMesmoCenario`; `conviteEDeUsoUnico` (terceira conta: 404, corpo sem apelido); `criadorAbrindoOProprioConviteRecebe422`; `parVetadoPorNaoRecebeConviteInvalido` (status e corpo iguais aos de um token inexistente); `paresConectadosPodemUsarConvite`; `capacidadeCheiaRecebe503EConviteSegueValendo`; `jaEmEncontroRecebe409`; `mesmaIdempotencyKeyDevolveAMesmaResposta` (a segunda chamada não cria outro assento); `quartoConviteDeContaNovaRecebe429` (`LIMITE_DE_CONTA_NOVA`, nenhum encontro criado).
 - [ ] **Passo 2:** RED; implementar; verde. Commit `feat(sala): encontro privado por convite de uso único com escolha de cenário`.
 
 ### Task 8: Web Push opcional pela outbox
@@ -284,14 +291,15 @@ Nomes publicados nos planos das Etapas 1b, 2, 3 e 9. Se divergirem na `main`, aj
   - Rotas: `GET /api/push/chave-publica` ⇒ `{ "chave" }`; `PUT /api/push/inscricao` `{ "endpoint", "chaves": { "p256dh", "auth" } }` ⇒ 204; `DELETE /api/push/inscricao` `{ "endpoint" }` ⇒ 204.
   - `AvisoDeCompativel.executar()` aplica P7 numa transação: atualiza `ultimo_aviso_em` e `outbox.registrar("push", {inscricaoId, titulo, corpo, url})` juntos. `ManipuladorDePush` (tipo `push`) envia e apaga a inscrição `EXPIRADA`.
   - `NotificacaoAoExcluirConta`: apaga as inscrições.
-  - Front: `ativarAvisos(): Promise<'ativado' | 'negado' | 'indisponivel'>`, `avisosAtivos(): Promise<boolean>`.
+  - Front: `ativarAvisos(): Promise<'ativado' | 'negado' | 'adiado' | 'indisponivel'>`, `avisosAtivos(): Promise<boolean>`.
 
 - [ ] **Passo 1:** testes.
   - `EnderecoDePushTest` (`@ParameterizedTest`, Foco 1): aceitos `https://fcm.googleapis.com/fcm/send/abc`, `https://web.push.apple.com/x`, `https://updates.push.services.mozilla.com/wpush/v2/x`; recusados `http://fcm.googleapis.com/x`, `https://127.0.0.1/x`, `https://[::1]/x`, `https://169.254.169.254/x`, `https://10.0.0.1/x`, `https://2130706433/x`, `https://fcm.googleapis.com.evil.example/x`, `https://user@fcm.googleapis.com/x`, `https://fcm.googleapis.com:8443/x`, `javascript:alert(1)`.
   - `PushApiTest`: `inscreverGrava`; `mesmoEndpointNaoDuplica`; `endpointProibido422ENadaGrava`; `sextaApagaAMaisAntiga`; `removerSoADaConta`.
-  - `AvisoDeCompativelTest`: `avisaCompativelForaDaFila` (uma linha `push` na outbox); `naoAvisaQuemEstaNaFila`; `naoAvisaIncompativel`; `naoAvisaDuasVezesEm2h` (1 h 59 não, 2 h sim); `corpoEOTextoFixo`; `rollbackNaoDeixaPushNaOutbox`.
+  - `AvisoDeCompativelTest`: `avisaCompativelForaDaFila` (uma linha `push` na outbox); `naoAvisaQuemEstaNaFila`; `naoAvisaIncompativel`; `naoAvisaDuasVezesEm24h` (23 h 59 não, 24 h sim); `naoAvisaEntre22hE8h` (21:59 sim, 22:00 não, 07:59 não, 08:00 sim, horário de São Paulo); `naoAvisaContaPausada`; `corpoEOTextoFixo`; `rollbackNaoDeixaPushNaOutbox`.
   - `WebPushInterasoAdapterTest` (`HttpServer` local liberado só no teste): 201 ⇒ `ENTREGUE`; 410 ⇒ `EXPIRADA`; resposta que demora 15 s ⇒ `FALHOU` em menos de 11 s.
-  - `push.test.ts`: sem `PushManager` ⇒ `'indisponivel'`; permissão negada ⇒ `'negado'` e nenhum `PUT`.
+  - `push.test.ts`: sem `PushManager` ⇒ `'indisponivel'`; permissão negada ⇒ `'negado'` e nenhum `PUT`; `requestPermission()` devolvendo `'default'` (prompt silencioso do Chrome no Android) ⇒ `'adiado'`, nenhum `PUT`, e um ouvinte de `permissions.query({name:'notifications'})` `onchange` faz o `PUT` se a pessoa conceder depois.
+  - Service worker: `notificacaoDiscreta` (a notificação mostrada tem `tag` `duora-compativel`, `renotify` falso, sem `image` e só o corpo fixo).
 - [ ] **Passo 2:** RED; implementar; verde. No service worker: `push` mostra a notificação com o ícone 192; `notificationclick` foca ou abre a `url`. A lista de cache segue sem `/api`.
 - [ ] **Passo 3:** ADR da biblioteca (P1). Commit `feat(notificacao): Web Push opcional pela outbox`.
 
@@ -331,12 +339,38 @@ Nomes publicados nos planos das Etapas 1b, 2, 3 e 9. Se divergirem na `main`, aj
 - [ ] **Passo 2:** `./mvnw -q -Pe2e verify -Dit.test='FilaPublicaIT,EncontroPrivadoIT,FilaVaziaIT,AxeIT'` em chromium, firefox e webkit: verde, sem skip.
 - [ ] **Passo 3:** `_mapa.md` (só as linhas novas). Commit `test(e2e): fila pública, convite privado e estado vazio`.
 
+### Task 11: Liquidez visível (espera típica e horários com mais gente)
+
+**Arquivos:**
+- Criar: `src/main/resources/db/migration/V57__espera_concluida.sql`
+- Criar: `src/main/java/bipotheking/net/duora/sala/{MovimentoDaFila,Movimento,EsperasConcluidas,EsperasConcluidasJdbc,MovimentoController,RetencaoDeEsperas}.java` (o cálculo puro em `sala/MovimentoDaFila`, sem Spring)
+- Modificar: `sala/{Fila,CicloDePareamento}.java` (registram a espera ao sair da fila, na mesma transação), `frontend/src/sala/{FilaTela,EncontrarTela}.tsx`
+- Teste: `sala/{MovimentoDaFilaTest,MovimentoApiTest,RetencaoDeEsperasTest}.java`, `frontend/src/sala/{FilaTela,EncontrarTela}.test.tsx` (casos novos)
+
+**Interfaces:**
+- Consome: Tasks 5 e 6; `Clock`; o domínio de contas de teste do contrato (`teste.duora.invalid`).
+- Produz:
+  - `V57`: `espera_concluida(id uuid primary key, entrou_em timestamptz not null, saiu_em timestamptz not null, pareada boolean not null, check (saiu_em >= entrou_em))`; índice em `saiu_em`. **Sem `conta_id`**: só o necessário para a estatística. Contas de teste não geram linha.
+  - `record Espera(Instant entrouEm, Instant saiuEm, boolean pareada)`; `record Movimento(OptionalInt esperaTipicaMinutos, List<Integer> horasDePico)`.
+  - `MovimentoDaFila.calcular(List<Espera> esperas, Instant agora, ZoneId zona) -> Movimento`:
+    - espera típica = mediana, arredondada para cima em minutos, das esperas **pareadas** com `saiuEm` nas últimas 24 h; vazia com menos de 5 amostras;
+    - horas de pico = as 3 horas do dia (0–23, em `America/Sao_Paulo`) com mais entradas nos últimos 14 dias, empate pela hora menor, devolvidas em ordem crescente; vazia com menos de 20 entradas no período.
+  - `GET /api/fila/movimento` (`@ContaAtual`) → `{ "esperaTipicaMinutos": n | null, "horasDePico": [h, ...] }`, calculado no máximo a cada 5 min (cache em memória com o `Clock`).
+  - `RetencaoDeEsperas implements PoliticaDeRetencao`: `esperas-concluidas`, `P15D` sobre `saiu_em`.
+  - Front: `FilaTela` em `AGUARDANDO_COMPATIVEL` mostra "Espera típica agora: cerca de {m} min." quando houver; `EncontrarTela` mostra "Costuma ter mais gente às {h1}h, {h2}h e {h3}h." quando houver. Sem dado, nada aparece (estado honesto, sem número inventado).
+- [ ] **Passo 1:** testes.
+  - `MovimentoDaFilaTest`: `medianaDasPareadasArredondaParaCima` (esperas de 2, 3, 4, 7 e 9 min → 4; com 2,5 min de mediana → 3); `quatroAmostrasNaoBastam`; `desistenciasNaoEntramNaMediana`; `esperaDeOntemNaoConta` (24 h + 1 s fora); `horasDePicoNoFusoDeSaoPaulo` (entradas às 22:30Z contam na hora 19); `empateVaiParaAHoraMenor`; `dezenoveEntradasNaoBastam`.
+  - `MovimentoApiTest`: `chavesExatas`; `saidaDaFilaGravaEsperaSemConta` (a linha não tem coluna de conta; pareada `true` no ciclo, `false` na desistência); `contaDeTesteNaoEntraNoMovimento`; `cacheDe5Min` (duas chamadas em 4 min → uma consulta).
+  - `RetencaoDeEsperasTest`: 15 dias + 1 s sai; 14 dias fica.
+  - Vitest: `esperaTipicaSoComDado`; `horasDePicoComTextoExato` (`[19, 20, 21]` → "Costuma ter mais gente às 19h, 20h e 21h.").
+- [ ] **Passo 2:** RED; implementar; verde. Commit `feat(sala): espera típica e horários com mais gente na fila`.
+
 ## Ordem e paralelismo
 - **Leva 1 (paralela, worktrees separados, no máximo 4):** Task 0 (se necessária), Task 1 (eventos), Task 2 (domínio puro) e Task 4 (vetos e sorteio).
 - **Leva 2 (paralela):** Task 3 (depois da 2) e o `EnderecoDePush` + adapter da Task 8.
 - **Leva 3:** Task 5 (depois da 1, 2 e 4); a Task 9 começa junto, contra as Interfaces, com `fetch` falso.
 - **Leva 4:** Task 6 (depois da 5).
-- **Leva 5:** Task 7 (mesmo arquivo de ponte da 6), o resto da Task 8 e o fim da Task 9.
+- **Leva 5:** Task 7 (mesmo arquivo de ponte da 6), o resto da Task 8, a Task 11 (liquidez; toca `FilaTela`, então entra depois do fim da Task 9) e o fim da Task 9.
 - **Por último:** Task 10, revisão final (`superpowers:requesting-code-review`), merge, push e CI.
 - Cada task cria só as suas migrações, então os worktrees não colidem.
 
