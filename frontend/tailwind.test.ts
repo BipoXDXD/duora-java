@@ -25,6 +25,9 @@ beforeAll(async () => {
   mkdirSync(join(copia, "build"));
   writeFileSync(join(copia, "build", "isca-tailwind.html"), '<div class="bg-[#123456]"></div>\n');
   writeFileSync(join(copia, "src", "isca-tailwind.html"), '<div class="bg-[#654321]"></div>\n');
+  // O esqueleto do index.html pinta antes do JS: uma classe só dele precisa entrar no CSS.
+  const index = join(copia, "index.html");
+  writeFileSync(index, readFileSync(index, "utf-8").replace('class="cena"', 'class="cena bg-[#abcdef]"'));
 
   await build({
     root: copia,
@@ -46,6 +49,10 @@ afterAll(() => {
 
 it("o CSS gerado inclui classes de src/", () => {
   expect(css).toContain("654321");
+});
+
+it("o CSS gerado inclui classes do esqueleto do index.html", () => {
+  expect(css).toContain("abcdef");
 });
 
 it("o CSS gerado ignora classes de fora de src/", () => {
