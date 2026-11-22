@@ -184,7 +184,7 @@ Playtest por agente (2026-11-22): primeira ação clara; contribuição do outro
 - **Fliperama** (escolhas minhas, o dono pode reverter):
   - jogo cooperativo **original** a dois (não recria jogo existente), rodadas de ~3 min, recorde conjunto, sem competição entre os dois;
   - feito em **Godot 4** (conduzido pelo MCP do Godot), export web **single-thread** (dispensa COOP/COEP), servido em `/jogos/fliperama/` e embutido no encontro por iframe da mesma origem;
-  - sincronia em tempo real por **WebSocket no Spring** (repasse das entradas dos dois; o servidor guarda o placar conjunto); depende do canal de tempo real da Etapa 5;
+  - sincronia em tempo real por **WebSocket no Spring** (servidor autoritativo: simulação pura em Java a 20 Hz, entradas com `seq` por assento e alvo absoluto, ordem pelo `tick`; o cliente Godot só desenha; o servidor guarda o placar conjunto); depende do canal de tempo real da Etapa 5;
   - CSP: a página do jogo precisa de `script-src 'self' 'wasm-unsafe-eval'` e de `frame-ancestors 'self'` só nela; o resto do app mantém a CSP atual;
   - assets: sprites/fundos no Tripo (2D), música e efeitos no ElevenLabs (MP3 192 kbps/48 kHz), Higgsfield se precisar de animação; o export web vai para o cache do SW;
   - prova extra: o jogo abre em até 5 s num Android médio em 4G com cache frio.
