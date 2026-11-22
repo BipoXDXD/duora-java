@@ -84,9 +84,7 @@ record Visao(
         conviteVisivel(retrato, quem),
         cenario.pecas().stream().map(peca -> visaoDa(cenario, peca, estado, quem)).toList(),
         new Prontos(estado.pronto(quem), estado.pronto(outro)),
-        new Confirmacao(
-            estado.fase() instanceof Fase.Montando && cenario.completa(estado.composicao()),
-            cenario.faltam(estado.composicao())),
+        new Confirmacao(Regras.podeConfirmar(cenario, estado), cenario.faltam(estado.composicao())),
         estado
             .sinalAtivoEm(agora)
             .map(s -> new VisaoSinal(s.peca().id(), s.deAssento(), s.destino().id()))

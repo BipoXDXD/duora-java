@@ -120,7 +120,7 @@ final class Sala {
       if (atual.encerramento().isPresent() || atual.participante(parceiro.assento()).isPresent()) {
         throw new ErroApi(Codigo.CONVITE_INVALIDO, "Este convite não vale mais.");
       }
-      Estado estado = aceitoOuFalha(Regras.parceiroEntrou(cenario, atual.estado()));
+      Estado estado = aceitoOuFalha(Regras.parceiroEntrou(cenario, atual.estado(), agora));
       atual = atual.comParceiro(parceiro, estado, agora);
       retrato = atual;
     } finally {
@@ -220,6 +220,7 @@ final class Sala {
       case ESPERE_PRIMEIRA_PECA -> "Espere a outra pessoa colocar a primeira peça.";
       case FASE_INVALIDA -> "Isso não pode ser feito agora.";
       case INCOMPLETA -> "A composição ainda não está completa.";
+      case ABERTURA_EM_ANDAMENTO -> "Espere as lanternas acenderem.";
     };
   }
 

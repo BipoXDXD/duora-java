@@ -15,6 +15,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.entry;
 
 import java.time.Duration;
+import java.time.Instant;
 import java.util.Optional;
 import org.junit.jupiter.api.Test;
 
@@ -46,7 +47,7 @@ class TerracoTest {
 
   @Test
   void resultadoMantemAOrdemDasChaves() {
-    Estado estado = aceito(Regras.parceiroEntrou(CENARIO, Estado.inicial()));
+    Estado estado = aceito(Regras.parceiroEntrou(CENARIO, Estado.inicial(), Instant.EPOCH));
     estado = colocar(colocar(estado, TELESCOPIO, C1), BANCO, C2);
     estado = colocar(colocar(estado, MANTA, L1), LANTERNA, R1);
     estado = aceito(Regras.confirmar(CENARIO, estado, A, true, estado.versao()));
