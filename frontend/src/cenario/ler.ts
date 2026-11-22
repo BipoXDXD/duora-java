@@ -18,11 +18,23 @@ const EsquemaGeometria = v.strictObject({
   props: v.record(v.string(), v.strictObject({ crepusculo: Medidas, noite: Medidas })),
 });
 
-const Som = v.strictObject({ volume: v.pipe(v.number(), v.minValue(0), v.maxValue(1)) });
+const Volume = v.pipe(v.number(), v.minValue(0), v.maxValue(1));
+
+const Som = v.strictObject({ volume: Volume });
 
 const Efeito = v.variant("tipo", [
   v.strictObject({ tipo: v.literal("brilho-piso"), largura: v.number() }),
   v.strictObject({ tipo: v.literal("halo"), alturaProjetada: v.number(), largura: v.number() }),
+  v.strictObject({ tipo: v.literal("meteoros") }),
+  v.strictObject({
+    tipo: v.literal("brilho"),
+    cor: v.pipe(v.string(), v.regex(/^#[0-9a-f]{6}$/i)),
+    largura: v.number(),
+  }),
+  v.strictObject({ tipo: v.literal("vapor") }),
+  v.strictObject({ tipo: v.literal("tremular") }),
+  // Nome-base, sem barra nem extensão: a URL sai do audio(nome), nunca de um caminho no JSON.
+  v.strictObject({ tipo: v.literal("notas"), som: v.pipe(v.string(), v.regex(/^[a-z0-9-]+$/)), volume: Volume }),
 ]);
 
 const EsquemaCenario = v.strictObject({

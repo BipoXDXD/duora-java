@@ -158,6 +158,27 @@ describe("lerCenario: validação", () => {
     expect(erroAoLer(cenario, geometria)).toContain("raioPerto");
   });
 
+  it("corForaDoFormatoRecusada", () => {
+    const { cenario, geometria } = jsonsDoTerraco();
+    em(cenario, "revelacao").banco = [{ tipo: "brilho", cor: "vinho", largura: 1.6 }];
+
+    expect(erroAoLer(cenario, geometria)).toContain("revelacao.banco.0.cor");
+  });
+
+  it("somDeNotasComBarraRecusado", () => {
+    const { cenario, geometria } = jsonsDoTerraco();
+    em(cenario, "revelacao").radio = [{ tipo: "notas", som: "../x", volume: 0.4 }];
+
+    expect(erroAoLer(cenario, geometria)).toContain("revelacao.radio.0.som");
+  });
+
+  it("somDeNotasComExtensaoRecusado", () => {
+    const { cenario, geometria } = jsonsDoTerraco();
+    em(cenario, "revelacao").radio = [{ tipo: "notas", som: "radio-notas.mp3", volume: 0.4 }];
+
+    expect(erroAoLer(cenario, geometria)).toContain("revelacao.radio.0.som");
+  });
+
   it("cenário sem relações continua válido", () => {
     const { cenario, geometria } = jsonsDoTerraco();
     delete em(cenario).raioPerto;
@@ -229,14 +250,18 @@ describe("lerCenario: consultas", () => {
     expect(c.audio("radio-notas")).toBe("/assets/cenarios/terraco/audio/radio-notas.mp3");
   });
 
-  it("revelação da lanterna traz os dois efeitos", () => {
+  it("revelação da lanterna traz os três efeitos", () => {
     expect(c.revelacao("lanterna")).toEqual([
       { tipo: "brilho-piso", largura: 2.4 },
       { tipo: "halo", alturaProjetada: 0.3464, largura: 0.75 },
+      { tipo: "tremular" },
     ]);
   });
 
   it("peça sem efeitos não tem revelação", () => {
-    expect(c.revelacao("banco")).toEqual([]);
+    const { cenario, geometria } = jsonsDoTerraco();
+    delete em(cenario, "revelacao").banco;
+
+    expect(lerCenario(cenario, geometria, "terraco").revelacao("banco")).toEqual([]);
   });
 });
