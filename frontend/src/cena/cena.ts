@@ -70,6 +70,8 @@ export function criarCena({
   // Fundo e sprites na mesma família. O <img> do fundo nasce sem src, para não baixar duas larguras:
   // a família sai do palco já medido.
   const variante = mostrarTerraco(palco, cenario);
+  // "peça@lugar" em destaque no último desenho: a mesma peça movida de novo volta a pulsar.
+  let destaquesDesenhados = new Set<string>();
 
   // Um lugar ou sprite fora do cena.json é contrato quebrado, não um caso a tratar.
   function pontoDe(lugar: string): Ponto {
@@ -88,7 +90,7 @@ export function criarCena({
     return medidas;
   }
 
-  function desenharPecas(visao: Visao, selecionada: string | null): void {
+  function desenharPecas(visao: Visao, { selecionada, destaques }: MarcasDaCena): void {
     const fragmento = document.createDocumentFragment();
     const colocadas = visao.pecas.filter(colocada);
     colocadas.sort((a, b) => pontoDe(a.lugar).y - pontoDe(b.lugar).y);
@@ -114,11 +116,14 @@ export function criarCena({
       botao.style.top = pct(ponto.y - medidas.ancoraY, altura);
       botao.style.width = pct(medidas.largura, largura);
       const sinalizada = visao.sinal?.peca === p.peca;
-      // O texto visível (selo "Você", selo do sinal) entra no nome, depois do prefixo "<peça> de <dono>, <lugar>".
+      const emDestaque = destaques.includes(p.peca);
+      // O texto visível (selo "Você", selo do sinal, selo "Mudou") entra no nome, depois do prefixo
+      // "<peça> de <dono>, <lugar>"; o destaque fecha o nome.
       const complementos = [
         minha ? "Você colocou" : null,
         sinalizada ? "Sugerido mover" : null,
         minha ? null : "Ative para sugerir que mova",
+        emDestaque ? "Mudou agora" : null,
       ].filter((c): c is string => c !== null);
       botao.setAttribute(
         "aria-label",
@@ -129,6 +134,9 @@ export function criarCena({
       }
       if (sinalizada) {
         botao.dataset.sinalizada = "true";
+      }
+      if (emDestaque) {
+        botao.dataset.destaque = "true";
       }
 
       const img = new Image();
@@ -166,12 +174,43 @@ export function criarCena({
         botao.append(seloSinal);
       }
 
+      if (emDestaque) {
+        botao.append(...criarDestaque(medidas, !destaquesDesenhados.has(`${p.peca}@${p.lugar}`)));
+      }
+
       botao.addEventListener("click", () => {
         aoEscolherPeca(p.peca, minha);
       });
       fragmento.append(botao, ...naCamada("frente"));
     }
     camadaPecas.replaceChildren(fragmento);
+    destaquesDesenhados = new Set(
+      colocadas.filter((p) => destaques.includes(p.peca)).map((p) => `${p.peca}@${p.lugar}`),
+    );
+  }
+
+  /**
+   * O anel no piso, na âncora da peça e do tamanho de um lugar, e o selo "Mudou" acima da peça. Os
+   * dois são decorativos: o nome acessível já diz "Mudou agora". O anel pulsa só no primeiro desenho
+   * do destaque; um redesenho no meio dele (outra seleção, outro destaque que acabou) o deixa parado.
+   */
+  function criarDestaque(medidas: MedidasSprite, pulsar: boolean): HTMLElement[] {
+    const anel = document.createElement("span");
+    anel.className = "anel-destaque";
+    if (pulsar) {
+      anel.dataset.pulsar = "true";
+    }
+    anel.style.left = pct(medidas.ancoraX, medidas.largura);
+    anel.style.top = pct(medidas.ancoraY, medidas.altura);
+    anel.style.width = pct(diametroLugar, medidas.largura);
+    anel.setAttribute("aria-hidden", "true");
+
+    const selo = document.createElement("span");
+    selo.className = "selo selo-mudou";
+    selo.textContent = "Mudou";
+    selo.style.left = pct(medidas.ancoraX, medidas.largura);
+    selo.setAttribute("aria-hidden", "true");
+    return [anel, selo];
   }
 
   function desenharLugares(visao: Visao, selecionada: string | null): void {
@@ -223,12 +262,14 @@ export function criarCena({
   }
 
   return {
-    desenhar(visao, { selecionada }) {
-      desenharPecas(visao, selecionada);
+    desenhar(visao, marcas) {
+      const { selecionada } = marcas;
+      desenharPecas(visao, marcas);
       desenharLugares(visao, selecionada);
       palco.dataset.selecionando = selecionada ? "true" : "false";
     },
     limpar() {
+      destaquesDesenhados = new Set();
       camadaPecas.replaceChildren();
       camadaLugares.replaceChildren();
       palco.dataset.selecionando = "false";
