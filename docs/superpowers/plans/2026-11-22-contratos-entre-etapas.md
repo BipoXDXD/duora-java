@@ -13,8 +13,12 @@ Spec: `docs/superpowers/specs/2026-11-21-duora-social-design.md`. Ordem: 0 → 1
   - A `Outbox` (`registrar`, `ProcessadorDeOutbox`) fica em `notificacao/`. Cada `PoliticaDeRetencao` expõe `tamanho()` para a métrica.
   - `ParDeContas` (par ordenado `menor`/`maior`) é tipo compartilhado em `nucleo/`.
   - A tabela de denúncia e bloqueio nasce na Etapa 5 (`moderacao/`), e a Etapa 8 só acrescenta sobre ela. A suspensão de conta é `conta.SuspensaoDeContas.suspender(ContaId, String motivo)`.
+  - `piloto/` (Etapa 11): `sala.LimiteDeSimultaneidade` e `conta.PortaoDeCadastro`, que fica fechado em produção até a abertura. As métricas vêm de portas `Estatisticas*`, uma por módulo dono dos dados, com `nucleo.IntervaloDeDia`.
+  - O banimento é `BanimentoDeContas`: publica o evento `ContaBanida`, tratado na mesma transação, e chama `CanalDeEventos.encerrarStreams`.
+  - Contas de teste usam o domínio `teste.duora.invalid`: nunca são pareadas com contas reais, ficam fora das métricas e nunca viram admin.
+  - Prazos de retenção extras, que exigem uma nova versão da política de privacidade: evidência de denúncia (30 dias depois de resolvida) e comentário do feedback (90 dias).
   - de infraestrutura: `web/` (filtros, cabeçalhos, MIME, erros, ids, `Clock`, limite de taxa, pipeline de imagens).
-- Faixas do Flyway por etapa (sem out-of-order): 2 → V1–V19, 3 → V20–V39, 9 → V40–V49, 4 → V50–V69, 7 → V70–V79, 5 → V80–V99, 6 → V100–V119, 8 → V120–V139.
+- Faixas do Flyway por etapa (sem out-of-order): 2 → V1–V19, 3 → V20–V39, 9 → V40–V49, 4 → V50–V69, 7 → V70–V79, 5 → V80–V99, 6 → V100–V119, 8 → V120–V139, 11 → V140–V159.
 - O acesso é negado por padrão: o interceptor `ExigeSessao` cobre `/api/**`, com uma allowlist em `RotasPublicas` (o terraço anônimo `/api/sala(s)/**` fica nela até a Etapa 5).
 - O link mágico leva o token no fragmento (`#t=`) e o consome por POST, então o token nunca chega ao log do servidor nem ao cabeçalho Referer.
 - `duora.sessao.cookie-seguro` (padrão `true`) só pode ficar `false` em testes e2e locais por http, porque o WebKit descarta o cookie `Secure`.
