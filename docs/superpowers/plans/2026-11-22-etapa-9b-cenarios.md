@@ -422,7 +422,7 @@ Coordenadas em metros, no piso da cena (x lateral, y profundidade, z altura, com
     - `int efeitos(Page, String tipo)` (conta `[data-efeito=<tipo>]`).
 
 - [ ] **Passo 1:** escrever os testes.
-  - `esquema.test.ts`:
+  - `ler.test.ts`:
     - `todoCenarioDoDiscoEValido` (glob em `static/assets/cenarios/*/cenario.json`);
     - `ancoraDeLugarInexistenteERecusada`;
     - `corForaDoFormatoERecusada`;
@@ -532,7 +532,7 @@ Coordenadas em metros, no piso da cena (x lateral, y profundidade, z altura, com
 **Procedimento:** P-P, com `<cenario>` = `aquario`. Na 2ª composição, mudar o `cardume` (ex.: juntas → divididas).
 - [ ] **Passo 1:** P-P 1–4.
 - [ ] **Passo 2:** P-P 5–6. Prova: capturas + "sim" em 2–5, registrados no handoff, e o pacote da D4 pronto.
-- [ ] **Passo 3: nome de exibição.** Levar ao dono, junto do pacote da D4, a escolha do `nome` do cenário `aquario` (escolha livre, sem padrão único). Com a resposta, gravar o mesmo `nome` no `Cenario` e no `cenario.json` (o `CenarioJsonTest` confere) e commitar `feat(cenario): nome de exibição do aquario`.
+- [ ] **Passo 3: nome de exibição.** Levar ao dono, junto do pacote da D4, a escolha do `nome` do cenário `aquario` (escolha livre, sem padrão único). Com a resposta, gravar o mesmo `nome` no `Cenario` e no `cenario.json` (o `CenarioJsonTest` confere) e commitar `feat(cenario): nome de exibição do cenário aquario`.
 
 ### Task 6: Piquenique — assets
 
@@ -595,7 +595,7 @@ Coordenadas em metros, no piso da cena (x lateral, y profundidade, z altura, com
 ### Task 8: Piquenique — playtest por agente
 **Procedimento:** P-P com `piquenique`. A 2ª composição muda o `visitante`.
 - [ ] **Passos 1–2:** como na Task 5.
-- [ ] **Passo 3: nome de exibição.** Levar ao dono, junto do pacote da D4, a escolha do `nome` do cenário `piquenique` (escolha livre, sem padrão único). Com a resposta, gravar o mesmo `nome` no `Cenario` e no `cenario.json` (o `CenarioJsonTest` confere) e commitar `feat(cenario): nome de exibição do piquenique`.
+- [ ] **Passo 3: nome de exibição.** Levar ao dono, junto do pacote da D4, a escolha do `nome` do cenário `piquenique` (escolha livre, sem padrão único). Com a resposta, gravar o mesmo `nome` no `Cenario` e no `cenario.json` (o `CenarioJsonTest` confere) e commitar `feat(cenario): nome de exibição do cenário piquenique`.
 
 ### Task 9: Cachoeira — assets
 
@@ -650,7 +650,7 @@ Coordenadas em metros, no piso da cena (x lateral, y profundidade, z altura, com
 ### Task 11: Cachoeira — playtest por agente
 **Procedimento:** P-P com `cachoeira`. A 2ª composição muda o `arcoIris`.
 - [ ] **Passos 1–2:** como na Task 5.
-- [ ] **Passo 3: nome de exibição.** Levar ao dono, junto do pacote da D4, a escolha do `nome` do cenário `cachoeira` (escolha livre, sem padrão único). Com a resposta, gravar o mesmo `nome` no `Cenario` e no `cenario.json` (o `CenarioJsonTest` confere) e commitar `feat(cenario): nome de exibição do cachoeira`.
+- [ ] **Passo 3: nome de exibição.** Levar ao dono, junto do pacote da D4, a escolha do `nome` do cenário `cachoeira` (escolha livre, sem padrão único). Com a resposta, gravar o mesmo `nome` no `Cenario` e no `cenario.json` (o `CenarioJsonTest` confere) e commitar `feat(cenario): nome de exibição do cenário cachoeira`.
 
 ### Task 12: Jantar — assets
 
@@ -709,7 +709,7 @@ Coordenadas em metros, no piso da cena (x lateral, y profundidade, z altura, com
 ### Task 14: Jantar — playtest por agente
 **Procedimento:** P-P com `jantar`. A 2ª composição muda a `trilha` e o `centro`.
 - [ ] **Passos 1–2:** como na Task 5.
-- [ ] **Passo 3: nome de exibição.** Levar ao dono, junto do pacote da D4, a escolha do `nome` do cenário `jantar` (escolha livre, sem padrão único). Com a resposta, gravar o mesmo `nome` no `Cenario` e no `cenario.json` (o `CenarioJsonTest` confere) e commitar `feat(cenario): nome de exibição do jantar`.
+- [ ] **Passo 3: nome de exibição.** Levar ao dono, junto do pacote da D4, a escolha do `nome` do cenário `jantar` (escolha livre, sem padrão único). Com a resposta, gravar o mesmo `nome` no `Cenario` e no `cenario.json` (o `CenarioJsonTest` confere) e commitar `feat(cenario): nome de exibição do cenário jantar`.
 
 ---
 
@@ -1045,7 +1045,7 @@ Pergunta que o spike responde: **o export web single-thread do Godot 4, sem `uns
   - `frontend/src/componentes/JogoEmbutido.tsx` e `frontend/src/jogo/ponte.ts`.
 - Teste:
   - `game/FliperamaCenarioTest.java`;
-  - `JogoEmbutido.test.tsx`, `ponte.test.ts`, `esquema.test.ts` (o JSON do jogo), `rotas.test.ts`;
+  - `JogoEmbutido.test.tsx`, `ponte.test.ts`, `ler.test.ts` (o JSON do jogo), `rotas.test.ts`;
   - `e2e/FliperamaIT.java`, `e2e/AxeIT.java` (estado "fliperama").
 
 **Interfaces (produz):**
@@ -1096,7 +1096,7 @@ Pergunta que o spike responde: **o export web single-thread do Godot 4, sem `uns
     - **4:** os números de cada rodada diferem e batem com o que as capturas mostram;
     - **5:** "Jogar de novo" está a 1 toque, e o agente jogou a 3ª rodada por escolha.
 - [ ] **Passo 3:** fechamento do P-P 6 (pacote da D4 do fliperama) e commit `docs(adr): 0006 com a prova no Android`.
-- [ ] **Passo 4: nome de exibição.** Levar ao dono, junto do pacote da D4, a escolha do `nome` do cenário `fliperama` (escolha livre, sem padrão único). Com a resposta, gravar o mesmo `nome` no `Cenario` e no `cenario.json` (o `CenarioJsonTest` confere) e commitar `feat(cenario): nome de exibição do fliperama`.
+- [ ] **Passo 4: nome de exibição.** Levar ao dono, junto do pacote da D4, a escolha do `nome` do cenário `fliperama` (escolha livre, sem padrão único). Com a resposta, gravar o mesmo `nome` no `Cenario` e no `cenario.json` (o `CenarioJsonTest` confere) e commitar `feat(cenario): nome de exibição do cenário fliperama`.
 
 ### Task 22: Liberação no sorteio e fechamento da etapa
 
