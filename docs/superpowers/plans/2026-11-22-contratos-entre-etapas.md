@@ -53,7 +53,7 @@ Spec: `docs/superpowers/specs/2026-11-21-duora-social-design.md`. Ordem: 0 → 1
 ## Front (a partir da Etapa 1a)
 - **Código e build:**
   - O código fica em `frontend/`: Vite, React 19, TypeScript `strict` (com `noUncheckedIndexedAccess`) e Tailwind CSS 4 sem preflight, para não alterar o visual atual.
-- Os bundles com hash são servidos em `/app/` com `Cache-Control: immutable`. O `sw.js` é gerado no build a partir do manifest do Vite, e os testes de guarda leem `target/classes/static`.
+- Os bundles com hash são servidos em `/app/` com `Cache-Control: immutable` (só quando o arquivo existe; um 404 sai sem cache), e `/` e `/index.html` com `no-cache`. **O prefixo `/app/` é reservado aos bundles:** nenhuma rota do SPA (React Router, Etapa 2 em diante) nem do servidor pode começar por `/app/`, que tem cache imutável no servidor e cache primeiro no service worker. O `sw.js` é gerado no build a partir do manifest do Vite, e os testes de guarda leem `target/classes/static`.
   - O build roda pelo `frontend-maven-plugin`, com Node e pnpm fixados e baixados pelo plugin. A saída vai para `target/classes/static/` e não é versionada.
   - Os assets binários continuam em `src/main/resources/static/assets/`.
 - **Rotas e dados:** React Router (modo de dados, rotas com lazy loading) e TanStack Query para o estado do servidor, ambos entrando **na Etapa 2**, que é quando surgem várias telas. A 1a mantém a tela única, e o encontro mantém o próprio laço de polling até o SSE. Sem Redux. Os formulários usam elementos nativos com validação de UI; a validação de verdade fica no servidor.
