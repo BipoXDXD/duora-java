@@ -16,7 +16,7 @@ class AtributosDoGitTest {
 
   private static final String MANIFEST = "src/main/resources/static/manifest.webmanifest";
   private static final String TERRACO =
-      "src/main/resources/static/assets/cena/terraco-crepusculo-1800.webp";
+      "src/main/resources/static/assets/cenarios/terraco/cena/terraco-crepusculo-1800.webp";
 
   @Test
   void textoDeStaticNormalizaParaLf() throws Exception {

@@ -15,8 +15,8 @@ Estas regras valem para este projeto e vencem as regras genéricas de geração 
 
 | Tipo | Formato do export | Onde |
 |---|---|---|
-| Imagem (render, céu, recorte) | **WebP qualidade 88** (nunca PNG, JPEG ou WebP com qualidade padrão) | `src/main/resources/static/assets/{cena,ceu}/` |
-| Áudio | **MP3 192 kbps, 48 kHz** (os efeitos do ElevenLabs chegam em 44,1 kHz / 128 kbps: sempre passe pelo `ffmpeg`) | `src/main/resources/static/assets/audio/` |
+| Imagem (render, céu, recorte) | **WebP qualidade 88** (nunca PNG, JPEG ou WebP com qualidade padrão) | `src/main/resources/static/assets/cenarios/<id>/{cena,ceu}/` |
+| Áudio | **MP3 192 kbps, 48 kHz** (os efeitos do ElevenLabs chegam em 44,1 kHz / 128 kbps: sempre passe pelo `ffmpeg`) | `src/main/resources/static/assets/cenarios/<id>/audio/` |
 | Vetor | SVG desenhado à mão | `src/main/resources/static/assets/` |
 
 ## Fontes de geração
@@ -56,9 +56,9 @@ Nunca retoque o `.webp` ou `.mp3` exportado direto (PIL, editor de imagem): o ex
 ## Verificação do formato
 
 ```sh
-file src/main/resources/static/assets/cena/lanterna-noite-1800.webp # RIFF ... Web/P image
+file src/main/resources/static/assets/cenarios/terraco/cena/lanterna-noite-1800.webp # RIFF ... Web/P image
 ffprobe -v error -show_entries stream=codec_name,sample_rate,bit_rate -of csv=p=0 \
-  src/main/resources/static/assets/audio/meteoro.mp3                 # mp3,48000,192000
+  src/main/resources/static/assets/cenarios/terraco/audio/meteoro.mp3                 # mp3,48000,192000
 ```
 
 ## Manifesto (obrigatório)

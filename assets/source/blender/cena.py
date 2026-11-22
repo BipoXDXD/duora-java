@@ -3,7 +3,7 @@
 Uso (headless, sem créditos):
     /Applications/Blender.app/Contents/MacOS/Blender -b -P assets/source/blender/cena.py -- <raiz-do-projeto>
 
-Saídas em src/main/resources/static/assets/cena/, cada imagem em três larguras (VARIANTES):
+Saídas em src/main/resources/static/assets/cenarios/terraco/cena/, cada imagem em três larguras (VARIANTES):
     terraco-<momento>-<largura>.webp  (terraço sem props, fundo transparente)
     <prop>-<momento>-<largura>.webp   (prop recortado com sombra, na escala do terraço da família)
     cena.json                         (tamanhos, âncoras e lugares em px de referência, 1800 de largura)
@@ -29,7 +29,7 @@ from bpy_extras.object_utils import world_to_camera_view
 from mathutils import Vector
 
 RAIZ = sys.argv[sys.argv.index("--") + 1] if "--" in sys.argv else os.getcwd()
-SAIDA = os.path.join(RAIZ, "src/main/resources/static/assets/cena")
+SAIDA = os.path.join(RAIZ, "src/main/resources/static/assets/cenarios/terraco/cena")
 TEMP = os.path.join(RAIZ, "target/blender")
 # Referência das coordenadas do cena.json: largura 1800; a altura sai do enquadramento.
 LARGURA, ALTURA = 1800, 870

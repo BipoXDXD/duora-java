@@ -29,7 +29,7 @@ describe("rotaDoPedido", () => {
   });
 
   it("pedido com Range é ignorado", () => {
-    expect(rota({ caminho: "/assets/audio/trilha.mp3", temRange: true })).toBe("ignorar");
+    expect(rota({ caminho: "/assets/cenarios/terraco/audio/trilha.mp3", temRange: true })).toBe("ignorar");
   });
 
   it("outra origem é ignorada", () => {
@@ -41,11 +41,11 @@ describe("rotaDoPedido", () => {
   });
 
   it("o JSON de /assets/ vem da rede e renova a cópia guardada", () => {
-    expect(rota({ caminho: "/assets/cena/cena.json" })).toBe("rede-guardando");
+    expect(rota({ caminho: "/assets/cenarios/terraco/cena/cena.json" })).toBe("rede-guardando");
   });
 
   it("os binários de /assets/ vêm do cache primeiro", () => {
-    expect(rota({ caminho: "/assets/cena/banco-noite-900.webp" })).toBe("cache-primeiro");
+    expect(rota({ caminho: "/assets/cenarios/terraco/cena/banco-noite-900.webp" })).toBe("cache-primeiro");
   });
 
   // Bundle novo com o worker antigo no controle: o arquivo /app/ novo não está no cache e vem da rede.

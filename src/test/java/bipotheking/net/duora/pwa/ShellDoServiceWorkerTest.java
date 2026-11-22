@@ -71,7 +71,8 @@ class ShellDoServiceWorkerTest {
     for (String sprite : sprites(props.keySet())) {
       for (String momento : momentos) {
         for (int largura : variantes) {
-          esperados.add("assets/cena/%s-%s-%d.webp".formatted(sprite, momento, largura));
+          esperados.add(
+              "assets/cenarios/terraco/cena/%s-%s-%d.webp".formatted(sprite, momento, largura));
         }
       }
     }
@@ -96,6 +97,6 @@ class ShellDoServiceWorkerTest {
   }
 
   private static String cenaJson() {
-    return Estaticos.texto("assets/cena/cena.json");
+    return Estaticos.texto("assets/cenarios/terraco/cena/cena.json");
   }
 }

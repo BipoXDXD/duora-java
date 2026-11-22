@@ -4,7 +4,7 @@
 set -euo pipefail
 
 AQUI="$(cd "$(dirname "$0")" && pwd)"
-SAIDA="$AQUI/../../../src/main/resources/static/assets/audio"
+SAIDA="$AQUI/../../../src/main/resources/static/assets/cenarios/terraco/audio"
 mkdir -p "$SAIDA"
 TMP="$(mktemp -d)"
 trap 'rm -rf "$TMP"' EXIT

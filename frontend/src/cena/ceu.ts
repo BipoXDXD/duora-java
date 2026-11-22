@@ -55,7 +55,9 @@ export async function prepararCeuPintado(): Promise<boolean> {
   const largura = (window.devicePixelRatio || 1) > 1 ? 2560 : 1280;
   try {
     await Promise.all(
-      ["crepusculo", "noite"].map((momento) => carregar(`/assets/ceu/ceu-${momento}-${String(largura)}.webp`)),
+      ["crepusculo", "noite"].map((momento) =>
+        carregar(`/assets/cenarios/terraco/ceu/ceu-${momento}-${String(largura)}.webp`),
+      ),
     );
     return true;
   } catch {
