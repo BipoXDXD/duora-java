@@ -3,7 +3,6 @@ package bipotheking.net.duora.room;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import bipotheking.net.duora.game.Assento;
-import bipotheking.net.duora.game.Fase;
 import bipotheking.net.duora.game.Terraco;
 import java.time.Instant;
 import java.util.ArrayList;
@@ -97,9 +96,9 @@ class ConcorrenciaTest {
               () -> mesa.b().confirmar(Assento.B, true, 4));
 
       assertThat(desfechos).allMatch(Desfecho::aceito);
-      assertThat(desfechos).filteredOn(d -> d.visao().fase() == Fase.REVELADO).hasSize(1);
+      assertThat(desfechos).filteredOn(d -> "REVELADO".equals(d.visao().fase())).hasSize(1);
       Visao finalA = mesa.a().consultar(Assento.A);
-      assertThat(finalA.fase()).isEqualTo(Fase.REVELADO);
+      assertThat(finalA.fase()).isEqualTo("REVELADO");
       assertThat(finalA.versao()).isEqualTo(4);
       assertThat(finalA.prontos()).isEqualTo(new Visao.Prontos(true, true));
     }
