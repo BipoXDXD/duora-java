@@ -1,6 +1,6 @@
-import { render, screen } from "@testing-library/react";
+import { act, render, screen } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import type { Geometria, MedidasSprite } from "../dominio/dados";
+import type { Geometria, MedidasSprite, Momento } from "../dominio/dados";
 import type { Visao, VisaoPeca } from "../dominio/visao";
 import { Cena } from "./Cena";
 
@@ -46,14 +46,24 @@ function visaoDeBruno(pecas: VisaoPeca[]): Visao {
 
 const MANTA_DE_BRUNO: VisaoPeca = { peca: "manta", assento: "A", lugar: "L2" };
 
-function desenhar(visao: Visao, selecionada: string | null = null) {
+interface Extras {
+  enviando?: boolean;
+  momento?: Momento;
+  ladoTelescopio?: string | null;
+}
+
+function desenhar(
+  visao: Visao,
+  selecionada: string | null = null,
+  { enviando = false, momento = "crepusculo", ladoTelescopio = null }: Extras = {},
+) {
   return (
     <Cena
       visao={visao}
       selecionada={selecionada}
-      enviando={false}
-      momento="crepusculo"
-      ladoTelescopio={null}
+      enviando={enviando}
+      momento={momento}
+      ladoTelescopio={ladoTelescopio}
       geometria={GEOMETRIA}
       aoEscolherPeca={() => {}}
       aoEscolherLugar={() => {}}
@@ -102,5 +112,51 @@ describe("Cena", () => {
     const focado = document.activeElement;
     expect(focado).not.toBe(antes);
     expect(focado).toHaveAttribute("data-peca", "manta");
+  });
+
+  it("aguardandoParLimpaAsCamadas", () => {
+    const { container, rerender } = render(desenhar(visaoDeAna([MANTA_DE_BRUNO])));
+    expect(container.querySelector("#pecas")?.children.length).toBeGreaterThan(0);
+
+    rerender(desenhar({ ...visaoDeAna([MANTA_DE_BRUNO], 2), fase: "AGUARDANDO_PAR" }));
+
+    expect(container.querySelector("#pecas")?.children).toHaveLength(0);
+    expect(container.querySelector("#lugares")?.children).toHaveLength(0);
+  });
+
+  it("enviandoMarcaOPalco", () => {
+    const { container, rerender } = render(desenhar(visaoDeAna([]), null, { enviando: true }));
+    expect(container.querySelector("#palco")).toHaveAttribute("data-enviando", "true");
+
+    rerender(desenhar(visaoDeAna([]), null, { enviando: false }));
+
+    expect(container.querySelector("#palco")).toHaveAttribute("data-enviando", "false");
+  });
+
+  it("movimentoReduzidoLigadoComARevelacaoAbertaParaOsMeteoros", () => {
+    const preferencia = { matches: false };
+    const ouvintes: (() => void)[] = [];
+    vi.stubGlobal("matchMedia", (consulta: string) => ({
+      get matches() {
+        return preferencia.matches;
+      },
+      media: consulta,
+      addEventListener: (_: string, ouvinte: () => void) => {
+        ouvintes.push(ouvinte);
+      },
+      removeEventListener: () => {},
+    }));
+    const { container } = render(desenhar(visaoDeAna([]), null, { momento: "noite", ladoTelescopio: "esquerdo" }));
+    expect(container.querySelectorAll(".meteoro-parado")).toHaveLength(0);
+
+    preferencia.matches = true;
+    act(() => {
+      ouvintes.forEach((ouvinte) => {
+        ouvinte();
+      });
+    });
+
+    expect(container.querySelectorAll(".meteoro-parado")).toHaveLength(4);
+    expect(container.querySelector("#meteoros")).toHaveAttribute("data-lado", "esquerdo");
   });
 });
