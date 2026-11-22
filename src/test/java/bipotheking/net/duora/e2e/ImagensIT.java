@@ -6,6 +6,7 @@ import static bipotheking.net.duora.e2e.Cenarios.raiz;
 import static bipotheking.net.duora.e2e.TerracoPagina.Lugar.C1;
 import static bipotheking.net.duora.e2e.TerracoPagina.Peca.TELESCOPIO;
 import static com.microsoft.playwright.assertions.PlaywrightAssertions.assertThat;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.fail;
 
 import bipotheking.net.duora.e2e.NavegadorExtension.Participantes;
@@ -13,6 +14,7 @@ import com.microsoft.playwright.Browser;
 import com.microsoft.playwright.Page;
 import com.microsoft.playwright.TimeoutError;
 import java.util.List;
+import java.util.concurrent.CopyOnWriteArrayList;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.springframework.beans.factory.annotation.Value;
@@ -43,6 +45,19 @@ class ImagensIT {
     ana.abrir(raiz(porta));
 
     esperarFonte(ana.page(), TERRACO, "-900.webp");
+  }
+
+  @Test
+  void celularComumNaoBaixaAVariante1800(Participantes participantes) {
+    TerracoPagina ana = participantes.novo(tela(390, 844, 1));
+    List<String> pedidos = new CopyOnWriteArrayList<>();
+    ana.page().onRequest(pedido -> pedidos.add(pedido.url()));
+    ana.abrir(raiz(porta));
+
+    esperarFonte(ana.page(), TERRACO, "-900.webp");
+    assertEquals(
+        List.of(),
+        pedidos.stream().filter(url -> url.matches(".*/terraco-[a-z]+-1800\\.webp$")).toList());
   }
 
   @Test

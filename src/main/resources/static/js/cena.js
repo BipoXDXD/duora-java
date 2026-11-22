@@ -1,18 +1,19 @@
 // Desenha o terraço a partir da visão da sala. Não decide regras: usa os lugares
 // permitidos que a visão traz para a peça selecionada.
 
-import { escolherVariante, LUGARES, PECAS, sprite, urlSprite } from "./dados.js";
+import { escolherVariante, LUGARES, PECAS, sprite, urlSprite, VARIANTES } from "./dados.js";
 
 const pct = (valor, total) => `${((valor / total) * 100).toFixed(3)}%`;
 
-export function criarCena({ palco, camadaPecas, camadaLugares, geometria, aoEscolherPeca, aoEscolherLugar }) {
-  const { largura, altura } = geometria;
-  const diametroLugar = geometria.pxPorMetro * 0.95;
-  // Uma família por carregamento, escolhida depois do layout: terraço e sprites na mesma escala.
+/**
+ * Escolhe a família pela largura do palco já medido × densidade da tela e aponta os dois
+ * terraços para ela. Devolve a largura escolhida.
+ */
+export function mostrarTerraco(palco, variantes) {
   const variante = escolherVariante(
     palco.getBoundingClientRect().width || window.innerWidth,
     window.devicePixelRatio || 1,
-    geometria.variantes,
+    variantes,
   );
   for (const momento of ["crepusculo", "noite"]) {
     const terraco = palco.querySelector(`.terraco-${momento}`);
@@ -21,6 +22,21 @@ export function criarCena({ palco, camadaPecas, camadaLugares, geometria, aoEsco
       terraco.src = url;
     }
   }
+  return variante;
+}
+
+// O <img> do terraço nasce sem src, para não baixar duas larguras. O módulo roda depois do
+// parse e do CSS, com o palco já medido: a família sai daqui, sem esperar o cena.json.
+const palcoInicial = document.getElementById("palco");
+if (palcoInicial) {
+  mostrarTerraco(palcoInicial, VARIANTES);
+}
+
+export function criarCena({ palco, camadaPecas, camadaLugares, geometria, aoEscolherPeca, aoEscolherLugar }) {
+  const { largura, altura } = geometria;
+  const diametroLugar = geometria.pxPorMetro * 0.95;
+  // Terraço e sprites na mesma família; normalmente a mesma que o carregamento já escolheu.
+  const variante = mostrarTerraco(palco, geometria.variantes);
 
   function desenharPecas(visao, selecionada) {
     const fragmento = document.createDocumentFragment();

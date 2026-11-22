@@ -36,6 +36,9 @@ export function escolherVariante(larguraCss, dpr, variantes) {
   return ordenadas.find((v) => v >= alvo) ?? ordenadas[ordenadas.length - 1];
 }
 
+/** Larguras renderizadas pelo cena.py; o cena.json traz a mesma lista em "variantes". */
+export const VARIANTES = [900, 1800, 2700];
+
 /** Miniaturas do inventário têm 56 px: a família menor basta em qualquer densidade. */
 export const LARGURA_MINIATURA = 900;
 
