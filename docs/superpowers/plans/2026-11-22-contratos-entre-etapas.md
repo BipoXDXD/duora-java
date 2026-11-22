@@ -76,6 +76,20 @@ Spec: `docs/superpowers/specs/2026-11-21-duora-social-design.md`. Ordem: 0 → 1
 - **Provas no Android:** emulador local (`scripts/android/`). Playtests são feitos por agentes. Ao dono só chegam escolhas, nunca tarefas.
 - **Máquina:** comandos pesados (Maven, Blender, Docker, emulador) correm um por vez, com a trava `mkdir /private/tmp/claude-501/duora-pesado.lock` e `caffeinate -dims`.
 
+## Cenários (a partir da Etapa 1b; ADR 0003)
+- **Caminho canônico:** `src/main/resources/static/assets/cenarios/<id>/`, com `cenario.json` (apresentação, escrita à mão), `cena/` (sprites e `cena.json`, a geometria gerada pelo `cena.py`), `ceu/` e `audio/`. URL pública: `/assets/cenarios/<id>/cenario.json` (e `/assets/cenarios/<id>/cena/cena.json`).
+- **Identidade:** o id do cenário é permanente e casa `^[a-z0-9-]+$` (validado na construção do `Cenario`); nunca é renomeado nem removido, porque a Etapa 4 o grava em `cenario_jogado` e a 5 em `encontro`. Os ids de peça e de lugar também são estáveis.
+- **Modelo no back-end:** `game.Cenario` é um record de dados (`id`, `nome` de exibição, `lugares`, `pecas`, `limiteAntesDoParceiro`, `duracaoSinal`, `pecasPorPessoaCompleta`, `desfecho`); cenários novos acrescentam componentes, não subclasses.
+- **Desfecho:** `game.Desfecho` é a Strategy de cada cenário (`Resultado de(Composicao, Cenario)`), pura e determinística (sem relógio, sorteio nem estado) e chamada só com a composição completa.
+- **Resultado:** `Resultado.valores()` preserva a ordem de inserção (`Collections.unmodifiableMap(new LinkedHashMap<>(…))`, nunca `Map.copyOf`), porque o `ETag` é o SHA-256 dos bytes do JSON.
+- **Regras:** `game.Regras` é estática e recebe o `Cenario` como 1º parâmetro em toda função pública (`Regras.colocar(Cenario, Estado, …)`), inclusive as que etapas seguintes criarem.
+- **Catálogo:** `game.CatalogoDeCenarios` (Java puro: `porId(String) → Optional<Cenario>`, `todos()`) é montado como bean por `room/CenariosConfig`; registrar um cenário é acrescentar um `@Bean Cenario` ali. O catálogo fica em `game/` mesmo quando `room/` virar `encontro/` (Etapa 5).
+- **API:** `POST /api/salas` aceita `{"cenario": "<id>"}` (ausente ou `null` → `"terraco"`); id desconhecido ou fora do padrão → `422 CENARIO_INVALIDO`, sem criar sala. A `Visao` traz `cenario` (o id) como 1º campo.
+- **Front:** o valibot só é importado por `frontend/src/cenario/ler.ts` (guarda no ESLint), que lê `cenario.json` e `cena.json` com esquema estrito (`strictObject`) e devolve um `CenarioFront`; os consumidores usam só os métodos dele (`peca`, `lugar`, `sprite`, `som`, `revelacao`, `legenda`…), nunca o JSON cru.
+- **Efeitos:** a chave `revelacao` do `cenario.json` mapeia peça → `Efeito[]`; na 1b a união `Efeito` tem `brilho-piso` e `halo`, e as etapas seguintes só acrescentam variantes.
+- **Espelho conferido:** o `CenarioJsonTest` confere o `cenario.json` contra o `Cenario` do servidor (id, nome, peças com dono, zona e obrigatoriedade, lugares).
+- **Nomes de exibição:** o terraço chama-se **Terraço das Estrelas Cadentes**; o nome de cada cenário novo é decidido pelo dono depois de construí-lo (Etapa 9b), sem padrão único.
+
 ## Processo
 - **Planos:** um plano por etapa (ou grupo) em `docs/superpowers/plans/2026-11-22-etapa-<n>-<tema>.md`, no formato da skill writing-plans.
 - **Execução:** pela skill subagent-driven-development, com agentes Opus High e no máximo 4 simultâneos.

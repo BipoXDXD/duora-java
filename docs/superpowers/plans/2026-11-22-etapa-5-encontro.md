@@ -70,7 +70,7 @@
 ### Task 1: `room/` vira `encontro/` com assento ligado à conta
 
 **Arquivos:**
-- Mover (`git mv`), num commit só de refatoração: `src/main/java/bipotheking/net/duora/room/` → `.../encontro/`; `Sala` → `Encontro`, `Salas` → `Encontros`, `SalaController` → `EncontroController`; `Retrato`, `Participante`, `Encerramento`, `MotivoEncerramento` → `encontro/dominio/`
+- Mover (`git mv`), num commit só de refatoração: `src/main/java/bipotheking/net/duora/room/` → `.../encontro/`; `Sala` → `Encontro`, `Salas` → `Encontros`, `SalaController` → `EncontroController`; `Retrato`, `Participante`, `Encerramento`, `MotivoEncerramento` → `encontro/dominio/`; `CenariosConfig` vai junto para `encontro/`, mas o `CatalogoDeCenarios` fica em `game/` (ADR 0003: evita o ciclo `sala ↔ encontro`)
 - Remover (commit de comportamento): `CookieAssento`, `Convite`, `room/PonteDeEncontros`, `room/AssentoController`, `room/VozNaSala`, rotas `/api/salas*` e `/api/sala*`
 - Criar: `encontro/{VozNoEncontro,CodigoEncontro}.java`, `docs/adr/<próximo>-encontro-em-jsonb-com-write-through.md` (rascunho; completado na Task 3)
 - Modificar: `encontro/{Visao,LimitesSala→LimitesDoEncontro,Varredor}.java`, `perfil/AcessoAFotoPadrao.java` (P3), a suíte ArchUnit
@@ -246,7 +246,7 @@
 
 **Arquivos:**
 - Criar: `src/main/resources/db/migration/V83__decisao_encontro.sql`, `V84__conexao.sql`
-- Criar: `src/main/java/bipotheking/net/duora/conexao/dominio/{Resposta,Desfecho,RegrasDeDecisao}.java`, `conexao/{Decisoes,DecisaoController,PrazoDeDecisao,Conexoes,Conexao,AbreDecisaoAoEncerrar,ConexaoAoExcluirConta,CodigoConexao}.java`
+- Criar: `src/main/java/bipotheking/net/duora/conexao/dominio/{Resposta,DesfechoDaDecisao,RegrasDeDecisao}.java`, `conexao/{Decisoes,DecisaoController,PrazoDeDecisao,Conexoes,Conexao,AbreDecisaoAoEncerrar,ConexaoAoExcluirConta,CodigoConexao}.java`
 - Criar: `frontend/src/conexao/DecisaoTela.tsx`
 - Teste: `conexao/dominio/RegrasDeDecisaoTest.java`, `conexao/DecisaoApiTest.java`, `frontend/src/conexao/DecisaoTela.test.tsx`
 
@@ -255,7 +255,7 @@
   - Passo 0: `mattpocock-skills:domain-modeling` para a Conexão (decisão, desfechos, vetos, desfazer); se mudar algo abaixo, ajustar as Interfaces antes de codar.
   - `V83`: `decisao_encontro(encontro_id uuid not null references encontro(id) on delete cascade, conta_id uuid not null references conta(id), resposta text not null check (resposta in ('SIM','NAO','OUTRO_ENCONTRO')), automatica boolean not null default false, respondida_em timestamptz not null, primary key (encontro_id, conta_id))`.
   - `V84`: `conexao(id uuid primary key, conta_menor uuid not null references conta(id), conta_maior uuid not null references conta(id), encontro_id uuid references encontro(id) on delete set null, criada_em timestamptz not null, desfeita_em timestamptz, check (conta_menor < conta_maior))`; `create unique index uma_conexao_ativa_por_par on conexao (conta_menor, conta_maior) where desfeita_em is null`; índice em `conta_maior`.
-  - `conexao.dominio`: `enum Resposta { SIM, NAO, OUTRO_ENCONTRO }`; `enum Desfecho { PENDENTE, CONEXAO, VETO, REENCONTRO_LIBERADO }`; `RegrasDeDecisao.desfecho(Optional<Resposta> a, Optional<Resposta> b) -> Desfecho` (qualquer `NAO` ⇒ `VETO`; dois `SIM` ⇒ `CONEXAO`; alguma ausente ⇒ `PENDENTE`; resto ⇒ `REENCONTRO_LIBERADO`).
+  - `conexao.dominio`: `enum Resposta { SIM, NAO, OUTRO_ENCONTRO }`; `enum DesfechoDaDecisao { PENDENTE, CONEXAO, VETO, REENCONTRO_LIBERADO }` (nome distinto de `game.Desfecho`, a Strategy dos cenários; ADR 0003); `RegrasDeDecisao.desfecho(Optional<Resposta> a, Optional<Resposta> b) -> DesfechoDaDecisao` (qualquer `NAO` ⇒ `VETO`; dois `SIM` ⇒ `CONEXAO`; alguma ausente ⇒ `PENDENTE`; resto ⇒ `REENCONTRO_LIBERADO`).
   - `Decisoes implements RegistroDeDecisaoAutomatica`: `void responder(String encontroId, ContaId quem, Resposta r)` e `void registrarAutomatica(String encontroId, ContaId quem)`. Numa transação que começa com `SELECT ... FROM encontro WHERE id = ? FOR UPDATE`: grava (a PK impede a 2ª resposta ⇒ 409 `DECISAO_JA_REGISTRADA`); calcula o desfecho; `CONEXAO` ⇒ `Conexoes.criar` + `vetar(par, CONECTADOS)` + evento durável `conexao.criada` `{ "conexaoId", "apelido", "fotoBorradaUrl" }` para os dois; `VETO` ⇒ `vetar(par, NAO)`, ou `SEM_DECISAO` quando veio do prazo. Nenhum evento para os outros desfechos.
   - `AbreDecisaoAoEncerrar` (ouvinte de `EncontroEncerrado`, na transação): encontro que chegou a `EmAndamento` abre a decisão; `CANCELADO` e `CONVITE_EXPIROU` não.
   - `Conexoes`: `UUID criar(ParDeContas par, String encontroId)`; `Optional<Conexao> ativaEntre(ContaId, ContaId)`; `List<Conexao> ativasDe(ContaId)`; `Optional<Conexao> ativaPorId(UUID id, ContaId participante)`; `boolean desfazer(UUID id, ContaId quem)` (`UPDATE ... SET desfeita_em = :agora WHERE id = :id AND desfeita_em IS NULL AND :quem IN (conta_menor, conta_maior)`); `record Conexao(UUID id, ParDeContas par, Instant criadaEm)`.
