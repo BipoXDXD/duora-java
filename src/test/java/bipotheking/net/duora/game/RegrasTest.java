@@ -2,18 +2,7 @@ package bipotheking.net.duora.game;
 
 import static bipotheking.net.duora.game.Assento.A;
 import static bipotheking.net.duora.game.Assento.B;
-import static bipotheking.net.duora.game.Lugar.C1;
-import static bipotheking.net.duora.game.Lugar.C2;
-import static bipotheking.net.duora.game.Lugar.L1;
-import static bipotheking.net.duora.game.Lugar.L2;
-import static bipotheking.net.duora.game.Lugar.R1;
-import static bipotheking.net.duora.game.Lugar.R2;
-import static bipotheking.net.duora.game.Peca.BANCO;
-import static bipotheking.net.duora.game.Peca.GARRAFA;
-import static bipotheking.net.duora.game.Peca.LANTERNA;
-import static bipotheking.net.duora.game.Peca.MANTA;
-import static bipotheking.net.duora.game.Peca.RADIO;
-import static bipotheking.net.duora.game.Peca.TELESCOPIO;
+import static bipotheking.net.duora.game.Terraco.*;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.entry;
 
@@ -23,6 +12,7 @@ import java.util.Optional;
 import java.util.Set;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.converter.ConvertWith;
 import org.junit.jupiter.params.provider.CsvSource;
 
 class RegrasTest {
@@ -31,7 +21,7 @@ class RegrasTest {
 
   @Test
   void parceiroEntrandoPassaParaMontagemSemMudarVersao() {
-    Estado estado = aceito(Regras.parceiroEntrou(Estado.inicial()));
+    Estado estado = aceito(Regras.parceiroEntrou(CENARIO, Estado.inicial()));
 
     assertThat(estado.fase()).isEqualTo(Fase.MONTANDO);
     assertThat(estado.versao()).isZero();
@@ -39,7 +29,7 @@ class RegrasTest {
 
   @Test
   void segundoParceiroNaoEntra() {
-    assertThat(Regras.parceiroEntrou(montando())).isEqualTo(recusa(Recusa.FASE_INVALIDA));
+    assertThat(Regras.parceiroEntrou(CENARIO, montando())).isEqualTo(recusa(Recusa.FASE_INVALIDA));
   }
 
   @ParameterizedTest
@@ -53,16 +43,19 @@ class RegrasTest {
     "LANTERNA, C1",
     "GARRAFA, C2"
   })
-  void pecaForaDaSuaZonaEhRecusada(Peca peca, Lugar lugar) {
-    Decisao decisao = Regras.colocar(montando(), peca.dono(), peca, Optional.of(lugar), 0);
+  void pecaForaDaSuaZonaEhRecusada(
+      @ConvertWith(PecaDoTerraco.class) Peca peca, @ConvertWith(LugarDoTerraco.class) Lugar lugar) {
+    Decisao decisao = Regras.colocar(CENARIO, montando(), peca.dono(), peca, Optional.of(lugar), 0);
 
     assertThat(decisao).isEqualTo(recusa(Recusa.LUGAR_INVALIDO));
   }
 
   @ParameterizedTest
   @CsvSource({"TELESCOPIO, C1", "TELESCOPIO, C2", "BANCO, C2", "MANTA, L1", "GARRAFA, R2"})
-  void primeiraPecaNaSuaZonaEhAceitaEIncrementaVersao(Peca peca, Lugar lugar) {
-    Estado estado = aceito(Regras.colocar(montando(), peca.dono(), peca, Optional.of(lugar), 0));
+  void primeiraPecaNaSuaZonaEhAceitaEIncrementaVersao(
+      @ConvertWith(PecaDoTerraco.class) Peca peca, @ConvertWith(LugarDoTerraco.class) Lugar lugar) {
+    Estado estado =
+        aceito(Regras.colocar(CENARIO, montando(), peca.dono(), peca, Optional.of(lugar), 0));
 
     assertThat(estado.composicao().lugarDe(peca)).contains(lugar);
     assertThat(estado.versao()).isEqualTo(1);
@@ -70,10 +63,10 @@ class RegrasTest {
 
   @ParameterizedTest
   @CsvSource({"A, BANCO", "A, LANTERNA", "B, TELESCOPIO", "B, RADIO"})
-  void pecaDoParceiroNaoPodeSerMexida(Assento quem, Peca peca) {
-    Lugar lugar = Lugar.da(peca.zona()).get(0);
+  void pecaDoParceiroNaoPodeSerMexida(Assento quem, @ConvertWith(PecaDoTerraco.class) Peca peca) {
+    Lugar lugar = CENARIO.da(peca.zona()).get(0);
 
-    Decisao decisao = Regras.colocar(montando(), quem, peca, Optional.of(lugar), 0);
+    Decisao decisao = Regras.colocar(CENARIO, montando(), quem, peca, Optional.of(lugar), 0);
 
     assertThat(decisao).isEqualTo(recusa(Recusa.PECA_ALHEIA));
   }
@@ -82,7 +75,8 @@ class RegrasTest {
   void lugarDoParceiroEstaOcupadoENaoHaDeslocamento() {
     Estado estado = colocar(montando(), BANCO, C1);
 
-    Decisao decisao = Regras.colocar(estado, A, TELESCOPIO, Optional.of(C1), estado.versao());
+    Decisao decisao =
+        Regras.colocar(CENARIO, estado, A, TELESCOPIO, Optional.of(C1), estado.versao());
 
     assertThat(decisao).isEqualTo(recusa(Recusa.LUGAR_OCUPADO));
   }
@@ -91,7 +85,7 @@ class RegrasTest {
   void lugarOcupadoTemPrioridadeSobreVersaoObsoleta() {
     Estado estado = colocar(montando(), BANCO, C1);
 
-    Decisao decisao = Regras.colocar(estado, A, TELESCOPIO, Optional.of(C1), 0);
+    Decisao decisao = Regras.colocar(CENARIO, estado, A, TELESCOPIO, Optional.of(C1), 0);
 
     assertThat(decisao).isEqualTo(recusa(Recusa.LUGAR_OCUPADO));
   }
@@ -100,7 +94,7 @@ class RegrasTest {
   void versaoObsoletaRecusaMudanca() {
     Estado estado = colocar(montando(), BANCO, C1);
 
-    Decisao decisao = Regras.colocar(estado, A, TELESCOPIO, Optional.of(C2), 0);
+    Decisao decisao = Regras.colocar(CENARIO, estado, A, TELESCOPIO, Optional.of(C2), 0);
 
     assertThat(decisao).isEqualTo(recusa(Recusa.VERSAO_OBSOLETA));
   }
@@ -109,7 +103,7 @@ class RegrasTest {
   void moverPecaPropriaParaOutroLugarLivre() {
     Estado estado = colocar(montando(), TELESCOPIO, C1);
 
-    Estado movido = aceito(Regras.colocar(estado, A, TELESCOPIO, Optional.of(C2), 1));
+    Estado movido = aceito(Regras.colocar(CENARIO, estado, A, TELESCOPIO, Optional.of(C2), 1));
 
     assertThat(movido.composicao().lugarDe(TELESCOPIO)).contains(C2);
     assertThat(movido.composicao().ocupante(C1)).isEmpty();
@@ -120,7 +114,7 @@ class RegrasTest {
   void outraSecundariaTrocaAAtualAtomicamente() {
     Estado estado = colocar(colocar(montando(), MANTA, L1), LANTERNA, R1);
 
-    Estado trocado = aceito(Regras.colocar(estado, A, RADIO, Optional.of(L2), 2));
+    Estado trocado = aceito(Regras.colocar(CENARIO, estado, A, RADIO, Optional.of(L2), 2));
 
     assertThat(trocado.composicao().lugarDe(RADIO)).contains(L2);
     assertThat(trocado.composicao().colocada(MANTA)).isFalse();
@@ -131,7 +125,7 @@ class RegrasTest {
   void outraSecundariaPodeOcuparOLugarDaQueSai() {
     Estado estado = colocar(colocar(montando(), MANTA, L1), LANTERNA, R1);
 
-    Estado trocado = aceito(Regras.colocar(estado, A, RADIO, Optional.of(L1), 2));
+    Estado trocado = aceito(Regras.colocar(CENARIO, estado, A, RADIO, Optional.of(L1), 2));
 
     assertThat(trocado.composicao().ocupante(L1)).contains(RADIO);
     assertThat(trocado.composicao().colocada(MANTA)).isFalse();
@@ -141,7 +135,7 @@ class RegrasTest {
   void retirarDevolvePecaAoInventario() {
     Estado estado = colocar(montando(), TELESCOPIO, C1);
 
-    Estado retirado = aceito(Regras.colocar(estado, A, TELESCOPIO, Optional.empty(), 1));
+    Estado retirado = aceito(Regras.colocar(CENARIO, estado, A, TELESCOPIO, Optional.empty(), 1));
 
     assertThat(retirado.composicao().colocada(TELESCOPIO)).isFalse();
     assertThat(retirado.versao()).isEqualTo(2);
@@ -152,7 +146,7 @@ class RegrasTest {
   void soSeColocaDuranteAMontagem(Fase fase) {
     Estado estado = new Estado(fase, 4, completa().composicao(), Set.of(), Optional.<Sinal>empty());
 
-    Decisao decisao = Regras.colocar(estado, A, TELESCOPIO, Optional.of(C2), 4);
+    Decisao decisao = Regras.colocar(CENARIO, estado, A, TELESCOPIO, Optional.of(C2), 4);
 
     assertThat(decisao).isEqualTo(recusa(Recusa.FASE_INVALIDA));
   }
@@ -161,7 +155,8 @@ class RegrasTest {
   void retirarEmRevelacaoEhRecusado() {
     Estado revelado = revelado();
 
-    Decisao decisao = Regras.colocar(revelado, B, LANTERNA, Optional.empty(), revelado.versao());
+    Decisao decisao =
+        Regras.colocar(CENARIO, revelado, B, LANTERNA, Optional.empty(), revelado.versao());
 
     assertThat(decisao).isEqualTo(recusa(Recusa.FASE_INVALIDA));
   }
@@ -170,7 +165,7 @@ class RegrasTest {
   void pedirOLugarAtualNaoMudaNadaMesmoComVersaoAntiga() {
     Estado estado = colocar(colocar(montando(), TELESCOPIO, C1), BANCO, C2);
 
-    Decisao decisao = Regras.colocar(estado, A, TELESCOPIO, Optional.of(C1), 0);
+    Decisao decisao = Regras.colocar(CENARIO, estado, A, TELESCOPIO, Optional.of(C1), 0);
 
     assertThat(decisao).isEqualTo(new Decisao.Aceita(estado));
   }
@@ -179,7 +174,7 @@ class RegrasTest {
   void retirarPecaQueJaEstaNoInventarioNaoMudaNada() {
     Estado estado = montando();
 
-    assertThat(Regras.colocar(estado, A, MANTA, Optional.empty(), 9))
+    assertThat(Regras.colocar(CENARIO, estado, A, MANTA, Optional.empty(), 9))
         .isEqualTo(new Decisao.Aceita(estado));
   }
 
@@ -187,14 +182,14 @@ class RegrasTest {
   void repetirOProntoAtualNaoMudaNadaMesmoComVersaoAntiga() {
     Estado estado = confirmar(completa(), A);
 
-    assertThat(Regras.confirmar(estado, A, true, 0)).isEqualTo(new Decisao.Aceita(estado));
+    assertThat(Regras.confirmar(CENARIO, estado, A, true, 0)).isEqualTo(new Decisao.Aceita(estado));
   }
 
   @Test
   void pedirOMesmoLugarDuranteARevelacaoEhAceitoSemMudanca() {
     Estado revelado = revelado();
 
-    assertThat(Regras.colocar(revelado, A, TELESCOPIO, Optional.of(C1), 0))
+    assertThat(Regras.colocar(CENARIO, revelado, A, TELESCOPIO, Optional.of(C1), 0))
         .isEqualTo(new Decisao.Aceita(revelado));
   }
 
@@ -202,7 +197,7 @@ class RegrasTest {
   void segundaPecaAntesDoParceiroColocarAPrimeiraEhRecusada() {
     Estado estado = colocar(montando(), TELESCOPIO, C1);
 
-    Decisao decisao = Regras.colocar(estado, A, MANTA, Optional.of(L1), 1);
+    Decisao decisao = Regras.colocar(CENARIO, estado, A, MANTA, Optional.of(L1), 1);
 
     assertThat(decisao).isEqualTo(recusa(Recusa.ESPERE_PRIMEIRA_PECA));
   }
@@ -211,7 +206,7 @@ class RegrasTest {
   void segundaPecaLiberadaQuandoOParceiroColocaAPrimeira() {
     Estado estado = colocar(colocar(montando(), TELESCOPIO, C1), BANCO, C2);
 
-    Estado comManta = aceito(Regras.colocar(estado, A, MANTA, Optional.of(L1), 2));
+    Estado comManta = aceito(Regras.colocar(CENARIO, estado, A, MANTA, Optional.of(L1), 2));
 
     assertThat(comManta.composicao().colocadas(A)).isEqualTo(2);
   }
@@ -220,16 +215,16 @@ class RegrasTest {
   void moverAUnicaPecaAntesDoParceiroEhPermitido() {
     Estado estado = colocar(montando(), TELESCOPIO, C1);
 
-    assertThat(Regras.colocar(estado, A, TELESCOPIO, Optional.of(C2), 1))
+    assertThat(Regras.colocar(CENARIO, estado, A, TELESCOPIO, Optional.of(C2), 1))
         .isInstanceOf(Decisao.Aceita.class);
   }
 
   @Test
   void moverPecaJaColocadaEhPermitidoMesmoSeOParceiroRetirouTudo() {
     Estado estado = colocar(colocar(colocar(montando(), TELESCOPIO, C1), BANCO, C2), MANTA, L1);
-    Estado semBanco = aceito(Regras.colocar(estado, B, BANCO, Optional.empty(), 3));
+    Estado semBanco = aceito(Regras.colocar(CENARIO, estado, B, BANCO, Optional.empty(), 3));
 
-    Decisao decisao = Regras.colocar(semBanco, A, MANTA, Optional.of(R2), 4);
+    Decisao decisao = Regras.colocar(CENARIO, semBanco, A, MANTA, Optional.of(R2), 4);
 
     assertThat(decisao).isInstanceOf(Decisao.Aceita.class);
   }
@@ -238,43 +233,43 @@ class RegrasTest {
   void bloqueioAvisaSoAPecaQueAindaNaoFoiColocada() {
     Estado estado = colocar(montando(), TELESCOPIO, C1);
 
-    assertThat(Regras.bloqueadaPeloPortao(estado, MANTA)).isTrue();
-    assertThat(Regras.bloqueadaPeloPortao(estado, TELESCOPIO)).isFalse();
-    assertThat(Regras.bloqueadaPeloPortao(estado, BANCO)).isFalse();
+    assertThat(Regras.bloqueadaPeloPortao(CENARIO, estado, MANTA)).isTrue();
+    assertThat(Regras.bloqueadaPeloPortao(CENARIO, estado, TELESCOPIO)).isFalse();
+    assertThat(Regras.bloqueadaPeloPortao(CENARIO, estado, BANCO)).isFalse();
   }
 
   @Test
   void composicaoVaziaFaltaQuatro() {
-    assertThat(Composicao.vazia().faltam()).isEqualTo(4);
-    assertThat(Composicao.vazia().completa()).isFalse();
+    assertThat(CENARIO.faltam(Composicao.vazia())).isEqualTo(4);
+    assertThat(CENARIO.completa(Composicao.vazia())).isFalse();
   }
 
   @Test
   void faltaUmaQuandoSoUmaSecundariaEstaFora() {
     Estado estado = colocar(colocar(colocar(montando(), TELESCOPIO, C1), BANCO, C2), MANTA, L1);
 
-    assertThat(estado.composicao().faltam()).isEqualTo(1);
-    assertThat(estado.composicao().completa()).isFalse();
+    assertThat(CENARIO.faltam(estado.composicao())).isEqualTo(1);
+    assertThat(CENARIO.completa(estado.composicao())).isFalse();
   }
 
   @Test
   void obrigatoriasEUmaSecundariaDeCadaCompletam() {
-    assertThat(completa().composicao().faltam()).isZero();
-    assertThat(completa().composicao().completa()).isTrue();
+    assertThat(CENARIO.faltam(completa().composicao())).isZero();
+    assertThat(CENARIO.completa(completa().composicao())).isTrue();
   }
 
   @Test
   void confirmarIncompletaEhRecusado() {
     Estado estado = colocar(colocar(montando(), TELESCOPIO, C1), BANCO, C2);
 
-    assertThat(Regras.confirmar(estado, A, true, 2)).isEqualTo(recusa(Recusa.INCOMPLETA));
+    assertThat(Regras.confirmar(CENARIO, estado, A, true, 2)).isEqualTo(recusa(Recusa.INCOMPLETA));
   }
 
   @Test
   void confirmacaoFicaVinculadaAVersao() {
     Estado estado = completa();
 
-    Decisao decisao = Regras.confirmar(estado, A, true, estado.versao() - 1);
+    Decisao decisao = Regras.confirmar(CENARIO, estado, A, true, estado.versao() - 1);
 
     assertThat(decisao).isEqualTo(recusa(Recusa.VERSAO_OBSOLETA));
   }
@@ -314,7 +309,7 @@ class RegrasTest {
     long versaoConfirmada = estado.versao();
     Estado movido = colocar(confirmar(estado, A), MANTA, L2);
 
-    Decisao decisao = Regras.confirmar(movido, B, true, versaoConfirmada);
+    Decisao decisao = Regras.confirmar(CENARIO, movido, B, true, versaoConfirmada);
 
     assertThat(decisao).isEqualTo(recusa(Recusa.VERSAO_OBSOLETA));
   }
@@ -323,7 +318,7 @@ class RegrasTest {
   void desfazerConfirmacao() {
     Estado confirmado = confirmar(completa(), A);
 
-    Estado desfeito = aceito(Regras.confirmar(confirmado, A, false, confirmado.versao()));
+    Estado desfeito = aceito(Regras.confirmar(CENARIO, confirmado, A, false, confirmado.versao()));
 
     assertThat(desfeito.prontos()).isEmpty();
     assertThat(desfeito.fase()).isEqualTo(Fase.MONTANDO);
@@ -333,7 +328,7 @@ class RegrasTest {
   void desfazerConfirmacaoNaRevelacaoEhRecusado() {
     Estado revelado = revelado();
 
-    assertThat(Regras.confirmar(revelado, A, false, revelado.versao()))
+    assertThat(Regras.confirmar(CENARIO, revelado, A, false, revelado.versao()))
         .isEqualTo(recusa(Recusa.FASE_INVALIDA));
   }
 
@@ -341,14 +336,15 @@ class RegrasTest {
   void reveladoCongelaAComposicao() {
     Estado revelado = revelado();
 
-    Decisao decisao = Regras.colocar(revelado, A, TELESCOPIO, Optional.of(C2), revelado.versao());
+    Decisao decisao =
+        Regras.colocar(CENARIO, revelado, A, TELESCOPIO, Optional.of(C2), revelado.versao());
 
     assertThat(decisao).isEqualTo(recusa(Recusa.FASE_INVALIDA));
   }
 
   @Test
   void resultadoTrazSecundariasELadoDoTelescopio() {
-    assertThat(Regras.resultado(revelado()).orElseThrow().valores())
+    assertThat(Regras.resultado(CENARIO, revelado()).orElseThrow().valores())
         .containsExactly(
             entry("secundariaA", "manta"),
             entry("secundariaB", "lanterna"),
@@ -361,7 +357,7 @@ class RegrasTest {
     estado = colocar(estado, GARRAFA, R2);
     Estado revelado = confirmar(confirmar(estado, A), B);
 
-    assertThat(Regras.resultado(revelado).orElseThrow().valores())
+    assertThat(Regras.resultado(CENARIO, revelado).orElseThrow().valores())
         .containsExactly(
             entry("secundariaA", "manta"),
             entry("secundariaB", "garrafa"),
@@ -370,14 +366,14 @@ class RegrasTest {
 
   @Test
   void semResultadoForaDaRevelacao() {
-    assertThat(Regras.resultado(completa())).isEmpty();
+    assertThat(Regras.resultado(CENARIO, completa())).isEmpty();
   }
 
   @Test
   void ajustarVoltaAMontagemZeraConfirmacoesEIncrementaVersao() {
     Estado revelado = revelado();
 
-    Estado ajustado = aceito(Regras.ajustar(revelado));
+    Estado ajustado = aceito(Regras.ajustar(CENARIO, revelado));
 
     assertThat(ajustado.fase()).isEqualTo(Fase.MONTANDO);
     assertThat(ajustado.prontos()).isEmpty();
@@ -387,14 +383,14 @@ class RegrasTest {
 
   @Test
   void ajustarForaDaRevelacaoEhRecusado() {
-    assertThat(Regras.ajustar(completa())).isEqualTo(recusa(Recusa.FASE_INVALIDA));
+    assertThat(Regras.ajustar(CENARIO, completa())).isEqualTo(recusa(Recusa.FASE_INVALIDA));
   }
 
   @Test
   void sinalSobrePecaColocadaDoParceiroNaoMudaVersao() {
     Estado estado = colocar(montando(), BANCO, C2);
 
-    Estado sinalizado = aceito(Regras.sinalizar(estado, A, BANCO, AGORA));
+    Estado sinalizado = aceito(Regras.sinalizar(CENARIO, estado, A, BANCO, AGORA));
 
     assertThat(sinalizado.sinal()).contains(new Sinal(BANCO, A, AGORA.plusSeconds(20)));
     assertThat(sinalizado.versao()).isEqualTo(estado.versao());
@@ -402,7 +398,8 @@ class RegrasTest {
 
   @Test
   void sinalVale20Segundos() {
-    Estado sinalizado = aceito(Regras.sinalizar(colocar(montando(), BANCO, C2), A, BANCO, AGORA));
+    Estado sinalizado =
+        aceito(Regras.sinalizar(CENARIO, colocar(montando(), BANCO, C2), A, BANCO, AGORA));
 
     assertThat(sinalizado.sinalAtivoEm(AGORA.plusSeconds(19))).isPresent();
     assertThat(sinalizado.sinalAtivoEm(AGORA.plusSeconds(20))).isEmpty();
@@ -412,22 +409,22 @@ class RegrasTest {
   void sinalSobrePecaPropriaEhRecusado() {
     Estado estado = colocar(montando(), TELESCOPIO, C1);
 
-    assertThat(Regras.sinalizar(estado, A, TELESCOPIO, AGORA))
+    assertThat(Regras.sinalizar(CENARIO, estado, A, TELESCOPIO, AGORA))
         .isEqualTo(recusa(Recusa.PECA_ALHEIA));
   }
 
   @Test
   void sinalSobrePecaNaoColocadaEhRecusado() {
-    assertThat(Regras.sinalizar(montando(), A, BANCO, AGORA))
+    assertThat(Regras.sinalizar(CENARIO, montando(), A, BANCO, AGORA))
         .isEqualTo(recusa(Recusa.FASE_INVALIDA));
   }
 
   @Test
   void sinalSomeQuandoODonoMoveAPeca() {
     Estado estado = colocar(colocar(montando(), BANCO, C2), TELESCOPIO, C1);
-    Estado sinalizado = aceito(Regras.sinalizar(estado, A, BANCO, AGORA));
+    Estado sinalizado = aceito(Regras.sinalizar(CENARIO, estado, A, BANCO, AGORA));
 
-    Estado movido = aceito(Regras.colocar(sinalizado, B, BANCO, Optional.empty(), 2));
+    Estado movido = aceito(Regras.colocar(CENARIO, sinalizado, B, BANCO, Optional.empty(), 2));
 
     assertThat(movido.sinal()).isEmpty();
   }
@@ -435,9 +432,9 @@ class RegrasTest {
   @Test
   void sinalContinuaQuandoOutraPecaSeMove() {
     Estado estado = colocar(colocar(montando(), BANCO, C2), TELESCOPIO, C1);
-    Estado sinalizado = aceito(Regras.sinalizar(estado, A, BANCO, AGORA));
+    Estado sinalizado = aceito(Regras.sinalizar(CENARIO, estado, A, BANCO, AGORA));
 
-    Estado movido = aceito(Regras.colocar(sinalizado, B, LANTERNA, Optional.of(R1), 2));
+    Estado movido = aceito(Regras.colocar(CENARIO, sinalizado, B, LANTERNA, Optional.of(R1), 2));
 
     assertThat(movido.sinal()).isEqualTo(sinalizado.sinal());
   }
@@ -448,18 +445,19 @@ class RegrasTest {
     estado = colocar(estado, MANTA, L1);
     estado = colocar(estado, LANTERNA, R1);
 
-    assertThat(Regras.lugaresPermitidos(estado, MANTA)).containsExactly(L2, R2);
-    assertThat(Regras.lugaresPermitidos(estado, RADIO)).containsExactly(L1, L2, R2);
-    assertThat(Regras.lugaresPermitidos(estado, TELESCOPIO)).isEmpty();
+    assertThat(Regras.lugaresPermitidos(CENARIO, estado, MANTA)).containsExactly(L2, R2);
+    assertThat(Regras.lugaresPermitidos(CENARIO, estado, RADIO)).containsExactly(L1, L2, R2);
+    assertThat(Regras.lugaresPermitidos(CENARIO, estado, TELESCOPIO)).isEmpty();
   }
 
   @Test
   void nenhumForaDaMontagem() {
-    assertThat(Regras.lugaresPermitidos(Estado.inicial(), TELESCOPIO)).isEqualTo(List.of());
+    assertThat(Regras.lugaresPermitidos(CENARIO, Estado.inicial(), TELESCOPIO))
+        .isEqualTo(List.of());
   }
 
   private static Estado montando() {
-    return aceito(Regras.parceiroEntrou(Estado.inicial()));
+    return aceito(Regras.parceiroEntrou(CENARIO, Estado.inicial()));
   }
 
   /** Telescópio C1, banco C2, manta L1, lanterna R1: versão 4. */
@@ -473,11 +471,12 @@ class RegrasTest {
   }
 
   private static Estado colocar(Estado estado, Peca peca, Lugar lugar) {
-    return aceito(Regras.colocar(estado, peca.dono(), peca, Optional.of(lugar), estado.versao()));
+    return aceito(
+        Regras.colocar(CENARIO, estado, peca.dono(), peca, Optional.of(lugar), estado.versao()));
   }
 
   private static Estado confirmar(Estado estado, Assento quem) {
-    return aceito(Regras.confirmar(estado, quem, true, estado.versao()));
+    return aceito(Regras.confirmar(CENARIO, estado, quem, true, estado.versao()));
   }
 
   private static Estado aceito(Decisao decisao) {

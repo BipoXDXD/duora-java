@@ -4,8 +4,6 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import bipotheking.net.duora.game.Assento;
 import bipotheking.net.duora.game.Fase;
-import bipotheking.net.duora.game.Lugar;
-import bipotheking.net.duora.game.Peca;
 import bipotheking.net.duora.game.Terraco;
 import java.time.Instant;
 import java.util.ArrayList;
@@ -43,8 +41,8 @@ class ConcorrenciaTest {
 
       List<Desfecho> desfechos =
           simultaneamente(
-              () -> mesa.a().colocar(Assento.A, Peca.TELESCOPIO, Optional.of(Lugar.C1), 0),
-              () -> mesa.b().colocar(Assento.B, Peca.BANCO, Optional.of(Lugar.C1), 0));
+              () -> mesa.a().colocar(Assento.A, Terraco.TELESCOPIO, Optional.of(Terraco.C1), 0),
+              () -> mesa.b().colocar(Assento.B, Terraco.BANCO, Optional.of(Terraco.C1), 0));
 
       assertThat(desfechos).filteredOn(Desfecho::aceito).hasSize(1);
       assertThat(desfechos)
@@ -115,8 +113,8 @@ class ConcorrenciaTest {
 
       List<Desfecho> desfechos =
           simultaneamente(
-              () -> mesa.a().colocar(Assento.A, Peca.TELESCOPIO, Optional.of(Lugar.C2), 0),
-              () -> mesa.a().colocar(Assento.A, Peca.TELESCOPIO, Optional.of(Lugar.C2), 0));
+              () -> mesa.a().colocar(Assento.A, Terraco.TELESCOPIO, Optional.of(Terraco.C2), 0),
+              () -> mesa.a().colocar(Assento.A, Terraco.TELESCOPIO, Optional.of(Terraco.C2), 0));
 
       assertThat(desfechos).allMatch(Desfecho::aceito);
       assertThat(desfechos).allMatch(d -> d.visao().versao() == 1);
@@ -173,10 +171,10 @@ class ConcorrenciaTest {
   /** Telescópio C1, banco C2, manta L1, lanterna R1: versão 4. */
   private static Mesa mesaCompleta(Salas salas) {
     Mesa mesa = mesaMontando(salas);
-    mesa.a().colocar(Assento.A, Peca.TELESCOPIO, Optional.of(Lugar.C1), 0);
-    mesa.b().colocar(Assento.B, Peca.BANCO, Optional.of(Lugar.C2), 1);
-    mesa.a().colocar(Assento.A, Peca.MANTA, Optional.of(Lugar.L1), 2);
-    mesa.b().colocar(Assento.B, Peca.LANTERNA, Optional.of(Lugar.R1), 3);
+    mesa.a().colocar(Assento.A, Terraco.TELESCOPIO, Optional.of(Terraco.C1), 0);
+    mesa.b().colocar(Assento.B, Terraco.BANCO, Optional.of(Terraco.C2), 1);
+    mesa.a().colocar(Assento.A, Terraco.MANTA, Optional.of(Terraco.L1), 2);
+    mesa.b().colocar(Assento.B, Terraco.LANTERNA, Optional.of(Terraco.R1), 3);
     return mesa;
   }
 

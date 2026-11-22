@@ -5,11 +5,6 @@ import java.util.Objects;
 /** Área de um cenário: no terraço, o centro recebe as obrigatórias; as laterais, as secundárias. */
 public record Zona(String id) {
 
-  /** Fachada provisória do terraço: some quando os chamadores passarem a ler o cenário. */
-  public static final Zona CENTRO = new Zona("centro");
-
-  public static final Zona LATERAL = new Zona("lateral");
-
   public Zona {
     Objects.requireNonNull(id);
     if (id.isBlank()) {

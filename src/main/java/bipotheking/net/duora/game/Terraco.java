@@ -10,24 +10,22 @@ public final class Terraco {
 
   public static final String ID = "terraco";
 
-  // Nesta fase as constantes apontam para a fachada de Zona, Lugar e Peca; o sentido contrário
-  // (Peca.TELESCOPIO = Terraco.TELESCOPIO) faria Peca ler null se Terraco inicializasse primeiro.
-  public static final Zona CENTRO = Zona.CENTRO;
-  public static final Zona LATERAL = Zona.LATERAL;
+  public static final Zona CENTRO = new Zona("centro");
+  public static final Zona LATERAL = new Zona("lateral");
 
-  public static final Lugar C1 = Lugar.C1;
-  public static final Lugar C2 = Lugar.C2;
-  public static final Lugar L1 = Lugar.L1;
-  public static final Lugar L2 = Lugar.L2;
-  public static final Lugar R1 = Lugar.R1;
-  public static final Lugar R2 = Lugar.R2;
+  public static final Lugar C1 = new Lugar("C1", CENTRO);
+  public static final Lugar C2 = new Lugar("C2", CENTRO);
+  public static final Lugar L1 = new Lugar("L1", LATERAL);
+  public static final Lugar L2 = new Lugar("L2", LATERAL);
+  public static final Lugar R1 = new Lugar("R1", LATERAL);
+  public static final Lugar R2 = new Lugar("R2", LATERAL);
 
-  public static final Peca TELESCOPIO = Peca.TELESCOPIO;
-  public static final Peca MANTA = Peca.MANTA;
-  public static final Peca RADIO = Peca.RADIO;
-  public static final Peca BANCO = Peca.BANCO;
-  public static final Peca LANTERNA = Peca.LANTERNA;
-  public static final Peca GARRAFA = Peca.GARRAFA;
+  public static final Peca TELESCOPIO = new Peca("telescopio", Assento.A, CENTRO, true);
+  public static final Peca MANTA = new Peca("manta", Assento.A, LATERAL, false);
+  public static final Peca RADIO = new Peca("radio", Assento.A, LATERAL, false);
+  public static final Peca BANCO = new Peca("banco", Assento.B, CENTRO, true);
+  public static final Peca LANTERNA = new Peca("lanterna", Assento.B, LATERAL, false);
+  public static final Peca GARRAFA = new Peca("garrafa", Assento.B, LATERAL, false);
 
   public static final Cenario CENARIO =
       new Cenario(
