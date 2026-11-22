@@ -20,7 +20,7 @@ import org.jspecify.annotations.Nullable;
  */
 record Visao(
     String cenario,
-    Fase fase,
+    String fase,
     long versao,
     Voce voce,
     @Nullable Parceiro parceiro,
@@ -68,7 +68,7 @@ record Visao(
     Assento outro = quem.parceiro();
     return new Visao(
         cenario.id(),
-        estado.fase(),
+        estado.fase().name(),
         estado.versao(),
         new Voce(quem, retrato.participante(quem).orElseThrow().apelido().valor()),
         retrato
