@@ -12,6 +12,7 @@ import { Cena, type CenaRef } from "./componentes/Cena";
 import { Moldura } from "./componentes/Moldura";
 import { Painel } from "./componentes/Painel";
 import { Topo } from "./componentes/Topo";
+import { lerConvite } from "./convite";
 import { type Aviso, criarAviso } from "./sessao/aviso";
 import { criarSessao, type EstadoDaSessao, type Sessao } from "./sessao/sessao";
 import { marcasDaCena, useSessao, visaoDaCena, visaoDaTela } from "./useSessao";
@@ -45,6 +46,22 @@ function useSessaoIniciada(sessao: Sessao): void {
     sessao.iniciar();
     return () => {
       sessao.parar();
+    };
+  }, [sessao]);
+}
+
+/** Um #convite= aberto nesta aba depois da carga (colado na barra, link na mesma aba) vai à sessão. */
+function useConviteNaMesmaAba(sessao: Sessao): void {
+  useEffect(() => {
+    const aoMudarHash = () => {
+      const convite = lerConvite(location, history);
+      if (convite !== null) {
+        sessao.receberConvite(convite);
+      }
+    };
+    window.addEventListener("hashchange", aoMudarHash);
+    return () => {
+      window.removeEventListener("hashchange", aoMudarHash);
     };
   }, [sessao]);
 }
@@ -139,6 +156,7 @@ export function App({ convite, cenario }: { convite: string | null; cenario: Cen
 
   const estado = useSessao(sessao, refCena);
   useSessaoIniciada(sessao);
+  useConviteNaMesmaAba(sessao);
   const ceuPintado = useCeuPintado(cenario);
   useSomDaSessao(som, cenario, estado);
   useEscCancelaSelecao(sessao);

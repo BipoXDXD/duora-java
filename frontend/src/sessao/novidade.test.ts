@@ -175,6 +175,12 @@ describe("instrucao", () => {
     );
   });
 
+  it("sem sufixo de cancelar (toque), a instrução da seleção não cita o Esc", () => {
+    expect(instrucao(CENARIO, visao(), "manta", null, null, "")).toBe(
+      "Escolha onde a manta fica: em um lugar lateral.",
+    );
+  });
+
   it("você já confirmou", () => {
     expect(instrucao(CENARIO, visao({ prontos: { voce: true, parceiro: false } }), null, null)).toBe(
       "Esperando Bruno confirmar a mesma composição.",

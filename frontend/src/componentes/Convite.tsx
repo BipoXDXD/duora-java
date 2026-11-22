@@ -30,7 +30,12 @@ async function copiar(link: string, campo: HTMLInputElement | null, ehToque: boo
   } catch {
     copiou = false;
   }
-  return copiou ? "Convite copiado." : "O link está selecionado. Copie com Ctrl+C (ou ⌘+C).";
+  if (copiou) {
+    return "Convite copiado.";
+  }
+  return ehToque
+    ? "O link está selecionado. Toque e segure nele para copiar."
+    : "O link está selecionado. Copie com Ctrl+C (ou ⌘+C).";
 }
 
 export function Convite({ link, aoCopiar, ehToque = ehToqueDoDispositivo() }: PropsConvite) {
@@ -68,7 +73,7 @@ export function Convite({ link, aoCopiar, ehToque = ehToqueDoDispositivo() }: Pr
       <p className={DICA} id="convite-dica">
         {ehToque
           ? "O convite vale para uma entrada."
-          : "Para testar sozinho, abra o link em uma janela anônima ou em outro navegador: cada janela é uma pessoa. O convite vale para uma entrada."}
+          : "Para testar por conta própria, abra o link em uma janela anônima ou em outro navegador: cada janela é uma pessoa. O convite vale para uma entrada."}
       </p>
     </section>
   );

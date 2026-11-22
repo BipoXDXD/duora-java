@@ -56,11 +56,19 @@ describe("Convite", () => {
     expect(screen.getByLabelText("Link para a outra pessoa")).toHaveFocus();
   });
 
+  it("no toque, sem jeito de copiar, ensina a copiar pelo toque e não cita o teclado", async () => {
+    prepararCopia({ clipboard: false, execCommand: false });
+
+    const aoCopiar = await copiar(true);
+
+    expect(aoCopiar).toHaveBeenCalledWith("O link está selecionado. Toque e segure nele para copiar.");
+  });
+
   it("fora do toque, a dica ensina a testar em outra janela", () => {
     render(<Convite link={LINK} aoCopiar={vi.fn()} ehToque={false} />);
 
     expect(screen.getByLabelText("Link para a outra pessoa")).toHaveAccessibleDescription(
-      "Para testar sozinho, abra o link em uma janela anônima ou em outro navegador: cada janela é uma pessoa. O convite vale para uma entrada.",
+      "Para testar por conta própria, abra o link em uma janela anônima ou em outro navegador: cada janela é uma pessoa. O convite vale para uma entrada.",
     );
   });
 

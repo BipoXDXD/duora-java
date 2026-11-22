@@ -72,9 +72,13 @@ export function textoRecusaDoSinal(erro: ErroComCodigo, visao: Visao | null): st
   }
 }
 
+/** O fim da instrução de escolher um lugar com teclado à mão: o Esc desfaz a escolha. */
+export const SUFIXO_ESC_CANCELA = " Esc cancela.";
+
 /**
  * A instrução da montagem: o próximo passo de quem está na tela. sugerindo: a peça do parceiro
- * cujo destino você está escolhendo.
+ * cujo destino você está escolhendo. sufixoCancelar: como desfazer a escolha do lugar ("" no
+ * toque, onde não há Esc).
  */
 export function instrucao(
   c: CenarioFront,
@@ -82,6 +86,7 @@ export function instrucao(
   selecionada: string | null,
   enviando: Acao | null,
   sugerindo: string | null = null,
+  sufixoCancelar = SUFIXO_ESC_CANCELA,
 ): string {
   // A abertura é sem palavras: a lanterna na cena é o único convite, também durante o toque.
   if (aberturaAtiva(visao)) {
@@ -94,11 +99,11 @@ export function instrucao(
     return "Olhem para cima.";
   }
   if (sugerindo) {
-    return `Escolha onde ${c.peca(sugerindo).artigo} de ${String(visao.parceiro?.nome)} ficaria melhor. Esc cancela.`;
+    return `Escolha onde ${c.peca(sugerindo).artigo} de ${String(visao.parceiro?.nome)} ficaria melhor.${sufixoCancelar}`;
   }
   if (selecionada) {
     const { artigo, zona } = c.peca(selecionada);
-    return `Escolha onde ${artigo} fica: ${c.zona(zona).instrucao}. Esc cancela.`;
+    return `Escolha onde ${artigo} fica: ${c.zona(zona).instrucao}.${sufixoCancelar}`;
   }
   if (visao.prontos.voce) {
     return `Esperando ${visao.parceiro?.nome ?? "a outra pessoa"} confirmar a mesma composição.`;

@@ -49,15 +49,17 @@ function telaDaVez(props: Omit<PropsPainel, "refAviso">): TelaDoPainel {
       return {
         visaoDoPar: null,
         instrucao: estado.comConvite
-          ? "Você foi chamado para montar um terraço a dois. Diga como quer ser chamado."
+          ? "Você recebeu um convite para montar um terraço a dois. Escolha seu apelido."
           : "Monte um terraço a dois antes de a noite cair. Comece pelo seu apelido.",
         conteudo: (
           <Entrada
             comConvite={estado.comConvite}
+            trocaDeSala={estado.trocaDeSala}
             enviando={estado.enviando === "entrada"}
             erro={estado.erroApelido}
             aoEnviar={(apelido) => void acoes.enviarApelido(apelido)}
             aoCorrigir={acoes.limparErroApelido}
+            aoContinuar={acoes.continuarNoTerraco}
           />
         ),
       };
