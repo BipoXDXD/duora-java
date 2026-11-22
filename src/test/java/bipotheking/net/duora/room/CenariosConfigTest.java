@@ -24,4 +24,12 @@ class CenariosConfigTest {
                         .map(DefinicaoDeAbertura::maximo))
                 .contains(Duration.ofSeconds(3)));
   }
+
+  @Test
+  void semAPropriedadeOTerracoFicaComOMaximoDoCenario() {
+    contexto.run(ctx ->
+        assertThat(
+                ctx.getBean("terraco", Cenario.class).abertura().map(DefinicaoDeAbertura::maximo))
+            .contains(Duration.ofSeconds(90)));
+  }
 }

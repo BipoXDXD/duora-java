@@ -46,6 +46,14 @@ class TerracoTest {
   }
 
   @Test
+  void aberturaAcenderJuntoComJanelaDe5sEMaximoDe90s() {
+    assertThat(CENARIO.abertura())
+        .contains(
+            new DefinicaoDeAbertura(
+                "acender-junto", Duration.ofSeconds(5), Duration.ofSeconds(90)));
+  }
+
+  @Test
   void resultadoMantemAOrdemDasChaves() {
     Estado estado = aceito(Regras.parceiroEntrou(CENARIO, Estado.inicial(), Instant.EPOCH));
     estado = aceito(Regras.tocarAbertura(CENARIO, estado, A, Instant.EPOCH));
