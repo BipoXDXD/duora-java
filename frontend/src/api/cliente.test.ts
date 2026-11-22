@@ -46,6 +46,14 @@ describe("api", () => {
     expect(resposta).toEqual({ naoMudou: false, visao: VISAO, etag: '"v5"' });
   });
 
+  it("obterSalaSemConteudoViraSemAssento", async () => {
+    responder(204);
+
+    const erro = await erroDe(api.obterSala(null));
+
+    expect(erro).toMatchObject({ status: 401, codigo: "SEM_ASSENTO" });
+  });
+
   it("409 com código e visão vira ErroApi com a visão", async () => {
     responder(409, { codigo: "LUGAR_OCUPADO", visao: VISAO, detail: "ocupado" });
 
