@@ -28,10 +28,28 @@ function visao(pecas: VisaoPeca[]): Visao {
 
 const MONTANDO = visao([peca("telescopio", "C1"), peca("manta", "L1"), peca("radio", null)]);
 
+/** As ações da sessão que o inventário usa, ligadas a dois espiões: a peça escolhida e o "Tirar do terraço". */
+function acoesEspiadas() {
+  const aoEscolher = vi.fn<(peca: string) => void>();
+  const aoRetirar = vi.fn<() => void>();
+  const acoes = {
+    escolherPeca: (peca: string) => {
+      aoEscolher(peca);
+      return Promise.resolve();
+    },
+    retirar: () => {
+      aoRetirar();
+      return Promise.resolve();
+    },
+  };
+  return { acoes, aoEscolher, aoRetirar };
+}
+
 function renderizar(v: Visao, mudancas: Partial<Parameters<typeof Inventario>[0]> = {}) {
-  const props = { visao: v, selecionada: null, enviando: null, aoEscolher: vi.fn(), aoRetirar: vi.fn(), ...mudancas };
+  const { acoes, aoEscolher, aoRetirar } = acoesEspiadas();
+  const props = { visao: v, selecionada: null, enviando: null, acoes, ...mudancas };
   renderComCenario(<Inventario {...props} />);
-  return props;
+  return { ...props, aoEscolher, aoRetirar };
 }
 
 const item = (nome: RegExp) => screen.getByRole("button", { name: nome });
@@ -132,7 +150,7 @@ describe("Inventario", () => {
     };
 
     renderComCenario(
-      <Inventario visao={minimo} selecionada={null} enviando={null} aoEscolher={vi.fn()} aoRetirar={vi.fn()} />,
+      <Inventario visao={minimo} selecionada={null} enviando={null} acoes={acoesEspiadas().acoes} />,
       CENARIO_MINIMO,
     );
 

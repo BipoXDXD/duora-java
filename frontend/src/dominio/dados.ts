@@ -14,6 +14,9 @@ export function escolherVariante(larguraCss: number, dpr: number, variantes: rea
   return escolhida;
 }
 
+/** Uma medida do cena.json em porcentagem do total (palco ou sprite), para o style.left/top/width. */
+export const pct = (valor: number, total: number) => `${((valor / total) * 100).toFixed(3)}%`;
+
 /** Miniaturas do inventário têm 56 px: a família menor basta em qualquer densidade. */
 export const LARGURA_MINIATURA = 900;
 

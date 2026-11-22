@@ -11,10 +11,10 @@ import { Cena, type CenaRef } from "./componentes/Cena";
 import { Moldura } from "./componentes/Moldura";
 import { Painel } from "./componentes/Painel";
 import { Topo } from "./componentes/Topo";
-import type { Momento } from "./dominio/dados";
 import { type Aviso, criarAviso } from "./sessao/aviso";
 import { criarSessao, type EstadoDaSessao, type Sessao } from "./sessao/sessao";
-import { useSessao, visaoDaCena, visaoDaTela } from "./useSessao";
+import { usePassagemAoVivo } from "./usePassagemAoVivo";
+import { marcasDaCena, useSessao, visaoDaCena, visaoDaTela } from "./useSessao";
 
 interface AvisoAdiado extends Aviso {
   /** Liga o aviso ao #aviso; antes disso não há onde anunciar (e a sessão ainda não começou). */
@@ -70,23 +70,19 @@ function useCeuPintado(cenario: CenarioFront): boolean {
  * ao recarregar já revelado.
  */
 function useSomDaSessao(som: Som, estado: EstadoDaSessao): void {
-  const { somLigado, momento, tela } = estado;
+  const { somLigado } = estado;
   useEffect(() => {
     if (!somLigado) {
       som.definir(false);
     }
   }, [som, somLigado]);
 
-  const momentoVisto = useRef<Momento | null>(null);
+  const passagemAoVivo = usePassagemAoVivo(estado);
   useEffect(() => {
-    if (tela === "carregando") {
-      return;
-    }
-    if (momentoVisto.current === "crepusculo" && momento === "noite") {
+    if (passagemAoVivo) {
       som.revelacao();
     }
-    momentoVisto.current = momento;
-  }, [som, tela, momento]);
+  }, [som, passagemAoVivo]);
 }
 
 /** Esc em qualquer lugar desfaz a seleção da peça (o Topo segura o Esc da confirmação de saída). */
@@ -139,7 +135,7 @@ export function App({ convite, cenario }: { convite: string | null; cenario: Cen
         <Cena
           ref={refCena}
           visao={visaoDaCena(estado)}
-          selecionada={estado.tela === "montagem" ? estado.selecionada : null}
+          marcas={marcasDaCena(estado)}
           enviando={estado.enviando !== null}
           momento={estado.momento}
           ladoTelescopio={estado.ladoTelescopio}
@@ -153,16 +149,10 @@ export function App({ convite, cenario }: { convite: string | null; cenario: Cen
         <Painel
           estado={estado}
           refAviso={refAviso}
-          aoEnviarApelido={(apelido) => void sessao.enviarApelido(apelido)}
-          aoCorrigirApelido={sessao.limparErroApelido}
+          acoes={sessao}
           aoCopiarConvite={(texto) => {
             aviso.avisar(texto);
           }}
-          aoCriarOutro={sessao.criarOutro}
-          aoEscolherPeca={(peca) => void sessao.escolherPeca(peca, true)}
-          aoRetirar={() => void sessao.retirar()}
-          aoConfirmar={() => void sessao.confirmar()}
-          aoAjustar={() => void sessao.ajustar()}
           aoAlternarSom={() => {
             sessao.alternarSom();
             som.definir(sessao.obter().somLigado);

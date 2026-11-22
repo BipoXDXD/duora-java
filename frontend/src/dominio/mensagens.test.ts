@@ -84,7 +84,7 @@ describe("textoEncerrado", () => {
     ["VOCE_SAIU", null, "Você saiu e o terraço foi encerrado."],
     ["SALA_INEXISTENTE", "Bruno", "Este terraço não existe mais (o servidor reiniciou ou ele expirou)."],
   ])("%s com parceiro %s", (motivo, parceiro, texto) => {
-    expect(textoEncerrado(motivo, parceiro)).toBe(texto);
+    expect(textoEncerrado(motivo, parceiro).texto).toBe(texto);
   });
 });
 

@@ -1,6 +1,7 @@
 import type { ReactNode, Ref } from "react";
 import type { Visao } from "../dominio/visao";
 import { naoAlcancavel } from "../sessao/naoAlcancavel";
+import type { AcoesDaSessao } from "../sessao/sessao";
 import type { EstadoDaSessao } from "../sessao/tipos";
 import { Acoes, BotaoSom } from "./Acoes";
 import { Convite } from "./Convite";
@@ -16,16 +17,10 @@ export interface PropsPainel {
   estado: EstadoDaSessao;
   /** O #aviso fica vazio no JSX: quem escreve nele é o criarAviso, por esta ref (uma mutação por aviso). */
   refAviso: Ref<HTMLParagraphElement>;
-  aoEnviarApelido: (apelido: string) => void;
-  /** O campo voltou a ter um apelido válido: o erro do servidor pode sumir. */
-  aoCorrigirApelido: () => void;
+  acoes: AcoesDaSessao;
   /** Depois de cada tentativa de copiar o convite, com o aviso a anunciar. */
   aoCopiarConvite: (aviso: string) => void;
-  aoCriarOutro: () => void;
-  aoEscolherPeca: (peca: string) => void;
-  aoRetirar: () => void;
-  aoConfirmar: () => void;
-  aoAjustar: () => void;
+  /** Alterna o som na sessão e no áudio: quem toca o som é o App. */
   aoAlternarSom: () => void;
 }
 
@@ -41,7 +36,7 @@ function linkDoConvite(token: string | null): string {
 }
 
 function telaDaVez(props: Omit<PropsPainel, "refAviso">): TelaDoPainel {
-  const { estado } = props;
+  const { estado, acoes } = props;
   switch (estado.tela) {
     case "carregando":
       return { visaoDoPar: null, instrucao: "Procurando seu terraço…", conteudo: null };
@@ -56,8 +51,8 @@ function telaDaVez(props: Omit<PropsPainel, "refAviso">): TelaDoPainel {
             comConvite={estado.comConvite}
             enviando={estado.enviando === "entrada"}
             erro={estado.erroApelido}
-            aoEnviar={props.aoEnviarApelido}
-            aoCorrigir={props.aoCorrigirApelido}
+            aoEnviar={(apelido) => void acoes.enviarApelido(apelido)}
+            aoCorrigir={acoes.limparErroApelido}
           />
         ),
       };
@@ -80,15 +75,14 @@ function telaDaVez(props: Omit<PropsPainel, "refAviso">): TelaDoPainel {
               visao={estado.visao}
               selecionada={estado.selecionada}
               enviando={estado.enviando}
-              aoEscolher={props.aoEscolherPeca}
-              aoRetirar={props.aoRetirar}
+              acoes={acoes}
             />
-            <Resultado visao={estado.visao} enviando={estado.enviando} aoAjustar={props.aoAjustar} />
+            <Resultado visao={estado.visao} enviando={estado.enviando} acoes={acoes} />
             <Acoes
               visao={estado.visao}
               enviando={estado.enviando}
               somLigado={estado.somLigado}
-              aoConfirmar={props.aoConfirmar}
+              acoes={acoes}
               aoAlternarSom={props.aoAlternarSom}
             />
           </div>
@@ -98,7 +92,7 @@ function telaDaVez(props: Omit<PropsPainel, "refAviso">): TelaDoPainel {
       return {
         visaoDoPar: null,
         instrucao: null,
-        conteudo: <Encerrado texto={estado.texto} aoCriarOutro={props.aoCriarOutro} />,
+        conteudo: <Encerrado titulo={estado.titulo} texto={estado.texto} acoes={acoes} />,
       };
     default:
       return naoAlcancavel(estado);

@@ -2,7 +2,7 @@
 // de DOM exatas que ela faz. O React só renderiza a moldura vazia e liga as camadas por ref.
 
 import { useEffectEvent, useImperativeHandle, useLayoutEffect, useRef, type Ref, type RefObject } from "react";
-import { criarCena, type CenaImperativa } from "../cena/cena";
+import { criarCena, type CenaImperativa, type MarcasDaCena } from "../cena/cena";
 import { desenharCeu } from "../cena/ceu";
 import { criarMeteoros, type Meteoros } from "../cena/meteoros";
 import type { CenarioFront } from "../cenario/tipos";
@@ -16,7 +16,7 @@ export interface CenaRef {
 
 export interface PropsCena {
   visao: Visao | null;
-  selecionada: string | null;
+  marcas: MarcasDaCena;
   enviando: boolean;
   momento: Momento;
   ladoTelescopio: string | null;
@@ -37,7 +37,8 @@ function elemento<T>(ref: RefObject<T | null>): T {
 
 /**
  * O redesenho troca os botões das camadas; devolve o foco ao equivalente (mesma peça ou mesmo
- * lugar na mesma camada), se ele tiver caído no body.
+ * lugar na mesma camada), se ele tiver caído no body. Os efeitos da peça também têm data-peca:
+ * o equivalente é o elemento do mesmo tipo (o botão).
  */
 function lembrarFoco(camadas: readonly HTMLElement[]): () => void {
   const ativo = document.activeElement;
@@ -46,18 +47,19 @@ function lembrarFoco(camadas: readonly HTMLElement[]): () => void {
     return () => {};
   }
   const { peca, lugar } = ativo.dataset;
+  const tag = ativo.localName;
   return () => {
     if (document.activeElement && document.activeElement !== document.body) {
       return;
     }
-    const seletor = lugar ? `[data-lugar="${lugar}"]` : `[data-peca="${peca ?? ""}"]`;
+    const seletor = lugar ? `${tag}[data-lugar="${lugar}"]` : `${tag}[data-peca="${peca ?? ""}"]`;
     camada.querySelector<HTMLElement>(seletor)?.focus();
   };
 }
 
 export function Cena({
   visao,
-  selecionada,
+  marcas,
   enviando,
   momento,
   ladoTelescopio,
@@ -75,6 +77,9 @@ export function Cena({
   const refLugares = useRef<HTMLDivElement>(null);
   const cena = useRef<CenaImperativa | null>(null);
   const meteoros = useRef<Meteoros | null>(null);
+
+  // As marcas chegam num objeto novo a cada render: o redesenho depende dos campos, não do objeto.
+  const { selecionada, sugerindo, destaques } = marcas;
 
   const escolherPeca = useEffectEvent(aoEscolherPeca);
   const escolherLugar = useEffectEvent(aoEscolherLugar);
@@ -142,10 +147,10 @@ export function Cena({
     if (visao === null || visao.fase === "AGUARDANDO_PAR") {
       atual.limpar();
     } else {
-      atual.desenhar(visao, selecionada);
+      atual.desenhar(visao, { selecionada, sugerindo, destaques });
     }
     devolverFoco();
-  }, [cenario, visao, selecionada]);
+  }, [cenario, visao, selecionada, sugerindo, destaques]);
 
   useLayoutEffect(() => {
     elemento(refPalco).dataset.enviando = String(enviando);

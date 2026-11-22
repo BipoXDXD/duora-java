@@ -109,7 +109,7 @@
   fill: #0d2133;
 }
 
-.brilho {
+.brilho-piso {
   position: absolute;
   transform: translate(-50%, -50%);
   aspect-ratio: 2 / 1;
@@ -133,7 +133,7 @@
   transition: opacity 2.4s ease-in-out;
 }
 
-.app[data-momento="noite"] .brilho,
+.app[data-momento="noite"] .brilho-piso,
 .app[data-momento="noite"] .halo {
   opacity: 1;
 }

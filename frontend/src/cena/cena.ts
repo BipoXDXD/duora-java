@@ -1,11 +1,10 @@
 // Desenha a cena do cenário a partir da visão da sala. Não decide regras: usa os lugares
 // permitidos que a visão traz para a peça selecionada.
 
-import type { CenarioFront, Efeito } from "../cenario/tipos";
-import { escolherVariante, type MedidasSprite, type Momento, type Ponto } from "../dominio/dados";
+import type { CenarioFront } from "../cenario/tipos";
+import { escolherVariante, type MedidasSprite, type Momento, pct, type Ponto } from "../dominio/dados";
 import type { Visao, VisaoPeca } from "../dominio/visao";
-
-const pct = (valor: number, total: number) => `${((valor / total) * 100).toFixed(3)}%`;
+import { type CamadaDoEfeito, criarElementosDoEfeito } from "./efeitos";
 
 const MOMENTOS: readonly Momento[] = ["crepusculo", "noite"];
 
@@ -38,8 +37,15 @@ export interface OpcoesCena {
   aoEscolherLugar: (lugar: string, bloqueio: string | null) => void;
 }
 
+/** O que a sessão marca na cena além da visão: a peça selecionada, a que você está sugerindo mover e as peças em destaque. */
+export interface MarcasDaCena {
+  readonly selecionada: string | null;
+  readonly sugerindo: string | null;
+  readonly destaques: readonly string[];
+}
+
 export interface CenaImperativa {
-  desenhar(visao: Visao, selecionada: string | null): void;
+  desenhar(visao: Visao, marcas: MarcasDaCena): void;
   /** Terraço vazio: entrada, convite ou encerrado. */
   limpar(): void;
   /** Foca o primeiro lugar livre; diz se havia algum. */
@@ -82,19 +88,6 @@ export function criarCena({
     return medidas;
   }
 
-  /** Efeito noturno da revelação, centrado no ponto da peça; só aparece à noite (cena.css). */
-  function criarEfeito(efeito: Efeito, ponto: Ponto): HTMLDivElement {
-    // Brilho: poço de luz no piso. Halo: luz sobre a peça (o modelo vem apagado), na altura já
-    // projetada pela câmera inclinada.
-    const brilho = efeito.tipo === "brilho-piso";
-    const div = document.createElement("div");
-    div.className = brilho ? "brilho" : "halo";
-    div.style.left = pct(ponto.x, largura);
-    div.style.top = pct(brilho ? ponto.y : ponto.y - geometria.pxPorMetro * efeito.alturaProjetada, altura);
-    div.style.width = pct(geometria.pxPorMetro * efeito.largura, largura);
-    return div;
-  }
-
   function desenharPecas(visao: Visao, selecionada: string | null): void {
     const fragmento = document.createDocumentFragment();
     const colocadas = visao.pecas.filter(colocada);
@@ -107,11 +100,10 @@ export function criarCena({
       const minha = p.assento === visao.voce.assento;
       const dono = minha ? visao.voce.nome : (visao.parceiro?.nome ?? "");
 
-      // O brilho no piso fica atrás do botão da peça; o halo, na frente.
-      const efeitos = cenario.revelacao(p.peca);
-      const efeitosDe = (tipo: Efeito["tipo"]) =>
-        efeitos.filter((e) => e.tipo === tipo).map((e) => criarEfeito(e, ponto));
-      fragmento.append(...efeitosDe("brilho-piso"));
+      // Efeitos da revelação: o piso fica atrás do botão da peça; a frente, na frente.
+      const efeitos = cenario.revelacao(p.peca).flatMap((e) => criarElementosDoEfeito(e, p.peca, ponto, geometria));
+      const naCamada = (camada: CamadaDoEfeito) => efeitos.filter((e) => e.camada === camada).map((e) => e.el);
+      fragmento.append(...naCamada("piso"));
 
       const botao = document.createElement("button");
       botao.type = "button";
@@ -177,7 +169,7 @@ export function criarCena({
       botao.addEventListener("click", () => {
         aoEscolherPeca(p.peca, minha);
       });
-      fragmento.append(botao, ...efeitosDe("halo"));
+      fragmento.append(botao, ...naCamada("frente"));
     }
     camadaPecas.replaceChildren(fragmento);
   }
@@ -231,7 +223,7 @@ export function criarCena({
   }
 
   return {
-    desenhar(visao, selecionada) {
+    desenhar(visao, { selecionada }) {
       desenharPecas(visao, selecionada);
       desenharLugares(visao, selecionada);
       palco.dataset.selecionando = selecionada ? "true" : "false";

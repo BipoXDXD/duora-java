@@ -1,5 +1,6 @@
 import { textoMotivoConfirmacao } from "../dominio/mensagens";
 import type { Visao } from "../dominio/visao";
+import type { AcoesDaSessao } from "../sessao/sessao";
 import type { Acao } from "../sessao/tipos";
 import { BOTAO_PRIMARIO, BOTAO_TEXTO, seDisponivel } from "./estilos";
 
@@ -7,13 +8,13 @@ interface PropsAcoes {
   visao: Visao;
   enviando: Acao | null;
   somLigado: boolean;
-  /** Confirma a composição ou, se você já confirmou, volta a ajustar: quem decide é a sessão. */
-  aoConfirmar: () => void;
+  /** confirmar: confirma a composição ou, se você já confirmou, volta a ajustar; quem decide é a sessão. */
+  acoes: Pick<AcoesDaSessao, "confirmar">;
   aoAlternarSom: () => void;
 }
 
 /** Confirmação e som. Na noite revelada some só a confirmação; o som continua acessível para os meteoros. */
-export function Acoes({ visao, enviando, somLigado, aoConfirmar, aoAlternarSom }: PropsAcoes) {
+export function Acoes({ visao, enviando, somLigado, acoes, aoAlternarSom }: PropsAcoes) {
   const voceConfirmou = visao.prontos.voce;
   const revelado = visao.fase === "REVELADO";
   const indisponivel = enviando !== null || (!visao.confirmacao.podeConfirmar && !voceConfirmou);
@@ -30,7 +31,7 @@ export function Acoes({ visao, enviando, somLigado, aoConfirmar, aoAlternarSom }
         id="pronto"
         aria-disabled={indisponivel ? true : undefined}
         hidden={revelado}
-        onClick={seDisponivel(indisponivel, aoConfirmar)}
+        onClick={seDisponivel(indisponivel, () => void acoes.confirmar())}
       >
         {textoPronto}
       </button>

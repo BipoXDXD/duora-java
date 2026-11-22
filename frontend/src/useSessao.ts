@@ -2,6 +2,7 @@
 // cada commit, faz com o foco o que o desenhar() do main.js antigo fazia, na mesma ordem.
 
 import { type RefObject, useCallback, useLayoutEffect, useRef, useSyncExternalStore } from "react";
+import type { MarcasDaCena } from "./cena/cena";
 import type { CenaRef } from "./componentes/Cena";
 import type { Fase, Visao } from "./dominio/visao";
 import { levarFocoSeSumiu } from "./sessao/foco";
@@ -16,6 +17,17 @@ export function visaoDaTela(estado: EstadoDaSessao): Visao | null {
 /** A visão que a cena desenha: nenhuma quando a sessão terminou, mesmo com a tela parada. */
 export function visaoDaCena(estado: EstadoDaSessao): Visao | null {
   return estado.cenaVazia ? null : visaoDaTela(estado);
+}
+
+const SEM_MARCAS: MarcasDaCena = { selecionada: null, sugerindo: null, destaques: [] };
+
+/** O que a sessão marca na cena: só a montagem tem seleção, sugestão e destaques. */
+export function marcasDaCena(estado: EstadoDaSessao): MarcasDaCena {
+  if (estado.tela !== "montagem") {
+    return SEM_MARCAS;
+  }
+  const { selecionada, sugerindo, destaques } = estado;
+  return { selecionada, sugerindo, destaques };
 }
 
 function focarPorSeletor(seletor: string): boolean {

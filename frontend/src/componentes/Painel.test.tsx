@@ -6,6 +6,7 @@ import { Painel } from "./Painel";
 
 const ENCERRADO: EstadoDaSessao = {
   tela: "encerrado",
+  titulo: "Terraço encerrado",
   texto: "Você saiu e o terraço foi encerrado.",
   enviando: null,
   cenaVazia: true,
@@ -21,14 +22,16 @@ describe("Painel", () => {
       <Painel
         estado={ENCERRADO}
         refAviso={createRef()}
-        aoEnviarApelido={vi.fn()}
-        aoCorrigirApelido={vi.fn()}
+        acoes={{
+          escolherPeca: vi.fn(),
+          retirar: vi.fn(),
+          confirmar: vi.fn(),
+          ajustar: vi.fn(),
+          criarOutro: vi.fn(),
+          enviarApelido: vi.fn(),
+          limparErroApelido: vi.fn(),
+        }}
         aoCopiarConvite={vi.fn()}
-        aoCriarOutro={vi.fn()}
-        aoEscolherPeca={vi.fn()}
-        aoRetirar={vi.fn()}
-        aoConfirmar={vi.fn()}
-        aoAjustar={vi.fn()}
         aoAlternarSom={vi.fn()}
       />,
     );

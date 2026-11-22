@@ -1,17 +1,18 @@
 import { useCenario } from "../cenario/contexto";
 import { textoResultado } from "../dominio/mensagens";
 import type { Visao } from "../dominio/visao";
+import type { AcoesDaSessao } from "../sessao/sessao";
 import type { Acao } from "../sessao/tipos";
 import { BOTAO_SECUNDARIO, TEXTO_SECUNDARIO, TITULO_DE_RESULTADO, seDisponivel } from "./estilos";
 
 interface PropsResultado {
   visao: Visao;
   enviando: Acao | null;
-  aoAjustar: () => void;
+  acoes: Pick<AcoesDaSessao, "ajustar">;
 }
 
 /** A noite revelada. Fica no DOM, escondida, durante a montagem, como os outros blocos da montagem. */
-export function Resultado({ visao, enviando, aoAjustar }: PropsResultado) {
+export function Resultado({ visao, enviando, acoes }: PropsResultado) {
   const c = useCenario();
   const revelado = visao.fase === "REVELADO" && visao.resultado !== null;
   const { titulo, texto } = revelado ? textoResultado(c, visao) : { titulo: "", texto: "" };
@@ -28,7 +29,7 @@ export function Resultado({ visao, enviando, aoAjustar }: PropsResultado) {
         className={BOTAO_SECUNDARIO}
         id="ajustar"
         aria-disabled={enviando !== null ? true : undefined}
-        onClick={seDisponivel(enviando !== null, aoAjustar)}
+        onClick={seDisponivel(enviando !== null, () => void acoes.ajustar())}
       >
         {enviando === "ajustar" ? "Enviando…" : "Ajustar de novo"}
       </button>
