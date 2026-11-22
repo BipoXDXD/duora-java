@@ -18,6 +18,7 @@ import java.nio.file.Path;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.regex.MatchResult;
 import java.util.regex.Pattern;
@@ -129,6 +130,12 @@ class CenarioJsonTest {
         .isNotEmpty()
         .allSatisfy(
             som -> assertThat(PASTA.resolve("audio").resolve(som + ".mp3")).isRegularFile());
+  }
+
+  @Test
+  void aberturaIgualAoCenario() {
+    assertThat(Optional.ofNullable(JSON.get("abertura")).map(a -> a.get("tipo").stringValue()))
+        .isEqualTo(CENARIO.abertura().map(DefinicaoDeAbertura::tipo));
   }
 
   private static List<String> idsDosLugares() {

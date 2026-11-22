@@ -39,6 +39,7 @@
   "sprites": {
     "telescopio": { "padrao": "telescopio-esq", "porLugar": { "C2": "telescopio-dir" }, "semLugar": "telescopio-dir" }
   },
+  "abertura": { "tipo": "acender-junto", "sprite": "lanterna", "escala": 0.5, "lugares": { "A": "L2", "B": "R2" } },
   "revelacao": {
     "telescopio": [{ "tipo": "meteoros" }],
     "manta": [{ "tipo": "brilho", "cor": "#b04a63", "largura": 1.2 }],

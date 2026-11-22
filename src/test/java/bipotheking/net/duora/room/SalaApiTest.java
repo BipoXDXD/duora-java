@@ -44,7 +44,9 @@ import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
 import org.springframework.test.web.servlet.ResultActions;
 
-@SpringBootTest
+// O terraço conclui a abertura apagada já na entrada, como na suíte e2e: a abertura por HTTP fica
+// com o CenarioApiTest (minimo-abertura) e o AberturaIT.
+@SpringBootTest(properties = "duora.cenarios.abertura.maximo=PT0S")
 @AutoConfigureMockMvc
 @Import(SalaApiTest.RelogioControlavel.class)
 @ExtendWith(OutputCaptureExtension.class)

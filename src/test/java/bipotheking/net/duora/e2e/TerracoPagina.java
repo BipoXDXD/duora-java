@@ -96,6 +96,24 @@ final class TerracoPagina {
             new Locator.GetByRoleOptions().setName(Pattern.compile("^" + literal(peca.nome))));
   }
 
+  /** A sua lanterna na abertura: tocá-la conta o seu toque. */
+  Locator botaoDaLanterna() {
+    return botao("Acender sua lanterna");
+  }
+
+  /** A luz das lanternas acesas na abertura (decorativa: só pelo {@code data-efeito}). */
+  Locator luzDasLanternas() {
+    return page.locator("[data-lanterna] [data-efeito=brilho]");
+  }
+
+  /** Os dois tocam a lanterna e as lanternas acendem: o inventário aparece para os dois. */
+  static void passarAbertura(TerracoPagina ana, TerracoPagina bruno) {
+    ana.botaoDaLanterna().click();
+    bruno.botaoDaLanterna().click();
+    assertThat(ana.itemDoInventario(Peca.TELESCOPIO)).isVisible();
+    assertThat(bruno.itemDoInventario(Peca.BANCO)).isVisible();
+  }
+
   Locator lugarLivre(Peca peca, Lugar lugar) {
     return botao("Colocar " + peca.artigo + ": " + lugar.nome);
   }

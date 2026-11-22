@@ -199,12 +199,17 @@ class ConcorrenciaTest {
             maximo, maximo * 2, padrao.inatividade(), padrao.lapide(), padrao.presenca()));
   }
 
+  /** O par entrou e os dois acenderam as lanternas juntos: a montagem está livre. */
   private static Mesa mesaMontando(Salas salas) {
     Salas.Entrada criacao = salas.criar(Apelido.de("Ana"), Terraco.CENARIO);
     Salas.Entrada entrada = salas.entrar(criacao.visao().convite(), Apelido.de("Bruno"));
-    return new Mesa(
-        salas.localizar(Optional.of(criacao.token())).sala(),
-        salas.localizar(Optional.of(entrada.token())).sala());
+    Mesa mesa =
+        new Mesa(
+            salas.localizar(Optional.of(criacao.token())).sala(),
+            salas.localizar(Optional.of(entrada.token())).sala());
+    mesa.a().tocarAbertura(Assento.A);
+    mesa.b().tocarAbertura(Assento.B);
+    return mesa;
   }
 
   /** Telescópio C1, banco C2, manta L1, lanterna R1: versão 4. */

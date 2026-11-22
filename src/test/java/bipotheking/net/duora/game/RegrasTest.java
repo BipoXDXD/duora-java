@@ -599,8 +599,11 @@ class RegrasTest {
     return Stream.of(new Fase.AguardandoPar(), new Fase.Revelado());
   }
 
+  /** O par entrou e os dois acenderam as lanternas juntos: a montagem está livre. */
   private static Estado montando() {
-    return aceito(Regras.parceiroEntrou(CENARIO, Estado.inicial(), AGORA));
+    Estado estado = aceito(Regras.parceiroEntrou(CENARIO, Estado.inicial(), AGORA));
+    estado = aceito(Regras.tocarAbertura(CENARIO, estado, A, AGORA));
+    return aceito(Regras.tocarAbertura(CENARIO, estado, B, AGORA));
   }
 
   /** Telescópio C1, banco C2, manta L1, lanterna R1: versão 4. */
