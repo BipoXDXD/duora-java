@@ -1,5 +1,8 @@
 // Service worker do Duora: guarda o shell para o app abrir sem rede. Nunca toca na API.
-// Ao mudar o shell ou qualquer arquivo em /assets/, troque a versão: o activate apaga o cache antigo.
+// Os binários de /assets/ vêm do cache primeiro; o JSON de /assets/ (o cena.json) vem da rede
+// primeiro, porque sem skipWaiting o worker antigo segue no controle quando chega um JS novo, e o
+// JS novo não pode ler dados velhos. Ao mudar o shell ou um binário de /assets/, troque a versão:
+// o activate apaga o cache antigo.
 const CACHE_VERSION = "duora-v1";
 
 const SHELL = [
@@ -59,6 +62,8 @@ self.addEventListener("fetch", (evento) => {
   }
   if (pedido.mode === "navigate") {
     evento.respondWith(fetch(pedido).catch(() => caches.match("/")));
+  } else if (url.pathname.startsWith("/assets/") && url.pathname.endsWith(".json")) {
+    evento.respondWith(primeiroDaRede(pedido, { guardar: true }));
   } else if (url.pathname.startsWith("/assets/")) {
     evento.respondWith(primeiroDoCache(pedido));
   } else {
@@ -71,17 +76,14 @@ async function primeiroDoCache(pedido) {
   if (guardada) {
     return guardada;
   }
-  const resposta = await fetch(pedido);
-  if (resposta.status === 200) {
-    const cache = await caches.open(CACHE_VERSION);
-    await cache.put(pedido, resposta.clone());
-  }
-  return resposta;
+  return guardarSeCompleta(pedido, await fetch(pedido));
 }
 
-async function primeiroDaRede(pedido) {
+// Com guardar, a resposta 200 da rede renova a cópia que serve de reserva sem rede.
+async function primeiroDaRede(pedido, { guardar = false } = {}) {
+  let resposta;
   try {
-    return await fetch(pedido);
+    resposta = await fetch(pedido);
   } catch (falha) {
     const guardada = await caches.match(pedido);
     if (guardada) {
@@ -89,4 +91,13 @@ async function primeiroDaRede(pedido) {
     }
     throw falha;
   }
+  return guardar ? guardarSeCompleta(pedido, resposta) : resposta;
+}
+
+async function guardarSeCompleta(pedido, resposta) {
+  if (resposta.status === 200) {
+    const cache = await caches.open(CACHE_VERSION);
+    await cache.put(pedido, resposta.clone());
+  }
+  return resposta;
 }

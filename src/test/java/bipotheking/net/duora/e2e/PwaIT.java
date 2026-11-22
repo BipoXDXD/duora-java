@@ -30,6 +30,7 @@ class PwaIT {
 
   private static final String TITULO = "Antes da primeira estrela";
   private static final String COR = "#132B40";
+  private static final String CENA_JSON = "/assets/cena/cena.json";
 
   /**
    * Espera o service worker ficar {@code activated}. No Firefox e no WebKit, o {@code ready} pode
@@ -131,5 +132,41 @@ class PwaIT {
     page.reload();
 
     assertThat(page).hasTitle(TITULO);
+  }
+
+  /**
+   * Sem {@code skipWaiting}, o worker antigo segue no controle quando chega um JS novo; se o JSON
+   * de {@code /assets/} viesse do cache, o JS novo leria o {@code cena.json} velho. O teste troca a
+   * cópia guardada por uma versão antiga e confere que a leitura seguinte traz a do servidor. Mexe
+   * só no Cache API, que os três motores expõem igual, sem depender do {@code page.route}, que não
+   * vê os pedidos do worker em todos eles.
+   */
+  @Test
+  void jsonDeAssetsVemDaRedeMesmoComSWNoControle(Participantes participantes) {
+    Page page = participantes.novoComServiceWorker().abrir(raiz(porta)).page();
+    page.evaluate(ESPERAR_SERVICE_WORKER);
+    page.reload();
+    assertThat(page.evaluate("() => navigator.serviceWorker.controller !== null")).isEqualTo(true);
+
+    page.evaluate(
+        """
+        async (url) => {
+          const velho = new Response('{"versao":"velha"}', {
+            headers: { "Content-Type": "application/json" },
+          });
+          for (const nome of await caches.keys()) {
+            if (nome.startsWith("duora-")) {
+              await (await caches.open(nome)).put(url, velho.clone());
+            }
+          }
+        }
+        """,
+        CENA_JSON);
+    Object lido =
+        page.evaluate("async (url) => (await fetch(url, { cache: 'no-store' })).text()", CENA_JSON);
+
+    String doServidor =
+        page.context().request().get(URI.create(page.url()).resolve(CENA_JSON).toString()).text();
+    assertThat(lido).isEqualTo(doServidor);
   }
 }
