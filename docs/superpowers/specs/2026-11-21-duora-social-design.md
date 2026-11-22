@@ -81,6 +81,17 @@ Cada etapa termina com uma prova demonstrável, testes verdes (`./mvnw -q verify
 
 **Prova**: a suíte inteira segue verde com o terraço vindo de dados, e um cenário de teste mínimo (2 lugares, 2 peças) roda de ponta a ponta.
 
+### Etapa 1c: Ajustes do playtest (motor de encontro)
+Playtest por agente (2026-11-22): primeira ação clara; contribuição do outro pouco visível; negociação rasa (4 decisões, < 1 min); final quase não muda; pouca vontade de repetir. Decisões do dono:
+- **Ver o que o outro fez:** a peça que mudou ganha destaque animado na cena e a linha de status sobe para logo abaixo dos nomes (visível em 835–900 px de altura e no celular rolado).
+- **Sinal com destino:** ao sugerir, a pessoa aponta um lugar livre ("Que tal aqui?"); o outro aceita (move) ou ignora. Sem texto livre.
+- **Efeito por peça na revelação:** cada peça tem efeito próprio (rádio toca notas mesmo com o som geral desligado, manta brilha, garrafa solta vapor, etc.) e o texto do resultado considera posições relativas. Definido por cenário, como dados do motor (1b).
+- **Concordância para encerrar:** "Ajustar" depois da revelação pede o aceite do outro; "Sair" leva quem saiu à decisão privada e o outro vê uma mensagem gentil ("o encontro terminou"). A revelação ganha modo tela cheia no celular.
+- Correções sem decisão (achadas no playtest): "por o" → "pelo"; "Você foi chamado" neutro; tirar a dica de janela anônima e "Esc cancela" no celular; "O que falta" some quando nada falta; contorno de foco do título do resultado; convite novo na mesma aba troca de sala; 401 da primeira carga sem erro no console.
+- Vem depois da 1b, para que destaque, sinal com destino e concordância sejam do motor (valem para todos os cenários).
+
+**Prova**: novo playtest por agente responde "sim" às perguntas 2–5, com evidência em capturas.
+
 ### Etapa 2: Persistência e contas
 - PostgreSQL + Flyway + Testcontainers. Compose de desenvolvimento.
 - Contas: e-mail + Turnstile → link mágico (token de uso único, hash no banco, expira em 15 min) → data de nascimento autodeclarada (bloqueia <18) → aceite de termos/política com versão registrada.
@@ -179,7 +190,7 @@ Cada etapa termina com uma prova demonstrável, testes verdes (`./mvnw -q verify
 - Decisão ao final: ajustar, ampliar o piloto ou criar novos cenários.
 
 ## Dependências e paralelismo
-0 → 1 → 1b → 2 → 3 → 4 → 5 → 6 → 7. A 9b começa depois da 1b e roda em paralelo às etapas 2–8 (assets e dados não dependem de contas). A 8 começa junto com a 5 (denúncia e bloqueio básicos já entram na 5). A 9 é curta e fecha antes da 10. A 10 pode ser preparada em paralelo a partir da 6. A 11 depende de todas.
+0 → 1 → 1b → 1c → 2 → 3 → 4 → 5 → 6 → 7. A 9b começa depois da 1b e roda em paralelo às etapas 2–8 (assets e dados não dependem de contas). A 8 começa junto com a 5 (denúncia e bloqueio básicos já entram na 5). A 9 é curta e fecha antes da 10. A 10 pode ser preparada em paralelo a partir da 6. A 11 depende de todas.
 
 ## Verificação (por etapa e final)
 - Unitários e API: `./mvnw -q verify`.
