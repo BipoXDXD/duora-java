@@ -1,6 +1,7 @@
 package bipotheking.net.duora.room;
 
 import bipotheking.net.duora.game.Assento;
+import bipotheking.net.duora.game.Cenario;
 import bipotheking.net.duora.game.Decisao;
 import bipotheking.net.duora.game.Estado;
 import bipotheking.net.duora.game.Lugar;
@@ -26,14 +27,22 @@ final class Sala {
 
   private final String id;
   private final String resumoConvite;
+  private final Cenario cenario;
   private final Clock relogio;
   private final LimitesSala limites;
   private final ReentrantLock trava = new ReentrantLock();
   private volatile Retrato retrato;
 
-  Sala(String id, Participante criador, Convite convite, Clock relogio, LimitesSala limites) {
+  Sala(
+      String id,
+      Participante criador,
+      Convite convite,
+      Cenario cenario,
+      Clock relogio,
+      LimitesSala limites) {
     this.id = id;
     this.resumoConvite = convite.resumo();
+    this.cenario = cenario;
     this.relogio = relogio;
     this.limites = limites;
     this.retrato = Retrato.aberto(criador, convite, relogio.instant());
@@ -41,6 +50,11 @@ final class Sala {
 
   String id() {
     return id;
+  }
+
+  /** Fixo desde a criação; lido sem a trava. */
+  Cenario cenario() {
+    return cenario;
   }
 
   /** Chave da sala no índice de convites; guardada para a remoção ser direta. */
@@ -92,7 +106,7 @@ final class Sala {
     } finally {
       trava.unlock();
     }
-    return Visao.de(atual, quem, agora, limites);
+    return Visao.de(cenario, atual, quem, agora, limites);
   }
 
   /** Convite já usado ou de sala encerrada não vale mais. */
@@ -106,31 +120,32 @@ final class Sala {
       if (atual.encerramento().isPresent() || atual.participante(parceiro.assento()).isPresent()) {
         throw new ErroApi(Codigo.CONVITE_INVALIDO, "Este convite não vale mais.");
       }
-      Estado estado = aceitoOuFalha(Regras.parceiroEntrou(atual.estado()));
+      Estado estado = aceitoOuFalha(Regras.parceiroEntrou(cenario, atual.estado()));
       atual = atual.comParceiro(parceiro, estado, agora);
       retrato = atual;
     } finally {
       trava.unlock();
     }
     LOG.info("Sala {}: parceiro entrou", id);
-    return Visao.de(atual, parceiro.assento(), agora, limites);
+    return Visao.de(cenario, atual, parceiro.assento(), agora, limites);
   }
 
   Visao colocar(Assento quem, Peca peca, Optional<Lugar> destino, long versaoEsperada) {
     return agir(
-        quem, (estado, agora) -> Regras.colocar(estado, quem, peca, destino, versaoEsperada));
+        quem,
+        (estado, agora) -> Regras.colocar(cenario, estado, quem, peca, destino, versaoEsperada));
   }
 
   Visao sinalizar(Assento quem, Peca peca) {
-    return agir(quem, (estado, agora) -> Regras.sinalizar(estado, quem, peca, agora));
+    return agir(quem, (estado, agora) -> Regras.sinalizar(cenario, estado, quem, peca, agora));
   }
 
   Visao confirmar(Assento quem, boolean pronto, long versao) {
-    return agir(quem, (estado, agora) -> Regras.confirmar(estado, quem, pronto, versao));
+    return agir(quem, (estado, agora) -> Regras.confirmar(cenario, estado, quem, pronto, versao));
   }
 
   Visao ajustar(Assento quem) {
-    return agir(quem, (estado, agora) -> Regras.ajustar(estado));
+    return agir(quem, (estado, agora) -> Regras.ajustar(cenario, estado));
   }
 
   /** Encerra a sala para as duas pessoas. Sair de sala já encerrada não muda nada. */
@@ -177,12 +192,14 @@ final class Sala {
     } finally {
       trava.unlock();
     }
-    return Visao.de(atual, quem, agora, limites);
+    return Visao.de(cenario, atual, quem, agora, limites);
   }
 
   private ErroApi recusar(Recusa recusa, Retrato atual, Assento quem, Instant agora) {
     return ErroApi.comVisao(
-        Codigo.de(recusa), detalhe(recusa, atual, quem), Visao.de(atual, quem, agora, limites));
+        Codigo.de(recusa),
+        detalhe(recusa, atual, quem),
+        Visao.de(cenario, atual, quem, agora, limites));
   }
 
   private static String detalhe(Recusa recusa, Retrato atual, Assento quem) {

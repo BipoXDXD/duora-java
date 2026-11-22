@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import bipotheking.net.duora.game.Assento;
+import bipotheking.net.duora.game.Terraco;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.Optional;
@@ -20,7 +21,7 @@ class SalasTest {
   @Test
   void varrerMantemALapideAte5Minutos() {
     Salas salas = salas(20, 40);
-    Salas.Entrada ana = salas.criar(Apelido.de("Ana"));
+    Salas.Entrada ana = salas.criar(Apelido.de("Ana"), Terraco.CENARIO);
     sair(salas, ana);
     relogio.avancar(LAPIDE.minusSeconds(1));
 
@@ -33,7 +34,7 @@ class SalasTest {
   @Test
   void varrerEsqueceLapideVencidaComAssentosEConvite() {
     Salas salas = salas(20, 40);
-    Salas.Entrada ana = salas.criar(Apelido.de("Ana"));
+    Salas.Entrada ana = salas.criar(Apelido.de("Ana"), Terraco.CENARIO);
     String convite = ana.visao().convite();
     Salas.Entrada bruno = salas.entrar(convite, Apelido.de("Bruno"));
     sair(salas, ana);
@@ -49,7 +50,7 @@ class SalasTest {
   @Test
   void varrerEsqueceConviteDeSalaNuncaUsada() {
     Salas salas = salas(20, 40);
-    Salas.Entrada ana = salas.criar(Apelido.de("Ana"));
+    Salas.Entrada ana = salas.criar(Apelido.de("Ana"), Terraco.CENARIO);
     relogio.avancar(LimitesSala.PADRAO.inatividade().plus(LAPIDE));
 
     salas.varrer();
@@ -62,7 +63,7 @@ class SalasTest {
   @Test
   void varrerExpiraSalaInativaSemDescartarAntesDaLapideVencer() {
     Salas salas = salas(20, 40);
-    Salas.Entrada ana = salas.criar(Apelido.de("Ana"));
+    Salas.Entrada ana = salas.criar(Apelido.de("Ana"), Terraco.CENARIO);
     relogio.avancar(LimitesSala.PADRAO.inatividade());
 
     salas.varrer();
@@ -74,7 +75,7 @@ class SalasTest {
   @Test
   void conviteSaiDoIndiceQuandoBEntra() {
     Salas salas = salas(20, 40);
-    Salas.Entrada ana = salas.criar(Apelido.de("Ana"));
+    Salas.Entrada ana = salas.criar(Apelido.de("Ana"), Terraco.CENARIO);
     String convite = ana.visao().convite();
     salas.entrar(convite, Apelido.de("Bruno"));
 
@@ -84,14 +85,14 @@ class SalasTest {
   @Test
   void noTetoALapideMaisAntigaEhDescartadaParaAbrirVaga() {
     Salas salas = salas(2, 3);
-    Salas.Entrada primeira = salas.criar(Apelido.de("Ana"));
+    Salas.Entrada primeira = salas.criar(Apelido.de("Ana"), Terraco.CENARIO);
     sair(salas, primeira);
     relogio.avancar(Duration.ofSeconds(1));
-    Salas.Entrada segunda = salas.criar(Apelido.de("Bia"));
+    Salas.Entrada segunda = salas.criar(Apelido.de("Bia"), Terraco.CENARIO);
     sair(salas, segunda);
-    salas.criar(Apelido.de("Cris"));
+    salas.criar(Apelido.de("Cris"), Terraco.CENARIO);
 
-    salas.criar(Apelido.de("Duda"));
+    salas.criar(Apelido.de("Duda"), Terraco.CENARIO);
 
     assertThat(salas.total()).isEqualTo(3);
     assertCodigo(() -> salas.localizar(Optional.of(primeira.token())), Codigo.SALA_INEXISTENTE);
@@ -102,20 +103,20 @@ class SalasTest {
   void noTetoSemLapidesACriacaoEhRecusada() {
     Salas salas = salas(5, 3);
     for (int i = 0; i < 3; i++) {
-      salas.criar(Apelido.de("Ana"));
+      salas.criar(Apelido.de("Ana"), Terraco.CENARIO);
     }
 
-    assertCodigo(() -> salas.criar(Apelido.de("Bia")), Codigo.LIMITE_SALAS);
+    assertCodigo(() -> salas.criar(Apelido.de("Bia"), Terraco.CENARIO), Codigo.LIMITE_SALAS);
     assertThat(salas.total()).isEqualTo(3);
   }
 
   @Test
   void limiteDeAtivasValeMesmoAbaixoDoTeto() {
     Salas salas = salas(2, 40);
-    salas.criar(Apelido.de("Ana"));
-    salas.criar(Apelido.de("Bia"));
+    salas.criar(Apelido.de("Ana"), Terraco.CENARIO);
+    salas.criar(Apelido.de("Bia"), Terraco.CENARIO);
 
-    assertCodigo(() -> salas.criar(Apelido.de("Cris")), Codigo.LIMITE_SALAS);
+    assertCodigo(() -> salas.criar(Apelido.de("Cris"), Terraco.CENARIO), Codigo.LIMITE_SALAS);
   }
 
   private Salas salas(int maximoAtivas, int maximoTotal) {

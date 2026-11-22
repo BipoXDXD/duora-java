@@ -1,6 +1,7 @@
 package bipotheking.net.duora.room;
 
 import bipotheking.net.duora.game.Assento;
+import bipotheking.net.duora.game.Cenario;
 import bipotheking.net.duora.game.Estado;
 import bipotheking.net.duora.game.Fase;
 import bipotheking.net.duora.game.Lugar;
@@ -8,17 +9,17 @@ import bipotheking.net.duora.game.Peca;
 import bipotheking.net.duora.game.Regras;
 import bipotheking.net.duora.game.Resultado;
 import java.time.Instant;
-import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import org.jspecify.annotations.Nullable;
 
 /**
- * O terraço do ponto de vista de quem pede (JSON do contrato). Campos anuláveis seguem o contrato:
- * {@code parceiro} antes de alguém entrar, {@code convite} fora de A em espera, {@code sinal} e
- * {@code resultado} quando não há.
+ * A sala do ponto de vista de quem pede (JSON do contrato), com o id do cenário à frente. Campos
+ * anuláveis seguem o contrato: {@code parceiro} antes de alguém entrar, {@code convite} fora de A
+ * em espera, {@code sinal} e {@code resultado} quando não há.
  */
 record Visao(
+    String cenario,
     Fase fase,
     long versao,
     Voce voce,
@@ -61,10 +62,12 @@ record Visao(
     return "Visao[fase=" + fase + ", versao=" + versao + "]";
   }
 
-  static Visao de(Retrato retrato, Assento quem, Instant agora, LimitesSala limites) {
+  static Visao de(
+      Cenario cenario, Retrato retrato, Assento quem, Instant agora, LimitesSala limites) {
     Estado estado = retrato.estado();
     Assento outro = quem.parceiro();
     return new Visao(
+        cenario.id(),
         estado.fase(),
         estado.versao(),
         new Voce(quem, retrato.participante(quem).orElseThrow().apelido().valor()),
@@ -74,16 +77,16 @@ record Visao(
                 new Parceiro(outro, p.apelido().valor(), retrato.conectado(outro, agora, limites)))
             .orElse(null),
         conviteVisivel(retrato, quem),
-        Arrays.stream(Peca.values()).map(peca -> visaoDa(peca, estado, quem)).toList(),
+        cenario.pecas().stream().map(peca -> visaoDa(cenario, peca, estado, quem)).toList(),
         new Prontos(estado.pronto(quem), estado.pronto(outro)),
         new Confirmacao(
-            estado.fase() == Fase.MONTANDO && estado.composicao().completa(),
-            estado.composicao().faltam()),
+            estado.fase() == Fase.MONTANDO && cenario.completa(estado.composicao()),
+            cenario.faltam(estado.composicao())),
         estado
             .sinalAtivoEm(agora)
             .map(s -> new VisaoSinal(s.peca().id(), s.deAssento()))
             .orElse(null),
-        Regras.resultado(estado).map(Resultado::valores).orElse(null));
+        Regras.resultado(cenario, estado).map(Resultado::valores).orElse(null));
   }
 
   private static @Nullable String conviteVisivel(Retrato retrato, Assento quem) {
@@ -93,7 +96,7 @@ record Visao(
     return retrato.convite().map(Convite::valor).orElse(null);
   }
 
-  private static VisaoPeca visaoDa(Peca peca, Estado estado, Assento quem) {
+  private static VisaoPeca visaoDa(Cenario cenario, Peca peca, Estado estado, Assento quem) {
     String lugar = estado.composicao().lugarDe(peca).map(Lugar::id).orElse(null);
     if (peca.dono() != quem) {
       return new PecaDoParceiro(peca.id(), peca.dono(), lugar);
@@ -102,7 +105,7 @@ record Visao(
         peca.id(),
         peca.dono(),
         lugar,
-        Regras.lugaresPermitidos(estado, peca).stream().map(Lugar::id).toList(),
-        Regras.bloqueadaPeloPortao(estado, peca) ? BLOQUEIO_PORTAO : null);
+        Regras.lugaresPermitidos(cenario, estado, peca).stream().map(Lugar::id).toList(),
+        Regras.bloqueadaPeloPortao(cenario, estado, peca) ? BLOQUEIO_PORTAO : null);
   }
 }

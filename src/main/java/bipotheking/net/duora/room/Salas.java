@@ -1,6 +1,7 @@
 package bipotheking.net.duora.room;
 
 import bipotheking.net.duora.game.Assento;
+import bipotheking.net.duora.game.Cenario;
 import java.time.Clock;
 import java.util.Comparator;
 import java.util.Map;
@@ -42,10 +43,10 @@ class Salas {
   }
 
   /**
-   * Cria a sala de A. Sincronizado para que a contagem e o registro sejam um passo só. No teto de
-   * memória, a lápide mais antiga é descartada para abrir espaço.
+   * Cria a sala de A no cenário dado. Sincronizado para que a contagem e o registro sejam um passo
+   * só. No teto de memória, a lápide mais antiga é descartada para abrir espaço.
    */
-  synchronized Entrada criar(Apelido apelido) {
+  synchronized Entrada criar(Apelido apelido, Cenario cenario) {
     if (todas.size() >= limites.maximoTotal()) {
       descartarLapideMaisAntiga();
     }
@@ -56,7 +57,7 @@ class Salas {
     String token = Segredos.novoToken(Segredos.BYTES_ASSENTO);
     Convite convite = Convite.novo();
     Participante criador = new Participante(Assento.A, apelido, Segredos.resumo(token));
-    Sala sala = new Sala(Segredos.novoIdDeSala(), criador, convite, relogio, limites);
+    Sala sala = new Sala(Segredos.novoIdDeSala(), criador, convite, cenario, relogio, limites);
     todas.add(sala);
     porAssento.put(criador.resumoToken(), sala);
     porConvite.put(convite.resumo(), sala);

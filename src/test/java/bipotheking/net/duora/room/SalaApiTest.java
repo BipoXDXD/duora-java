@@ -100,6 +100,7 @@ class SalaApiTest {
     assertThat(JsonPath.<String>read(corpo, "$.pecas[3].peca")).isEqualTo("banco");
     assertThat(chaves)
         .containsExactlyInAnyOrder(
+            "cenario",
             "fase",
             "versao",
             "voce",
