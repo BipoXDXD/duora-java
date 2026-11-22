@@ -22,7 +22,7 @@ public record Estado(
   }
 
   public static Estado inicial() {
-    return new Estado(Fase.AGUARDANDO_PAR, 0, Composicao.vazia(), Set.of(), Optional.empty());
+    return new Estado(new Fase.AguardandoPar(), 0, Composicao.vazia(), Set.of(), Optional.empty());
   }
 
   public boolean pronto(Assento assento) {

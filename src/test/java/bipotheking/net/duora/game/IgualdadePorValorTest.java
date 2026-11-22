@@ -30,7 +30,7 @@ class IgualdadePorValorTest {
   void lugaresPermitidosExcluiOLugarAtualPorValor() {
     Estado estado =
         new Estado(
-            Fase.MONTANDO,
+            new Fase.Montando(),
             0,
             Composicao.vazia().com(Terraco.TELESCOPIO, new Lugar("C1", new Zona("centro"))),
             Set.of(),
