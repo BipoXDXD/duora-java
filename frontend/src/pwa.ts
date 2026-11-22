@@ -5,7 +5,8 @@
  * imagens da primeira tela. O /sw.js é um script clássico (o build o gera como IIFE).
  */
 export function registrarServiceWorker(): void {
-  if (!("serviceWorker" in navigator)) {
+  // No vite dev não há /sw.js (o build o gera), e o fallback devolveria o HTML com um aviso.
+  if (!import.meta.env.PROD || !("serviceWorker" in navigator)) {
     return;
   }
   if (document.readyState === "complete") {
