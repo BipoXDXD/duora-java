@@ -2,6 +2,7 @@ import { describe, expect, expectTypeOf, it, vi } from "vitest";
 import { type Api, ErroApi, type Resposta } from "../api/cliente";
 import type { GanchosDoPolling, Polling } from "../api/polling";
 import type { Visao } from "../dominio/visao";
+import { cenarioDoTerraco } from "../teste/cenarioDoTerraco";
 import type { Aviso } from "./aviso";
 import { criarSessao, type EstadoDaTela } from "./sessao";
 
@@ -68,6 +69,7 @@ function montar({ api = {}, convite = null }: { api?: Partial<Api>; convite?: st
     api: apiFalsa,
     aviso,
     convite,
+    cenario: cenarioDoTerraco(),
     criarPolling: (_api, g) => {
       ganchos = g;
       return polling;

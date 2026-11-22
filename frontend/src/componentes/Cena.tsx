@@ -19,8 +19,7 @@ export interface PropsCena {
   enviando: boolean;
   momento: Momento;
   ladoTelescopio: string | null;
-  /** Nula até o cena.json chegar; sem ela o terraço fica vazio. */
-  geometria: Geometria | null;
+  geometria: Geometria;
   aoEscolherPeca: (peca: string, minha: boolean) => void;
   aoEscolherLugar: (lugar: string, bloqueio: string | null) => void;
   aoMeteoro: () => void;
@@ -119,9 +118,6 @@ export function Cena({
   }, []);
 
   useLayoutEffect(() => {
-    if (geometria === null) {
-      return;
-    }
     cena.current = criarCena({
       palco: elemento(refPalco),
       camadaPecas: elemento(refPecas),

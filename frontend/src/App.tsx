@@ -1,15 +1,17 @@
-// Raiz da composição: cria a sessão, o aviso e o som uma vez, liga a sessão aos componentes e
-// guarda os efeitos que o main.js antigo fazia ao iniciar (cena.json, céu pintado, Esc, som).
+// Raiz da composição: recebe o cenário já carregado, cria a sessão, o aviso e o som uma vez, liga a
+// sessão aos componentes e guarda os efeitos que o main.js antigo fazia ao iniciar (céu pintado, Esc, som).
 
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { api } from "./api/cliente";
 import { prepararCeuPintado } from "./cena/ceu";
 import { criarSom, type Som } from "./cena/som";
+import { ProvedorDeCenario } from "./cenario/contexto";
+import type { CenarioFront } from "./cenario/tipos";
 import { Cena, type CenaRef } from "./componentes/Cena";
 import { Moldura } from "./componentes/Moldura";
 import { Painel } from "./componentes/Painel";
 import { Topo } from "./componentes/Topo";
-import { carregarCena, type Geometria, type Momento } from "./dominio/dados";
+import type { Momento } from "./dominio/dados";
 import { type Aviso, criarAviso } from "./sessao/aviso";
 import { criarSessao, type EstadoDaSessao, type Sessao } from "./sessao/sessao";
 import { useSessao, visaoDaCena, visaoDaTela } from "./useSessao";
@@ -35,31 +37,14 @@ function criarAvisoAdiado(): AvisoAdiado {
   };
 }
 
-/** Busca o cena.json e só então inicia a sessão, como antes; para o polling ao desmontar. */
-function useGeometria(sessao: Sessao, aviso: Aviso): Geometria | null {
-  const [geometria, setGeometria] = useState<Geometria | null>(null);
+/** A sessão consulta a sala enquanto o app está montado; parar() também atende a remontagem do StrictMode. */
+function useSessaoIniciada(sessao: Sessao): void {
   useEffect(() => {
-    let montado = true;
-    carregarCena().then(
-      (carregada) => {
-        if (montado) {
-          setGeometria(carregada);
-          sessao.iniciar();
-        }
-      },
-      (erro: unknown) => {
-        if (montado) {
-          const mensagem = erro instanceof Error ? erro.message : String(erro);
-          aviso.avisar(`Não foi possível carregar a cena: ${mensagem}`);
-        }
-      },
-    );
+    sessao.iniciar();
     return () => {
-      montado = false;
       sessao.parar();
     };
-  }, [sessao, aviso]);
-  return geometria;
+  }, [sessao]);
 }
 
 /** .ceu-pintado só quando as imagens do céu carregaram. */
@@ -119,11 +104,11 @@ function useEscCancelaSelecao(sessao: Sessao): void {
   }, [sessao]);
 }
 
-export function App({ convite }: { convite: string | null }) {
+export function App({ convite, cenario }: { convite: string | null; cenario: CenarioFront }) {
   const refAviso = useRef<HTMLParagraphElement>(null);
   const refCena = useRef<CenaRef>(null);
   const [aviso] = useState(criarAvisoAdiado);
-  const [sessao] = useState(() => criarSessao({ api, aviso, convite }));
+  const [sessao] = useState(() => criarSessao({ api, aviso, convite, cenario }));
   const [som] = useState(criarSom);
 
   useLayoutEffect(() => {
@@ -133,55 +118,57 @@ export function App({ convite }: { convite: string | null }) {
   }, [aviso]);
 
   const estado = useSessao(sessao, refCena);
-  const geometria = useGeometria(sessao, aviso);
+  useSessaoIniciada(sessao);
   const ceuPintado = useCeuPintado();
   useSomDaSessao(som, estado);
   useEscCancelaSelecao(sessao);
 
   const visao = visaoDaTela(estado);
   return (
-    <Moldura momento={estado.momento} confirmandoSaida={estado.confirmandoSaida} ceuPintado={ceuPintado}>
-      <Topo
-        mostrarSair={visao !== null}
-        nomeParceiro={visao?.parceiro?.nome ?? null}
-        confirmando={estado.confirmandoSaida}
-        enviandoSaida={estado.enviando === "sair"}
-        aoAlternarSaida={estado.confirmandoSaida ? sessao.fecharSaida : sessao.abrirSaida}
-        aoContinuar={sessao.fecharSaida}
-        aoEncerrar={() => void sessao.encerrar()}
-      />
-      <Cena
-        ref={refCena}
-        visao={visaoDaCena(estado)}
-        selecionada={estado.tela === "montagem" ? estado.selecionada : null}
-        enviando={estado.enviando !== null}
-        momento={estado.momento}
-        ladoTelescopio={estado.ladoTelescopio}
-        geometria={geometria}
-        aoEscolherPeca={(peca, minha) => void sessao.escolherPeca(peca, minha)}
-        aoEscolherLugar={(lugar, bloqueio) => void sessao.escolherLugar(lugar, bloqueio)}
-        aoMeteoro={() => {
-          som.meteoro();
-        }}
-      />
-      <Painel
-        estado={estado}
-        refAviso={refAviso}
-        aoEnviarApelido={(apelido) => void sessao.enviarApelido(apelido)}
-        aoCorrigirApelido={sessao.limparErroApelido}
-        aoCopiarConvite={(texto) => {
-          aviso.avisar(texto);
-        }}
-        aoCriarOutro={sessao.criarOutro}
-        aoEscolherPeca={(peca) => void sessao.escolherPeca(peca, true)}
-        aoRetirar={() => void sessao.retirar()}
-        aoConfirmar={() => void sessao.confirmar()}
-        aoAjustar={() => void sessao.ajustar()}
-        aoAlternarSom={() => {
-          sessao.alternarSom();
-          som.definir(sessao.obter().somLigado);
-        }}
-      />
-    </Moldura>
+    <ProvedorDeCenario value={cenario}>
+      <Moldura momento={estado.momento} confirmandoSaida={estado.confirmandoSaida} ceuPintado={ceuPintado}>
+        <Topo
+          mostrarSair={visao !== null}
+          nomeParceiro={visao?.parceiro?.nome ?? null}
+          confirmando={estado.confirmandoSaida}
+          enviandoSaida={estado.enviando === "sair"}
+          aoAlternarSaida={estado.confirmandoSaida ? sessao.fecharSaida : sessao.abrirSaida}
+          aoContinuar={sessao.fecharSaida}
+          aoEncerrar={() => void sessao.encerrar()}
+        />
+        <Cena
+          ref={refCena}
+          visao={visaoDaCena(estado)}
+          selecionada={estado.tela === "montagem" ? estado.selecionada : null}
+          enviando={estado.enviando !== null}
+          momento={estado.momento}
+          ladoTelescopio={estado.ladoTelescopio}
+          geometria={cenario.geometria}
+          aoEscolherPeca={(peca, minha) => void sessao.escolherPeca(peca, minha)}
+          aoEscolherLugar={(lugar, bloqueio) => void sessao.escolherLugar(lugar, bloqueio)}
+          aoMeteoro={() => {
+            som.meteoro();
+          }}
+        />
+        <Painel
+          estado={estado}
+          refAviso={refAviso}
+          aoEnviarApelido={(apelido) => void sessao.enviarApelido(apelido)}
+          aoCorrigirApelido={sessao.limparErroApelido}
+          aoCopiarConvite={(texto) => {
+            aviso.avisar(texto);
+          }}
+          aoCriarOutro={sessao.criarOutro}
+          aoEscolherPeca={(peca) => void sessao.escolherPeca(peca, true)}
+          aoRetirar={() => void sessao.retirar()}
+          aoConfirmar={() => void sessao.confirmar()}
+          aoAjustar={() => void sessao.ajustar()}
+          aoAlternarSom={() => {
+            sessao.alternarSom();
+            som.definir(sessao.obter().somLigado);
+          }}
+        />
+      </Moldura>
+    </ProvedorDeCenario>
   );
 }

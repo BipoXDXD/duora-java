@@ -1,19 +1,8 @@
 import { render, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { Resposta } from "./api/cliente";
-import type { Geometria, MedidasSprite } from "./dominio/dados";
 import type { Visao } from "./dominio/visao";
-
-const MEDIDAS: MedidasSprite = { largura: 200, altura: 150, ancoraX: 100, ancoraY: 120 };
-
-const GEOMETRIA: Geometria = {
-  largura: 1800,
-  altura: 1186,
-  pxPorMetro: 100,
-  variantes: [900],
-  lugares: { C1: { x: 700, y: 600 }, L2: { x: 300, y: 900 } },
-  props: { manta: { crepusculo: MEDIDAS, noite: MEDIDAS } },
-};
+import { cenarioDoTerraco } from "./teste/cenarioDoTerraco";
 
 /** Ana no assento B; a manta de Bruno já está no terraço. */
 const VISAO: Visao = {
@@ -37,11 +26,6 @@ const obterSala = vi.fn<(etag: string | null) => Promise<Resposta>>();
 vi.mock("./api/cliente", async (original) => {
   const real = await original<typeof import("./api/cliente")>();
   return { ...real, api: { ...real.api, obterSala } };
-});
-
-vi.mock("./dominio/dados", async (original) => {
-  const real = await original<typeof import("./dominio/dados")>();
-  return { ...real, carregarCena: () => Promise.resolve(GEOMETRIA) };
 });
 
 vi.mock("./cena/ceu", async (original) => {
@@ -71,7 +55,7 @@ describe("App", () => {
     obterSala
       .mockResolvedValueOnce({ naoMudou: false, visao: VISAO, etag: '"v1"' })
       .mockRejectedValueOnce(new TypeError("quebrou"));
-    const { container } = render(<App convite={null} />);
+    const { container } = render(<App convite={null} cenario={cenarioDoTerraco()} />);
     const pecas = () => container.querySelector("#pecas");
     await waitFor(() => {
       expect(pecas()?.children.length).toBeGreaterThan(0);

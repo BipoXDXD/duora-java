@@ -12,6 +12,8 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import bipotheking.net.duora.e2e.NavegadorExtension.Participantes;
 import com.deque.html.axecore.playwright.AxeBuilder;
 import com.deque.html.axecore.results.Rule;
+import com.microsoft.playwright.Route;
+import com.microsoft.playwright.options.AriaRole;
 import java.util.List;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -21,11 +23,11 @@ import org.springframework.test.annotation.DirtiesContext;
 
 /**
  * Varredura automática do axe-core (WCAG 2.0, 2.1 e 2.2, níveis A e AA) em quatro estados da
- * jornada. Complementa os ITs de acessibilidade escritos à mão. O céu, os meteoros e a cidade são
- * decorativos ({@code aria-hidden}) e ficam fora da análise: cada seletor é excluído à parte,
- * porque {@code AxeBuilder.exclude(List)} trata a lista como um único caminho de iframes. Os
- * participantes usam movimento reduzido: a análise de contraste não pega elementos no meio de uma
- * transição.
+ * jornada e na tela de erro do cenário. Complementa os ITs de acessibilidade escritos à mão. O céu,
+ * os meteoros e a cidade são decorativos ({@code aria-hidden}) e ficam fora da análise: cada
+ * seletor é excluído à parte, porque {@code AxeBuilder.exclude(List)} trata a lista como um único
+ * caminho de iframes. Os participantes usam movimento reduzido: a análise de contraste não pega
+ * elementos no meio de uma transição.
  */
 // Aplicação nova por classe: as salas de um IT não somam com as de outro no limite de 20 salas
 // ativas (LimitesSala), que é de produção e não muda nos testes.
@@ -76,6 +78,20 @@ class AxeIT {
     ana.confirmar();
     bruno.botaoPronto().click();
     assertThat(ana.app()).hasAttribute("data-momento", "noite");
+
+    assertSemViolacoes(ana);
+  }
+
+  @Test
+  void erroDeCenarioSemViolacoes(Participantes participantes) {
+    TerracoPagina ana =
+        participantes
+            .novo(page ->
+                page.route(
+                    "**/assets/cenarios/terraco/cenario.json",
+                    r -> r.fulfill(new Route.FulfillOptions().setStatus(404))))
+            .abrir(raiz(porta));
+    assertThat(ana.page().getByRole(AriaRole.ALERT)).isVisible();
 
     assertSemViolacoes(ana);
   }
