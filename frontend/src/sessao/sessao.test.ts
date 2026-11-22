@@ -4,6 +4,7 @@ import type { GanchosDoPolling, Polling } from "../api/polling";
 import type { Visao, VisaoPeca } from "../dominio/visao";
 import { cenarioDoTerraco } from "../teste/cenarioDoTerraco";
 import type { Aviso } from "./aviso";
+import { type Agendar, DURACAO_DESTAQUE_MS } from "./destaques";
 import { criarSessao, type EstadoDaTela } from "./sessao";
 
 const BRUNO = { assento: "B", nome: "Bruno", conectado: true } as const;
@@ -47,7 +48,11 @@ function adiada() {
 const ENCERRADA_PELO_PARCEIRO = new ErroApi({ status: 410, codigo: "SALA_ENCERRADA", motivo: "SAIU" });
 
 /** Monta a sessão com api, aviso e polling falsos; o polling devolve os ganchos para o teste agir por ele. */
-function montar({ api = {}, convite = null }: { api?: Partial<Api>; convite?: string | null } = {}) {
+function montar({
+  api = {},
+  convite = null,
+  agendar,
+}: { api?: Partial<Api>; convite?: string | null; agendar?: Agendar } = {}) {
   const apiFalsa: Api = {
     criarSala: vi.fn(pendente),
     entrar: vi.fn(pendente),
@@ -73,6 +78,7 @@ function montar({ api = {}, convite = null }: { api?: Partial<Api>; convite?: st
     aviso,
     convite,
     cenario: cenarioDoTerraco(),
+    ...(agendar ? { agendar } : {}),
     criarPolling: (_api, g) => {
       ganchos = g;
       return polling;
@@ -95,6 +101,41 @@ function naSala(v: Visao = visao(), opcoes: Parameters<typeof montar>[0] = {}) {
   m.aviso.avisar.mockClear();
   return m;
 }
+
+/** Agenda falsa: o teste avança o tempo e vê quais tarefas seguem pendentes. */
+function agendaFalsa() {
+  let agora = 0;
+  const tarefas: { quando: number; acao: () => void; ativa: boolean }[] = [];
+  const agendar: Agendar = (acao, ms) => {
+    const tarefa = { quando: agora + ms, acao, ativa: true };
+    tarefas.push(tarefa);
+    return () => {
+      tarefa.ativa = false;
+    };
+  };
+  return {
+    agendar,
+    avancar(ms: number) {
+      agora += ms;
+      for (const tarefa of tarefas) {
+        if (tarefa.ativa && tarefa.quando <= agora) {
+          tarefa.ativa = false;
+          tarefa.acao();
+        }
+      }
+    },
+    pendentes: () => tarefas.filter((t) => t.ativa).length,
+  };
+}
+
+/** A visão com o banco de Bruno no lugar dado. */
+function comBancoEm(lugar: string, mudancas: Partial<Visao> = {}): Visao {
+  const base = visao(mudancas);
+  return { ...base, pecas: base.pecas.map((p) => (p.peca === "banco" ? { ...p, lugar } : p)) };
+}
+
+const destaquesDe = (estado: EstadoDaTela): readonly string[] =>
+  estado.tela === "montagem" ? estado.destaques : ["fora da montagem"];
 
 describe("criarSessao", () => {
   it("começa carregando e inicia o polling", () => {
@@ -545,5 +586,60 @@ describe("criarSessao", () => {
     sessao.abrirSaida();
 
     expect(sessao.obter()).toMatchObject({ tela: "montagem", somLigado: true, confirmandoSaida: true });
+  });
+
+  it("destaqueSaiDepoisDoTempo", () => {
+    const agenda = agendaFalsa();
+    const { sessao, doPolling } = naSala(visao(), { agendar: agenda.agendar });
+
+    doPolling().aoReceber(comBancoEm("C2"));
+    expect(destaquesDe(sessao.obter())).toEqual(["banco"]);
+
+    agenda.avancar(DURACAO_DESTAQUE_MS - 1);
+    expect(destaquesDe(sessao.obter())).toEqual(["banco"]);
+    agenda.avancar(1);
+    expect(destaquesDe(sessao.obter())).toEqual([]);
+  });
+
+  it("destaqueTambemNaRespostaDaPropriaAcao", async () => {
+    const agenda = agendaFalsa();
+    const telescopioEmC1 = { peca: "telescopio", assento: "A", lugar: "C1" } as const;
+    const aceita = comBancoEm("C2");
+    aceita.pecas = aceita.pecas.map((p) => (p.peca === "telescopio" ? { ...p, ...telescopioEmC1 } : p));
+    const { sessao } = naSala(visao(), {
+      agendar: agenda.agendar,
+      api: { moverPeca: vi.fn(() => Promise.resolve(resposta(aceita))) },
+    });
+    await sessao.escolherPeca("telescopio", true);
+
+    await sessao.escolherLugar("C1", null);
+
+    expect(destaquesDe(sessao.obter())).toEqual(["banco"]);
+  });
+
+  it("mesmaPecaDeNovoReiniciaOTempo", () => {
+    const agenda = agendaFalsa();
+    const { sessao, doPolling } = naSala(visao(), { agendar: agenda.agendar });
+    doPolling().aoReceber(comBancoEm("C2"));
+    agenda.avancar(2000);
+
+    doPolling().aoReceber(comBancoEm("C1", { versao: 4 }));
+    agenda.avancar(2000);
+    expect(destaquesDe(sessao.obter())).toEqual(["banco"]);
+    agenda.avancar(DURACAO_DESTAQUE_MS - 2000);
+
+    expect(destaquesDe(sessao.obter())).toEqual([]);
+    expect(agenda.pendentes()).toBe(0);
+  });
+
+  it("limparSessaoCancelaOsTimers", () => {
+    const agenda = agendaFalsa();
+    const { doPolling } = naSala(visao(), { agendar: agenda.agendar });
+    doPolling().aoReceber(comBancoEm("C2"));
+    expect(agenda.pendentes()).toBe(1);
+
+    doPolling().aoFalhar(ENCERRADA_PELO_PARCEIRO, null);
+
+    expect(agenda.pendentes()).toBe(0);
   });
 });

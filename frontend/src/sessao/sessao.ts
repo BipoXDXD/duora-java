@@ -9,6 +9,7 @@ import type { CenarioFront } from "../cenario/tipos";
 import { type ErroComCodigo, mensagemDeErro, textoEncerrado } from "../dominio/mensagens";
 import type { Visao } from "../dominio/visao";
 import type { Aviso } from "./aviso";
+import { type Agendar, agendarComSetTimeout, DURACAO_DESTAQUE_MS, pecasQueMudaram } from "./destaques";
 import { instrucao, novidade } from "./novidade";
 import type { Acao, EstadoDaSessao, EstadoDaTela, PedidoDeFoco } from "./tipos";
 
@@ -22,6 +23,8 @@ export interface OpcoesDaSessao {
   /** O cenário em jogo, já carregado antes de o app montar. */
   cenario: CenarioFront;
   criarPolling?: (api: Api, ganchos: GanchosDoPolling) => Polling;
+  /** Agenda o fim de cada destaque; o padrão é o setTimeout. */
+  agendar?: Agendar;
 }
 
 export interface Sessao {
@@ -106,6 +109,7 @@ export function criarSessao({
   convite,
   cenario,
   criarPolling = criarPollingPadrao,
+  agendar = agendarComSetTimeout,
 }: OpcoesDaSessao): Sessao {
   const estado = {
     convite,
@@ -124,6 +128,9 @@ export function criarSessao({
   let epoca = 0;
   let foco: PedidoDeFoco | null = null;
   const ouvintes = new Set<() => void>();
+  // Peça em destaque → cancela o fim dele. A lista muda de objeto só quando o conjunto muda.
+  const fimDosDestaques = new Map<string, () => void>();
+  let destaques: readonly string[] = SEM_DESTAQUES;
   let retrato = montarRetrato();
 
   let semConexao = false;
@@ -167,7 +174,7 @@ export function criarSessao({
       visao,
       selecionada,
       sugerindo: null,
-      destaques: SEM_DESTAQUES,
+      destaques,
       instrucao: instrucao(cenario, visao, selecionada, enviando),
     };
   }
@@ -226,6 +233,39 @@ export function criarSessao({
     mostrarSemSala({ tela: "encerrado", titulo, texto }, { alvo: "titulo-encerrado" });
   }
 
+  // ------------------------------------------------------------ destaques
+
+  function listarDestaques(): void {
+    destaques = fimDosDestaques.size === 0 ? SEM_DESTAQUES : [...fimDosDestaques.keys()];
+  }
+
+  /** A mesma peça de novo reinicia o tempo dela. */
+  function destacar(pecas: readonly string[]): void {
+    for (const peca of pecas) {
+      fimDosDestaques.get(peca)?.();
+      fimDosDestaques.delete(peca);
+      fimDosDestaques.set(
+        peca,
+        agendar(() => {
+          fimDosDestaques.delete(peca);
+          listarDestaques();
+          publicar();
+        }, DURACAO_DESTAQUE_MS),
+      );
+    }
+    if (pecas.length > 0) {
+      listarDestaques();
+    }
+  }
+
+  function apagarDestaques(): void {
+    for (const cancelar of fimDosDestaques.values()) {
+      cancelar();
+    }
+    fimDosDestaques.clear();
+    listarDestaques();
+  }
+
   // ------------------------------------------------------------ visão
 
   function aplicarVisao(visao: Visao, propria: boolean): void {
@@ -236,6 +276,9 @@ export function criarSessao({
     }
     if (!selecaoContinua(visao, estado.selecionada)) {
       estado.selecionada = null;
+    }
+    if (anterior) {
+      destacar(pecasQueMudaram(anterior, visao));
     }
     let texto = anterior ? novidade(cenario, anterior, visao, propria) : null;
     if (!anterior && estado.convite) {
@@ -482,6 +525,7 @@ export function criarSessao({
     estado.visao = null;
     estado.selecionada = null;
     estado.confirmandoSaida = false;
+    apagarDestaques();
     // O botão some com a montagem: o som não pode continuar sem controle na tela.
     estado.somLigado = false;
   }
