@@ -11,10 +11,18 @@ export class ErroCenario extends Error {
 
 export type NomeSom = "ambiente" | "meteoro" | "revelacao";
 
-/** Efeito noturno de uma peça na revelação; medidas em metros, convertidas pelo pxPorMetro. */
+/**
+ * Efeito noturno de uma peça na revelação; medidas em metros, convertidas pelo pxPorMetro. A cor é
+ * hexadecimal (#rrggbb) e o som, um nome-base de arquivo de áudio do cenário (ex.: "radio-notas").
+ */
 export type Efeito =
   | { readonly tipo: "brilho-piso"; readonly largura: number }
-  | { readonly tipo: "halo"; readonly alturaProjetada: number; readonly largura: number };
+  | { readonly tipo: "halo"; readonly alturaProjetada: number; readonly largura: number }
+  | { readonly tipo: "meteoros" }
+  | { readonly tipo: "brilho"; readonly cor: string; readonly largura: number }
+  | { readonly tipo: "vapor" }
+  | { readonly tipo: "tremular" }
+  | { readonly tipo: "notas"; readonly som: string; readonly volume: number };
 
 export interface PecaDoCenario {
   readonly nome: string;

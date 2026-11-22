@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { cenarioDoTerraco } from "../teste/cenarioDoTerraco";
+import type { Efeito } from "../cenario/tipos";
 import { criarElementosDoEfeito, type ElementoDeEfeito } from "./efeitos";
 
 const { geometria } = cenarioDoTerraco();
@@ -32,5 +33,37 @@ describe("criarElementosDoEfeito", () => {
     );
 
     expect(resumo(elementos)).toEqual([{ camada: "frente", classe: "halo", efeito: "halo", peca: "lanterna" }]);
+  });
+
+  it.each<[Efeito, "piso" | "frente"]>([
+    [{ tipo: "brilho-piso", largura: 2.4 }, "piso"],
+    [{ tipo: "halo", alturaProjetada: 0.35, largura: 0.75 }, "frente"],
+    [{ tipo: "brilho", cor: "#f2bd70", largura: 1.6 }, "piso"],
+    [{ tipo: "vapor" }, "frente"],
+    [{ tipo: "tremular" }, "frente"],
+  ])("cadaTipoCriaSeuElemento: %o vai para a camada %s", (efeito, camada) => {
+    const elementos = criarElementosDoEfeito(efeito, "peca", PONTO, geometria);
+
+    expect(resumo(elementos)).toEqual([{ camada, classe: efeito.tipo, efeito: efeito.tipo, peca: "peca" }]);
+    // Decorativo: fora da árvore de acessibilidade.
+    expect(elementos.map(({ el }) => el.getAttribute("aria-hidden"))).toEqual(["true"]);
+  });
+
+  it.each<Efeito>([{ tipo: "meteoros" }, { tipo: "notas", som: "radio-notas", volume: 0.4 }])(
+    "meteorosENotasNaoCriamElemento: %o",
+    (efeito) => {
+      expect(criarElementosDoEfeito(efeito, "peca", PONTO, geometria)).toEqual([]);
+    },
+  );
+
+  it("brilhoUsaACorPorCssom", () => {
+    const [elemento] = criarElementosDoEfeito(
+      { tipo: "brilho", cor: "#7a2a3c", largura: 1.2 },
+      "manta",
+      PONTO,
+      geometria,
+    );
+
+    expect(elemento?.el.style.getPropertyValue("--cor-efeito")).toBe("#7a2a3c");
   });
 });

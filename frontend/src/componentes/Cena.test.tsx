@@ -96,7 +96,7 @@ describe("Cena", () => {
 
   it("focoNumaPecaSobreviveAoRedesenho", () => {
     const { container, rerender } = render(desenhar(visaoDeAna([MANTA_DE_BRUNO])));
-    const antes = container.querySelector<HTMLElement>("[data-peca=manta]");
+    const antes = container.querySelector<HTMLElement>("button[data-peca=manta]");
     antes?.focus();
 
     rerender(desenhar(visaoDeAna([MANTA_DE_BRUNO], 2)));

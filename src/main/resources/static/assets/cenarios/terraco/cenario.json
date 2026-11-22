@@ -40,10 +40,16 @@
     "telescopio": { "padrao": "telescopio-esq", "porLugar": { "C2": "telescopio-dir" }, "semLugar": "telescopio-dir" }
   },
   "revelacao": {
+    "telescopio": [{ "tipo": "meteoros" }],
+    "manta": [{ "tipo": "brilho", "cor": "#b04a63", "largura": 1.2 }],
+    "radio": [{ "tipo": "notas", "som": "radio-notas", "volume": 0.4 }],
+    "banco": [{ "tipo": "brilho", "cor": "#f2bd70", "largura": 1.6 }],
     "lanterna": [
       { "tipo": "brilho-piso", "largura": 2.4 },
-      { "tipo": "halo", "alturaProjetada": 0.3464, "largura": 0.75 }
-    ]
+      { "tipo": "halo", "alturaProjetada": 0.3464, "largura": 0.75 },
+      { "tipo": "tremular" }
+    ],
+    "garrafa": [{ "tipo": "vapor" }]
   },
   "sons": {
     "ambiente": { "volume": 0.35 },

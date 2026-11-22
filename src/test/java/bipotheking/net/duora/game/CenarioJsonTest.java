@@ -116,6 +116,21 @@ class CenarioJsonTest {
         .allSatisfy(valor -> assertThat(CENARIO.peca(valor)).isPresent());
   }
 
+  @Test
+  void somDasNotasTemArquivo() {
+    List<String> sons =
+        JSON.get("revelacao").properties().stream()
+            .flatMap(peca -> peca.getValue().values().stream())
+            .filter(efeito -> efeito.get("tipo").stringValue().equals("notas"))
+            .map(efeito -> efeito.get("som").stringValue())
+            .toList();
+
+    assertThat(sons)
+        .isNotEmpty()
+        .allSatisfy(
+            som -> assertThat(PASTA.resolve("audio").resolve(som + ".mp3")).isRegularFile());
+  }
+
   private static List<String> idsDosLugares() {
     return CENARIO.lugares().stream().map(Lugar::id).toList();
   }
