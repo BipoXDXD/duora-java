@@ -3,7 +3,23 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 
-import { PASSOS, comandosParaRestaurar } from './pwa-check.mjs';
+import { PASSOS, comandosParaRestaurar, prepararChrome } from './pwa-check.mjs';
+
+/** adb falso: registra os comandos de shell, responde o SDK e falha nos comandos pedidos. */
+function adbFalso({ sdk, falharEm = () => false }) {
+  const comandos = [];
+  return {
+    comandos,
+    shell(comando) {
+      comandos.push(comando);
+      if (falharEm(comando)) throw new Error(`falhou: ${comando}`);
+      return comando === 'getprop ro.build.version.sdk' ? `${sdk}\n` : '';
+    },
+  };
+}
+
+const concedeNotificacoes = (comando) => comando.startsWith('pm grant ')
+  && comando.endsWith(' android.permission.POST_NOTIFICATIONS');
 
 test('rotacaoNulaVoltaComDelete', () => {
   const comandos = comandosParaRestaurar({ automatica: '1', usuario: 'null' });
@@ -30,4 +46,18 @@ test('standaloneDepoisDeInstalar', () => {
   assert.ok(PASSOS.indexOf('instalar') >= 0);
   assert.ok(PASSOS.indexOf('instalar') < PASSOS.indexOf('abrirInstalado'));
   assert.ok(PASSOS.indexOf('abrirInstalado') < PASSOS.indexOf('capturarStandalone'));
+});
+
+test('android12NaoPedePermissaoDeNotificacao', () => {
+  const adb = adbFalso({ sdk: 32 });
+
+  prepararChrome(adb, false);
+
+  assert.ok(!adb.comandos.some(concedeNotificacoes), adb.comandos.join('\n'));
+});
+
+test('android13FalhaSeAPermissaoDeNotificacaoFalhar', () => {
+  const adb = adbFalso({ sdk: 33, falharEm: concedeNotificacoes });
+
+  assert.throws(() => prepararChrome(adb, false), /POST_NOTIFICATIONS/);
 });

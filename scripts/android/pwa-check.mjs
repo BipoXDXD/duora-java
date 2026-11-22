@@ -37,6 +37,8 @@ const TEXTOS_FECHAR_PROMO = ['No thanks', 'No, thanks', 'Not now', 'Got it'];
 // "Add to home screen" também aparece em páginas não instaláveis; só "Install app" indica PWA.
 const TEXTO_MENU_INSTALAR = 'Install app';
 const TEXTOS_CONFIRMAR_LAUNCHER = ['Add to home screen', 'Add automatically', 'Add'];
+// Android 13 (API 33) criou a permissão POST_NOTIFICATIONS.
+const SDK_COM_PERMISSAO_DE_NOTIFICACAO = 33;
 
 class Falha extends Error {}
 
@@ -97,13 +99,16 @@ function exigirEmuladorPronto(adb) {
   if (!pronto) throw new Falha(`emulador ${SERIAL} não está pronto; rode: scripts/android/emulador.sh subir`);
 }
 
-function prepararChrome(adb, limpar) {
+export function prepararChrome(adb, limpar) {
   if (limpar) adb.shell(`pm clear ${CHROME}`);
   // Chrome lê este arquivo só quando é o "debug app"; pula o first run e o aviso de navegador padrão.
   adb.shell('echo "_ --disable-fre --no-default-browser-check --no-first-run" > /data/local/tmp/chrome-command-line');
   adb.shell(`am set-debug-app --persistent ${CHROME}`);
   // Sem a permissão, o Chrome recém-limpo abre o aviso "Chrome notifications" e descarta a URL.
-  try { adb.shell(`pm grant ${CHROME} android.permission.POST_NOTIFICATIONS`); } catch { /* Android < 13 */ }
+  // Ela só existe a partir do Android 13; antes disso, o pm grant falharia por permissão desconhecida.
+  if (Number(adb.shell('getprop ro.build.version.sdk').trim()) >= SDK_COM_PERMISSAO_DE_NOTIFICACAO) {
+    adb.shell(`pm grant ${CHROME} android.permission.POST_NOTIFICATIONS`);
+  }
   adb.shell(`am force-stop ${CHROME}`);
 }
 
