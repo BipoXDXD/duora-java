@@ -22,11 +22,12 @@ Hipótese herdada (`duora-java-mvp.md` §1): uma pequena criação compartilhada
 
 ## Escolhas minhas (podem ser corrigidas)
 - **18+ em todo o piloto, com verificação de idade** (dono, 2026-11-22; substitui a autodeclaração). Motivo: o ECA Digital (Lei 15.211/2025, art. 9º §1º, em vigor desde 17/03/2026) veda a autodeclaração, e o Decreto 12.880/2026 inclui apps de encontros entre os serviços vedados a menores. A fiscalização começa em jan/2027 (fonte: `docs/pesquisa/seguranca-ux-mobile.md`; não é parecer jurídico).
-  - **Método:** prova de vida mais estimativa de idade pela selfie, feitas na **AWS** (Rekognition Face Liveness e DetectFaces AgeRange). O documento é a reserva, só quando a estimativa fica na faixa de dúvida (Textract AnalyzeID). Selfie e documento são apagados logo após a checagem, e fica só o resultado (aprovado ou recusado, data, método).
+  - **Método:** prova de vida mais estimativa de idade pela selfie, feitas na **AWS** (Rekognition Face Liveness e DetectFaces AgeRange). O documento é a reserva, só para quem cai na faixa de dúvida (`AgeRange.Low < 21` e `AgeRange.High ≥ 18`), feita pela **Didit** (lê RG e CNH brasileiros e compara o rosto do documento com a selfie da prova de vida). Selfie e documento são apagados logo após a checagem (na Didit, chamadas com `save_api_request=false`), e fica só o resultado (aprovado ou recusado, data, método).
+  - **Reserva por documento (dono, 2026-11-22):** Didit no lugar do Textract `AnalyzeID`, porque a AWS documenta o `AnalyzeID` só para documentos dos EUA. Ligada por padrão. A chave da Didit fica no Keychain e, na VPS, no `.env`.
   - **Infra AWS (2026-11-22):** a conta de workload do Duora já tem a política da organização (SCP) que libera só `us-east-1`. A prova de vida funciona lá; registrar na política de privacidade a transferência internacional. Para o Java existem o usuário IAM `duora-java-verificacao` (CreateFaceLivenessSession, GetFaceLivenessSessionResults, DetectFaces, AnalyzeID e AssumeRole) e o papel `duora-java-liveness-captura` (só StartFaceLivenessSession), que gera a credencial curta do navegador, no mesmo padrão do C#. Ainda não há chaves de acesso: elas são criadas na Etapa 2 e guardadas no Keychain, sem entrar no Git. Os orçamentos `duora-rekognition-5usd` e `duora-mensal-5usd` já existem.
-  - **SCP liberada (2026-11-22):** `textract:AnalyzeID` entrou na lista de ações permitidas em `us-east-1` da política `AdvancedModeRegionRestrictionSecurityControlPolicy`. A conta de workload alcança o AnalyzeID.
+  - **SCP liberada (2026-11-22):** `textract:AnalyzeID` entrou na lista de ações permitidas em `us-east-1` da política `AdvancedModeRegionRestrictionSecurityControlPolicy`. A conta de workload alcança o AnalyzeID, mas o Duora não o usa (a reserva é a Didit); a permissão sai da política do usuário `duora-java-verificacao` na Etapa 2.
   - **Front:** usar o `FaceLivenessDetector` oficial do Amplify UI, carregado sob demanda e só na rota da selfie, fora do orçamento de 90 KB. A rota tem uma CSP própria, que libera câmera, WASM, `cdn.liveness.rekognition.amazonaws.com` e `wss://streaming-rekognition.us-east-1.amazonaws.com`, como no C#.
-  - **Selo:** quem passa recebe o selo "verificado", e cada pessoa pode escolher "só encontros com verificados".
+  - **Selo:** quem passa recebe o selo "verificado". O filtro "só encontros com verificados" saiu (dono, 2026-11-22): a verificação é obrigatória, então ele não teria efeito.
   - A data de nascimento continua declarada e imutável e precisa bater com a verificação. Abaixo de 18, o cadastro é bloqueado e um hash do e-mail é gravado para impedir nova tentativa.
   - A denúncia "parece menor de idade" suspende a conta na hora, sem depender do admin, até a revisão.
 - **Login**: link mágico por e-mail (Resend, já usado no C#), sem senha. O cadastro aberto ganha proteção contra robôs (Cloudflare Turnstile), rate limit por IP e por e-mail, e recusa de domínios de e-mail descartável.
@@ -57,7 +58,6 @@ As fontes ficam em `docs/pesquisa/` (namoro, amizade e atividades, segurança e 
   - contato do encarregado da LGPD.
 - **Etapa 3:**
   - gênero, orientação e pronomes granulares, com "prefiro descrever";
-  - "só encontros com verificados";
   - pausar a conta sem apagá-la.
 - **Etapa 4:**
   - liquidez visível: tempo de espera estimado e horários com mais gente;

@@ -4,7 +4,7 @@
 
 **Objetivo:** uma pessoa cria conta pelo celular com e-mail, link mágico, data de nascimento, aceite dos termos e verificação de idade obrigatória (prova de vida e estimativa de idade pela selfie na AWS); um menor é recusado, uma rajada de cadastros é barrada, contas novas têm limites por dia, os acessos ficam registrados por 6 meses, há um canal público de denúncia e o contato do encarregado, e o terraço anônimo continua funcionando.
 
-> **Emenda 2026-11-22 (paridade com o mercado e ECA Digital):** a autodeclaração deixa de bastar. A Task 8 passa a levar a conta a `AGUARDANDO_VERIFICACAO`, e as Tasks 12–16 (novas) cobrem verificação de idade, selo, limites de conta nova, registros de acesso, canal público de denúncia e encarregado. As Tasks 1–11 mantêm a numeração.
+> **Emenda 2026-11-22 (paridade com o mercado e ECA Digital):** a autodeclaração deixa de bastar. A Task 8 passa a levar a conta a `AGUARDANDO_VERIFICACAO`, e as Tasks 12–16 (novas) cobrem verificação de idade, selo, limites de conta nova, registros de acesso, canal público de denúncia e encarregado. As Tasks 1–11 mantêm a numeração. **Segunda emenda (decisões do dono, 2026-11-22):** a reserva por documento passa a ser a Didit (Task 17, nova), ligada por padrão e só na faixa de dúvida; o Textract sai do plano; o e-mail do encarregado vem de `DUORA_EMAIL_ENCARREGADO`, definido na Etapa 10 junto com o domínio.
 
 **Arquitetura:** monólito modular com PostgreSQL 18 e Flyway (ADR 0001, retroativo, escrito aqui).
 - **Núcleo compartilhado `nucleo/`:** Java puro com erros de domínio sem HTTP e ids UUID v7.
@@ -17,9 +17,9 @@
 - **Fronteiras:** a ArchUnit as trava no `verify` desde a primeira task.
 - **Acesso:** um interceptor nega por padrão toda `/api/**` sem sessão, exceto uma allowlist que inclui o terraço anônimo.
 - **Front:** o React da 1a ganha as telas Entrar, Confirmar entrada, Cadastro e Minha conta, mais a página de verificação (`/verificacao`), que é uma entrada HTML própria do Vite com CSP própria e o `FaceLivenessDetectorCore` do Amplify UI carregado sob demanda.
-- **Verificação de idade:** a regra de decisão é uma função pura em `conta/dominio/`; a AWS (Rekognition, STS, Textract) fica atrás das portas `ProvaDeVida` e `LeituraDeDocumento`, com adapters em `conta/infra/` e falsos para desenvolvimento e testes.
+- **Verificação de idade:** a regra de decisão é uma função pura em `conta/dominio/`; a AWS (Rekognition, STS) fica atrás da porta `ProvaDeVida` e a Didit atrás da porta `ConferenciaDeDocumento`, com adapters em `conta/infra/` e falsos para desenvolvimento e testes.
 
-**Stack:** Java 25, Spring Boot 4.2.0 (webmvc, data-jdbc, flyway, docker-compose, actuator só com `health`), PostgreSQL 18, Testcontainers (`postgres:18`), ArchUnit (JUnit 5), Bucket4j core + Caffeine, `RestClient` (Resend, Turnstile siteverify), AWS SDK for Java 2.x (`rekognition`, `sts`, `textract`, pelo BOM), log estruturado do Spring Boot, React 19 + TypeScript + Tailwind 4 (Vite), `@aws-amplify/ui-react-liveness` (só na entrada `/verificacao`), Vitest + Testing Library, Playwright Java.
+**Stack:** Java 25, Spring Boot 4.2.0 (webmvc, data-jdbc, flyway, docker-compose, actuator só com `health`), PostgreSQL 18, Testcontainers (`postgres:18`), ArchUnit (JUnit 5), Bucket4j core + Caffeine, `RestClient` (Resend, Turnstile siteverify), AWS SDK for Java 2.x (`rekognition`, `sts`, pelo BOM), API da Didit pelo `RestClient` (multipart), log estruturado do Spring Boot, React 19 + TypeScript + Tailwind 4 (Vite), `@aws-amplify/ui-react-liveness` (só na entrada `/verificacao`), Vitest + Testing Library, Playwright Java.
 
 **Spec:** `docs/superpowers/specs/2026-11-21-duora-social-design.md` (Etapa 2, "Escolhas minhas": 18+, login, LGPD). **Contratos e princípios de engenharia (valem sobre este plano):** `docs/superpowers/plans/2026-11-22-contratos-entre-etapas.md`. Conferir pelo Context7 (com `mattpocock-skills:research` quando houver dúvida) antes da task que os usa: Spring Boot 4.2 (starters JDBC/Flyway/docker-compose/testcontainers, `logging.structured.format.console`), Testcontainers 2.x (artefatos), ArchUnit (`slices().should().beFreeOfCycles()`), Bucket4j 8.x (`bucket4j_jdk17-core`, `TimeMeter`), Flyway (`flyway-database-postgresql`), Resend `POST /emails` (`Idempotency-Key`), Turnstile siteverify.
 
@@ -36,12 +36,13 @@
 - **Portas só em borda real:** `Clock`, `EnvioDeEmail`, `VerificacaoHumana`, `Outbox` e os repositórios (`RepositorioDeContas`, `RepositorioDeSessoes`, `RepositorioDeLinks`, `RepositorioDeBloqueios`, `RepositorioDeAceites`). Nada de interface 1:1 por reflexo.
 - **Flyway:** esta etapa usa só V1–V19, com números fixos por task (ver "Ordem e paralelismo"): V1–V7 nas Tasks 2–8, V8 na Task 12, V9 na Task 15 e V10 na Task 16. Dentro de uma onda, o merge segue a ordem do número da migração; uma migração menor nunca entra depois de uma maior. `spring.flyway.out-of-order` fica `false`.
 - **Verificação de idade (spec, "18+ em todo o piloto, com verificação de idade"):**
-  - obrigatória para virar ATIVA; método: prova de vida (Rekognition Face Liveness) + estimativa (`DetectFaces` com `AGE_RANGE`) sobre a imagem de referência da sessão; documento (Textract `AnalyzeID`) só na faixa de dúvida e só com `duora.verificacao.documento.habilitado=true` (padrão `false` até a D2: a SCP libera `textract:AnalyzeID` em `us-east-1` desde 2026-11-22, mas a AWS documenta o `AnalyzeID` só para documentos dos EUA);
+  - obrigatória para virar ATIVA; método: prova de vida (Rekognition Face Liveness) + estimativa (`DetectFaces` com `AGE_RANGE`) sobre a imagem de referência da sessão; documento pela **Didit** só na faixa de dúvida (`Low < 21` e `High ≥ 18`): a Didit lê o RG ou a CNH e compara o retrato do documento com a imagem de referência da selfie. Flag `duora.verificacao.documento.habilitado=true` por padrão (D2); desligada, a dúvida fica em análise;
+  - Didit: chave `DUORA_DIDIT_API_KEY` (no Mac, Keychain `duora-java-didit`; na VPS, `.env` da Etapa 10), cabeçalho `x-api-key`, sempre com `save_api_request=false` (a Didit não guarda nada e devolve as imagens só na resposta);
   - região fixa `us-east-1`; o back-end assina com o usuário IAM `duora-java-verificacao` (`DUORA_AWS_VERIFICACAO_ACCESS_KEY_ID`, `DUORA_AWS_VERIFICACAO_SECRET_ACCESS_KEY`; no Mac, guardadas no Keychain e exportadas só na sessão que roda o smoke) e entrega ao navegador a credencial do papel `duora-java-liveness-captura` (`DUORA_AWS_PAPEL_CAPTURA_ARN`) com `DurationSeconds=900`;
-  - selfie, imagem de referência e documento só existem em memória durante a requisição: nunca em disco, log, S3 nem banco. A sessão de liveness é criada sem `OutputConfig` e com `AuditImagesLimit=0`. Fica só `resultado`, `metodo` e `decidida_em`;
+  - selfie, imagem de referência e documento só existem em memória durante a requisição: nunca em disco, log, S3 nem banco (nem na Didit). A sessão de liveness é criada sem `OutputConfig` e com `AuditImagesLimit=0`. Fica só `resultado`, `metodo` e `decidida_em`;
   - a data de nascimento declarada continua imutável e precisa bater: pela selfie, a estimativa não pode recusar; pelo documento, a data lida tem de ser igual à declarada;
   - abaixo de 18 (declarado, estimado ou lido), o fluxo é o mesmo do menor declarado: conta EXCLUIDA, e-mail bloqueado por HMAC, sessões revogadas;
-  - limite `verificacao-conta`: 3 sessões por `P1D` por conta (custo: US$ 0,015 por prova de vida, orçamento `duora-rekognition-5usd`);
+  - limite `verificacao-conta`: 3 sessões por `P1D` por conta (custo: US$ 0,015 por prova de vida, orçamento `duora-rekognition-5usd`); limite `verificacao-documento`: 2 envios por `P1D` por conta (custo: US$ 0,15 do ID Verification + US$ 0,05 do Face Match por envio, preços em https://docs.didit.me/getting-started/pricing);
   - textos ligados a dado sensível (biometria) pedem consentimento destacado na própria tela, antes da câmera.
 - **Contas novas (spec, "limites para contas novas"):** nos primeiros 7 dias depois de `ativada_em`, no máximo `duora.conta-nova.mensagens-por-dia=200`, `duora.conta-nova.imagens-por-dia=10` e `duora.conta-nova.convites-por-dia=3` (dia em `America/Sao_Paulo`). Depois disso só valem os limites de taxa de cada etapa.
 - **Registros de acesso (Marco Civil art. 15):** IP, porta de origem e instante de cada login e de cada renovação de sessão, guardados por **183 dias** em tabela própria, sem API de leitura; nunca vão para o log da aplicação.
@@ -74,7 +75,7 @@
 - **Segredos:** só por variável de ambiente. `application-prod.properties` referencia `${RESEND_API_KEY}`, `${TURNSTILE_SITE_KEY}`, `${TURNSTILE_SECRET}`, `${DUORA_SEGREDO_EMAIL}` e a senha do banco sem padrão (boot falha se faltar). Desenvolvimento e testes usam as chaves de teste da Cloudflare e uma chave HMAC fixa.
 - **Erros:**
   - O domínio lança `ErroDeNegocio` com um `CodigoDeErro`, cujo `TipoDeErro` não conhece HTTP. Só o `web/TratamentoDeErros` traduz para status.
-  - Códigos novos: `NAO_AUTENTICADO`, `CONTA_INDISPONIVEL`, `CADASTRO_INCOMPLETO`, `EMAIL_INVALIDO`, `EMAIL_DESCARTAVEL`, `VERIFICACAO_HUMANA_FALHOU`, `LINK_INVALIDO`, `DATA_INVALIDA`, `ACEITE_NECESSARIO`, `TERMOS_DESATUALIZADOS`, `MENOR_DE_IDADE`, `CONFIRMACAO_NECESSARIA`, `CADASTRO_JA_CONCLUIDO`, `LIMITE_DE_TAXA` (429 com `Retry-After`), `CHAVE_DE_IDEMPOTENCIA_INVALIDA`, `CHAVE_DE_IDEMPOTENCIA_REUSADA`; e, nas Tasks 12–16, `VERIFICACAO_FORA_DE_ORDEM` 409, `SESSAO_DE_VERIFICACAO_INVALIDA` 404, `CONSENTIMENTO_BIOMETRICO_NECESSARIO` 422, `DOCUMENTO_INDISPONIVEL` 409, `PROVA_DE_VIDA_INDISPONIVEL` 503, `LIMITE_DE_CONTA_NOVA` 429 e `DENUNCIA_PUBLICA_INVALIDA` 422.
+  - Códigos novos: `NAO_AUTENTICADO`, `CONTA_INDISPONIVEL`, `CADASTRO_INCOMPLETO`, `EMAIL_INVALIDO`, `EMAIL_DESCARTAVEL`, `VERIFICACAO_HUMANA_FALHOU`, `LINK_INVALIDO`, `DATA_INVALIDA`, `ACEITE_NECESSARIO`, `TERMOS_DESATUALIZADOS`, `MENOR_DE_IDADE`, `CONFIRMACAO_NECESSARIA`, `CADASTRO_JA_CONCLUIDO`, `LIMITE_DE_TAXA` (429 com `Retry-After`), `CHAVE_DE_IDEMPOTENCIA_INVALIDA`, `CHAVE_DE_IDEMPOTENCIA_REUSADA`; e, nas Tasks 12–16, `VERIFICACAO_FORA_DE_ORDEM` 409, `SESSAO_DE_VERIFICACAO_INVALIDA` 404, `CONSENTIMENTO_BIOMETRICO_NECESSARIO` 422, `DOCUMENTO_INDISPONIVEL` 409, `REFAZER_PROVA_DE_VIDA` 409, `PROVA_DE_VIDA_INDISPONIVEL` 503, `CONFERENCIA_DE_DOCUMENTO_INDISPONIVEL` 503, `DOCUMENTO_INVALIDO` 422, `LIMITE_DE_CONTA_NOVA` 429 e `DENUNCIA_PUBLICA_INVALIDA` 422.
 - **Front:** pt-BR, gênero neutro, Tailwind, axe em toda tela nova, seletores por papel/rótulo/texto. Pastas conforme a Etapa 1a (`frontend/src/api/`, `frontend/src/componentes/`, `frontend/src/sessao/`; telas novas em `frontend/src/telas/conta/`).
 - **Commits:** refatoração separada de comportamento, sempre com testes verdes. Conventional Commits em pt-BR com o trailer `Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>`.
 - **Máquina:** comandos pesados um por vez (trava `mkdir /private/tmp/claude-501/duora-pesado.lock`, `caffeinate -dims`); uma suíte com Docker por vez.
@@ -109,7 +110,7 @@
 | E | T7 | T3, T4, T5, T6 | `V6__entrada.sql` |
 | F | T8 ∥ T9 ∥ T15 ∥ T16 | T7 + Etapa 9 T1 (T8); T6 + Etapa 9 T2 (T9, T15); T4 + T5 + Etapa 9 T1 (T16) | T8: `V7__cadastro.sql`; T9: sem migração; depois T15: `V9__conta_nova_e_acessos.sql`; depois T16: `V10__denuncia_publica.sql` |
 | G | T12 ∥ T10 | T8 (T12); T7, T8 (T10) | T12: `V8__verificacao_idade.sql` (entra antes de V9 e V10: se T15 ou T16 já estiverem na `main`, T12 entra primeiro e elas rebasam; nunca renumerar V8) |
-| H | T13 ∥ T14, depois T11 | T12 (T13); T10, T12 (T14); T9, T14 (T11) | — |
+| H | T13 ∥ T17 ∥ T14, depois T11 | T12 (T13, T17); T10, T12 (T14); T9, T14 (T11) | — |
 
 A ordem de merge das migrações é V7 → V8 → V9 → V10, mesmo que as Tasks 15 e 16 fiquem prontas antes da 12 (elas esperam). V11–V19 ficam reservados para correções. No máximo 4 agentes ao mesmo tempo, contando os da Etapa 9.
 
@@ -118,13 +119,9 @@ A ordem de merge das migrações é V7 → V8 → V9 → V10, mesmo que as Tasks
   - (a) **Reusar `meetduora.com`** do projeto C#: remetente `Duora <entrar@meetduora.com>`, contato `support@meetduora.com`. Custo zero; o agente confere pelo MCP do Resend que o domínio está verificado. Contra: os dois projetos dividem a marca.
   - (b) Domínio novo só do Java: custo anual e DNS novo; só faz sentido se a Etapa 10 escolher outro domínio para o app.
   - **Recomendo (a).** Não bloqueia: o código lê `duora.email.remetente` e `duora.contato.email` de propriedades e, até a decisão, o desenvolvimento usa `EmailNoLog`.
-- **D2. Reserva por documento na faixa de dúvida.** A SCP já libera `textract:AnalyzeID` em `us-east-1` (spec, 2026-11-22), mas a documentação da AWS descreve o `AnalyzeID` só para documentos emitidos pelo governo dos EUA (carteira de motorista e passaporte); RG e CNH brasileiros não aparecem como suportados.
-  - (a) **Piloto sem documento:** na dúvida, a pessoa pode tentar a selfie de novo (até 3 por dia, com as dicas de luz da AWS); depois disso, a conta fica em `AGUARDANDO_VERIFICACAO` com o texto de "verificação em análise" e o contato do encarregado para contestar. Custo zero, mais atrito para quem parece jovem.
-  - (b) Testar o `AnalyzeID` com um passaporte brasileiro (o único documento com chance de leitura), usando a imagem de espécime publicada pelo governo, sem dado de pessoa real; se ler a data de nascimento, ligar a flag só para passaporte.
-  - (c) Fornecedor de documento brasileiro (ex.: Didit, US$ 0,15 por documento), com nova porta `LeituraDeDocumento`, nova ADR e nova versão da política de privacidade.
-  - **Recomendo (a) agora e (b) como experimento barato.** Não bloqueia: o plano implementa (a) com a flag desligada e a porta pronta para (b) ou (c).
-- **D3. Limiares de idade.** Proposta: aprovar com `AgeRange.Low ≥ 21`, recusar com `AgeRange.High < 18`, dúvida no resto. Margem de 3 anos acima de 18 porque a faixa da AWS erra para baixo e para cima. Alternativas: `Low ≥ 18` (menos atrito, mais risco) ou `Low ≥ 25` (padrão de varejo, mais dúvida). **Recomendo 21.** Propriedades `duora.verificacao.idade-minima-aprovacao=21` e `duora.verificacao.idade-maxima-recusa=17`.
-- **D4. Encarregado (LGPD) e e-mail público.** Proposta: o próprio dono como encarregado, apresentado como "o responsável pelo Duora" (mesma escolha do controlador), com `privacidade@meetduora.com` (alias do domínio da D1). Alternativa: reusar `support@meetduora.com`. **Recomendo o alias próprio**, porque separa pedidos de titular do suporte. Propriedade `duora.encarregado.email`.
+- **D2. Reserva por documento na faixa de dúvida — decidida (dono, 2026-11-22): Didit.** O Textract `AnalyzeID` é documentado só para documentos dos EUA, então sai do plano. A Didit lê RG e CNH, compara o rosto do documento com a selfie e, com `save_api_request=false`, não guarda nada. Só quem cai na faixa de dúvida (`Low < 21` e `High ≥ 18`) chega a ela. Flag `duora.verificacao.documento.habilitado=true` por padrão. Task 17.
+- **D3. Limiares de idade — aceitos (dono, 2026-11-22):** aprovar com `AgeRange.Low ≥ 21`, recusar com `AgeRange.High < 18`, dúvida no resto. São padrões configuráveis: `duora.verificacao.idade-minima-aprovacao=21` e `duora.verificacao.idade-maxima-recusa=17`.
+- **D4. Encarregado (LGPD) e e-mail público — decidida (dono, 2026-11-22):** o próprio dono, apresentado como "o responsável pelo Duora". O domínio ainda não foi escolhido, então o e-mail vem da variável `DUORA_EMAIL_ENCARREGADO` (`duora.encarregado.email=${DUORA_EMAIL_ENCARREGADO}`), definida na Etapa 10 junto com o domínio; em `prod` o boot falha se faltar. Em `dev` e `test`, `encarregado@exemplo.invalid`.
 
 ## Foco de revisão (Review Focus)
 1. **Leitor de e-mail que pré-abre o link** (Outlook, antivírus): o link ainda funciona quando a pessoa clica. Coberto por `linkSobreviveAoPreCarregamento` (Task 7).
@@ -134,6 +131,7 @@ A ordem de merge das migrações é V7 → V8 → V9 → V10, mesmo que as Tasks
 5. **Aniversário de 18 anos perto da meia-noite** (23h de 21/11 em São Paulo = 02h de 22/11 UTC): quem nasceu em 22/11/2008 ainda tem 17. Coberto por `idadeUsaFusoDeSaoPaulo` (Task 8).
 6. **Sessão de prova de vida de outra conta, repetida ou vencida enviada para o resultado:** 404 sem efeito, e a conta segue aguardando. Coberto por `sessaoDeOutraContaRecebe404` e `resultadoRepetidoNaoDecideDuasVezes` (Task 12).
 7. **Câmera negada, navegador sem WebAssembly ou AWS fora do ar:** a tela explica, oferece tentar de novo e nunca aprova por omissão. Coberto por `cameraNegadaMostraComoReativar` (Task 14) e `awsForaDoArNaoAprova` (Task 12).
+8. **Documento de outra pessoa na faixa de dúvida** (um menor que envia o RG de um adulto): o rosto não confere e a conta não é aprovada. Coberto por `rostoQueNaoConfereNaoAprova` (Task 12) e `rostoAbaixoDoLimiarViraNaoConfere` (Task 17).
 
 ---
 
@@ -614,10 +612,10 @@ Antes do Passo 1: `mattpocock-skills:domain-modeling` e `mattpocock-skills:codeb
 **Arquivos:**
 - Criar: `db/migration/V8__verificacao_idade.sql`
 - Criar:
-  - domínio: `conta/dominio/{DecisaoDeIdade,FaixaEstimada,ResultadoDaVerificacao,MetodoDeVerificacao,LimiaresDeIdade,ProvaDeVida,LeituraDeDocumento,RepositorioDeVerificacoes}.java`;
+  - domínio: `conta/dominio/{DecisaoDeIdade,FaixaEstimada,ResultadoDaVerificacao,MetodoDeVerificacao,LimiaresDeIdade,ProvaDeVida,ConferenciaDeDocumento,ResultadoDoDocumento,RepositorioDeVerificacoes}.java`;
   - raiz: `conta/{VerificacaoDeIdade,SessaoDeCaptura,CredencialCurta}.java`;
   - web: `conta/web/VerificacaoController.java`;
-  - infra: `conta/infra/{VerificacoesJdbc,ProvaDeVidaFalsa,LeituraDeDocumentoFalsa,RetencaoDeTentativas}.java`.
+  - infra: `conta/infra/{VerificacoesJdbc,ProvaDeVidaFalsa,ConferenciaDeDocumentoFalsa,RetencaoDeTentativas}.java`.
 - Modificar: `conta/infra/ContasJdbc.java` (`ContaResumo.verificada` e `ativadaEm`), `application.properties` (`duora.verificacao.*`, regra `verificacao-conta`)
 - Teste: `conta/dominio/DecisaoDeIdadeTest.java`, `conta/VerificacaoApiTest.java`, `conta/RetencaoDeTentativasTest.java`
 
@@ -633,68 +631,83 @@ Antes do Passo 1: `mattpocock-skills:domain-modeling` e `mattpocock-skills:codeb
   - `public enum ResultadoDaVerificacao { APROVADA, DUVIDA, RECUSADA, REPETIR }`; `public enum MetodoDeVerificacao { ESTIMATIVA_FACIAL, DOCUMENTO }`.
   - `final class DecisaoDeIdade` (pura, sem Spring):
     - `static ResultadoDaVerificacao pelaSelfie(double confiancaDeVida, Optional<FaixaEstimada> faixa, LimiaresDeIdade l)`: confiança < `confiancaMinimaDeVida` ou faixa vazia (nenhum rosto, ou mais de um) → `REPETIR`; `alta ≤ idadeMaximaRecusa` → `RECUSADA`; `baixa ≥ idadeMinimaAprovacao` → `APROVADA`; resto → `DUVIDA`.
-    - `static ResultadoDaVerificacao peloDocumento(LocalDate declarada, Optional<LocalDate> lida, LocalDate hoje)`: vazia → `REPETIR`; lida com menos de 18 anos → `RECUSADA`; lida ≠ declarada → `DUVIDA` (não bate: vai para contestação por e-mail); igual e ≥ 18 → `APROVADA`.
+    - `static ResultadoDaVerificacao peloDocumento(LocalDate declarada, ResultadoDoDocumento r, LocalDate hoje)`, nesta ordem: documento não aceito pela Didit ou data vazia → `REPETIR`; rosto não confere → `DUVIDA` (o documento pode ser de outra pessoa: nunca recusa nem aprova por ele; vai para contestação por e-mail); data lida com menos de 18 anos → `RECUSADA`; lida ≠ declarada → `DUVIDA`; igual e ≥ 18 → `APROVADA`.
   - Portas (borda real, adapters reais na Task 13):
-    - `public interface ProvaDeVida { SessaoDeCaptura criarSessao(); ResultadoDaProva resultado(String sessaoAws); }` com `record SessaoDeCaptura(String sessaoAws, CredencialCurta credencial)`, `record CredencialCurta(String accessKeyId, String secretAccessKey, String sessionToken, Instant expiraEm)` e `record ResultadoDaProva(String situacao /* SUCCEEDED|FAILED|EXPIRED|CREATED|IN_PROGRESS */, double confianca, Optional<FaixaEstimada> faixa)`. O adapter real chama o `DetectFaces` dentro de `resultado` e descarta os bytes antes de devolver.
-    - `public interface LeituraDeDocumento { Optional<LocalDate> dataDeNascimento(byte[] frente, Optional<byte[]> verso); }`.
+    - `public interface ProvaDeVida { SessaoDeCaptura criarSessao(); ResultadoDaProva resultado(String sessaoAws); }` com `record SessaoDeCaptura(String sessaoAws, CredencialCurta credencial)`, `record CredencialCurta(String accessKeyId, String secretAccessKey, String sessionToken, Instant expiraEm)` e `record ResultadoDaProva(String situacao /* SUCCEEDED|FAILED|EXPIRED|CREATED|IN_PROGRESS */, double confianca, Optional<FaixaEstimada> faixa)`. O adapter real chama o `DetectFaces` dentro de `resultado` e descarta os bytes antes de devolver. A porta ganha também `Optional<byte[]> imagemDeReferencia(String sessaoAws)` (lê de novo o `GetFaceLivenessSessionResults`; vazio se a sessão não estiver `SUCCEEDED` ou a AWS não devolver mais a imagem), usado só pela reserva por documento.
+    - `public interface ConferenciaDeDocumento { ResultadoDoDocumento conferir(byte[] frente, Optional<byte[]> verso, byte[] rostoDaSelfie); }` com `public record ResultadoDoDocumento(boolean documentoAceito, Optional<LocalDate> dataDeNascimento, boolean rostoConfere)`. Adapter real na Task 17 (Didit).
   - `VerificacaoDeIdade` (caso de uso, raiz):
     - `SessaoDeCaptura iniciar(ContaId conta, boolean consentimentoBiometrico)`: conta ≠ `AGUARDANDO_VERIFICACAO` → 409 `VERIFICACAO_FORA_DE_ORDEM`; sem consentimento → 422 `CONSENTIMENTO_BIOMETRICO_NECESSARIO`; consome `verificacao-conta` (3 por `P1D`); cria a sessão e grava a tentativa.
     - `ResultadoDaVerificacao concluir(ContaId conta, String sessaoAws)`: tentativa de outra conta, inexistente ou já usada → 404 `SESSAO_DE_VERIFICACAO_INVALIDA`; marca `usada_em` por `UPDATE ... WHERE usada_em IS NULL` (zero linhas → 404); situação ≠ `SUCCEEDED` → `REPETIR`; aplica `DecisaoDeIdade.pelaSelfie` e os efeitos, numa transação:
       - `APROVADA` → `verificacao_idade` (`APROVADA`, `ESTIMATIVA_FACIAL`) e `UPDATE conta SET estado = 'ATIVA', cadastro_concluido_em = :agora WHERE id = :id AND estado = 'AGUARDANDO_VERIFICACAO'`;
       - `RECUSADA` → o mesmo efeito do menor da Task 8 (bloqueio por HMAC, sessões revogadas, conta EXCLUIDA sem e-mail e sem data), resposta 422 `MENOR_DE_IDADE`;
-      - `DUVIDA` → grava `DUVIDA`; com `duora.verificacao.documento.habilitado=true`, a resposta pede o documento; com `false`, a conta fica em `AGUARDANDO_VERIFICACAO` (D2a);
+      - `DUVIDA` → grava `DUVIDA`; com `duora.verificacao.documento.habilitado=true` (padrão), a resposta pede o documento; com `false`, a conta fica em `AGUARDANDO_VERIFICACAO` com o texto de análise;
       - `REPETIR` → nada gravado além do `usada_em`.
-    - `ResultadoDaVerificacao concluirPorDocumento(ContaId conta, byte[] frente, Optional<byte[]> verso)`: só com a flag ligada (senão 409 `DOCUMENTO_INDISPONIVEL`) e só depois de uma `DUVIDA`; até 5 MB por imagem (JPEG/PNG pelos bytes mágicos); aplica `peloDocumento` com os mesmos efeitos (método `DOCUMENTO`).
-    - Falha ou timeout da AWS → 503 `PROVA_DE_VIDA_INDISPONIVEL`, nada aprovado e a tentativa não é gasta.
+    - `ResultadoDaVerificacao concluirPorDocumento(ContaId conta, String sessaoAws, byte[] frente, Optional<byte[]> verso)`:
+      - só com a flag ligada (senão 409 `DOCUMENTO_INDISPONIVEL`) e só com a última `verificacao_idade` da conta em `DUVIDA` (senão 409 `VERIFICACAO_FORA_DE_ORDEM`);
+      - `sessaoAws` tem de ser uma tentativa da própria conta, já usada (senão 404 `SESSAO_DE_VERIFICACAO_INVALIDA`);
+      - até 5 MB por imagem, JPEG ou PNG pelos bytes mágicos (senão 422 `DOCUMENTO_INVALIDO`);
+      - consome `verificacao-documento` (2 por `P1D`);
+      - `ProvaDeVida.imagemDeReferencia(sessaoAws)` vazio → 409 `REFAZER_PROVA_DE_VIDA` (o front volta à captura; o envio não é gasto);
+      - chama `ConferenciaDeDocumento.conferir` e aplica `peloDocumento` com os mesmos efeitos de `concluir` (método `DOCUMENTO`); os três `byte[]` saem de escopo no mesmo método.
+    - Falha ou timeout da AWS → 503 `PROVA_DE_VIDA_INDISPONIVEL`; da Didit → 503 `CONFERENCIA_DE_DOCUMENTO_INDISPONIVEL`. Nos dois casos nada é aprovado e nem a tentativa nem o envio são gastos.
   - Rotas (`@ContaAtual(cadastroConcluido = false)`):
     - `POST /api/conta/verificacao/sessao` `{ "consentimentoBiometrico": true }` → 201 `{ "sessaoId", "regiao": "us-east-1", "credencial": { "accessKeyId", "secretAccessKey", "sessionToken", "expiraEm" } }` com `Cache-Control: no-store`;
     - `POST /api/conta/verificacao/sessao/{sessaoId}/resultado` → 200 `{ "resultado": "APROVADA"|"DUVIDA"|"REPETIR", "pedeDocumento": bool }` (ou 422 `MENOR_DE_IDADE` com cookie expirado);
-    - `POST /api/conta/verificacao/documento` (multipart `frente`, `verso`?) → o mesmo corpo;
-    - `GET /api/conta/verificacao` → `{ "estado": "AGUARDANDO"|"DUVIDA"|"APROVADA", "tentativasRestantesHoje": n, "documentoHabilitado": bool }`.
+    - `POST /api/conta/verificacao/documento` (multipart `sessaoId`, `frente`, `verso`?) → o mesmo corpo;
+    - `GET /api/conta/verificacao` → `{ "estado": "AGUARDANDO"|"DUVIDA"|"APROVADA", "tentativasRestantesHoje": n, "documentoHabilitado": bool, "enviosDeDocumentoRestantesHoje": n }`.
   - `ContaResumo.verificada` = existe `verificacao_idade` com `APROVADA`. É a fonte do selo "verificado" (Etapa 3 o projeta no `PerfilPublico`).
   - `RetencaoDeTentativas implements PoliticaDeRetencao`: `tentativas-de-verificacao`, `P1D` sobre `criada_em`.
-  - `ProvaDeVidaFalsa` (perfis `dev`, `test` e `verificacao-falsa`): a faixa estimada vem da propriedade `duora.verificacao.falsa.faixa` (padrão `30-40`) ou do sufixo do e-mail de teste (`+idade15@`, `+idade19@`), para os e2e escolherem o desfecho.
+  - `ProvaDeVidaFalsa` (perfis `dev`, `test` e `verificacao-falsa`): a faixa estimada vem da propriedade `duora.verificacao.falsa.faixa` (padrão `30-40`) ou do marcador na parte local do e-mail de teste (`+idade15`, `+idade19`), para os e2e escolherem o desfecho. `ConferenciaDeDocumentoFalsa` (mesmos perfis): data igual à declarada, documento aceito e rosto conferido, salvo quando a parte local do e-mail contém `+docmenor` (data de 15 anos atrás) ou `+docoutro` (rosto não confere).
 
 - [ ] **Passo 1:** testes.
   - `DecisaoDeIdadeTest` `@ParameterizedTest` (limiares `PADRAO`):
     - `pelaSelfie`: (95, 21–29) → `APROVADA`; (95, 20–28) → `DUVIDA` (on/off point da aprovação); (95, 12–17) → `RECUSADA`; (95, 13–18) → `DUVIDA` (on/off point da recusa); (89,9, 30–40) → `REPETIR`; (95, vazio) → `REPETIR`;
-    - `peloDocumento` com hoje = 2026-11-22: declarada = lida = 1990-05-10 → `APROVADA`; lida 2008-11-23 → `RECUSADA`; lida 1990-05-11 com declarada 1990-05-10 → `DUVIDA`; vazia → `REPETIR`.
+    - `peloDocumento` com hoje = 2026-11-22 e declarada 1990-05-10 (`ResultadoDoDocumento(aceito, data, rosto)`): (true, 1990-05-10, true) → `APROVADA`; (true, 2008-11-23, true) → `RECUSADA` (17 anos, on/off point); (true, 2008-11-22, true) com declarada 2008-11-22 → `APROVADA` (18 anos hoje); (true, 1990-05-11, true) → `DUVIDA`; (true, 2008-11-23, false) → `DUVIDA` (rosto vem antes da idade); (false, 1990-05-10, true) → `REPETIR`; (true, vazio, true) → `REPETIR`.
   - `VerificacaoApiTest` (portas falsas controláveis):
     - `iniciarSemConsentimentoRecebe422`;
     - `iniciarComContaAtivaRecebe409` e `iniciarComContaPendenteRecebe409`;
     - `iniciarDevolveCredencialCurtaSemCache` (`Cache-Control: no-store`; `expiraEm` = agora + 15 min);
     - `aprovadaAtivaAContaEGuardaSoResultadoMetodoEData` (as colunas de `verificacao_idade` são exatamente `conta_id, resultado, metodo, decidida_em`; `GET /api/conta` → `verificada:true`);
     - `recusadaSegueOFluxoDoMenor` (conta EXCLUIDA, uma linha em `email_bloqueado`, cookie expirado);
-    - `duvidaComDocumentoDesligadoFicaAguardando`;
-    - `duvidaComDocumentoLigadoPedeDocumentoEDataDiferenteNaoAprova`;
+    - `duvidaComDocumentoDesligadoFicaAguardando` (`pedeDocumento:false`);
+    - `duvidaPedeDocumentoPorPadrao` (sem propriedade definida → `pedeDocumento:true`);
+    - `documentoConferidoAprovaComMetodoDocumento` (linha `APROVADA`/`DOCUMENTO`, conta ATIVA);
+    - `documentoComDataDiferenteNaoAprova`;
+    - `rostoQueNaoConfereNaoAprova` (`+docoutro@` → `DUVIDA`, conta segue `AGUARDANDO_VERIFICACAO`) (Foco 8);
+    - `documentoDeMenorSegueOFluxoDoMenor` (`+docmenor@` → 422 `MENOR_DE_IDADE`, conta EXCLUIDA);
+    - `documentoSemDuvidaAntesRecebe409`;
+    - `referenciaVencidaPedeRefazerProvaDeVida` (porta devolve vazio → 409 `REFAZER_PROVA_DE_VIDA`; `enviosDeDocumentoRestantesHoje` continua 2);
+    - `terceiroEnvioDeDocumentoNoDiaRecebe429`;
+    - `pdfNoLugarDaImagemRecebe422`;
+    - `diditForaDoArNaoAprova` (porta lança → 503 `CONFERENCIA_DE_DOCUMENTO_INDISPONIVEL`, envio não gasto);
     - `sessaoDeOutraContaRecebe404` (Foco 6);
     - `resultadoRepetidoNaoDecideDuasVezes` (duas chamadas em threads → um 200 e um 404; uma linha em `verificacao_idade`) (Foco 6);
     - `quartaSessaoNoDiaRecebe429`;
     - `awsForaDoArNaoAprova` (porta lança → 503, conta segue `AGUARDANDO_VERIFICACAO`, tentativa não usada) (Foco 7);
-    - `logNaoTrazCredencialNemImagem` (a saída capturada não contém o `secretAccessKey` canário nem bytes da imagem falsa);
+    - `logNaoTrazCredencialNemImagem` (a saída capturada não contém o `secretAccessKey` canário nem bytes da imagem falsa nem do documento falso);
     - `documentoComFlagDesligadaRecebe409`.
   - `RetencaoDeTentativasTest`: tentativa de 25 h some; de 23 h fica.
 - [ ] **Passo 2:** rodar; falha.
 - [ ] **Passo 3:** implementar.
 - [ ] **Passo 4:** testes e `ArquiteturaTest` verdes (`conta/dominio` sem AWS SDK nem Spring). Commit `feat(conta): verificação de idade obrigatória com decisão pura e selo`.
 
-### Task 13: Adapters da AWS (Rekognition, STS, Textract) e ADR
+### Task 13: Adapters da AWS (Rekognition, STS) e ADR
 
 **Arquivos:**
-- Modificar: `pom.xml` (BOM `software.amazon.awssdk:bom` na versão estável atual conferida pelo Context7; módulos `rekognition`, `sts`, `textract`, `url-connection-client`; sem o cliente Netty)
-- Criar: `conta/infra/{ProvaDeVidaAws,LeituraDeDocumentoAws,ConfiguracaoAws}.java`, `docs/adr/<próximo número livre>-verificacao-de-idade-na-aws.md`
+- Modificar: `pom.xml` (BOM `software.amazon.awssdk:bom` na versão estável atual conferida pelo Context7; módulos `rekognition`, `sts`, `url-connection-client`; sem o cliente Netty)
+- Criar: `conta/infra/{ProvaDeVidaAws,ConfiguracaoAws}.java`, `docs/adr/<próximo número livre>-verificacao-de-idade.md`
 - Modificar: `application-prod.properties` (`duora.verificacao.aws.*` = `${DUORA_AWS_VERIFICACAO_ACCESS_KEY_ID}`, `${DUORA_AWS_VERIFICACAO_SECRET_ACCESS_KEY}`, `${DUORA_AWS_PAPEL_CAPTURA_ARN}`, sem padrão: o boot falha se faltar)
-- Teste: `conta/infra/{ProvaDeVidaAwsTest,LeituraDeDocumentoAwsTest}.java` (`HttpServer` local como endpoint da AWS, `endpointOverride`), `conta/infra/VerificacaoAwsSmokeIT.java` (`@EnabledIfEnvironmentVariable(named = "DUORA_AWS_VERIFICACAO_ACCESS_KEY_ID", matches = ".+")`, fora da CI)
+- Teste: `conta/infra/ProvaDeVidaAwsTest.java` (`HttpServer` local como endpoint da AWS, `endpointOverride`), `conta/infra/VerificacaoAwsSmokeIT.java` (`@EnabledIfEnvironmentVariable(named = "DUORA_AWS_VERIFICACAO_ACCESS_KEY_ID", matches = ".+")`, fora da CI)
 
 **Interfaces:**
-- Consome: `ProvaDeVida`, `LeituraDeDocumento`, `SessaoDeCaptura`, `CredencialCurta`, `ResultadoDaProva`, `FaixaEstimada` (T12).
+- Consome: `ProvaDeVida`, `SessaoDeCaptura`, `CredencialCurta`, `ResultadoDaProva`, `FaixaEstimada` (T12).
 - Produz:
   - `ProvaDeVidaAws implements ProvaDeVida` (perfil `prod` ou `verificacao-aws`):
     - `criarSessao`: `CreateFaceLivenessSession` com `Settings.AuditImagesLimit = 0` e sem `OutputConfig`; `AssumeRole` do papel de captura com `RoleSessionName = "duora-" + <8 primeiros hex do id da tentativa>` e `DurationSeconds = 900`;
-    - `resultado`: `GetFaceLivenessSessionResults`; com `SUCCEEDED`, `DetectFaces` sobre `ReferenceImage.Bytes` com `Attributes = [AGE_RANGE]`; exatamente um rosto → `FaixaEstimada(Low, High)`, senão vazio; o `byte[]` sai de escopo no mesmo método.
+    - `resultado`: `GetFaceLivenessSessionResults`; com `SUCCEEDED`, `DetectFaces` sobre `ReferenceImage.Bytes` com `Attributes = [AGE_RANGE]`; exatamente um rosto → `FaixaEstimada(Low, High)`, senão vazio; o `byte[]` sai de escopo no mesmo método;
+    - `imagemDeReferencia`: `GetFaceLivenessSessionResults`; `SUCCEEDED` com `ReferenceImage.Bytes` → os bytes; senão vazio.
     - Clientes com `region(US_EAST_1)`, `apiCallAttemptTimeout` 5 s, `apiCallTimeout` 10 s e no máximo 2 tentativas.
-  - `LeituraDeDocumentoAws implements LeituraDeDocumento` (só registrada com `duora.verificacao.documento.habilitado=true`): `AnalyzeID` com `DocumentPages` em bytes; lê `DATE_OF_BIRTH` normalizado (`ValueDetection.NormalizedValue`, `ValueType = DATE`); campo ausente → vazio.
-  - ADR: opções (Rekognition + Textract na AWS; Didit; credencial gov.br; documento só), escolha (AWS, pela conta e IAM já criados e pelo custo de US$ 0,015 + DetectFaces), consequências (transferência internacional para os EUA declarada na política; `AnalyzeID` documentado só para documentos dos EUA, ver D2; dado biométrico sem template; região fixa pela SCP).
+  - ADR: opções (tudo na AWS, com Textract `AnalyzeID` para o documento; tudo na Didit; AWS para a selfie e Didit para a faixa de dúvida; credencial gov.br; documento para todos), escolha (**AWS para a prova de vida e a estimativa pela selfie, Didit só para a faixa de dúvida `Low < 21` e `High ≥ 18`**). Por quê: a conta e o IAM da AWS já existem e a selfie custa US$ 0,015 + `DetectFaces`; o `AnalyzeID` é documentado só para documentos dos EUA, então não lê RG nem CNH; a Didit lê os dois e compara o rosto por US$ 0,20, e só uma parte das pessoas chega a ela. Consequências: duas transferências internacionais declaradas na política (EUA pela AWS; Didit, com o país de processamento conferido no acordo de tratamento de dados da Didit antes de publicar a versão da política); dado biométrico sem template em nenhum dos dois (`AuditImagesLimit=0`, `save_api_request=false`); região AWS fixa pela SCP.
 
 - [ ] **Passo 1:** testes.
   - `ProvaDeVidaAwsTest` (respostas JSON gravadas no `HttpServer`):
@@ -704,10 +717,10 @@ Antes do Passo 1: `mattpocock-skills:domain-modeling` e `mattpocock-skills:codeb
     - `doisRostosOuNenhumViramVazio`;
     - `sessaoNaoConcluidaNaoChamaDetectFaces`;
     - `respostaQueDemora15sFalhaEmMenosDe11s`.
-  - `LeituraDeDocumentoAwsTest`: `dataNormalizadaViraLocalDate` (`"1990-05-10T00:00:00"` → 1990-05-10); `semDataDeNascimentoViraVazio`.
+    - `imagemDeReferenciaDeSessaoNaoConcluidaViraVazio`.
   - `VerificacaoAwsSmokeIT` (manual, com as chaves do Keychain exportadas só nessa sessão): cria uma sessão real em `us-east-1`, recebe credencial temporária válida (`GetCallerIdentity` com ela devolve o ARN do papel de captura), lê o resultado da sessão nunca iniciada (situação `CREATED`) e roda `DetectFaces` sobre `src/test/resources/imagens/rosto-adulto-sintetico.jpg` (rosto gerado por IA pela skill `duora-assets`, nenhuma pessoa real) → faixa com `baixa ≥ 18`. Custo por execução: uma sessão + um `DetectFaces` (< US$ 0,02).
 - [ ] **Passo 2:** rodar; falha.
-- [ ] **Passo 3:** implementar; ADR. Criar a chave de acesso do usuário `duora-java-verificacao` pelo MCP da AWS (`iam:CreateAccessKey`, uma só ativa) e guardá-la no Keychain (`security add-generic-password -s duora-java-verificacao -a <access key id> -w`, lendo o segredo da saída do MCP sem ecoar no terminal); nunca no Git nem em arquivo do projeto. A Etapa 10 a leva para o `.env` da VPS.
+- [ ] **Passo 3:** implementar; ADR. Criar a chave de acesso do usuário `duora-java-verificacao` pelo MCP da AWS (`iam:CreateAccessKey`, uma só ativa) e guardá-la no Keychain (`security add-generic-password -s duora-java-verificacao -a <access key id> -w`, lendo o segredo da saída do MCP sem ecoar no terminal); nunca no Git nem em arquivo do projeto. A Etapa 10 a leva para o `.env` da VPS. Tirar `textract:AnalyzeID` da política do usuário `duora-java-verificacao` pelo MCP da AWS (menor privilégio: o Duora não usa o Textract) e conferir com `iam:SimulatePrincipalPolicy` que `rekognition:DetectFaces` segue `allowed` e `textract:AnalyzeID` virou `implicitDeny`.
 - [ ] **Passo 4:** testes verdes; o smoke rodado uma vez pelo agente com as chaves do Keychain, saída anexada ao relatório da task (sem chaves). Commit `feat(conta): prova de vida e estimativa de idade pela AWS em us-east-1`.
 
 ### Task 14: Página da verificação (`/verificacao`) com CSP própria
@@ -728,12 +741,13 @@ Antes do Passo 1: `mattpocock-skills:domain-modeling` e `mattpocock-skills:codeb
     - explicação: título `Confirme sua idade`; texto `Vamos pedir uma selfie em vídeo curta para confirmar que você é uma pessoa real e tem 18 anos ou mais. A imagem vai para a AWS, nos Estados Unidos, é usada só para isso e é apagada logo depois. Guardamos só o resultado e a data.`; caixa `Concordo com o uso da minha imagem para confirmar minha idade`; botão `Começar` (desabilitado sem a caixa);
     - captura: `import('@aws-amplify/ui-react-liveness')` só aqui (lazy), `FaceLivenessDetectorCore` com `sessionId`, `region="us-east-1"` e `config.credentialProvider` devolvendo a `credencial` da sessão; `onAnalysisComplete` chama o resultado; `onError` com câmera negada → `Não conseguimos usar a câmera. Libere o acesso nas configurações do navegador e toque em Tentar de novo.`;
     - resultado: `APROVADA` → `Pronto! Sua idade foi confirmada.` + `location.assign('/')`; `REPETIR` → `Não deu para confirmar. Procure um lugar claro, tire óculos escuros e tente de novo.` com `Tentativas restantes hoje: {n}`; `DUVIDA` sem documento → `Precisamos de mais uma checagem. Sua conta fica em análise; se quiser contestar, escreva para {encarregado}.`; `DUVIDA` com documento → `EnvioDeDocumento`; `MENOR_DE_IDADE` → o texto da Task 10.
+  - `EnvioDeDocumento` (só na faixa de dúvida): título `Falta pouco`; texto `A selfie não bastou para confirmar sua idade. Envie uma foto do seu RG ou da sua CNH, frente e verso. A Didit, empresa de verificação de identidade, confere a data de nascimento e se o rosto é o mesmo da selfie. As imagens são apagadas logo depois; guardamos só o resultado e a data.`; dois `<input type="file" accept="image/jpeg,image/png" capture="environment">` (`Frente` obrigatória, `Verso`); botão `Enviar`; envia multipart para `/api/conta/verificacao/documento` com o `sessaoId` da captura que deu dúvida (mesma origem: a CSP da rota não muda); 409 `REFAZER_PROVA_DE_VIDA` → volta para `captura` com `Precisamos de uma selfie nova antes do documento.`; `DUVIDA` depois do documento → o texto de análise com `{encarregado}`; `REPETIR` → `Não conseguimos ler o documento. Use boa luz, sem reflexo, com as quatro pontas aparecendo.` e `Envios restantes hoje: {n}`.
   - O SPA nunca importa nada de `frontend/src/verificacao/` (regra no ESLint: `no-restricted-imports`).
 
 - [ ] **Passo 1:** testes.
-  - Vitest (`FaceLivenessDetectorCore` trocado por um falso via `vi.mock`): `comecarExigeConsentimento`; `amplifySoCarregaNaCaptura` (o `import()` só acontece depois de `Começar`); `aprovadaVoltaAoInicio`; `repetirMostraTentativas`; `cameraNegadaMostraComoReativar` (Foco 7); `credencialNuncaVaiParaOStorage` (nenhum `localStorage`/`sessionStorage` escrito).
+  - Vitest (`FaceLivenessDetectorCore` trocado por um falso via `vi.mock`): `comecarExigeConsentimento`; `amplifySoCarregaNaCaptura` (o `import()` só acontece depois de `Começar`); `aprovadaVoltaAoInicio`; `repetirMostraTentativas`; `cameraNegadaMostraComoReativar` (Foco 7); `credencialNuncaVaiParaOStorage` (nenhum `localStorage`/`sessionStorage` escrito); `documentoEnviaFrenteVersoESessao` (o `FormData` tem `sessaoId`, `frente` e `verso`); `documentoExigeFrente`; `refazerProvaDeVidaVoltaParaCaptura`; `documentoMencionaADidit` (o texto exato acima).
   - `CspPorRotaTest`: `/verificacao` traz `CSP_VERIFICACAO` e `camera=(self)`; `/`, `/entrar` e `/api/conta` trazem a CSP do app, sem `wasm-unsafe-eval` nem o domínio da AWS.
-  - `VerificacaoIT` (perfil `verificacao-falsa`; o detector falso é injetado por `window.__duoraLivenessFalso` só nesse perfil, verificado no build de teste): `jornadaAprovadaChegaAoInicio` (completa a `cadastroCompletoNoCelular` da Task 10: termina em `/` com "Minha conta"); `menorPelaSelfieERecusado` (`+idade15@`); `duvidaSemDocumentoMostraAnalise` (`+idade19@`); `semVerificarNaoEntraNaFilaNemNoPerfil` (403 `CADASTRO_INCOMPLETO` pelo `APIRequestContext`).
+  - `VerificacaoIT` (perfil `verificacao-falsa`; o detector falso é injetado por `window.__duoraLivenessFalso` só nesse perfil, verificado no build de teste): `jornadaAprovadaChegaAoInicio` (completa a `cadastroCompletoNoCelular` da Task 10: termina em `/` com "Minha conta"); `menorPelaSelfieERecusado` (`+idade15@`); `duvidaComDocumentoAprova` (`+idade19@`: dúvida, envia frente e verso de imagens sintéticas, termina em `/`); `documentoDeOutraPessoaFicaEmAnalise` (`+idade19+docoutro@`); `semVerificarNaoEntraNaFilaNemNoPerfil` (403 `CADASTRO_INCOMPLETO` pelo `APIRequestContext`).
   - `AxeIT`: `verificacaoExplicacaoSemViolacoes`, `verificacaoResultadoSemViolacoes`.
   - `TamanhoDoJsInicialTest` continua verde: o Amplify não entra no JS inicial do `index.html`.
 - [ ] **Passo 2:** rodar; falha.
@@ -782,7 +796,7 @@ Antes do Passo 1: `mattpocock-skills:domain-modeling` e `mattpocock-skills:codeb
 - Consome: `VerificacaoHumana` (T5), `Outbox` (T4), `LimiteDeTaxa` (T3), `Email.de` (T5).
 - Produz:
   - `POST /api/denuncias-publicas` `{ "motivo", "descricao", "referencia"?, "emailContato"?, "tokenVerificacao" }` → 202 `{"mensagem":"Recebemos sua denúncia. Se você deixou um e-mail, respondemos por lá."}`; limite `denuncia-publica-ip` 5 por `PT1H`; Turnstile; na mesma transação, grava e registra na outbox o e-mail `Duora: denúncia pública recebida` para `duora.contato.email` só com o motivo e o link `/admin` (nunca a descrição).
-  - `EncarregadoDeDados` (`duora.encarregado.nome` padrão `o responsável pelo Duora`, `duora.encarregado.email`, D4) exposto em `GET /api/legal/versoes` como `"encarregado": { "nome", "email" }`.
+  - `EncarregadoDeDados` (`duora.encarregado.nome` padrão `o responsável pelo Duora`, `duora.encarregado.email=${DUORA_EMAIL_ENCARREGADO}` em `prod`, sem padrão, e `encarregado@exemplo.invalid` em `dev`/`test`, D4) exposto em `GET /api/legal/versoes` como `"encarregado": { "nome", "email" }`.
   - Página `/denunciar` (pública): título `Denunciar um problema`; texto `Use este canal se você não tem conta ou não consegue denunciar pelo app. Em caso de risco imediato, ligue 190.`; campos `O que aconteceu` (motivos: `Parece menor de idade`, `Abuso ou exploração de criança`, `Imagem íntima sem consentimento`, `Assédio ou ameaça`, `Golpe`, `Outro`), `Conte o que aconteceu` (10–2000), `Apelido ou link, se souber` e `Seu e-mail para resposta (opcional)`; botão `Enviar denúncia`.
   - Página `/encarregado`: nome e e-mail do encarregado e `Use este contato para pedidos sobre seus dados pessoais (acesso, correção, exclusão).`.
   - Retenção: `denuncias-publicas` apaga as `RESOLVIDA` 183 dias depois da `criada_em` (o caso fechado + 6 meses; a Etapa 8 grava a resolução).
@@ -790,10 +804,49 @@ Antes do Passo 1: `mattpocock-skills:domain-modeling` e `mattpocock-skills:codeb
   - `DenunciaPublicaApiTest`: `semSessaoAceita202`; `turnstileRecusado422ENadaGrava`; `sextaNaHoraRecebe429`; `descricaoCurtaRecebe422`; `emailDoAvisoNaoTrazADescricao` (canário); `emailDeContatoInvalidoRecebe422`.
   - `DenunciaPublicaIT.denunciarSemConta`: abre `/denunciar` sem cookie, envia, vê a mensagem; o rodapé leva a `/denunciar` e a `/encarregado`.
   - Vitest: `motivoObrigatorio`; `encarregadoMostraNomeEEmail`.
+  - `EncarregadoDeDadosTest`: `prodSemDuoraEmailEncarregadoNaoSobe` (contexto com perfil `prod` e a variável ausente falha no boot); `emailVemDaVariavel` (`DUORA_EMAIL_ENCARREGADO=dpo@exemplo.invalid` → `GET /api/legal/versoes` traz esse e-mail).
   - `AxeIT`: `denunciarPublicoSemViolacoes`, `encarregadoSemViolacoes`.
 - [ ] **Passo 2:** rodar; falha.
 - [ ] **Passo 3:** implementar.
 - [ ] **Passo 4:** testes verdes nos três navegadores. Commit `feat(conta): canal público de denúncia e contato do encarregado`.
+
+### Task 17: Adapter da Didit para a reserva por documento (faixa de dúvida)
+
+**Arquivos:**
+- Criar: `conta/infra/{ConferenciaDeDocumentoDidit,ConfiguracaoDidit}.java`
+- Modificar: `application.properties` (`duora.verificacao.didit.url=https://verification.didit.me`, `duora.verificacao.didit.limiar-rosto=30`), `application-prod.properties` (`duora.verificacao.didit.api-key=${DUORA_DIDIT_API_KEY}`, sem padrão: o boot falha se faltar com a flag ligada)
+- Teste: `conta/infra/ConferenciaDeDocumentoDiditTest.java` (`HttpServer` local como `duora.verificacao.didit.url`), `conta/infra/DiditSmokeIT.java` (`@EnabledIfEnvironmentVariable(named = "DUORA_DIDIT_API_KEY", matches = ".+")`, fora da CI)
+
+**Fonte (conferida em 2026-11-22; conferir de novo pelo Context7/WebFetch antes de implementar):** https://docs.didit.me/standalone-apis/id-verification, https://docs.didit.me/standalone-apis/face-match, https://docs.didit.me/integration/webhooks, https://docs.didit.me/getting-started/pricing.
+
+**Webhook ou polling: nenhum dos dois.** A doc da Didit recomenda webhook, com polling de `GET /v3/session/{id}/decision/` só como reserva, para as **sessões** hospedadas ("Webhooks are the recommended integration pattern", página de webhooks). O Duora usa as **APIs avulsas**, que respondem o resultado na própria chamada; com `save_api_request=false` nada é guardado na Didit, o `request_id` é transitório e não há decisão a consultar nem webhook a receber. Isso atende a regra do dono (imagens apagadas logo depois) e dispensa um endpoint público de webhook com HMAC. Se um dia o fluxo mudar para sessão hospedada, vale o webhook com `X-Signature-V2` e `X-Timestamp` (janela de 300 s), como a doc pede.
+
+**Interfaces:**
+- Consome: `ConferenciaDeDocumento`, `ResultadoDoDocumento` (T12).
+- Produz: `ConferenciaDeDocumentoDidit implements ConferenciaDeDocumento` (perfil `prod` ou `verificacao-didit`, só com `duora.verificacao.documento.habilitado=true`):
+  - passo 1: `POST {url}/v3/id-verification/` multipart com `front_image`, `back_image` (se houver), `save_api_request=false`, `perform_document_liveness=true`; cabeçalhos `x-api-key` e `Idempotency-Key` (UUID v7 novo por envio); `documentoAceito` = `id_verification.status == "Approved"`; `dataDeNascimento` = `id_verification.date_of_birth` (`YYYY-MM-DD`); retrato = `portrait_image` em base64 (nulo → `rostoConfere=false`);
+  - passo 2 (só com documento aceito e retrato presente): `POST {url}/v3/face-match/` multipart com `user_image` = rosto da selfie, `ref_image` = retrato decodificado, `face_match_score_decline_threshold` = `duora.verificacao.didit.limiar-rosto` (30, o padrão da Didit), `save_api_request=false`; `rostoConfere` = `face_match.status == "Approved"`;
+  - `RestClient` com conexão 5 s, leitura 30 s e uma repetição só em 5xx ou timeout, com a mesma `Idempotency-Key`; 401, 403 (saldo) ou 4xx → exceção que vira 503 `CONFERENCIA_DE_DOCUMENTO_INDISPONIVEL` (T12) e log WARN com o status HTTP, nunca com corpo, chave ou imagem;
+  - nenhum `byte[]` nem a resposta crua sai do método.
+- Chave: `DUORA_DIDIT_API_KEY`. O agente cria a conta e a chave pelo console da Didit (ou pela MCP hospedada da Didit) e guarda no Keychain (`security add-generic-password -s duora-java-didit -a didit -w`, lendo o valor sem ecoar no terminal); nunca no Git nem em arquivo do projeto. O aceite dos termos e o meio de pagamento da conta Didit, se pedidos, são o único passo do dono. A Etapa 10 leva a chave para o `.env` da VPS.
+
+- [ ] **Passo 1:** testes.
+  - `ConferenciaDeDocumentoDiditTest` (respostas JSON gravadas no `HttpServer`):
+    - `enviaSaveApiRequestFalseNasDuasChamadas` (os dois corpos multipart trazem `save_api_request=false`);
+    - `enviaChaveNoCabecalhoXApiKey`;
+    - `aprovadoComDataERostoConferido` (`Approved`, `1990-05-10`, face match `Approved` → `ResultadoDoDocumento(true, 1990-05-10, true)`);
+    - `documentoRecusadoNaoChamaFaceMatch` (`Declined` → `(false, vazio, false)` e uma requisição só);
+    - `emAnaliseContaComoNaoAceito` (`In Review` → `documentoAceito=false`);
+    - `semRetratoViraRostoNaoConfere`;
+    - `rostoAbaixoDoLimiarViraNaoConfere` (face match `Declined` com `score` 29,5 → `rostoConfere=false`) (Foco 8);
+    - `versoAusenteNaoVaiNoMultipart`;
+    - `erro500RepeteUmaVezComAMesmaChaveDeIdempotencia`;
+    - `saldoInsuficienteViraIndisponivel` (403 → exceção, log sem corpo);
+    - `respostaQueDemora35sFalhaEmMenosDe31s`.
+  - `DiditSmokeIT` (manual, chave do Keychain exportada só nessa sessão; ambiente de testes da Didit, https://docs.didit.me/integration/sandbox-testing, se a chave for de sandbox): envia frente e verso de um espécime sintético gerado pela skill `duora-assets` (nenhum documento real) e o rosto sintético da Task 13; confere que a resposta tem `id_verification.status` e, no caminho aprovado, `face_match.score` entre 0 e 100. Custo por execução: até US$ 0,20 (zero no sandbox).
+- [ ] **Passo 2:** rodar; falha.
+- [ ] **Passo 3:** implementar; criar a chave e guardá-la no Keychain.
+- [ ] **Passo 4:** testes verdes; o smoke rodado uma vez pelo agente, saída anexada ao relatório da task (sem chave nem imagem). Commit `feat(conta): conferência de documento pela Didit na faixa de dúvida`.
 
 **Prova da etapa:**
 - **Cadastro pelo celular:** `ContaIT.cadastroCompletoNoCelular` e `conta-check.mjs`.
