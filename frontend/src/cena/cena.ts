@@ -231,16 +231,21 @@ export function criarCena({
     }
   }
 
-  function criarLugar(id: string, peca: string, bloqueio: string | null): HTMLButtonElement {
+  /** Posição e tamanho de um lugar no palco, iguais para botões e marcas. */
+  function posicionarNoLugar(el: HTMLElement, id: string): void {
     const ponto = pontoDe(id);
+    el.dataset.lugar = id;
+    el.style.left = pct(ponto.x, largura);
+    el.style.top = pct(ponto.y, altura);
+    el.style.width = pct(diametroLugar, largura);
+  }
+
+  function criarLugar(id: string, peca: string, bloqueio: string | null): HTMLButtonElement {
     const nomeLugar = cenario.lugar(id).nome;
     const botao = document.createElement("button");
     botao.type = "button";
     botao.className = "lugar";
-    botao.dataset.lugar = id;
-    botao.style.left = pct(ponto.x, largura);
-    botao.style.top = pct(ponto.y, altura);
-    botao.style.width = pct(diametroLugar, largura);
+    posicionarNoLugar(botao, id);
     const rotulo = `Colocar ${cenario.peca(peca).artigo}: ${nomeLugar}`;
     if (bloqueio) {
       botao.setAttribute("aria-disabled", "true");
