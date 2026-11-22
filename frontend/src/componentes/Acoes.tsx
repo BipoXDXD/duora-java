@@ -23,7 +23,7 @@ export function Acoes({ visao, enviando, somLigado, aoConfirmar, aoAlternarSom }
   }
 
   return (
-    <div className="acoes grid gap-(--e-2) mt-auto celular:order-5">
+    <div className="acoes grid gap-(--e-2) mt-auto celular:order-5 celular-deitado:order-5">
       <button
         type="button"
         className={BOTAO_PRIMARIO}

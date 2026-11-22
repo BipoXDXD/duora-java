@@ -29,6 +29,29 @@ Pré-requisitos: JDK 25. O Maven vem pelo wrapper (`./mvnw`).
    precisa do próprio cookie para ser uma pessoa diferente.
 3. Montem o terraço e confirmem as duas.
 
+## Front
+
+O front fica em `frontend/` (React 19, TypeScript, Tailwind e Vite). O `./mvnw` baixa Node e pnpm
+em `frontend/node/` e roda instalação, lint, testes e build do front; o build vai para
+`target/vite/` e entra no jar, servido pelo Spring em `/app/`.
+
+Para mexer no front com recarga instantânea, suba o Spring em 8080 e o Vite em outro terminal:
+
+```sh
+./mvnw spring-boot:run                       # API em 127.0.0.1:8080
+cd frontend && PATH="$PWD/node:$PATH" node node/node_modules/pnpm/bin/pnpm.mjs dev
+```
+
+O Vite serve o app e repassa `/api` para o Spring em 8080 (os binários de `/assets/` vêm de
+`src/main/resources/static`). Os outros scripts, com o mesmo prefixo: `lint` (ESLint e Prettier,
+sem avisos), `test` (Vitest) e `build` (`tsc -b` e build do Vite).
+
+Tamanho do JS inicial (o `index` e o chunk de polling pré-carregado): 260 KB, ou 81,5 KB em gzip
+nível 9, sem contar CSS, fontes e imagens. A meta é 80 KB: o número atual está acima da meta (o
+próximo passo seria avaliar o `preact/compat`). O `TamanhoDoJsInicialTest` mede a cada
+`./mvnw verify` (resultado em `target/tamanho-js-inicial.txt`) e só falha acima de 90 KB, o teto
+aceito.
+
 ## Instalar no Android (teste local)
 
 O Duora é um PWA: com o manifest e o service worker, o Chrome do Android o instala como app. Com

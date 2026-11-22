@@ -42,7 +42,7 @@ export const TITULO_DE_RESULTADO = [
 ].join(" ");
 
 /** Seções de uma tela só (entrada, convite, encerrado); no celular vêm logo depois da instrução. */
-export const TELA = "grid gap-(--e-4) celular:order-2";
+export const TELA = "grid gap-(--e-4) celular:order-2 celular-deitado:order-2";
 
 export const CAMPO = "campo grid gap-(--e-2)";
 export const ROTULO = "font-semibold";

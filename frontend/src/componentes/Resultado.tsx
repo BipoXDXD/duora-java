@@ -14,7 +14,7 @@ export function Resultado({ visao, enviando, aoAjustar }: PropsResultado) {
   const revelado = visao.fase === "REVELADO" && visao.resultado !== null;
   const { titulo, texto } = revelado ? textoResultado(visao) : { titulo: "", texto: "" };
   return (
-    <section className="resultado celular:order-3" id="resultado" hidden={!revelado}>
+    <section className="resultado celular:order-3 celular-deitado:order-3" id="resultado" hidden={!revelado}>
       <h2 className={TITULO_DE_RESULTADO} id="resultado-titulo" tabIndex={-1}>
         {titulo}
       </h2>

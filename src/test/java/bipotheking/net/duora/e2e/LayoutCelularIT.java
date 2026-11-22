@@ -132,10 +132,12 @@ class LayoutCelularIT {
     assertThat(ana.app()).not().containsClass("confirmando-saida");
   }
 
-  @Test
-  void deitadoMostraCenaEPainelLadoALado(Participantes participantes) {
-    TerracoPagina ana = participantes.novo(opcoes(844, 390));
-    levarAte("montagem", ana, () -> participantes.novo(opcoes(844, 390)));
+  // 915×412: Pixel 7 e afins, mais largos que os 860 px do celular em pé.
+  @ParameterizedTest(name = "{0}×{1}")
+  @CsvSource({"844, 390", "915, 412"})
+  void deitadoMostraCenaEPainelLadoALado(int largura, int altura, Participantes participantes) {
+    TerracoPagina ana = participantes.novo(opcoes(largura, altura));
+    levarAte("montagem", ana, () -> participantes.novo(opcoes(largura, altura)));
     Page page = ana.page();
 
     assertEquals("", page.evaluate(FORA_DA_JANELA, ".cena"), "cena");
@@ -155,14 +157,34 @@ class LayoutCelularIT {
     assertEquals("", page.evaluate(FORA_DA_JANELA, ".cena"), "cena depois de rolar");
   }
 
-  @Test
-  void deitadoSemAreaVaziaADireita(Participantes participantes) {
-    TerracoPagina ana = participantes.novo(opcoes(844, 390));
-    levarAte("montagem", ana, () -> participantes.novo(opcoes(844, 390)));
+  @ParameterizedTest(name = "{0}×{1}")
+  @CsvSource({"844, 390", "915, 412"})
+  void deitadoSemAreaVaziaADireita(int largura, int altura, Participantes participantes) {
+    TerracoPagina ana = participantes.novo(opcoes(largura, altura));
+    levarAte("montagem", ana, () -> participantes.novo(opcoes(largura, altura)));
     Page page = ana.page();
 
     double direitaDoPainel = borda(page, ".painel", "right");
-    assertTrue(direitaDoPainel >= 0.95 * 844, "painel termina em " + direitaDoPainel);
+    assertTrue(direitaDoPainel >= 0.95 * largura, "painel termina em " + direitaDoPainel);
+  }
+
+  // O deitado herda o celular (topo compacto, rótulos dos lugares escondidos), não a tela larga.
+  @ParameterizedTest(name = "{0}×{1}")
+  @CsvSource({"844, 390", "915, 412"})
+  void deitadoUsaOTopoEOsLugaresDoCelular(int largura, int altura, Participantes participantes) {
+    TerracoPagina ana = participantes.novo(opcoes(largura, altura));
+    entrarEmPar(ana, participantes.novo(opcoes(largura, altura)), raiz(porta));
+    ana.selecionar(TELESCOPIO);
+    assertThat(ana.lugarLivre(TELESCOPIO, C1)).isAttached();
+    Page page = ana.page();
+
+    assertEquals(
+        "20px",
+        page.evaluate("() => getComputedStyle(document.querySelector('.titulo')).fontSize"));
+    assertEquals(
+        "none",
+        page.evaluate(
+            "() => getComputedStyle(document.querySelector('.lugar .rotulo-lugar')).display"));
   }
 
   private static double borda(Page page, String seletor, String lado) {

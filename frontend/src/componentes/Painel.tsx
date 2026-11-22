@@ -109,13 +109,13 @@ export function Painel({ refAviso, ...props }: PropsPainel) {
   const { visaoDoPar, instrucao, conteudo } = telaDaVez(props);
   return (
     <main
-      className="painel [grid-area:painel] flex flex-col gap-(--e-5) px-(--e-6) pt-(--e-5) pb-(--e-6) bg-noite-800 overflow-y-auto celular:px-(--e-4) celular:overflow-visible celular-deitado:overflow-y-auto"
+      className="painel [grid-area:painel] flex flex-col gap-(--e-5) px-(--e-6) pt-(--e-5) pb-(--e-6) bg-noite-800 overflow-y-auto celular:px-(--e-4) celular:overflow-visible celular-deitado:px-(--e-4) celular-deitado:overflow-y-auto"
       aria-label="Painel do terraço"
     >
       {visaoDoPar && <Par visao={visaoDoPar} />}
       {instrucao !== null && (
         <p
-          className="instrucao m-0 text-[1.25rem] leading-[1.35] max-w-[32ch] celular:order-1 celular:text-[1.125rem]"
+          className="instrucao m-0 text-[1.25rem] leading-[1.35] max-w-[32ch] celular:order-1 celular:text-[1.125rem] celular-deitado:order-1 celular-deitado:text-[1.125rem]"
           id="instrucao"
         >
           {instrucao}
@@ -127,7 +127,7 @@ export function Painel({ refAviso, ...props }: PropsPainel) {
       )}
       <p
         ref={refAviso}
-        className="aviso m-0 min-h-[1.5em] text-verde-agua data-[tipo=erro]:text-coral celular:order-0"
+        className="aviso m-0 min-h-[1.5em] text-verde-agua data-[tipo=erro]:text-coral celular:order-0 celular-deitado:order-0"
         id="aviso"
         role="status"
         aria-live="polite"

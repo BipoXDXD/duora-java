@@ -87,7 +87,7 @@ export function Inventario({ visao, selecionada, enviando, aoEscolher, aoRetirar
 
   return (
     <section
-      className="inventario celular:order-2"
+      className="inventario celular:order-2 celular-deitado:order-2"
       aria-labelledby="inventario-titulo"
       hidden={visao.fase === "REVELADO"}
     >

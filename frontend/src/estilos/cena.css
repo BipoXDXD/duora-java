@@ -438,36 +438,45 @@
 
 /* ------------------------------------------------------------ mobile */
 
-@media (max-width: 860px) {
-  .cena {
+/* Celular em pé e deitado (o deitado vai além dos 860 px do celular). */
+.cena {
+  @variant celular, celular-deitado {
     min-height: 0;
     padding: 96px 0 var(--e-3);
   }
+}
 
-  .app {
+.app {
+  @variant celular, celular-deitado {
     --cidade-largura: 100%;
     --cidade-esquerda: 0%;
     --cidade-topo: -37.3%;
   }
+}
 
-  /* As bordas do bloco podem sair da tela; as peças ficam maiores. */
-  .palco {
+/* As bordas do bloco podem sair da tela; as peças ficam maiores. */
+.palco {
+  @variant celular, celular-deitado {
     width: 112%;
     margin-inline: -6%;
   }
+}
 
-  .lugar .rotulo-lugar {
+.lugar .rotulo-lugar {
+  @variant celular, celular-deitado {
     display: none;
   }
 }
 
 /* Celular deitado: a cena ocupa a coluna da esquerda na altura da tela, e o palco cabe nela inteiro. */
-@media (max-width: 860px) and (max-height: 500px) and (orientation: landscape) {
-  .cena {
+.cena {
+  @variant celular-deitado {
     padding: 0 0 var(--e-3);
   }
+}
 
-  .palco {
+.palco {
+  @variant celular-deitado {
     width: min(112%, calc((100dvh - var(--e-3)) * var(--proporcao-palco)));
   }
 }

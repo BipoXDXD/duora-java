@@ -4,7 +4,7 @@ import assert from 'node:assert/strict';
 import { test } from 'node:test';
 
 import {
-  PASSOS, comandosParaRestaurar, passosDaRodada, prepararChrome,
+  PASSOS, comandosParaRestaurar, escolherVariante, expressaoDoTerraco, passosDaRodada, prepararChrome,
 } from './pwa-check.mjs';
 
 /** adb falso: registra os comandos de shell, responde o SDK e falha nos comandos pedidos. */
@@ -42,6 +42,19 @@ test('rotacaoComValorVoltaComPut', () => {
 test('terracoVerificadoAntesDaCapturaEmPe', () => {
   assert.ok(PASSOS.indexOf('verificarTerraco') >= 0);
   assert.ok(PASSOS.indexOf('verificarTerraco') < PASSOS.indexOf('capturarEmPe'));
+});
+
+test('pixel7EmPeEscolheA1800', () => {
+  assert.equal(escolherVariante(462, 2.625, [900, 1800, 2700]), 1800);
+});
+
+test('larguraAlemDaMaiorVarianteFicaComAMaior', () => {
+  assert.equal(escolherVariante(1440, 3, [900, 1800, 2700]), 2700);
+});
+
+// O front em React/Vite empacota os módulos: /js/dados.js não existe mais no servidor.
+test('leituraDoTerracoNaoImportaModuloDoApp', () => {
+  assert.doesNotMatch(expressaoDoTerraco(), /import\(/);
 });
 
 test('standaloneDepoisDeInstalar', () => {
