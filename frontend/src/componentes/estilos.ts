@@ -35,10 +35,14 @@ export const BOTAO_PERIGO = [
 
 export const SUBTITULO = "subtitulo mx-0 mt-0 mb-(--e-2) text-texto-3 text-[0.875rem] font-semibold";
 
-/** Título que recebe foco do script: o anel aparece mesmo sem :focus-visible (Firefox e Safari). */
+/**
+ * Título que recebe foco do script: o anel só aparece quando o foco veio do teclado (:focus-visible);
+ * depois de um toque ou clique, o título focado fica sem contorno.
+ */
 export const TITULO_DE_RESULTADO = [
   "resultado-titulo mx-0 mt-0 mb-(--e-2) font-titulo font-semibold text-[1.5rem] leading-[1.2]",
-  "focus:[outline:2px_solid_transparent] focus:outline-offset-2 focus:[box-shadow:var(--foco)]",
+  "focus:not-focus-visible:[outline:none]",
+  "focus-visible:[outline:2px_solid_transparent] focus-visible:outline-offset-2 focus-visible:[box-shadow:var(--foco)]",
 ].join(" ");
 
 /** Base do <main className="painel">: o painel do app e o da tela de erro do cenário. */
