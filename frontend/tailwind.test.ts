@@ -1,27 +1,37 @@
 // @vitest-environment node
-import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { cpSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { build } from "vite";
 import { afterAll, beforeAll, expect, it } from "vitest";
 
 // A varredura de classes do Tailwind não pode depender do .gitignore (num build sem Git, como num
-// contexto Docker, ele não vale). Uma isca fica em build/, fora de src/ e fora do .gitignore;
-// a outra fica em src/, para provar que a varredura não foi simplesmente desligada.
+// contexto Docker, ele não vale). O build roda numa cópia do front fora do repositório, onde não há
+// .gitignore nenhum: uma isca fica em build/, fora de src/; a outra fica em src/, para provar que a
+// varredura não foi simplesmente desligada. As iscas nunca tocam o repositório, então um processo
+// morto antes do afterAll não deixa lixo para o Git.
 const raiz = import.meta.dirname;
-const pastaDeFora = join(raiz, "build");
-const pastaDeForaJaExistia = existsSync(pastaDeFora);
-const iscaDeFora = join(pastaDeFora, "isca-tailwind.html");
-const iscaDeSrc = join(raiz, "src", "isca-tailwind.html");
-const saida = mkdtempSync(join(tmpdir(), "duora-tailwind-"));
+const temporaria = mkdtempSync(join(tmpdir(), "duora-tailwind-"));
+const copia = join(temporaria, "front");
+const saida = join(temporaria, "saida");
 let css = "";
 
 beforeAll(async () => {
-  mkdirSync(pastaDeFora, { recursive: true });
-  writeFileSync(iscaDeFora, '<div class="bg-[#123456]"></div>\n');
-  writeFileSync(iscaDeSrc, '<div class="bg-[#654321]"></div>\n');
+  mkdirSync(copia);
+  for (const item of ["index.html", "package.json", "src"]) {
+    cpSync(join(raiz, item), join(copia, item), { recursive: true });
+  }
+  symlinkSync(join(raiz, "node_modules"), join(copia, "node_modules"), "dir");
+  mkdirSync(join(copia, "build"));
+  writeFileSync(join(copia, "build", "isca-tailwind.html"), '<div class="bg-[#123456]"></div>\n');
+  writeFileSync(join(copia, "src", "isca-tailwind.html"), '<div class="bg-[#654321]"></div>\n');
 
-  await build({ root: raiz, logLevel: "silent", build: { outDir: saida, emptyOutDir: true, manifest: false } });
+  await build({
+    root: copia,
+    configFile: join(raiz, "vite.config.ts"),
+    logLevel: "silent",
+    build: { outDir: saida, emptyOutDir: true, manifest: false },
+  });
 
   const pastaApp = join(saida, "app");
   css = readdirSync(pastaApp)
@@ -31,9 +41,7 @@ beforeAll(async () => {
 }, 60_000);
 
 afterAll(() => {
-  rmSync(pastaDeForaJaExistia ? iscaDeFora : pastaDeFora, { recursive: true, force: true });
-  rmSync(iscaDeSrc, { force: true });
-  rmSync(saida, { recursive: true, force: true });
+  rmSync(temporaria, { recursive: true, force: true });
 });
 
 it("o CSS gerado inclui classes de src/", () => {
