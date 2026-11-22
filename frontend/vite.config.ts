@@ -16,6 +16,13 @@ export default defineConfig(({ command }) => ({
       // Fontes e sprites de /assets/ são servidos pelo Spring (src/main/resources/static) e resolvidos
       // em tempo de execução; declarar como externos evita o aviso "didn't resolve at build time".
       external: [/^\/assets\//],
+      output: {
+        codeSplitting: {
+          // O laço de polling num chunk próprio (app/polling-*.js): a sonda do PollingIT reconhece
+          // os setTimeout dele pela pilha, e só um arquivo com nome fixo sobrevive ao bundle.
+          groups: [{ name: "polling", test: /src\/api\/polling\.ts/ }],
+        },
+      },
     },
   },
   server: {
