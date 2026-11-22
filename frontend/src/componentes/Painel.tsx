@@ -6,6 +6,7 @@ import { Acoes, BotaoSom } from "./Acoes";
 import { Convite } from "./Convite";
 import { Encerrado } from "./Encerrado";
 import { Entrada } from "./Entrada";
+import { CLASSES_DO_PAINEL } from "./estilos";
 import { Falta } from "./Falta";
 import { Inventario } from "./Inventario";
 import { Par } from "./Par";
@@ -109,7 +110,7 @@ export function Painel({ refAviso, ...props }: PropsPainel) {
   const { visaoDoPar, instrucao, conteudo } = telaDaVez(props);
   return (
     <main
-      className="painel [grid-area:painel] flex flex-col gap-(--e-5) px-(--e-6) pt-(--e-5) pb-(--e-6) bg-noite-800 overflow-y-auto celular:px-(--e-4) celular:overflow-visible celular-deitado:px-(--e-4) celular-deitado:overflow-y-auto"
+      className={`${CLASSES_DO_PAINEL} overflow-y-auto celular:overflow-visible celular-deitado:overflow-y-auto`}
       aria-label="Painel do terraço"
     >
       {visaoDoPar && <Par visao={visaoDoPar} />}

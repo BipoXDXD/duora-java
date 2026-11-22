@@ -1,3 +1,4 @@
+import { CLASSES_DO_PAINEL } from "./estilos";
 import { Moldura } from "./Moldura";
 import { Topo } from "./Topo";
 
@@ -22,7 +23,7 @@ export function ErroDeCenario() {
       <section className="cena" aria-hidden="true">
         <div className="ceu"></div>
       </section>
-      <main className="painel [grid-area:painel] flex flex-col gap-(--e-5) px-(--e-6) pt-(--e-5) pb-(--e-6) bg-noite-800 celular:px-(--e-4) celular-deitado:px-(--e-4)">
+      <main className={CLASSES_DO_PAINEL}>
         <p role="alert" className="m-0 text-[1.25rem] leading-[1.35] max-w-[32ch] celular:text-[1.125rem]">
           Não foi possível carregar o cenário. Recarregue a página.
         </p>
