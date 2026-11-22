@@ -15,7 +15,7 @@ import org.springframework.test.annotation.DirtiesContext;
 
 /**
  * Um convite aberto na mesma aba, sem recarregar: o do próprio terraço só avisa; o de outra sala
- * pede a troca, que encerra o terraço atual para os dois.
+ * pede a troca, que encerra o terraço atual para as duas pessoas.
  */
 @DirtiesContext(classMode = DirtiesContext.ClassMode.AFTER_CLASS)
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
@@ -46,7 +46,9 @@ class TrocaDeConviteIT {
 
     ana.abrir(conviteDeCarla);
 
-    assertThat(ana.page().getByText("Entrar neste convite encerra o terraço atual para os dois."))
+    assertThat(
+            ana.page()
+                .getByText("Entrar neste convite encerra o terraço atual para as duas pessoas."))
         .isVisible();
     assertThat(ana.botaoContinuarNoTerraco()).isVisible();
     assertThat(ana.page().getByLabel("Seu apelido")).isFocused();

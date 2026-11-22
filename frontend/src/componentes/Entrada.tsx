@@ -98,7 +98,7 @@ export function Entrada({
         </p>
         {trocaDeSala && (
           <p className="m-0 max-w-[40ch] text-texto-2" id="apelido-troca">
-            Entrar neste convite encerra o terraço atual para os dois.
+            Entrar neste convite encerra o terraço atual para as duas pessoas.
           </p>
         )}
         <p className="erro-campo m-0 text-[0.875rem] leading-[1.45] text-coral empty:hidden" id="apelido-erro">

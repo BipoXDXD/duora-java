@@ -39,7 +39,7 @@ describe("Entrada", () => {
 
     expect(screen.getByLabelText("Seu apelido")).toHaveAccessibleDescription(
       expect.stringContaining(
-        "De 1 a 20 caracteres. A outra pessoa vê este nome. Entrar neste convite encerra o terraço atual para os dois.",
+        "De 1 a 20 caracteres. A outra pessoa vê este nome. Entrar neste convite encerra o terraço atual para as duas pessoas.",
       ),
     );
     await userEvent.click(screen.getByRole("button", { name: "Continuar no terraço" }));
