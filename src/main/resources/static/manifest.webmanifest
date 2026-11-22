@@ -1,0 +1,18 @@
+{
+  "id": "/",
+  "scope": "/",
+  "start_url": "/",
+  "name": "Duora",
+  "short_name": "Duora",
+  "description": "Um terraço para dois, antes da primeira estrela.",
+  "lang": "pt-BR",
+  "display": "standalone",
+  "background_color": "#132B40",
+  "theme_color": "#132B40",
+  "icons": [
+    { "src": "/assets/icones/icone-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "/assets/icones/icone-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "/assets/icones/maskable-192.png", "sizes": "192x192", "type": "image/png", "purpose": "maskable" },
+    { "src": "/assets/icones/maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}
