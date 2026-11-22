@@ -466,6 +466,7 @@ export function passosDaRodada(args) {
   return PASSOS.filter((passo) => !PASSOS_DO_APP_INSTALADO.has(passo));
 }
 
+// Cada executor recebe o contexto da rodada e pode devolver campos novos para os passos seguintes.
 const EXECUTORES = {
   async instalabilidade({ cdp, resultado }) {
     resultado.instalabilidade = await verificarInstalabilidade(cdp);
@@ -493,11 +494,10 @@ const EXECUTORES = {
       throw new Falha('--exigir-webapk: o Chrome instalou atalho, não WebAPK');
     }
   },
-  async abrirInstalado(contexto) {
-    const { adb, base, resultado } = contexto;
+  async abrirInstalado({ adb, base, resultado }) {
     const conhecidas = new Set((await listarPaginas(adb)).map((p) => p.id));
     resultado.aberturaInstalado = await abrirInstalado(adb, `${base}/`);
-    contexto.cdpInstalado = await conectarCdp(adb, base, conhecidas);
+    return { cdpInstalado: await conectarCdp(adb, base, conhecidas) };
   },
   async capturarStandalone({ adb, args, cdpInstalado, resultado }) {
     await esperar(2500);
@@ -523,7 +523,7 @@ async function main() {
   const url = `${base}${args.caminho.startsWith('/') ? '' : '/'}${args.caminho}`;
   mkdirSync(SAIDA, { recursive: true });
   const resultado = { url, serial: SERIAL };
-  const contexto = { args, adb, base, url, resultado, cdp: undefined, cdpInstalado: undefined };
+  let contexto = { args, adb, base, url, resultado, cdp: undefined, cdpInstalado: undefined };
 
   exigirEmuladorPronto(adb);
   // Lida antes de abrir o Chrome: na primeira abertura, o sistema grava user_rotation=0 sozinho,
@@ -533,9 +533,11 @@ async function main() {
     prepararChrome(adb, !args['manter-chrome']);
     adb.executar(['reverse', `tcp:${args.porta}`, `tcp:${args.porta}`]);
     adb.executar(['logcat', '-c']);
-    contexto.cdp = await abrirNoChrome(adb, url, base);
+    contexto = { ...contexto, cdp: await abrirNoChrome(adb, url, base) };
     resultado.chrome = (await contexto.cdp.enviar('Browser.getVersion').catch(() => ({}))).product;
-    for (const passo of passosDaRodada(args)) await EXECUTORES[passo](contexto);
+    for (const passo of passosDaRodada(args)) {
+      contexto = { ...contexto, ...(await EXECUTORES[passo](contexto)) };
+    }
     resultado.ok = true;
   } catch (e) {
     resultado.ok = false;
