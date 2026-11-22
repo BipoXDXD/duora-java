@@ -450,7 +450,7 @@ Pendências da revisão da Etapa 1, que entram aqui porque a 1a reescreve o shel
   - `AtributosDoGitTest` (pula com `Assumptions` se `git` não existir):
     - `textoDeStaticNormalizaParaLf`: `git check-attr text eol -- src/main/resources/static/manifest.webmanifest` → `text: auto` e `eol: lf`;
     - `webpEBinario`: o `.webp` do terraço tem `text: unset`.
-- [ ] **Passo 2:** RED (`node --test scripts/android/` e `./mvnw -q test -Dtest=AtributosDoGitTest`).
+- [ ] **Passo 2:** RED (`node --test 'scripts/android/*.test.mjs'` e `./mvnw -q test -Dtest=AtributosDoGitTest`).
 - [ ] **Passo 3:** implementar.
   - `.gitattributes`: `src/main/resources/static/** text=auto eol=lf`, com as linhas de binários mantidas.
   - `git add --renormalize .` e conferir com `git status` que nenhum arquivo mudou de conteúdo (se mudar, o commit traz só a normalização, separado).

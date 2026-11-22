@@ -33,7 +33,10 @@ final class ComparadorDeCapturas {
 
   private ComparadorDeCapturas() {}
 
-  /** Grava em {@code diff} a captura de depois, esmaecida, com os pixels diferentes em vermelho. */
+  /**
+   * Grava em {@code diff} a captura de depois, esmaecida, com os pixels diferentes em vermelho; sem
+   * diferença, apaga o {@code diff} que houver.
+   */
   static Resultado comparar(Path antes, Path depois, Path diff) throws IOException {
     BufferedImage a = ler(antes);
     BufferedImage b = ler(depois);
@@ -55,6 +58,9 @@ final class ComparadorDeCapturas {
     if (diferentes > 0) {
       Files.createDirectories(diff.toAbsolutePath().getParent());
       ImageIO.write(marcas, "png", diff.toFile());
+    } else {
+      // Um diff de rodada anterior faria a captura parecer reprovada a quem abre a pasta.
+      Files.deleteIfExists(diff);
     }
     boolean mesmasDimensoes = a.getWidth() == b.getWidth() && a.getHeight() == b.getHeight();
     return new Resultado(mesmasDimensoes, diferentes, (long) largura * altura);
