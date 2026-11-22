@@ -16,12 +16,16 @@ public final class Regras {
   private Regras() {}
 
   public static Decisao parceiroEntrou(Cenario cenario, Estado estado) {
-    if (estado.fase() != Fase.AGUARDANDO_PAR) {
+    if (!(estado.fase() instanceof Fase.AguardandoPar)) {
       return recusar(Recusa.FASE_INVALIDA);
     }
     return aceitar(
         new Estado(
-            Fase.MONTANDO, estado.versao(), estado.composicao(), estado.prontos(), estado.sinal()));
+            new Fase.Montando(),
+            estado.versao(),
+            estado.composicao(),
+            estado.prontos(),
+            estado.sinal()));
   }
 
   /**
@@ -45,7 +49,7 @@ public final class Regras {
     if (atual.lugarDe(peca).equals(destino)) {
       return aceitar(estado);
     }
-    if (estado.fase() != Fase.MONTANDO) {
+    if (!(estado.fase() instanceof Fase.Montando montando)) {
       return recusar(Recusa.FASE_INVALIDA);
     }
     Composicao semAPeca = liberarEspacoPara(cenario, atual, peca);
@@ -61,7 +65,7 @@ public final class Regras {
     }
     Optional<Sinal> sinal =
         estado.sinal().filter(s -> nova.lugarDe(s.peca()).equals(atual.lugarDe(s.peca())));
-    return aceitar(new Estado(Fase.MONTANDO, estado.versao() + 1, nova, Set.of(), sinal));
+    return aceitar(new Estado(montando, estado.versao() + 1, nova, Set.of(), sinal));
   }
 
   /**
@@ -72,7 +76,7 @@ public final class Regras {
     if (peca.dono() == quem) {
       return recusar(Recusa.PECA_ALHEIA);
     }
-    if (estado.fase() != Fase.MONTANDO || !estado.composicao().colocada(peca)) {
+    if (!(estado.fase() instanceof Fase.Montando) || !estado.composicao().colocada(peca)) {
       return recusar(Recusa.FASE_INVALIDA);
     }
     Sinal sinal = new Sinal(peca, quem, agora.plus(cenario.duracaoSinal()));
@@ -94,7 +98,7 @@ public final class Regras {
     if (estado.pronto(quem) == pronto) {
       return aceitar(estado);
     }
-    if (estado.fase() != Fase.MONTANDO) {
+    if (!(estado.fase() instanceof Fase.Montando montando)) {
       return recusar(Recusa.FASE_INVALIDA);
     }
     if (versao != estado.versao()) {
@@ -110,23 +114,27 @@ public final class Regras {
     } else {
       prontos.remove(quem);
     }
-    Fase fase = prontos.size() == Assento.values().length ? Fase.REVELADO : Fase.MONTANDO;
+    Fase fase = prontos.size() == Assento.values().length ? new Fase.Revelado() : montando;
     return aceitar(new Estado(fase, estado.versao(), estado.composicao(), prontos, estado.sinal()));
   }
 
   /** Volta da revelação para a montagem, zerando as confirmações. */
   public static Decisao ajustar(Cenario cenario, Estado estado) {
-    if (estado.fase() != Fase.REVELADO) {
+    if (!(estado.fase() instanceof Fase.Revelado)) {
       return recusar(Recusa.FASE_INVALIDA);
     }
     return aceitar(
         new Estado(
-            Fase.MONTANDO, estado.versao() + 1, estado.composicao(), Set.of(), estado.sinal()));
+            new Fase.Montando(),
+            estado.versao() + 1,
+            estado.composicao(),
+            Set.of(),
+            estado.sinal()));
   }
 
-  /** Lugares para onde a peça própria pode ir agora (vazio fora de {@link Fase#MONTANDO}). */
+  /** Lugares para onde a peça própria pode ir agora (vazio fora de {@link Fase.Montando}). */
   public static List<Lugar> lugaresPermitidos(Cenario cenario, Estado estado, Peca peca) {
-    if (estado.fase() != Fase.MONTANDO) {
+    if (!(estado.fase() instanceof Fase.Montando)) {
       return List.of();
     }
     Composicao semAPeca = liberarEspacoPara(cenario, estado.composicao(), peca);
@@ -140,7 +148,7 @@ public final class Regras {
   /** Se colocar a peça agora seria barrado pelo portão da primeira peça. */
   public static boolean bloqueadaPeloPortao(Cenario cenario, Estado estado, Peca peca) {
     Composicao atual = estado.composicao();
-    if (estado.fase() != Fase.MONTANDO || atual.colocada(peca)) {
+    if (!(estado.fase() instanceof Fase.Montando) || atual.colocada(peca)) {
       return false;
     }
     Composicao simulada =
@@ -150,7 +158,7 @@ public final class Regras {
 
   /** O {@link Desfecho} do cenário sobre a composição revelada; vazio fora da revelação. */
   public static Optional<Resultado> resultado(Cenario cenario, Estado estado) {
-    if (estado.fase() != Fase.REVELADO) {
+    if (!(estado.fase() instanceof Fase.Revelado)) {
       return Optional.empty();
     }
     return Optional.of(cenario.desfecho().de(estado.composicao(), cenario));

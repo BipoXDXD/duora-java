@@ -68,7 +68,7 @@ record Visao(
     Assento outro = quem.parceiro();
     return new Visao(
         cenario.id(),
-        estado.fase().name(),
+        estado.fase().nome(),
         estado.versao(),
         new Voce(quem, retrato.participante(quem).orElseThrow().apelido().valor()),
         retrato
@@ -80,7 +80,7 @@ record Visao(
         cenario.pecas().stream().map(peca -> visaoDa(cenario, peca, estado, quem)).toList(),
         new Prontos(estado.pronto(quem), estado.pronto(outro)),
         new Confirmacao(
-            estado.fase() == Fase.MONTANDO && cenario.completa(estado.composicao()),
+            estado.fase() instanceof Fase.Montando && cenario.completa(estado.composicao()),
             cenario.faltam(estado.composicao())),
         estado
             .sinalAtivoEm(agora)
@@ -90,7 +90,7 @@ record Visao(
   }
 
   private static @Nullable String conviteVisivel(Retrato retrato, Assento quem) {
-    if (quem != Assento.A || retrato.estado().fase() != Fase.AGUARDANDO_PAR) {
+    if (quem != Assento.A || !(retrato.estado().fase() instanceof Fase.AguardandoPar)) {
       return null;
     }
     return retrato.convite().map(Convite::valor).orElse(null);

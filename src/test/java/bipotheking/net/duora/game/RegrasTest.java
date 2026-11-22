@@ -10,10 +10,12 @@ import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
+import java.util.stream.Stream;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.converter.ConvertWith;
 import org.junit.jupiter.params.provider.CsvSource;
+import org.junit.jupiter.params.provider.MethodSource;
 
 class RegrasTest {
 
@@ -23,7 +25,7 @@ class RegrasTest {
   void parceiroEntrandoPassaParaMontagemSemMudarVersao() {
     Estado estado = aceito(Regras.parceiroEntrou(CENARIO, Estado.inicial()));
 
-    assertThat(estado.fase()).isEqualTo(Fase.MONTANDO);
+    assertThat(estado.fase()).isInstanceOf(Fase.Montando.class);
     assertThat(estado.versao()).isZero();
   }
 
@@ -132,6 +134,15 @@ class RegrasTest {
   }
 
   @Test
+  void colocarPreservaAInstanciaDaFase() {
+    Estado antes = montando();
+
+    Estado depois = colocar(antes, TELESCOPIO, C1);
+
+    assertThat(depois.fase()).isSameAs(antes.fase());
+  }
+
+  @Test
   void retirarDevolvePecaAoInventario() {
     Estado estado = colocar(montando(), TELESCOPIO, C1);
 
@@ -142,7 +153,7 @@ class RegrasTest {
   }
 
   @ParameterizedTest
-  @CsvSource({"AGUARDANDO_PAR", "REVELADO"})
+  @MethodSource("fasesForaDaMontagem")
   void soSeColocaDuranteAMontagem(Fase fase) {
     Estado estado = new Estado(fase, 4, completa().composicao(), Set.of(), Optional.<Sinal>empty());
 
@@ -280,16 +291,25 @@ class RegrasTest {
 
     Estado confirmado = confirmar(estado, A);
 
-    assertThat(confirmado.fase()).isEqualTo(Fase.MONTANDO);
+    assertThat(confirmado.fase()).isInstanceOf(Fase.Montando.class);
     assertThat(confirmado.prontos()).containsExactly(A);
     assertThat(confirmado.versao()).isEqualTo(estado.versao());
+  }
+
+  @Test
+  void confirmarSemRevelarPreservaAInstanciaDaFase() {
+    Estado antes = completa();
+
+    Estado depois = confirmar(antes, A);
+
+    assertThat(depois.fase()).isSameAs(antes.fase());
   }
 
   @Test
   void duasConfirmacoesNaMesmaVersaoRevelam() {
     Estado estado = confirmar(confirmar(completa(), A), B);
 
-    assertThat(estado.fase()).isEqualTo(Fase.REVELADO);
+    assertThat(estado.fase()).isInstanceOf(Fase.Revelado.class);
     assertThat(estado.prontos()).containsExactlyInAnyOrder(A, B);
   }
 
@@ -321,7 +341,7 @@ class RegrasTest {
     Estado desfeito = aceito(Regras.confirmar(CENARIO, confirmado, A, false, confirmado.versao()));
 
     assertThat(desfeito.prontos()).isEmpty();
-    assertThat(desfeito.fase()).isEqualTo(Fase.MONTANDO);
+    assertThat(desfeito.fase()).isInstanceOf(Fase.Montando.class);
   }
 
   @Test
@@ -375,7 +395,7 @@ class RegrasTest {
 
     Estado ajustado = aceito(Regras.ajustar(CENARIO, revelado));
 
-    assertThat(ajustado.fase()).isEqualTo(Fase.MONTANDO);
+    assertThat(ajustado.fase()).isInstanceOf(Fase.Montando.class);
     assertThat(ajustado.prontos()).isEmpty();
     assertThat(ajustado.versao()).isEqualTo(revelado.versao() + 1);
     assertThat(ajustado.composicao()).isEqualTo(revelado.composicao());
@@ -454,6 +474,10 @@ class RegrasTest {
   void nenhumForaDaMontagem() {
     assertThat(Regras.lugaresPermitidos(CENARIO, Estado.inicial(), TELESCOPIO))
         .isEqualTo(List.of());
+  }
+
+  private static Stream<Fase> fasesForaDaMontagem() {
+    return Stream.of(new Fase.AguardandoPar(), new Fase.Revelado());
   }
 
   private static Estado montando() {
