@@ -156,6 +156,10 @@
                             <includes>
                                 <include>**/*IT.java</include>
                             </includes>
+                            <!-- Ferramenta de captura, não jornada: roda só com -Dit.test=VisualIT -->
+                            <excludes>
+                                <exclude>**/VisualIT.java</exclude>
+                            </excludes>
                             <systemPropertyVariables>
                                 <navegador>${navegador}</navegador>
                             </systemPropertyVariables>
