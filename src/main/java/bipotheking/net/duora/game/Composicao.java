@@ -1,6 +1,6 @@
 package bipotheking.net.duora.game;
 
-import java.util.EnumMap;
+import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
 
@@ -23,7 +23,7 @@ public record Composicao(Map<Peca, Lugar> lugares) {
 
   public Optional<Peca> ocupante(Lugar lugar) {
     return lugares.entrySet().stream()
-        .filter(entrada -> entrada.getValue() == lugar)
+        .filter(entrada -> entrada.getValue().equals(lugar))
         .map(Map.Entry::getKey)
         .findFirst();
   }
@@ -55,7 +55,7 @@ public record Composicao(Map<Peca, Lugar> lugares) {
   }
 
   public Composicao com(Peca peca, Lugar lugar) {
-    Map<Peca, Lugar> novos = new EnumMap<>(Peca.class);
+    Map<Peca, Lugar> novos = new HashMap<>();
     novos.putAll(lugares);
     novos.put(peca, lugar);
     return new Composicao(novos);
@@ -65,7 +65,7 @@ public record Composicao(Map<Peca, Lugar> lugares) {
     if (!colocada(peca)) {
       return this;
     }
-    Map<Peca, Lugar> novos = new EnumMap<>(Peca.class);
+    Map<Peca, Lugar> novos = new HashMap<>();
     novos.putAll(lugares);
     novos.remove(peca);
     return new Composicao(novos);

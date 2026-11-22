@@ -127,7 +127,7 @@ public final class Regras {
     Composicao semAPeca = liberarEspacoPara(estado.composicao(), peca);
     Optional<Lugar> atual = estado.composicao().lugarDe(peca);
     return Lugar.da(peca.zona()).stream()
-        .filter(lugar -> atual.isEmpty() || atual.get() != lugar)
+        .filter(lugar -> atual.isEmpty() || !atual.get().equals(lugar))
         .filter(lugar -> semAPeca.ocupante(lugar).isEmpty())
         .toList();
   }
@@ -148,7 +148,7 @@ public final class Regras {
     }
     Composicao composicao = estado.composicao();
     Lado lado =
-        composicao.lugarDe(Peca.TELESCOPIO).orElseThrow() == Lugar.C1
+        composicao.lugarDe(Peca.TELESCOPIO).orElseThrow().equals(Lugar.C1)
             ? Lado.ESQUERDO
             : Lado.DIREITO;
     return Optional.of(
