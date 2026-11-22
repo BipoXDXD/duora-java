@@ -29,6 +29,21 @@ Pré-requisitos: JDK 25. O Maven vem pelo wrapper (`./mvnw`).
    precisa do próprio cookie para ser uma pessoa diferente.
 3. Montem o terraço e confirmem as duas.
 
+## Instalar no Android (teste local)
+
+O Duora é um PWA: com o manifest e o service worker, o Chrome do Android o instala como app. Com
+o celular ligado por USB e a depuração USB ativa:
+
+1. `./mvnw spring-boot:run`
+2. `adb reverse tcp:8080 tcp:8080`
+3. Abra <http://localhost:8080> no Chrome do Android.
+4. Menu (⋮) → "Instalar app".
+
+A porta tem de ser a mesma nos dois lados do `adb reverse`: o servidor só aceita pedidos com
+`Host` de loopback (`localhost`, `127.0.0.1` ou `[::1]`) na própria porta. O `localhost` também
+conta como origem segura, que o service worker exige. A prova automatizada roda num emulador
+Android, com os scripts de `scripts/android/`.
+
 ## Testes
 
 ```sh
@@ -38,7 +53,9 @@ Pré-requisitos: JDK 25. O Maven vem pelo wrapper (`./mvnw`).
 
 Localmente, o perfil `e2e` roda no Chromium. Para outro navegador, use
 `-Dnavegador=chromium|firefox|webkit`; na primeira execução, o Playwright o baixa. A CI
-(`.github/workflows/ci.yml`) roda o `verify` e uma matriz e2e com os três navegadores.
+(`.github/workflows/ci.yml`) roda o `verify` e uma matriz e2e com os três navegadores. O
+`InstalabilidadeIT` sempre usa o Chromium completo, porque é o Chrome quem diz se o app pode ser
+instalado; por isso todo job e2e instala também o `chromium`.
 
 ## Arquitetura
 

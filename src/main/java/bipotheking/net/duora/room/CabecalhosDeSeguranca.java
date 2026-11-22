@@ -5,13 +5,17 @@ import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
+import java.util.Set;
 import org.springframework.core.Ordered;
 import org.springframework.core.annotation.Order;
 import org.springframework.http.HttpHeaders;
 import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
 
-/** Cabeçalhos de segurança em toda resposta; a API nunca é guardada em cache. */
+/**
+ * Cabeçalhos de segurança em toda resposta. A API nunca é guardada em cache; o service worker e o
+ * manifest são revalidados a cada busca, para uma versão nova chegar no próximo carregamento.
+ */
 @Component
 @Order(Ordered.HIGHEST_PRECEDENCE)
 class CabecalhosDeSeguranca extends OncePerRequestFilter {
@@ -19,6 +23,8 @@ class CabecalhosDeSeguranca extends OncePerRequestFilter {
   static final String CSP =
       "default-src 'self'; img-src 'self' data:; object-src 'none'; base-uri 'none'; "
           + "frame-ancestors 'none'; form-action 'self'";
+
+  private static final Set<String> SEMPRE_REVALIDADOS = Set.of("/sw.js", "/manifest.webmanifest");
 
   @Override
   protected void doFilterInternal(
@@ -30,6 +36,8 @@ class CabecalhosDeSeguranca extends OncePerRequestFilter {
     response.setHeader("Cross-Origin-Resource-Policy", "same-origin");
     if (MesmaOrigem.ehApi(request)) {
       response.setHeader(HttpHeaders.CACHE_CONTROL, "no-store");
+    } else if (SEMPRE_REVALIDADOS.contains(request.getRequestURI())) {
+      response.setHeader(HttpHeaders.CACHE_CONTROL, "no-cache");
     }
     chain.doFilter(request, response);
   }

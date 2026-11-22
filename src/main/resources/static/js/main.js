@@ -8,6 +8,7 @@ import { criarSom } from "./som.js";
 import { criarPainel } from "./painel.js";
 import { criarTelas } from "./telas.js";
 import { api, criarPolling, ErroApi } from "./api.js";
+import { registrarServiceWorker } from "./pwa.js";
 import { mensagemDeErro, textoConexaoDoParceiro, textoEncerrado, textoPecasDoParceiro } from "./mensagens.js";
 
 const $ = (id) => document.getElementById(id);
@@ -570,3 +571,5 @@ async function iniciar() {
 iniciar().catch((erro) => {
   document.getElementById("aviso").textContent = `Não foi possível carregar a cena: ${erro.message}`;
 });
+
+registrarServiceWorker();

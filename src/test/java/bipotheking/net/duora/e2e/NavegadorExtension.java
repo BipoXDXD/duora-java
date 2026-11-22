@@ -6,6 +6,7 @@ import com.microsoft.playwright.Page;
 import com.microsoft.playwright.Playwright;
 import com.microsoft.playwright.assertions.PlaywrightAssertions;
 import com.microsoft.playwright.options.ReducedMotion;
+import com.microsoft.playwright.options.ServiceWorkerPolicy;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.function.Consumer;
@@ -114,8 +115,8 @@ final class NavegadorExtension
     }
 
     /**
-     * Contexto com as opções como vêm (aparelho, densidade, toque); só põe movimento reduzido se
-     * elas não disserem nada sobre movimento.
+     * Contexto com as opções como vêm (aparelho, densidade, toque); só põe movimento reduzido e
+     * service worker bloqueado se elas não disserem nada sobre isso.
      */
     TerracoPagina novo(Browser.NewContextOptions opcoes) {
       return novo(opcoes, page -> {});
@@ -132,9 +133,23 @@ final class NavegadorExtension
               .setReducedMotion(ReducedMotion.REDUCE));
     }
 
+    /**
+     * Como {@link #novo()}, com o service worker liberado. Nos outros contextos ele fica bloqueado:
+     * com um worker no controle, o WebKit deixa de passar pelo {@code page.route} das sondas.
+     */
+    TerracoPagina novoComServiceWorker() {
+      return novo(
+          new Browser.NewContextOptions()
+              .setViewportSize(LARGURA, ALTURA)
+              .setServiceWorkers(ServiceWorkerPolicy.ALLOW));
+    }
+
     private TerracoPagina novo(Browser.NewContextOptions opcoes, Consumer<Page> preparar) {
       if (opcoes.reducedMotion == null) {
         opcoes.setReducedMotion(ReducedMotion.REDUCE);
+      }
+      if (opcoes.serviceWorkers == null) {
+        opcoes.setServiceWorkers(ServiceWorkerPolicy.BLOCK);
       }
       BrowserContext contexto = browser.newContext(opcoes);
       contextos.add(contexto);

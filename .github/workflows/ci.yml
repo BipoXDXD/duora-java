@@ -54,13 +54,14 @@ jobs:
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: ~/.cache/ms-playwright
-          key: playwright-1.65.1-${{ matrix.navegador }}
-      - name: Instalar o navegador do Playwright e as dependências do sistema
+          key: playwright-1.65.1-${{ matrix.navegador }}-chromium
+      # O Chromium completo entra em todos os jobs: o InstalabilidadeIT sempre o usa.
+      - name: Instalar o navegador do Playwright, o Chromium e as dependências do sistema
         run: >-
           ./mvnw -B -q exec:java -e
           -Dexec.mainClass=com.microsoft.playwright.CLI
           -Dexec.classpathScope=test
-          -Dexec.args="install --with-deps ${{ matrix.navegador }}"
+          -Dexec.args="install --with-deps ${{ matrix.navegador }} chromium"
       - name: Rodar as jornadas E2E (testes unitários já rodaram no verify)
         run: >-
           ./mvnw -B -Pe2e -DskipUnitTests=true -Dspotless.check.skip=true verify
