@@ -68,7 +68,11 @@ export function textoConfirmarSaida(nomeParceiro: string | null | undefined): { 
 }
 
 /** motivo: SAIU | EXPIROU | SALA_INEXISTENTE | VOCE_SAIU (vem do servidor; outro valor cai no último texto). */
-export function textoEncerrado(motivo: string, nomeParceiro?: string | null): string {
+export function textoEncerrado(motivo: string, nomeParceiro?: string | null): { titulo: string; texto: string } {
+  return { titulo: "Terraço encerrado", texto: corpoDoEncerrado(motivo, nomeParceiro) };
+}
+
+function corpoDoEncerrado(motivo: string, nomeParceiro?: string | null): string {
   switch (motivo) {
     case "SAIU":
       return nomeParceiro

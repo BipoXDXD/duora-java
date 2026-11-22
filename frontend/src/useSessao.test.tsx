@@ -3,10 +3,11 @@ import { createRef, type RefObject } from "react";
 import { describe, expect, it, vi } from "vitest";
 import type { CenaRef } from "./componentes/Cena";
 import type { EstadoDaSessao, PedidoDeFoco, Sessao } from "./sessao/sessao";
-import { useSessao } from "./useSessao";
+import { marcasDaCena, useSessao } from "./useSessao";
 
 const ENCERRADO: EstadoDaSessao = {
   tela: "encerrado",
+  titulo: "Terraço encerrado",
   texto: "Você saiu.",
   enviando: null,
   cenaVazia: true,
@@ -115,5 +116,11 @@ describe("useSessao", () => {
     publicar(ENCERRADO, { alvo: "apos-recusa", peca: "manta" });
 
     expect(document.activeElement).toBe(naCena);
+  });
+});
+
+describe("marcasDaCena", () => {
+  it("marcasDaCenaForaDaMontagemSaoVazias", () => {
+    expect(marcasDaCena(ENCERRADO)).toEqual({ selecionada: null, sugerindo: null, destaques: [] });
   });
 });

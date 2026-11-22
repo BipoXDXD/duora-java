@@ -33,6 +33,9 @@ function visaoDeBruno(pecas: VisaoPeca[]): Visao {
   };
 }
 
+/** O mesmo array a cada render, como a sessão faz. */
+const SEM_DESTAQUES: readonly string[] = [];
+
 const MANTA_DE_BRUNO: VisaoPeca = { peca: "manta", assento: "A", lugar: "L2" };
 
 interface Extras {
@@ -49,7 +52,7 @@ function desenhar(
   return (
     <Cena
       visao={visao}
-      selecionada={selecionada}
+      marcas={{ selecionada, sugerindo: null, destaques: SEM_DESTAQUES }}
       enviando={enviando}
       momento={momento}
       ladoTelescopio={ladoTelescopio}
@@ -101,6 +104,17 @@ describe("Cena", () => {
     const focado = document.activeElement;
     expect(focado).not.toBe(antes);
     expect(focado).toHaveAttribute("data-peca", "manta");
+  });
+
+  it("focoNumaPecaComEfeitosVoltaAoBotaoDelaNoRedesenho", () => {
+    // O brilho no piso vem antes do botão e também tem data-peca.
+    const lanterna: VisaoPeca = { peca: "lanterna", assento: "B", lugar: "R1" };
+    const { container, rerender } = render(desenhar(visaoDeAna([lanterna])));
+    container.querySelector<HTMLElement>("button[data-peca=lanterna]")?.focus();
+
+    rerender(desenhar(visaoDeAna([lanterna], 2)));
+
+    expect(document.activeElement).toBe(container.querySelector("button[data-peca=lanterna]"));
   });
 
   it("aguardandoParLimpaAsCamadas", () => {

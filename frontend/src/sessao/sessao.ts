@@ -52,6 +52,15 @@ export interface Sessao {
   consumirFoco: () => PedidoDeFoco | null;
 }
 
+/**
+ * As ações que o painel e as folhas dele pedem à sessão, num objeto só: uma ação nova entra aqui e
+ * na folha que a usa, sem tocar no App nem no Painel.
+ */
+export type AcoesDaSessao = Pick<
+  Sessao,
+  "escolherPeca" | "retirar" | "confirmar" | "ajustar" | "criarOutro" | "enviarApelido" | "limparErroApelido"
+>;
+
 /** Telas sem sala; com visão, a tela sai da fase dela. */
 type TelaSemSala = Extract<EstadoDaTela, { tela: "carregando" | "entrada" | "encerrado" }>;
 
@@ -63,6 +72,9 @@ type TelaSemVisao = TelaSemSala | Extract<EstadoDaTela, { tela: "convite" | "mon
 
 /** O aviso de um erro fora da API (um defeito, não uma resposta do servidor). */
 const MENSAGEM_DE_DEFEITO = "Algo deu errado ao falar com o servidor. Recarregue a página.";
+
+/** O mesmo array em todo retrato: a cena só redesenha quando os destaques mudam de fato. */
+const SEM_DESTAQUES: readonly string[] = [];
 
 const CODIGOS_SEM_SALA = new Set(["SEM_ASSENTO", "SALA_INEXISTENTE", "SALA_ENCERRADA"]);
 
@@ -150,7 +162,14 @@ export function criarSessao({
     if (visao.fase === "AGUARDANDO_PAR") {
       return { tela: "convite", visao };
     }
-    return { tela: "montagem", visao, selecionada, instrucao: instrucao(cenario, visao, selecionada, enviando) };
+    return {
+      tela: "montagem",
+      visao,
+      selecionada,
+      sugerindo: null,
+      destaques: SEM_DESTAQUES,
+      instrucao: instrucao(cenario, visao, selecionada, enviando),
+    };
   }
 
   /** Revelado: noite com meteoros do lado do telescópio. Qualquer outra fase: crepúsculo. */
@@ -197,11 +216,14 @@ export function criarSessao({
 
   /** comConvite: a página trouxe #convite= (a ação vira "Entrar no terraço"). */
   function mostrarEntrada(comConvite: boolean, focar = true): void {
-    mostrarSemSala({ tela: "entrada", comConvite, erroApelido: "" }, focar ? { alvo: "apelido" } : null);
+    mostrarSemSala(
+      { tela: "entrada", comConvite, trocaDeSala: false, erroApelido: "" },
+      focar ? { alvo: "apelido" } : null,
+    );
   }
 
-  function mostrarEncerrado(texto: string): void {
-    mostrarSemSala({ tela: "encerrado", texto }, { alvo: "titulo-encerrado" });
+  function mostrarEncerrado({ titulo, texto }: { titulo: string; texto: string }): void {
+    mostrarSemSala({ tela: "encerrado", titulo, texto }, { alvo: "titulo-encerrado" });
   }
 
   // ------------------------------------------------------------ visão

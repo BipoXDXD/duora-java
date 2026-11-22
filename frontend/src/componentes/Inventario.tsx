@@ -4,6 +4,7 @@ import { porArtigo } from "../dominio/artigos";
 import { LARGURA_MINIATURA } from "../dominio/dados";
 import { textoBloqueio } from "../dominio/mensagens";
 import type { Visao, VisaoPeca } from "../dominio/visao";
+import type { AcoesDaSessao } from "../sessao/sessao";
 import type { Acao } from "../sessao/tipos";
 import { BOTAO_SECUNDARIO, INDISPONIVEL_EM_ALTO_CONTRASTE, SUBTITULO, seDisponivel } from "./estilos";
 
@@ -11,8 +12,7 @@ interface PropsInventario {
   visao: Visao;
   selecionada: string | null;
   enviando: Acao | null;
-  aoEscolher: (peca: string) => void;
-  aoRetirar: () => void;
+  acoes: Pick<AcoesDaSessao, "escolherPeca" | "retirar">;
 }
 
 /** A miniatura esmaece no item indisponível; o texto do motivo mantém o contraste. */
@@ -79,7 +79,7 @@ function Item({ peca, estado, pressionado, indisponivel, aoEscolher }: PropsItem
 }
 
 /** "Suas peças": as centrais primeiro e, depois de um aviso, as laterais para escolher. Some na noite revelada. */
-export function Inventario({ visao, selecionada, enviando, aoEscolher, aoRetirar }: PropsInventario) {
+export function Inventario({ visao, selecionada, enviando, acoes }: PropsInventario) {
   const c = useCenario();
   const minhas = visao.pecas.filter((p) => p.assento === visao.voce.assento);
   const primeiraLateral = minhas.find((p) => !c.peca(p.peca).obrigatoria);
@@ -104,7 +104,7 @@ export function Inventario({ visao, selecionada, enviando, aoEscolher, aoRetirar
               estado={estadoDoItem(c, p, minhas, visao)}
               pressionado={selecionada === p.peca}
               indisponivel={Boolean(p.bloqueio) || enviando !== null}
-              aoEscolher={aoEscolher}
+              aoEscolher={(peca) => void acoes.escolherPeca(peca, true)}
             />
           );
           if (p !== primeiraLateral) {
@@ -124,7 +124,7 @@ export function Inventario({ visao, selecionada, enviando, aoEscolher, aoRetirar
         id="retirar"
         hidden={!podeRetirar}
         aria-disabled={enviando !== null ? true : undefined}
-        onClick={seDisponivel(enviando !== null, aoRetirar)}
+        onClick={seDisponivel(enviando !== null, () => void acoes.retirar())}
       >
         {enviando === "retirar" ? "Enviando…" : "Tirar do terraço"}
       </button>

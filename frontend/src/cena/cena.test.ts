@@ -36,7 +36,7 @@ function desenhar(cenario: CenarioFront, pecas: VisaoPeca[], fundos: HTMLElement
     cenario,
     aoEscolherPeca: () => {},
     aoEscolherLugar: () => {},
-  }).desenhar(visao(pecas), null);
+  }).desenhar(visao(pecas), { selecionada: null, sugerindo: null, destaques: [] });
   return palco;
 }
 
@@ -50,8 +50,8 @@ describe("criarCena", () => {
 
     const palco = desenhar(c, [{ peca: "lanterna", assento: "B", lugar: "R1" }]);
 
-    const ordem = [...palco.querySelectorAll(".brilho, button[data-peca='lanterna'], .halo")];
-    expect(ordem.map((el) => el.className)).toEqual(["brilho", "peca", "halo"]);
+    const ordem = [...palco.querySelectorAll(".brilho-piso, button[data-peca='lanterna'], .halo")];
+    expect(ordem.map((el) => el.className)).toEqual(["brilho-piso", "peca", "halo"]);
     const { pxPorMetro, largura } = c.geometria;
     expect(palco.querySelector<HTMLElement>(".halo")?.style.width).toBe(
       `${(((pxPorMetro * 0.75) / largura) * 100).toFixed(3)}%`,
@@ -74,7 +74,7 @@ describe("criarCena", () => {
     const palco = desenhar(CENARIO_MINIMO, [{ peca: "pedra", assento: "B", lugar: "P1" }]);
 
     expect(palco.querySelector("button[data-peca='pedra']")).not.toBeNull();
-    expect(palco.querySelector(".brilho")).toBeNull();
+    expect(palco.querySelector(".brilho-piso")).toBeNull();
     expect(palco.querySelector(".halo")).toBeNull();
   });
 });

@@ -19,10 +19,19 @@ export type PedidoDeFoco =
 /** Cada tela só carrega o que existe nela (State com tipo selado). */
 export type EstadoDaTela =
   | { tela: "carregando" }
-  | { tela: "entrada"; comConvite: boolean; erroApelido: string }
+  /** trocaDeSala: a entrada veio de um convite para outra sala, com esta ainda aberta. */
+  | { tela: "entrada"; comConvite: boolean; trocaDeSala: boolean; erroApelido: string }
   | { tela: "convite"; visao: Visao }
-  | { tela: "montagem"; visao: Visao; selecionada: string | null; instrucao: string }
-  | { tela: "encerrado"; texto: string };
+  /** sugerindo: a peça do parceiro que você está sugerindo mover; destaques: peças em destaque na cena. */
+  | {
+      tela: "montagem";
+      visao: Visao;
+      selecionada: string | null;
+      sugerindo: string | null;
+      destaques: readonly string[];
+      instrucao: string;
+    }
+  | { tela: "encerrado"; titulo: string; texto: string };
 
 export type EstadoDaSessao = EstadoDaTela & {
   enviando: Acao | null;
