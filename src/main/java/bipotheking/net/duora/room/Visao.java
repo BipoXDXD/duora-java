@@ -1,22 +1,26 @@
 package bipotheking.net.duora.room;
 
+import bipotheking.net.duora.game.Abertura;
 import bipotheking.net.duora.game.Assento;
 import bipotheking.net.duora.game.Cenario;
+import bipotheking.net.duora.game.DefinicaoDeAbertura;
 import bipotheking.net.duora.game.Estado;
 import bipotheking.net.duora.game.Fase;
 import bipotheking.net.duora.game.Lugar;
 import bipotheking.net.duora.game.Peca;
 import bipotheking.net.duora.game.Regras;
 import bipotheking.net.duora.game.Resultado;
+import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import org.jspecify.annotations.Nullable;
 
 /**
  * A sala do ponto de vista de quem pede (JSON do contrato), com o id do cenário à frente. Campos
  * anuláveis seguem o contrato: {@code parceiro} antes de alguém entrar, {@code convite} fora de A
- * em espera, {@code sinal}, {@code resultado} e {@code ajuste} quando não há.
+ * em espera, {@code sinal}, {@code resultado}, {@code ajuste} e {@code abertura} quando não há.
  */
 record Visao(
     String cenario,
@@ -30,7 +34,8 @@ record Visao(
     Confirmacao confirmacao,
     @Nullable VisaoSinal sinal,
     @Nullable Map<String, String> resultado,
-    @Nullable VisaoAjuste ajuste) {
+    @Nullable VisaoAjuste ajuste,
+    @Nullable VisaoAbertura abertura) {
 
   private static final String BLOQUEIO_PORTAO = "ESPERE_PRIMEIRA_PECA";
 
@@ -62,6 +67,14 @@ record Visao(
   /** Pedido de ajuste pendente na revelação. */
   record VisaoAjuste(Assento deAssento) {}
 
+  /**
+   * A abertura do encontro na montagem, ativa ou concluída.
+   *
+   * @param voceTocou se quem pede tocou há no máximo a janela do cenário
+   * @param outroTocou se o parceiro tocou há no máximo a janela do cenário
+   */
+  record VisaoAbertura(boolean ativa, boolean voceTocou, boolean outroTocou, boolean acesa) {}
+
   @Override
   public String toString() {
     return "Visao[fase=" + fase + ", versao=" + versao + "]";
@@ -90,7 +103,36 @@ record Visao(
             .map(s -> new VisaoSinal(s.peca().id(), s.deAssento(), s.destino().id()))
             .orElse(null),
         Regras.resultado(cenario, estado).map(Resultado::valores).orElse(null),
-        ajuste(estado));
+        ajuste(estado),
+        abertura(cenario, estado, quem, agora));
+  }
+
+  private static @Nullable VisaoAbertura abertura(
+      Cenario cenario, Estado estado, Assento quem, Instant agora) {
+    if (!(estado.fase() instanceof Fase.Montando montando)) {
+      return null;
+    }
+    Optional<Duration> janela = cenario.abertura().map(DefinicaoDeAbertura::janela);
+    return montando
+        .abertura()
+        .flatMap(abertura -> janela.map(j -> visaoDaAbertura(abertura, j, quem, agora)))
+        .orElse(null);
+  }
+
+  private static VisaoAbertura visaoDaAbertura(
+      Abertura abertura, Duration janela, Assento quem, Instant agora) {
+    return new VisaoAbertura(
+        abertura.ativa(),
+        tocouNaJanela(abertura, quem, janela, agora),
+        tocouNaJanela(abertura, quem.parceiro(), janela, agora),
+        abertura.acesa());
+  }
+
+  /** Toque há no máximo {@code janela} (inclusive), como na regra do acender junto. */
+  private static boolean tocouNaJanela(
+      Abertura abertura, Assento assento, Duration janela, Instant agora) {
+    Instant toque = abertura.toques().get(assento);
+    return toque != null && !toque.plus(janela).isBefore(agora);
   }
 
   private static @Nullable VisaoAjuste ajuste(Estado estado) {

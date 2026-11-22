@@ -113,7 +113,8 @@ class SalaApiTest {
             "confirmacao",
             "sinal",
             "resultado",
-            "ajuste");
+            "ajuste",
+            "abertura");
     assertThat(pecaPropria)
         .containsExactlyInAnyOrder("peca", "assento", "lugar", "lugaresPermitidos", "bloqueio");
     assertThat(pecaDoParceiro)
@@ -181,6 +182,7 @@ class SalaApiTest {
     "POST, /api/sala/pronto",
     "POST, /api/sala/ajustar",
     "POST, /api/sala/ajustar/recusar",
+    "POST, /api/sala/abertura",
     "POST, /api/sala/sair"
   })
   void mutacaoSemCookieContinua401(String metodo, String caminho) throws Exception {
@@ -548,6 +550,7 @@ class SalaApiTest {
         "/api/sala/pronto",
         "/api/sala/ajustar",
         "/api/sala/ajustar/recusar",
+        "/api/sala/abertura",
         "/api/sala/sair"
       })
   void mutacaoSemXDuoraEhRecusada(String caminho) throws Exception {
