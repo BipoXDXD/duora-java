@@ -26,6 +26,11 @@ export type EstadoDaTela =
 
 export type EstadoDaSessao = EstadoDaTela & {
   enviando: Acao | null;
+  /**
+   * Sem visão da sala, a cena fica vazia; depois de um erro fora da API, a tela da vez fica parada
+   * com a última visão, mas as peças saem da cena (o cena.limpar() do main.js antigo).
+   */
+  cenaVazia: boolean;
   confirmandoSaida: boolean;
   somLigado: boolean;
   momento: Momento;

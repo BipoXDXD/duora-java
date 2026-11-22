@@ -149,6 +149,7 @@ export function criarSessao({ api, aviso, convite, criarPolling = criarPollingPa
     const noite = estado.visao?.fase === "REVELADO";
     return {
       enviando: estado.enviando,
+      cenaVazia: estado.visao === null,
       confirmandoSaida: estado.confirmandoSaida,
       somLigado: estado.somLigado,
       momento: noite ? "noite" : "crepusculo",

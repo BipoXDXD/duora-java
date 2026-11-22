@@ -12,7 +12,7 @@ import { Topo } from "./componentes/Topo";
 import { carregarCena, type Geometria, type Momento } from "./dominio/dados";
 import { type Aviso, criarAviso } from "./sessao/aviso";
 import { criarSessao, type EstadoDaSessao, type Sessao } from "./sessao/sessao";
-import { useSessao, visaoDaTela } from "./useSessao";
+import { useSessao, visaoDaCena, visaoDaTela } from "./useSessao";
 
 interface AvisoAdiado extends Aviso {
   /** Liga o aviso ao #aviso; antes disso não há onde anunciar (e a sessão ainda não começou). */
@@ -152,7 +152,7 @@ export function App({ convite }: { convite: string | null }) {
       />
       <Cena
         ref={refCena}
-        visao={visao}
+        visao={visaoDaCena(estado)}
         selecionada={estado.tela === "montagem" ? estado.selecionada : null}
         enviando={estado.enviando !== null}
         momento={estado.momento}

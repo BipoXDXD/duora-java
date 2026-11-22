@@ -13,6 +13,11 @@ export function visaoDaTela(estado: EstadoDaSessao): Visao | null {
   return estado.tela === "convite" || estado.tela === "montagem" ? estado.visao : null;
 }
 
+/** A visão que a cena desenha: nenhuma quando a sessão terminou, mesmo com a tela parada. */
+export function visaoDaCena(estado: EstadoDaSessao): Visao | null {
+  return estado.cenaVazia ? null : visaoDaTela(estado);
+}
+
 function focarPorSeletor(seletor: string): boolean {
   const alvo = document.querySelector<HTMLElement>(seletor);
   alvo?.focus();

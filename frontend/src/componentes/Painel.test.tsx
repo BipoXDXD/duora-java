@@ -8,6 +8,7 @@ const ENCERRADO: EstadoDaSessao = {
   tela: "encerrado",
   texto: "Você saiu e o terraço foi encerrado.",
   enviando: null,
+  cenaVazia: true,
   confirmandoSaida: false,
   somLigado: false,
   momento: "crepusculo",
