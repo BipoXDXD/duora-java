@@ -4,7 +4,7 @@
 // JS novo não pode ler dados velhos. A versão é a impressão dos arquivos de static/ (menos este):
 // mudou um arquivo, o ServiceWorkerVersaoTest falha e mostra o valor novo; o activate apaga o
 // cache antigo.
-const CACHE_VERSION = "duora-v1";
+const CACHE_VERSION = "duora-436a539dd5e9";
 
 const SHELL = [
   "/",

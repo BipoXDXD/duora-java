@@ -1,0 +1,7 @@
+# Os arquivos de static/ entram na impressão do CACHE_VERSION (ServiceWorkerVersaoTest):
+# fim de linha LF fixo nos textos para a impressão ser a mesma em qualquer sistema.
+src/main/resources/static/** text eol=lf
+src/main/resources/static/**/*.webp binary
+src/main/resources/static/**/*.png binary
+src/main/resources/static/**/*.woff2 binary
+src/main/resources/static/**/*.mp3 binary
