@@ -13,10 +13,10 @@ import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
 
 /**
- * Cabeçalhos de segurança em toda resposta. A API nunca é guardada em cache; o service worker e o
- * manifest são revalidados a cada busca, para uma versão nova chegar no próximo carregamento. Os
- * arquivos de /app/ levam o hash do conteúdo no nome: um conteúdo novo é uma URL nova, então podem
- * ficar em cache para sempre.
+ * Cabeçalhos de segurança em toda resposta. A API nunca é guardada em cache; o index.html, o
+ * service worker e o manifest são revalidados a cada busca, para uma versão nova chegar no próximo
+ * carregamento. Os arquivos de /app/ levam o hash do conteúdo no nome: um conteúdo novo é uma URL
+ * nova, então podem ficar em cache para sempre.
  */
 @Component
 @Order(Ordered.HIGHEST_PRECEDENCE)
@@ -26,7 +26,8 @@ class CabecalhosDeSeguranca extends OncePerRequestFilter {
       "default-src 'self'; img-src 'self' data:; object-src 'none'; base-uri 'none'; "
           + "frame-ancestors 'none'; form-action 'self'";
 
-  private static final Set<String> SEMPRE_REVALIDADOS = Set.of("/sw.js", "/manifest.webmanifest");
+  private static final Set<String> SEMPRE_REVALIDADOS =
+      Set.of("/", "/index.html", "/sw.js", "/manifest.webmanifest");
 
   private static final String PASTA_COM_HASH = "/app/";
   private static final String IMUTAVEL = "public, max-age=31536000, immutable";
