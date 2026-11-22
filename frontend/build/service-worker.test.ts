@@ -158,3 +158,24 @@ it("um import que falta no manifest falha o build", async () => {
   );
   expect(existsSync(join(build.outDir, "sw.js"))).toBe(false);
 });
+
+// Com "./manifesto.json" o manifest não pode entrar na impressão nem sobrar na saída.
+it("um manifest com ./ no caminho é tratado como o mesmo arquivo", async () => {
+  const comPonto = montarBuild(MANIFEST, "manifesto.json");
+  const semPonto = montarBuild(MANIFEST, "manifesto.json");
+
+  await gerarServiceWorker({ ...comPonto, raizDoFront, assetsDoShell: [], manifest: "./manifesto.json" });
+  await gerarServiceWorker({ ...semPonto, raizDoFront, assetsDoShell: [], manifest: "manifesto.json" });
+
+  const versao = (build: { outDir: string }) => readFileSync(join(build.outDir, "sw.js"), "utf-8").split("\n")[0];
+  expect(versao(comPonto)).toBe(versao(semPonto));
+  expect(existsSync(join(comPonto.outDir, "manifesto.json"))).toBe(false);
+}, 60_000);
+
+it("um arquivo que existe na saída e na raiz estática falha o build", async () => {
+  const build = montarBuild();
+  escrever(build.raizEstatica, "index.html", "<!doctype html><p>antigo</p>");
+
+  await expect(gerarServiceWorker({ ...build, raizDoFront, assetsDoShell: [] })).rejects.toThrow("index.html");
+  expect(existsSync(join(build.outDir, "sw.js"))).toBe(false);
+});
