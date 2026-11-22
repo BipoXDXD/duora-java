@@ -6,9 +6,11 @@ import bipotheking.net.duora.game.Fase;
 import bipotheking.net.duora.game.Lugar;
 import bipotheking.net.duora.game.Peca;
 import bipotheking.net.duora.game.Regras;
+import bipotheking.net.duora.game.Resultado;
 import java.time.Instant;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Map;
 import org.jspecify.annotations.Nullable;
 
 /**
@@ -26,7 +28,7 @@ record Visao(
     Prontos prontos,
     Confirmacao confirmacao,
     @Nullable VisaoSinal sinal,
-    @Nullable VisaoResultado resultado) {
+    @Nullable Map<String, String> resultado) {
 
   private static final String BLOQUEIO_PORTAO = "ESPERE_PRIMEIRA_PECA";
 
@@ -53,8 +55,6 @@ record Visao(
   record Confirmacao(boolean podeConfirmar, int faltam) {}
 
   record VisaoSinal(String peca, Assento deAssento) {}
-
-  record VisaoResultado(String secundariaA, String secundariaB, String ladoTelescopio) {}
 
   @Override
   public String toString() {
@@ -83,11 +83,7 @@ record Visao(
             .sinalAtivoEm(agora)
             .map(s -> new VisaoSinal(s.peca().id(), s.deAssento()))
             .orElse(null),
-        Regras.resultado(estado)
-            .map(r ->
-                new VisaoResultado(
-                    r.secundariaA().id(), r.secundariaB().id(), r.ladoTelescopio().id()))
-            .orElse(null));
+        Regras.resultado(estado).map(Resultado::valores).orElse(null));
   }
 
   private static @Nullable String conviteVisivel(Retrato retrato, Assento quem) {

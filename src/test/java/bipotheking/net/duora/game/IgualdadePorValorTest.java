@@ -22,6 +22,11 @@ class IgualdadePorValorTest {
   }
 
   @Test
+  void lugaresDaZonaIgualMasNaoIdentica() {
+    assertThat(Lugar.da(new Zona("centro"))).containsExactly(Lugar.C1, Lugar.C2);
+  }
+
+  @Test
   void lugaresPermitidosExcluiOLugarAtualPorValor() {
     Estado estado =
         new Estado(

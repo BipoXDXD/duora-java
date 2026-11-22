@@ -7,8 +7,6 @@ import java.util.Optional;
 /** Onde cada peça está. Peça ausente do mapa está no inventário. Imutável. */
 public record Composicao(Map<Peca, Lugar> lugares) {
 
-  private static final int PECAS_POR_PESSOA_COMPLETA = 2;
-
   public Composicao {
     lugares = Map.copyOf(lugares);
   }
@@ -36,22 +34,14 @@ public record Composicao(Map<Peca, Lugar> lugares) {
     return (int) lugares.keySet().stream().filter(peca -> peca.dono() == dono).count();
   }
 
-  public Optional<Peca> secundariaDe(Assento dono) {
-    return Peca.secundariasDe(dono).stream().filter(this::colocada).findFirst();
-  }
-
-  /** Composição completa: cada pessoa com a obrigatória e uma secundária no terraço. */
+  /** Fachada provisória: completa no terraço ({@link Cenario#completa}). Sai na B4. */
   public boolean completa() {
-    return faltam() == 0;
+    return Terraco.CENARIO.completa(this);
   }
 
-  /** Quantas peças faltam para a composição ficar completa (0 a 4). */
+  /** Fachada provisória: quantas faltam no terraço ({@link Cenario#faltam}). Sai na B4. */
   public int faltam() {
-    int faltam = 0;
-    for (Assento assento : Assento.values()) {
-      faltam += PECAS_POR_PESSOA_COMPLETA - colocadas(assento);
-    }
-    return faltam;
+    return Terraco.CENARIO.faltam(this);
   }
 
   public Composicao com(Peca peca, Lugar lugar) {
