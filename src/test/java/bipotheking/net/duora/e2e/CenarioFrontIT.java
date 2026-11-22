@@ -10,6 +10,7 @@ import com.microsoft.playwright.APIResponse;
 import com.microsoft.playwright.Page;
 import com.microsoft.playwright.Route;
 import com.microsoft.playwright.options.AriaRole;
+import java.util.regex.Pattern;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -65,7 +66,8 @@ class CenarioFrontIT {
     ana.confirmar();
     bruno.botaoPronto().click();
 
-    assertThat(ana.page().locator("#resultado-texto")).hasText("Teste Ana");
+    // O texto abre com a legenda do cenário; as frases de relação das peças vêm depois dela.
+    assertThat(ana.page().locator("#resultado-texto")).hasText(Pattern.compile("^Teste Ana( |$)"));
   }
 
   /** Serve o cenario.json de verdade com outro modelo no texto da legenda. */
