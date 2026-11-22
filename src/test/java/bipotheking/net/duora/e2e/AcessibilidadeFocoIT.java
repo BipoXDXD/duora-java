@@ -269,6 +269,8 @@ class AcessibilidadeFocoIT {
     entrarEmPar(ana, bruno, raiz(porta));
     // O banco já está em C2: o único outro lugar do centro é C1, que Ana ocupa sem Bruno ver.
     bruno.colocar(BANCO, C2, BRUNO);
+    // Ana precisa ver o banco antes de agir; senão coloca com versão obsoleta e o servidor recusa.
+    assertThat(ana.pecaNoTerraco(BANCO, BRUNO, C2)).isVisible();
     reterConsultas(bruno);
     ana.colocar(TELESCOPIO, C1, ANA);
     bruno.itemDoInventario(BANCO).focus();
