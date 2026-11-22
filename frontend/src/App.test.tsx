@@ -19,6 +19,7 @@ const VISAO: Visao = {
   confirmacao: { podeConfirmar: false, faltam: 2 },
   sinal: null,
   resultado: null,
+  ajuste: null,
 };
 
 const obterSala = vi.fn<(etag: string | null) => Promise<Resposta>>();

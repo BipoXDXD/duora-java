@@ -60,6 +60,20 @@ class CenarioMinimoTest {
   }
 
   @Test
+  void ajusteCombinadoNoCenarioMinimo() {
+    Estado estado = colocar(colocar(montando, PEDRA, P1), FOLHA, P2);
+    estado = aceito(Regras.confirmar(CENARIO, estado, A, true, estado.versao()));
+    estado = aceito(Regras.confirmar(CENARIO, estado, B, true, estado.versao()));
+    Estado pedido = aceito(Regras.pedirAjuste(CENARIO, estado, B));
+
+    Estado ajustado = aceito(Regras.pedirAjuste(CENARIO, pedido, A));
+
+    assertThat(pedido.fase()).isEqualTo(new Fase.Revelado(Optional.of(B)));
+    assertThat(ajustado.fase()).isInstanceOf(Fase.Montando.class);
+    assertThat(ajustado.versao()).isEqualTo(estado.versao() + 1);
+  }
+
+  @Test
   void idDeOutroCenarioNaoEPecaDesteCenario() {
     assertThat(CENARIO.peca("manta")).isEmpty();
     assertThat(CENARIO.lugar("C1")).isEmpty();

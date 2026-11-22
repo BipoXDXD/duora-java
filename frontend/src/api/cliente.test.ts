@@ -86,7 +86,7 @@ describe("api", () => {
   it("500 sem corpo vira SERVIDOR, transitório", async () => {
     responder(500);
 
-    const erro = await erroDe(api.ajustar());
+    const erro = await erroDe(api.pedirAjuste());
 
     expect(erro).toMatchObject({ status: 500, codigo: "SERVIDOR" });
     expect(erro.transitorio).toBe(true);
@@ -112,6 +112,20 @@ describe("api", () => {
     const [url, init] = fetchFalso.mock.calls[0] ?? [];
     expect(url).toBe("/api/sala/sinal");
     expect(init?.body).toBe('{"peca":"manta","lugar":"L2"}');
+  });
+
+  it("pedirERecusarAjusteUsamAsRotasNovas", async () => {
+    const fetchFalso = responder(200, VISAO);
+
+    await api.pedirAjuste();
+    await api.recusarAjuste();
+
+    const [urlPedido, initPedido] = fetchFalso.mock.calls[0] ?? [];
+    const [urlRecusa, initRecusa] = fetchFalso.mock.calls[1] ?? [];
+    expect(urlPedido).toBe("/api/sala/ajustar");
+    expect(initPedido?.method).toBe("POST");
+    expect(urlRecusa).toBe("/api/sala/ajustar/recusar");
+    expect(initRecusa?.method).toBe("POST");
   });
 
   it("envia o corpo em JSON no caminho do contrato", async () => {

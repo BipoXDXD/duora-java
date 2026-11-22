@@ -37,6 +37,7 @@ export interface Sessao {
   escolherLugar: (lugar: string, bloqueio: string | null) => Promise<void>;
   retirar: () => Promise<void>;
   confirmar: () => Promise<void>;
+  /** Pede o ajuste (ou aceita o do outro): até a F5, é o que o "Ajustar de novo" faz. */
   ajustar: () => Promise<void>;
   enviarApelido: (apelido: string) => Promise<void>;
   /** O campo voltou a ter um apelido válido: o erro do servidor some (a validação fica na tela). */
@@ -535,8 +536,8 @@ export function criarSessao({
     ajustar: () =>
       enviar(
         "ajustar",
-        () => api.ajustar(),
-        () => "De volta à montagem. As confirmações foram zeradas.",
+        () => api.pedirAjuste(),
+        (visao) => (visao.fase === "MONTANDO" ? "De volta à montagem. As confirmações foram zeradas." : null),
       ),
     enviarApelido: entrarOuCriar,
     limparErroApelido() {

@@ -45,7 +45,10 @@ export interface Api {
   moverPeca: (peca: string, lugar: string | null, versaoEsperada: number) => Promise<Resposta>;
   sinalizar: (peca: string, lugar: string) => Promise<Resposta>;
   marcarPronto: (versao: number, pronto: boolean) => Promise<Resposta>;
-  ajustar: () => Promise<Resposta>;
+  /** Pede para voltar à montagem; com o pedido do outro pendente, é o aceite. */
+  pedirAjuste: () => Promise<Resposta>;
+  /** Recusa o pedido do outro ou cancela o próprio. */
+  recusarAjuste: () => Promise<Resposta>;
   sair: () => Promise<Resposta>;
 }
 
@@ -135,6 +138,7 @@ export const api: Api = {
     requisitar("POST", "/sala/pecas", { corpo: { peca, lugar, versaoEsperada } }),
   sinalizar: (peca, lugar) => requisitar("POST", "/sala/sinal", { corpo: { peca, lugar } }),
   marcarPronto: (versao, pronto) => requisitar("POST", "/sala/pronto", { corpo: { versao, pronto } }),
-  ajustar: () => requisitar("POST", "/sala/ajustar"),
+  pedirAjuste: () => requisitar("POST", "/sala/ajustar"),
+  recusarAjuste: () => requisitar("POST", "/sala/ajustar/recusar"),
   sair: () => requisitar("POST", "/sala/sair"),
 };

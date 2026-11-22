@@ -14,7 +14,8 @@ function apiFalsa(obterSala: Api["obterSala"]): Api {
     moverPeca: naoUsado,
     sinalizar: naoUsado,
     marcarPronto: naoUsado,
-    ajustar: naoUsado,
+    pedirAjuste: naoUsado,
+    recusarAjuste: naoUsado,
     sair: naoUsado,
   };
 }

@@ -121,6 +121,25 @@ class ConcorrenciaTest {
     }
   }
 
+  @Test
+  void pedidosDeAjusteSimultaneosTerminamEmMontagem() throws Exception {
+    Salas salas = salas(SEM_LIMITE_DE_SALAS);
+    for (int i = 0; i < REPETICOES; i++) {
+      Mesa mesa = mesaRevelada(salas);
+
+      List<Desfecho> desfechos =
+          simultaneamente(
+              () -> mesa.a().pedirAjuste(Assento.A), () -> mesa.b().pedirAjuste(Assento.B));
+
+      assertThat(desfechos).allMatch(Desfecho::aceito);
+      assertThat(desfechos).filteredOn(d -> "MONTANDO".equals(d.visao().fase())).hasSize(1);
+      Visao finalA = mesa.a().consultar(Assento.A);
+      assertThat(finalA.fase()).isEqualTo("MONTANDO");
+      assertThat(finalA.versao()).isEqualTo(5);
+      assertThat(finalA.ajuste()).isNull();
+    }
+  }
+
   /** Em qualquer ordem, o destino acaba ocupado e nenhum sinal fica apontando para ele. */
   @Test
   void sinalEColocacaoNoDestinoSimultaneos() throws Exception {
@@ -195,6 +214,14 @@ class ConcorrenciaTest {
     mesa.b().colocar(Assento.B, Terraco.BANCO, Optional.of(Terraco.C2), 1);
     mesa.a().colocar(Assento.A, Terraco.MANTA, Optional.of(Terraco.L1), 2);
     mesa.b().colocar(Assento.B, Terraco.LANTERNA, Optional.of(Terraco.R1), 3);
+    return mesa;
+  }
+
+  /** {@link #mesaCompleta} com as duas confirmações: revelada na versão 4. */
+  private static Mesa mesaRevelada(Salas salas) {
+    Mesa mesa = mesaCompleta(salas);
+    mesa.a().confirmar(Assento.A, true, 4);
+    mesa.b().confirmar(Assento.B, true, 4);
     return mesa;
   }
 

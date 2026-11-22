@@ -25,6 +25,7 @@ function visao(mudancas: Partial<Visao> = {}): Visao {
     confirmacao: { podeConfirmar: false, faltam: 4 },
     sinal: null,
     resultado: null,
+    ajuste: null,
     ...mudancas,
   };
 }
@@ -54,7 +55,8 @@ function montar({ api = {}, convite = null }: { api?: Partial<Api>; convite?: st
     moverPeca: vi.fn(pendente),
     sinalizar: vi.fn(pendente),
     marcarPronto: vi.fn(pendente),
-    ajustar: vi.fn(pendente),
+    pedirAjuste: vi.fn(pendente),
+    recusarAjuste: vi.fn(pendente),
     sair: vi.fn(pendente),
     ...api,
   };

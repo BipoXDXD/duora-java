@@ -390,20 +390,83 @@ class RegrasTest {
   }
 
   @Test
-  void ajustarVoltaAMontagemZeraConfirmacoesEIncrementaVersao() {
+  void pedirAjusteGravaOPedidoSemMudarAFase() {
     Estado revelado = revelado();
 
-    Estado ajustado = aceito(Regras.ajustar(CENARIO, revelado));
+    Estado pedido = aceito(Regras.pedirAjuste(CENARIO, revelado, A));
 
-    assertThat(ajustado.fase()).isInstanceOf(Fase.Montando.class);
-    assertThat(ajustado.prontos()).isEmpty();
-    assertThat(ajustado.versao()).isEqualTo(revelado.versao() + 1);
-    assertThat(ajustado.composicao()).isEqualTo(revelado.composicao());
+    assertThat(pedido.fase()).isEqualTo(new Fase.Revelado(Optional.of(A)));
+    assertThat(pedido.versao()).isEqualTo(revelado.versao());
+    assertThat(pedido.prontos()).containsExactlyInAnyOrder(A, B);
   }
 
   @Test
-  void ajustarForaDaRevelacaoEhRecusado() {
-    assertThat(Regras.ajustar(CENARIO, completa())).isEqualTo(recusa(Recusa.FASE_INVALIDA));
+  void pedirDeNovoNaoMudaNada() {
+    Estado pedido = aceito(Regras.pedirAjuste(CENARIO, revelado(), A));
+
+    assertThat(Regras.pedirAjuste(CENARIO, pedido, A)).isEqualTo(new Decisao.Aceita(pedido));
+  }
+
+  @Test
+  void aceiteDoOutroVoltaAMontagemComVersaoNova() {
+    Estado pedido = aceito(Regras.pedirAjuste(CENARIO, revelado(), A));
+
+    Estado ajustado = aceito(Regras.pedirAjuste(CENARIO, pedido, B));
+
+    assertThat(ajustado.fase()).isInstanceOf(Fase.Montando.class);
+    assertThat(ajustado.versao()).isEqualTo(pedido.versao() + 1);
+    assertThat(ajustado.prontos()).isEmpty();
+    assertThat(ajustado.composicao()).isEqualTo(pedido.composicao());
+  }
+
+  @Test
+  void aceiteDoAjusteLimpaOSinal() {
+    Estado sinalizado = aceito(Regras.sinalizar(CENARIO, completa(), A, LANTERNA, R2, AGORA));
+    Estado revelado = confirmar(confirmar(sinalizado, A), B);
+    Estado pedido = aceito(Regras.pedirAjuste(CENARIO, revelado, B));
+
+    Estado ajustado = aceito(Regras.pedirAjuste(CENARIO, pedido, A));
+
+    assertThat(revelado.sinal()).isPresent();
+    assertThat(ajustado.sinal()).isEmpty();
+  }
+
+  @Test
+  void recusarLimpaOPedido() {
+    Estado pedido = aceito(Regras.pedirAjuste(CENARIO, revelado(), A));
+
+    Estado recusado = aceito(Regras.recusarAjuste(CENARIO, pedido, B));
+
+    assertThat(recusado.fase()).isEqualTo(new Fase.Revelado(Optional.empty()));
+    assertThat(recusado.versao()).isEqualTo(pedido.versao());
+    assertThat(recusado.prontos()).containsExactlyInAnyOrder(A, B);
+  }
+
+  @Test
+  void cancelarOProprioPedidoLimpa() {
+    Estado pedido = aceito(Regras.pedirAjuste(CENARIO, revelado(), A));
+
+    Estado cancelado = aceito(Regras.recusarAjuste(CENARIO, pedido, A));
+
+    assertThat(cancelado.fase()).isEqualTo(new Fase.Revelado(Optional.empty()));
+  }
+
+  @Test
+  void recusarSemPedidoNaoMudaNada() {
+    Estado revelado = revelado();
+
+    assertThat(Regras.recusarAjuste(CENARIO, revelado, B)).isEqualTo(new Decisao.Aceita(revelado));
+  }
+
+  @Test
+  void pedirAjusteForaDaRevelacaoERecusado() {
+    assertThat(Regras.pedirAjuste(CENARIO, completa(), A)).isEqualTo(recusa(Recusa.FASE_INVALIDA));
+  }
+
+  @Test
+  void recusarAjusteForaDaRevelacaoERecusado() {
+    assertThat(Regras.recusarAjuste(CENARIO, completa(), A))
+        .isEqualTo(recusa(Recusa.FASE_INVALIDA));
   }
 
   @Test

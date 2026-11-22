@@ -23,6 +23,7 @@ function visao(mudancas: Partial<Visao> = {}): Visao {
     confirmacao: { podeConfirmar: false, faltam: 4 },
     sinal: null,
     resultado: null,
+    ajuste: null,
     ...mudancas,
   };
 }

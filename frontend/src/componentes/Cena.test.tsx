@@ -20,6 +20,7 @@ function visaoDeAna(pecas: VisaoPeca[], versao = 1): Visao {
     confirmacao: { podeConfirmar: false, faltam: 2 },
     sinal: null,
     resultado: null,
+    ajuste: null,
   };
 }
 

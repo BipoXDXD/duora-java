@@ -145,8 +145,12 @@ final class Sala {
     return agir(quem, (estado, agora) -> Regras.confirmar(cenario, estado, quem, pronto, versao));
   }
 
-  Visao ajustar(Assento quem) {
-    return agir(quem, (estado, agora) -> Regras.ajustar(cenario, estado));
+  Visao pedirAjuste(Assento quem) {
+    return agir(quem, (estado, agora) -> Regras.pedirAjuste(cenario, estado, quem));
+  }
+
+  Visao recusarAjuste(Assento quem) {
+    return agir(quem, (estado, agora) -> Regras.recusarAjuste(cenario, estado, quem));
   }
 
   /** Encerra a sala para as duas pessoas. Sair de sala já encerrada não muda nada. */

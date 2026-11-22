@@ -20,6 +20,7 @@ function visao(
     confirmacao: { podeConfirmar: false, faltam: 2 },
     sinal: null,
     resultado: null,
+    ajuste: null,
   };
 }
 

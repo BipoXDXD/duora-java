@@ -16,7 +16,7 @@ import org.jspecify.annotations.Nullable;
 /**
  * A sala do ponto de vista de quem pede (JSON do contrato), com o id do cenário à frente. Campos
  * anuláveis seguem o contrato: {@code parceiro} antes de alguém entrar, {@code convite} fora de A
- * em espera, {@code sinal} e {@code resultado} quando não há.
+ * em espera, {@code sinal}, {@code resultado} e {@code ajuste} quando não há.
  */
 record Visao(
     String cenario,
@@ -29,7 +29,8 @@ record Visao(
     Prontos prontos,
     Confirmacao confirmacao,
     @Nullable VisaoSinal sinal,
-    @Nullable Map<String, String> resultado) {
+    @Nullable Map<String, String> resultado,
+    @Nullable VisaoAjuste ajuste) {
 
   private static final String BLOQUEIO_PORTAO = "ESPERE_PRIMEIRA_PECA";
 
@@ -57,6 +58,9 @@ record Visao(
   record Confirmacao(boolean podeConfirmar, int faltam) {}
 
   record VisaoSinal(String peca, Assento deAssento, String lugar) {}
+
+  /** Pedido de ajuste pendente na revelação. */
+  record VisaoAjuste(Assento deAssento) {}
 
   @Override
   public String toString() {
@@ -87,7 +91,15 @@ record Visao(
             .sinalAtivoEm(agora)
             .map(s -> new VisaoSinal(s.peca().id(), s.deAssento(), s.destino().id()))
             .orElse(null),
-        Regras.resultado(cenario, estado).map(Resultado::valores).orElse(null));
+        Regras.resultado(cenario, estado).map(Resultado::valores).orElse(null),
+        ajuste(estado));
+  }
+
+  private static @Nullable VisaoAjuste ajuste(Estado estado) {
+    if (!(estado.fase() instanceof Fase.Revelado revelado)) {
+      return null;
+    }
+    return revelado.pedidoDeAjuste().map(VisaoAjuste::new).orElse(null);
   }
 
   private static @Nullable String conviteVisivel(Retrato retrato, Assento quem) {
