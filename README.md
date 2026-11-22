@@ -1,6 +1,6 @@
 # Duora: Antes da primeira estrela
 
-[![CI](https://github.com/BipoXDXD/duora/actions/workflows/ci.yml/badge.svg)](https://github.com/BipoXDXD/duora/actions/workflows/ci.yml)
+[![CI](https://github.com/BipoXDXD/duora-java/actions/workflows/ci.yml/badge.svg)](https://github.com/BipoXDXD/duora-java/actions/workflows/ci.yml)
 
 Demonstração local para duas pessoas. Uma cria um terraço e envia o convite; a outra entra por
 ele. Juntas, cada uma com as próprias peças (telescópio, manta e rádio de um lado; banco,
