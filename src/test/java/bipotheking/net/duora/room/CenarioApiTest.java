@@ -43,7 +43,8 @@ import org.springframework.test.web.servlet.ResultActions;
  * Sala com cenário: o pedido escolhe o cenário e os ids seguem o cenário da sala. A sala {@code
  * minimo-abertura} cobre a abertura (janela de 5 s, máximo de 90 s).
  */
-@SpringBootTest
+// O terraço conclui a abertura já na entrada, como na suíte e2e.
+@SpringBootTest(properties = "duora.cenarios.abertura.maximo=PT0S")
 @AutoConfigureMockMvc
 class CenarioApiTest {
 

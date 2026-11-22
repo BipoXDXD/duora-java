@@ -284,6 +284,8 @@
                             </excludes>
                             <systemPropertyVariables>
                                 <navegador>${navegador}</navegador>
+                                <!-- A abertura conclui apagada já na entrada; só o AberturaIT a liga -->
+                                <duora.cenarios.abertura.maximo>PT0S</duora.cenarios.abertura.maximo>
                             </systemPropertyVariables>
                         </configuration>
                         <executions>

@@ -4,6 +4,7 @@ import java.time.Duration;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
 /** O terraço das estrelas cadentes, o primeiro cenário. */
 public final class Terraco {
@@ -36,7 +37,10 @@ public final class Terraco {
           1,
           Duration.ofSeconds(20),
           2,
-          Terraco::desfecho);
+          Terraco::desfecho,
+          Optional.of(
+              new DefinicaoDeAbertura(
+                  "acender-junto", Duration.ofSeconds(5), Duration.ofSeconds(90))));
 
   private Terraco() {}
 

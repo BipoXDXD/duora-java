@@ -46,8 +46,18 @@ class TerracoTest {
   }
 
   @Test
+  void aberturaAcenderJuntoComJanelaDe5sEMaximoDe90s() {
+    assertThat(CENARIO.abertura())
+        .contains(
+            new DefinicaoDeAbertura(
+                "acender-junto", Duration.ofSeconds(5), Duration.ofSeconds(90)));
+  }
+
+  @Test
   void resultadoMantemAOrdemDasChaves() {
     Estado estado = aceito(Regras.parceiroEntrou(CENARIO, Estado.inicial(), Instant.EPOCH));
+    estado = aceito(Regras.tocarAbertura(CENARIO, estado, A, Instant.EPOCH));
+    estado = aceito(Regras.tocarAbertura(CENARIO, estado, B, Instant.EPOCH));
     estado = colocar(colocar(estado, TELESCOPIO, C1), BANCO, C2);
     estado = colocar(colocar(estado, MANTA, L1), LANTERNA, R1);
     estado = aceito(Regras.confirmar(CENARIO, estado, A, true, estado.versao()));
