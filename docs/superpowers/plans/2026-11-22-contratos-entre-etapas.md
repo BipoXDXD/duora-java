@@ -11,6 +11,8 @@ Spec: `docs/superpowers/specs/2026-11-21-duora-social-design.md`. Ordem: 0 → 1
   - `nucleo/` (Java puro): `ErroDeNegocio`, `CodigoDeErro` e `TipoDeErro`, que não conhecem HTTP. Só o `web/TratamentoDeErros` traduz para status.
   - Dentro de cada módulo, a raiz é a API pública e os casos de uso; `dominio/` fica sem Spring web, JDBC nem Jackson; `web/` e `infra/` guardam os adapters.
   - A `Outbox` (`registrar`, `ProcessadorDeOutbox`) fica em `notificacao/`. Cada `PoliticaDeRetencao` expõe `tamanho()` para a métrica.
+  - `ParDeContas` (par ordenado `menor`/`maior`) é tipo compartilhado em `nucleo/`.
+  - A tabela de denúncia e bloqueio nasce na Etapa 5 (`moderacao/`), e a Etapa 8 só acrescenta sobre ela. A suspensão de conta é `conta.SuspensaoDeContas.suspender(ContaId, String motivo)`.
   - de infraestrutura: `web/` (filtros, cabeçalhos, MIME, erros, ids, `Clock`, limite de taxa, pipeline de imagens).
 - Faixas do Flyway por etapa (sem out-of-order): 2 → V1–V19, 3 → V20–V39, 9 → V40–V49, 4 → V50–V69, 7 → V70–V79, 5 → V80–V99, 6 → V100–V119, 8 → V120–V139.
 - O acesso é negado por padrão: o interceptor `ExigeSessao` cobre `/api/**`, com uma allowlist em `RotasPublicas` (o terraço anônimo `/api/sala(s)/**` fica nela até a Etapa 5).
@@ -31,7 +33,7 @@ Spec: `docs/superpowers/specs/2026-11-21-duora-social-design.md`. Ordem: 0 → 1
 - **Limite de taxa:** Bucket4j core em memória (uma instância só), chave por IP e por conta ou e-mail, configurada em `application.properties`.
 - **Tempo real:**
   - Um único stream SSE por sessão em `GET /api/eventos`. Os eventos têm nome com prefixo do domínio: `fila.*`, `encontro.*`, `chat.*`, `voz.*`, `conexao.*`, `moderacao.*`.
-  - Comandos vão por `POST` no domínio dono. Reconexão com `Last-Event-ID`. O polling com ETag fica como plano B só no encontro.
+  - Comandos vão por `POST` no domínio dono. Reconexão com `Last-Event-ID`, que é o `seq` da tabela `evento_conta` (eventos gravados, com a ordem por conta garantida por lock por conta na gravação). Os eventos efêmeros, como a sinalização da voz, saem por `publicarEfemero` sem gravar. O polling com ETag fica como plano B só no encontro.
 - **E-mail:**
   - A interface `EnvioDeEmail` tem duas implementações: `EmailResend`, pela API HTTP do Resend via `RestClient`, e `EmailNoLog`, para desenvolvimento e testes, que escreve o link no log.
   - A chave fica em variável de ambiente e nunca entra no Git.
