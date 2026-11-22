@@ -50,6 +50,8 @@ export interface CenaImperativa {
   limpar(): void;
   /** Foca o primeiro lugar livre; diz se havia algum. */
   focarPrimeiroLugar(): boolean;
+  /** Foca o botão da peça na cena (não os efeitos dela, que também têm data-peca); diz se ela está lá. */
+  focarPeca(peca: string): boolean;
 }
 
 type PecaColocada = VisaoPeca & { lugar: string };
@@ -335,6 +337,11 @@ export function criarCena({
       const lugar = camadaLugares.querySelector<HTMLElement>(".lugar:not([aria-disabled])");
       lugar?.focus();
       return Boolean(lugar);
+    },
+    focarPeca(peca) {
+      const botao = camadaPecas.querySelector<HTMLElement>(`button[data-peca="${peca}"]`);
+      botao?.focus();
+      return Boolean(botao);
     },
   };
 }

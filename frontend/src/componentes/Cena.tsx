@@ -12,6 +12,8 @@ import type { Visao } from "../dominio/visao";
 export interface CenaRef {
   /** Foca o primeiro lugar livre; diz se havia algum. */
   focarPrimeiroLugar(): boolean;
+  /** Foca o botão da peça na cena; diz se ela está lá. */
+  focarPeca(peca: string): boolean;
 }
 
 export interface PropsCena {
@@ -91,6 +93,7 @@ export function Cena({
     ref,
     () => ({
       focarPrimeiroLugar: () => cena.current?.focarPrimeiroLugar() ?? false,
+      focarPeca: (peca) => cena.current?.focarPeca(peca) ?? false,
     }),
     [],
   );
