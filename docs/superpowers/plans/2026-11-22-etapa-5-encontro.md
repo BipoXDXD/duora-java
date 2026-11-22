@@ -356,7 +356,7 @@
 **Arquivos:**
 - Modificar: `pom.xml` (`com.microsoft.onnxruntime:onnxruntime`, versão estável atual conferida no Maven Central/Context7, só CPU)
 - Criar: `src/main/java/bipotheking/net/duora/web/imagens/{ClassificadorDeImagem,Classificacao,TriagemDeImagem,Triagem,LimiaresDeTriagem,ClassificadorOnnx,ClassificadorIndisponivel}.java`, `encontro/TriagemDasImagensDoEncontro.java`, `docs/adr/<próximo número livre>-triagem-de-imagens-com-onnx.md`, `docs/modelos/nsfw.md` (origem, licença Apache-2.0, comando de export, SHA-256)
-- Modificar: `web/ProcessadorDeImagens.java` (variante temporária `MINIATURA_TRIAGEM`: 224 × 224 sRGB PNG sem metadados, `vips thumbnail ... 224 --height 224 --size force`, nunca guardada), `encontro/ImagensDoEncontro.java`, `moderacao/Denuncias.java` (`registrarAutomatica`), `frontend/src/encontro/ImagemBorrada.tsx`, `application.properties` (`duora.moderacao.nsfw.*`)
+- Modificar: `web/ProcessadorDeImagens.java` (variante temporária `MINIATURA_TRIAGEM`: 224 × 224 sRGB PNG sem metadados, `vips thumbnail ... 224 --height 224 --size force`, nunca guardada), `encontro/ImagensDoEncontro.java`, `moderacao/Denuncias.java` (`registrarDaTriagem`), `moderacao/OrigemDaDenuncia.java` (novo: `enum OrigemDaDenuncia { PESSOA, TRIAGEM }`, lido pela Etapa 8), `frontend/src/encontro/ImagemBorrada.tsx`, `application.properties` (`duora.moderacao.nsfw.*`)
 - Teste: `web/imagens/{TriagemDeImagemTest,ClassificadorOnnxTest}.java`, `encontro/TriagemDasImagensDoEncontroApiTest.java`, `frontend/src/encontro/ImagemBorrada.test.tsx` (casos novos); fixtures seguras em `src/test/resources/imagens/seguras/` (renders do projeto e rostos gerados por IA pela skill `duora-assets`)
 
 **Interfaces:**
@@ -368,7 +368,7 @@
   - Export (uma vez, documentado em `docs/modelos/nsfw.md`): `optimum-cli export onnx --model Falconsai/nsfw_image_detection` e quantização dinâmica int8 (`onnxruntime.quantization.quantize_dynamic`); o arquivo vai para o volume `duora.imagens.dir/../modelos/` na VPS (Etapa 10) e para o cache da CI só no job que roda o `ClassificadorOnnxTest`.
   - `TriagemDasImagensDoEncontro` (no envio da Task 6, depois de `processar` e antes de gravar):
     - `BLOQUEADA` → 422 `IMAGEM_RECUSADA` (`Esta imagem parece violar as regras e não foi enviada.`), nada gravado, contador `duora.moderacao.triagem{resultado=bloqueada}`;
-    - `ZONA_CINZENTA` → grava, entrega com `ImagemVisao.sensivelProvavel = true` e chama `Denuncias.registrarAutomatica(denunciado = autor, IMAGEM_SENSIVEL, contexto IMAGEM_ENCONTRO)` (origem `TRIAGEM`, sem denunciante; a Etapa 8 a põe como P1);
+    - `ZONA_CINZENTA` → grava, entrega com `ImagemVisao.sensivelProvavel = true` e chama `Denuncias.registrarDaTriagem(ContaId denunciado, MotivoDenuncia motivo, ContextoDenuncia contexto)` com o autor, `IMAGEM_SENSIVEL` e o contexto `IMAGEM_ENCONTRO` (origem `TRIAGEM`, sem denunciante; a Etapa 8 a põe como P1);
     - `LIBERADA` → segue a Task 6.
   - `ImagemVisao` ganha `boolean sensivelProvavel`; `ImagemBorrada` com ele mostra `Esta imagem pode ter conteúdo sensível. Ver mesmo assim?` antes de `Ver imagem`.
 - [ ] **Passo 1:** testes.

@@ -707,7 +707,7 @@ Antes do Passo 1: `mattpocock-skills:domain-modeling` e `mattpocock-skills:codeb
   - `LeituraDeDocumentoAwsTest`: `dataNormalizadaViraLocalDate` (`"1990-05-10T00:00:00"` → 1990-05-10); `semDataDeNascimentoViraVazio`.
   - `VerificacaoAwsSmokeIT` (manual, com as chaves do Keychain exportadas só nessa sessão): cria uma sessão real em `us-east-1`, recebe credencial temporária válida (`GetCallerIdentity` com ela devolve o ARN do papel de captura), lê o resultado da sessão nunca iniciada (situação `CREATED`) e roda `DetectFaces` sobre `src/test/resources/imagens/rosto-adulto-sintetico.jpg` (rosto gerado por IA pela skill `duora-assets`, nenhuma pessoa real) → faixa com `baixa ≥ 18`. Custo por execução: uma sessão + um `DetectFaces` (< US$ 0,02).
 - [ ] **Passo 2:** rodar; falha.
-- [ ] **Passo 3:** implementar; ADR.
+- [ ] **Passo 3:** implementar; ADR. Criar a chave de acesso do usuário `duora-java-verificacao` pelo MCP da AWS (`iam:CreateAccessKey`, uma só ativa) e guardá-la no Keychain (`security add-generic-password -s duora-java-verificacao -a <access key id> -w`, lendo o segredo da saída do MCP sem ecoar no terminal); nunca no Git nem em arquivo do projeto. A Etapa 10 a leva para o `.env` da VPS.
 - [ ] **Passo 4:** testes verdes; o smoke rodado uma vez pelo agente com as chaves do Keychain, saída anexada ao relatório da task (sem chaves). Commit `feat(conta): prova de vida e estimativa de idade pela AWS em us-east-1`.
 
 ### Task 14: Página da verificação (`/verificacao`) com CSP própria
