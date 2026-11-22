@@ -21,7 +21,7 @@
 // DUORA_CDP_PORTA (porta local do DevTools, padrão 9333).
 
 import { execFileSync } from 'node:child_process';
-import { mkdirSync, writeFileSync } from 'node:fs';
+import { mkdirSync, realpathSync, writeFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { parseArgs } from 'node:util';
@@ -337,10 +337,17 @@ function lerRotacao(adb) {
   };
 }
 
-function aplicarRotacao(adb, { automatica, usuario }) {
+/** Comandos que devolvem a rotação lida por lerRotacao. */
+export function comandosParaRestaurar({ automatica, usuario }) {
   // "null" é o valor de settings get para chave nunca gravada; aí vale o padrão do sistema.
-  if (usuario !== 'null') adb.shell(`settings put system user_rotation ${usuario}`);
-  if (automatica !== 'null') adb.shell(`settings put system accelerometer_rotation ${automatica}`);
+  const comandos = [];
+  if (usuario !== 'null') comandos.push(`settings put system user_rotation ${usuario}`);
+  if (automatica !== 'null') comandos.push(`settings put system accelerometer_rotation ${automatica}`);
+  return comandos;
+}
+
+function aplicarRotacao(adb, rotacao) {
+  for (const comando of comandosParaRestaurar(rotacao)) adb.shell(comando);
 }
 
 /** Trava a tela deitada (rotação 1 = 90°), captura e devolve a rotação de antes. */
@@ -358,6 +365,44 @@ async function capturarDeitado(adb, arquivo) {
 
 // ---- Fluxo -----------------------------------------------------------------
 
+/** Ordem em que o main() roda os passos de EXECUTORES. */
+export const PASSOS = Object.freeze([
+  'instalabilidade', 'verificarTerraco', 'capturarDeitado', 'instalar', 'capturarHome',
+]);
+
+const EXECUTORES = {
+  async instalabilidade({ adb, args, cdp, resultado }) {
+    resultado.instalabilidade = await verificarInstalabilidade(cdp);
+    const inst = resultado.instalabilidade;
+    log(`Chrome ${resultado.chrome ?? '?'}; service worker: ${inst.serviceWorker}; manifest: ${inst.manifestUrl || '(nenhum)'}`);
+    log(`instalabilidade (CDP + manifest + SW): ${inst.erros.length ? inst.erros.join('; ') : '[] (instalável)'}`);
+    resultado.screenshotPagina = capturarTela(adb, join(SAIDA, `${args.nome}.png`));
+    if (inst.erros.length || inst.manifestErros.length) {
+      throw new Falha(`PWA não instalável: ${[...inst.erros, ...inst.manifestErros].join('; ')}`);
+    }
+  },
+  async verificarTerraco({ cdp, resultado }) {
+    resultado.terraco = await verificarTerraco(cdp);
+  },
+  async capturarDeitado({ adb, args, resultado }) {
+    resultado.screenshotDeitado = await capturarDeitado(adb, join(SAIDA, `${args.nome}-deitado.png`));
+  },
+  async instalar({ adb, args, base, resultado }) {
+    if (args['sem-instalar']) return;
+    resultado.instalacao = await instalar(adb, `${base}/`);
+    log(`instalado como ${resultado.instalacao.tipo}: ${resultado.instalacao.evidencia}`);
+  },
+  async capturarHome({ adb, args, resultado }) {
+    if (args['sem-instalar']) return;
+    adb.shell('input keyevent KEYCODE_HOME');
+    await esperar(1500);
+    resultado.screenshotHome = capturarTela(adb, join(SAIDA, `${args.nome}-home.png`));
+    if (args['exigir-webapk'] && resultado.instalacao.tipo !== 'webapk') {
+      throw new Falha('--exigir-webapk: o Chrome instalou atalho, não WebAPK');
+    }
+  },
+};
+
 async function main() {
   const args = lerArgumentos();
   const adb = criarAdb(resolverAdb());
@@ -365,7 +410,7 @@ async function main() {
   const url = `${base}${args.caminho.startsWith('/') ? '' : '/'}${args.caminho}`;
   mkdirSync(SAIDA, { recursive: true });
   const resultado = { url, serial: SERIAL };
-  let cdp;
+  const contexto = { args, adb, base, url, resultado, cdp: undefined };
 
   exigirEmuladorPronto(adb);
   try {
@@ -376,31 +421,9 @@ async function main() {
     adb.shell(`am start -a android.intent.action.VIEW -d '${url}' ${CHROME}`);
     await fecharPromosDoChrome(adb);
 
-    cdp = await conectarCdp(adb, base);
-    const versao = (await cdp.enviar('Browser.getVersion').catch(() => ({}))).product;
-    resultado.chrome = versao;
-    resultado.instalabilidade = await verificarInstalabilidade(cdp);
-    const inst = resultado.instalabilidade;
-    log(`Chrome ${versao ?? '?'}; service worker: ${inst.serviceWorker}; manifest: ${inst.manifestUrl || '(nenhum)'}`);
-    log(`instalabilidade (CDP + manifest + SW): ${inst.erros.length ? inst.erros.join('; ') : '[] (instalável)'}`);
-    resultado.screenshotPagina = capturarTela(adb, join(SAIDA, `${args.nome}.png`));
-    if (inst.erros.length || inst.manifestErros.length) {
-      throw new Falha(`PWA não instalável: ${[...inst.erros, ...inst.manifestErros].join('; ')}`);
-    }
-
-    resultado.terraco = await verificarTerraco(cdp);
-    resultado.screenshotDeitado = await capturarDeitado(adb, join(SAIDA, `${args.nome}-deitado.png`));
-
-    if (!args['sem-instalar']) {
-      resultado.instalacao = await instalar(adb, `${base}/`);
-      log(`instalado como ${resultado.instalacao.tipo}: ${resultado.instalacao.evidencia}`);
-      adb.shell('input keyevent KEYCODE_HOME');
-      await esperar(1500);
-      resultado.screenshotHome = capturarTela(adb, join(SAIDA, `${args.nome}-home.png`));
-      if (args['exigir-webapk'] && resultado.instalacao.tipo !== 'webapk') {
-        throw new Falha('--exigir-webapk: o Chrome instalou atalho, não WebAPK');
-      }
-    }
+    contexto.cdp = await conectarCdp(adb, base);
+    resultado.chrome = (await contexto.cdp.enviar('Browser.getVersion').catch(() => ({}))).product;
+    for (const passo of PASSOS) await EXECUTORES[passo](contexto);
     resultado.ok = true;
   } catch (e) {
     resultado.ok = false;
@@ -408,7 +431,7 @@ async function main() {
     try { resultado.screenshotFalha = capturarTela(adb, join(SAIDA, `${args.nome}-falha.png`)); } catch { /* sem tela */ }
     throw e;
   } finally {
-    cdp?.fechar();
+    contexto.cdp?.fechar();
     try { adb.executar(['forward', '--remove', `tcp:${PORTA_CDP}`]); } catch { /* já removido */ }
     try { adb.executar(['reverse', '--remove', `tcp:${args.porta}`]); } catch { /* já removido */ }
     writeFileSync(join(SAIDA, `${args.nome}.json`), `${JSON.stringify(resultado, null, 2)}\n`);
@@ -416,7 +439,10 @@ async function main() {
   }
 }
 
-main().catch((e) => {
-  console.error(`erro: ${e instanceof Falha ? e.message : e.stack}`);
-  process.exit(1);
-});
+// Importado pelos testes, o módulo só expõe as funções; o fluxo roda quando executado direto.
+if (process.argv[1] && realpathSync(process.argv[1]) === fileURLToPath(import.meta.url)) {
+  main().catch((e) => {
+    console.error(`erro: ${e instanceof Falha ? e.message : e.stack}`);
+    process.exit(1);
+  });
+}
