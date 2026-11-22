@@ -2,6 +2,8 @@
 
 > **Para agentes:** sub-skill obrigatória: superpowers:subagent-driven-development (recomendado) ou superpowers:executing-plans. Passos com checkbox (`- [ ]`).
 
+> **Emenda 2026-11-22 (paridade com o mercado):** a Task 8 (nova, roda antes do playtest da Task 7) acrescenta a abertura sem palavras do terraço: os dois acendem as lanternas juntos antes de montar. Os papéis que se alternam e a criação em turnos ficam na 9b.
+
 **Objetivo:** o encontro passa a mostrar o que o outro fez, deixa sugerir com destino, dá a cada peça um efeito próprio na revelação, pede concordância para voltar a ajustar e encerra de forma gentil. Um novo playtest por agente responde "sim" às perguntas 2–5.
 
 **Arquitetura:**
@@ -385,7 +387,7 @@ Hoje `Fase` é um enum, e `Regras`, `Estado` e `Visao` decidem por `if (estado.f
   - Ana na página do MCP, em 1440×900;
   - Bruno num segundo contexto isolado criado por `browser_run_code_unsafe` (`browser.newContext({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true })`), para os cookies não se misturarem.
   - **Roteiro:**
-    1. criar e entrar;
+    1. criar e entrar, e acender as lanternas juntos (Task 8); registrar se a abertura deixou o começo mais leve (pergunta extra, só para registro);
     2. uma composição completa com pelo menos uma sugestão aceita e uma ignorada;
     3. revelar;
     4. pedir ajuste (uma vez recusado, outra aceito);
@@ -403,6 +405,29 @@ Hoje `Fase` é um enum, e `Regras`, `Estado` e `Visao` decidem por `if (estado.f
   - nova rodada de playtest por outro agente novo, no máximo 2 rodadas;
   - persistindo, levar ao dono **só a escolha**: o que mudar na mecânica, com 2–3 opções e uma recomendação.
 
+### Task 8: Abertura sem palavras — acender as lanternas juntos (paridade; roda antes da Task 7)
+
+Precedente: Journey e Sky começam com uma ação conjunta sem palavras, que tira a pressão de puxar assunto. A abertura é do motor (vale para qualquer cenário que a declare); só o terraço a declara no piloto.
+
+**Arquivos:**
+- Modificar: `game/{Cenario,Terraco,Regras,Estado}.java` (a fase `Montando` ganha a abertura), `room/{Visao,SalaController}.java`, `static/assets/cenarios/terraco/cenario.json` e o esquema valibot da 1b (`abertura`), a cena (`cena.ts`: duas lanternas de mão, uma em cada lado, com o sprite `lanterna` já existente em escala 0,5; sem asset novo), `frontend/src/` (sessão e `Inventario`, que fica oculto durante a abertura)
+- Modificar: `src/test/java/bipotheking/net/duora/e2e/TerracoPagina.java` (`passarAbertura()`, chamado pelo passo de entrada dos ITs existentes, sem mudar asserção)
+- Criar: `game/AberturaTest.java`, `e2e/AberturaIT.java`; Modificar: `AxeIT`
+
+**Interfaces:**
+- Produz:
+  - `record DefinicaoDeAbertura(String tipo, Duration janela, Duration maximo)` em `Cenario` (`Optional<DefinicaoDeAbertura> abertura()`); o terraço declara `("acender-junto", 5 s, 90 s)`. Cenário sem abertura começa direto na montagem, como hoje.
+  - `record Abertura(Map<Assento, Instant> toques, Optional<Instant> concluidaEm, boolean acesa)` dentro de `Montando` (`Optional<Abertura>`; vazia = abertura concluída ou inexistente). Peças, sinais e pronto durante a abertura → recusa `ABERTURA_EM_ANDAMENTO` (409).
+  - `Regras.tocarAbertura(Estado, Cenario, Assento, Instant) -> Decisao`: registra o toque; se o outro tocou há no máximo `janela`, conclui com `acesa = true`. `Regras.avancarAbertura(Estado, Cenario, Instant)`: passado `maximo` desde a entrada do segundo participante, conclui com `acesa = false` (a montagem começa do mesmo jeito; ninguém é cobrado).
+  - `POST /api/sala/abertura` (sem corpo) → 200 `Visao`; `Visao.abertura` = `{ "ativa": bool, "voceTocou": bool, "outroTocou": bool, "acesa": bool }` (`null` sem abertura). `Visao.fase` continua `"MONTANDO"`.
+  - Cena: cada pessoa vê a própria lanterna com um ícone de mão e chama (sem frase na tela); o botão acessível tem `aria-label="Acender sua lanterna"`, alcançável por teclado. O toque do outro faz a lanterna dele tremular (`data-efeito="tremular"`); com os dois na janela, as duas acendem com o brilho da revelação em escala menor e o inventário aparece. Movimento reduzido: troca direta de apagada para acesa. A região viva anuncia só `As lanternas acenderam.` (ou nada, se a abertura acabar pelo tempo).
+- [ ] **Passo 1:** testes.
+  - `AberturaTest`: `osDoisNaJanelaAcendem` (toques em 0 s e 4,999 s); `foraDaJanelaNaoAcende` (0 s e 5,001 s → ainda ativa); `novoToqueDoPrimeiroDentroDaJanelaAcende`; `aberturaTerminaSozinhaEm90s` (89,999 s ativa; 90 s concluída e apagada); `pecaDuranteAberturaRecusada`; `cenarioSemAberturaComecaMontando` (o cenário de teste mínimo da 1b); `nomeDaFaseNaRedeNaoMuda`.
+  - `AberturaIT` (dois navegadores): `osDoisAcendemEMontam` (as duas lanternas com `data-efeito` de brilho e o inventário visível nos dois); `soUmTocaEMontaDepoisDe90s` (com `duora.cenarios.abertura.maximo=PT3S` no perfil de teste); `aberturaPorTeclado`.
+  - `AxeIT`: `aberturaSemViolacoes`.
+  - A suíte e2e existente fica verde sem mudar asserção (a entrada chama `passarAbertura()`).
+- [ ] **Passo 2:** RED; implementar; verde nos três navegadores. Commit `feat(game): abertura sem palavras com as lanternas acesas juntas`.
+
 ## Ordem e paralelismo
 - **Primeiro:** a Task 0 (refatoração), e depois a Task 1, as duas sozinhas e no mesmo worktree. A Task 1 muda o contrato da API e o cliente mínimo.
 - **Onda A, em paralelo (3 worktrees):**
@@ -415,7 +440,8 @@ Hoje `Fase` é um enum, e `Regras`, `Estado` e `Visao` decidem por `if (estado.f
   - Task 3: modo de sugestão na sessão e na cena, mais o botão no `Inventario`;
   - Task 5: ajuste e saída na sessão, mais `Resultado`, `Encerrado` e `Topo`.
 - **Depois:** a suíte inteira nos 3 navegadores, a revisão final e o merge.
-- **No fim:** a Task 7 (playtest por agente).
+- **Depois da onda B:** a Task 8 (abertura), sozinha, porque muda `Regras`, `Estado` e o `TerracoPagina`.
+- **No fim:** a Task 7 (playtest por agente), com a abertura já no roteiro.
 
 ## Decisões do dono
 - **O que "Sair" leva a quem saiu na 1c.** O spec diz "leva quem saiu à decisão privada", mas a decisão privada só tem efeito com contas e conexões (Etapa 5). Opções:
