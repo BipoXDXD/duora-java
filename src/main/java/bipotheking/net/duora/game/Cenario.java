@@ -16,6 +16,7 @@ import java.util.regex.Pattern;
  * @param limiteAntesDoParceiro quantas peças cada pessoa coloca antes de o parceiro colocar alguma
  * @param duracaoSinal quanto dura um “que tal mover este?”
  * @param pecasPorPessoaCompleta quantas peças de cada pessoa completam a composição
+ * @param abertura a abertura antes da montagem; vazia quando o cenário não declara
  */
 public record Cenario(
     String id,
@@ -25,15 +26,39 @@ public record Cenario(
     int limiteAntesDoParceiro,
     Duration duracaoSinal,
     int pecasPorPessoaCompleta,
-    Desfecho desfecho) {
+    Desfecho desfecho,
+    Optional<DefinicaoDeAbertura> abertura) {
 
   private static final Pattern ID = Pattern.compile("^[a-z0-9-]+$");
+
+  /** Cenário sem abertura. */
+  public Cenario(
+      String id,
+      String nome,
+      List<Lugar> lugares,
+      List<Peca> pecas,
+      int limiteAntesDoParceiro,
+      Duration duracaoSinal,
+      int pecasPorPessoaCompleta,
+      Desfecho desfecho) {
+    this(
+        id,
+        nome,
+        lugares,
+        pecas,
+        limiteAntesDoParceiro,
+        duracaoSinal,
+        pecasPorPessoaCompleta,
+        desfecho,
+        Optional.empty());
+  }
 
   public Cenario {
     Objects.requireNonNull(id);
     Objects.requireNonNull(nome);
     Objects.requireNonNull(duracaoSinal);
     Objects.requireNonNull(desfecho);
+    Objects.requireNonNull(abertura);
     lugares = List.copyOf(lugares);
     pecas = List.copyOf(pecas);
     if (!ID.matcher(id).matches()) {
@@ -70,6 +95,26 @@ public record Cenario(
                 + ")");
       }
     }
+  }
+
+  /**
+   * O mesmo cenário com outro {@link DefinicaoDeAbertura#maximo()}; sem abertura, devolve este
+   * mesmo.
+   */
+  public Cenario comMaximoDeAbertura(Duration maximo) {
+    if (abertura.isEmpty()) {
+      return this;
+    }
+    return new Cenario(
+        id,
+        nome,
+        lugares,
+        pecas,
+        limiteAntesDoParceiro,
+        duracaoSinal,
+        pecasPorPessoaCompleta,
+        desfecho,
+        abertura.map(definicao -> definicao.comMaximo(maximo)));
   }
 
   public Optional<Peca> peca(String id) {
