@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { escolherVariante, sprite } from "./dados";
+import { escolherVariante } from "./dados";
 
 describe("escolherVariante", () => {
   it.each([
@@ -9,15 +9,5 @@ describe("escolherVariante", () => {
     [4000, 1, 2700],
   ])("largura %i com dpr %i usa a família %i", (larguraCss, dpr, esperada) => {
     expect(escolherVariante(larguraCss, dpr)).toBe(esperada);
-  });
-});
-
-describe("sprite", () => {
-  it.each([
-    ["telescopio", "C2", "telescopio-dir"],
-    ["telescopio", "C1", "telescopio-esq"],
-    ["manta", "L2", "manta"],
-  ])("%s em %s usa o sprite %s", (peca, lugar, esperado) => {
-    expect(sprite(peca, lugar)).toBe(esperado);
   });
 });

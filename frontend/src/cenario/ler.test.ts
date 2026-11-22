@@ -174,6 +174,7 @@ describe("lerCenario: consultas", () => {
     ["telescopio", "C1", "telescopio-esq"],
     ["telescopio", null, "telescopio-dir"],
     ["banco", "L1", "banco"],
+    ["manta", "L2", "manta"],
   ])("sprite(%s, %s) é %s", (peca, lugar, esperado) => {
     expect(c.sprite(peca, lugar)).toBe(esperado);
   });

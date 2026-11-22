@@ -1,6 +1,6 @@
 import { useCenario } from "../cenario/contexto";
 import type { CenarioFront } from "../cenario/tipos";
-import { LARGURA_MINIATURA, sprite, urlSprite } from "../dominio/dados";
+import { LARGURA_MINIATURA } from "../dominio/dados";
 import { textoBloqueio } from "../dominio/mensagens";
 import type { Visao, VisaoPeca } from "../dominio/visao";
 import type { Acao } from "../sessao/tipos";
@@ -66,7 +66,7 @@ function Item({ peca, estado, pressionado, indisponivel, aoEscolher }: PropsItem
         <img
           className="miniatura w-[56px] h-[56px] object-contain group-aria-disabled/item:opacity-50"
           alt=""
-          src={urlSprite(sprite(peca.peca, peca.lugar ?? "C2"), "crepusculo", LARGURA_MINIATURA)}
+          src={c.urlSprite(c.sprite(peca.peca, peca.lugar), "crepusculo", LARGURA_MINIATURA)}
         />
         <span>
           <span className="nome-item block font-semibold">{c.peca(peca.peca).nome}</span>

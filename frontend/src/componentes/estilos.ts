@@ -41,6 +41,10 @@ export const TITULO_DE_RESULTADO = [
   "focus:[outline:2px_solid_transparent] focus:outline-offset-2 focus:[box-shadow:var(--foco)]",
 ].join(" ");
 
+/** Base do <main className="painel">: o painel do app e o da tela de erro do cenário. */
+export const CLASSES_DO_PAINEL =
+  "painel [grid-area:painel] flex flex-col gap-(--e-5) px-(--e-6) pt-(--e-5) pb-(--e-6) bg-noite-800 celular:px-(--e-4) celular-deitado:px-(--e-4)";
+
 /** Seções de uma tela só (entrada, convite, encerrado); no celular vêm logo depois da instrução. */
 export const TELA = "grid gap-(--e-4) celular:order-2 celular-deitado:order-2";
 

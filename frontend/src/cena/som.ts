@@ -2,16 +2,15 @@
 // meteoro. Usa Web Audio (o loop de <audio> com MP3 deixa um silêncio a cada volta). Só
 // baixa os arquivos quando a pessoa liga o som e falha em silêncio. Nada depende dele.
 
-const ARQUIVOS = {
-  ambiente: "/assets/cenarios/terraco/audio/ambiente.mp3",
-  meteoro: "/assets/cenarios/terraco/audio/meteoro.mp3",
-  revelacao: "/assets/cenarios/terraco/audio/revelacao.mp3",
-};
+import type { CenarioFront, NomeSom } from "../cenario/tipos";
 
-type NomeSom = keyof typeof ARQUIVOS;
-
-const VOLUMES: Record<NomeSom, number> = { ambiente: 0.35, meteoro: 0.5, revelacao: 0.6 };
+const NOMES: readonly NomeSom[] = ["ambiente", "meteoro", "revelacao"];
 const SUBIDA_S = 1.5;
+
+/** URL e volume de cada som, como o cenário define. */
+export function arquivosDoSom(c: CenarioFront): Record<NomeSom, { url: string; volume: number }> {
+  return { ambiente: c.som("ambiente"), meteoro: c.som("meteoro"), revelacao: c.som("revelacao") };
+}
 
 /** O Safari antigo só expõe o construtor com prefixo. */
 type JanelaComAudio = Window & { webkitAudioContext?: typeof AudioContext };
@@ -34,7 +33,8 @@ async function carregar(contexto: AudioContext, url: string): Promise<AudioBuffe
   }
 }
 
-export function criarSom(): Som {
+export function criarSom(c: CenarioFront): Som {
+  const arquivos = arquivosDoSom(c);
   let ligado = false;
   let contexto: AudioContext | null = null;
   let carregamento: Promise<void> | null = null;
@@ -55,8 +55,8 @@ export function criarSom(): Som {
       contexto = new Contexto();
       const meu = contexto;
       carregamento = Promise.all(
-        (Object.entries(ARQUIVOS) as [NomeSom, string][]).map(async ([nome, url]) => {
-          buffers[nome] = await carregar(meu, url);
+        NOMES.map(async (nome) => {
+          buffers[nome] = await carregar(meu, arquivos[nome].url);
         }),
       ).then(() => {
         // Nada carregou (rede, servidor fora): descarta para tentar de novo no próximo clique.
@@ -77,7 +77,7 @@ export function criarSom(): Som {
     }
     ganhoAmbiente = contexto.createGain();
     ganhoAmbiente.gain.setValueAtTime(0, contexto.currentTime);
-    ganhoAmbiente.gain.linearRampToValueAtTime(VOLUMES.ambiente, contexto.currentTime + SUBIDA_S);
+    ganhoAmbiente.gain.linearRampToValueAtTime(arquivos.ambiente.volume, contexto.currentTime + SUBIDA_S);
     ganhoAmbiente.connect(contexto.destination);
     ambiente = contexto.createBufferSource();
     ambiente.buffer = buffer;
@@ -109,7 +109,7 @@ export function criarSom(): Som {
       return;
     }
     const ganho = contexto.createGain();
-    ganho.gain.value = VOLUMES[nome];
+    ganho.gain.value = arquivos[nome].volume;
     ganho.connect(contexto.destination);
     const fonte = contexto.createBufferSource();
     fonte.buffer = buffer;

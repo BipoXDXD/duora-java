@@ -1,4 +1,7 @@
-// Céu do terraço: estrelas e janelas determinísticas, e o céu pintado quando as imagens carregam.
+// Céu do cenário: estrelas e janelas determinísticas, e o céu pintado quando as imagens carregam.
+
+import type { CenarioFront } from "../cenario/tipos";
+import type { Momento } from "../dominio/dados";
 
 const SVG = "http://www.w3.org/2000/svg";
 
@@ -46,19 +49,21 @@ function carregar(url: string): Promise<void> {
   });
 }
 
+const MOMENTOS: readonly Momento[] = ["crepusculo", "noite"];
+
+/** As duas imagens do céu na largura que o image-set do CSS escolhe (1x → 1280, 2x → 2560). */
+export function urlsDoCeu(c: CenarioFront, dpr: number): string[] {
+  const largura = dpr > 1 ? 2560 : 1280;
+  return MOMENTOS.map((momento) => c.urlCeu(momento, largura));
+}
+
 /**
  * Diz se o céu pintado pode ser ligado: só se as duas imagens carregarem; senão ficam gradientes
- * e silhueta SVG. Pré-carrega a mesma largura que o image-set do CSS escolhe (1x → 1280, 2x → 2560).
- * Não toca no DOM: quem chama põe a classe .ceu-pintado no .app.
+ * e silhueta SVG. Não toca no DOM: quem chama põe a classe .ceu-pintado no .app.
  */
-export async function prepararCeuPintado(): Promise<boolean> {
-  const largura = (window.devicePixelRatio || 1) > 1 ? 2560 : 1280;
+export async function prepararCeuPintado(c: CenarioFront): Promise<boolean> {
   try {
-    await Promise.all(
-      ["crepusculo", "noite"].map((momento) =>
-        carregar(`/assets/cenarios/terraco/ceu/ceu-${momento}-${String(largura)}.webp`),
-      ),
-    );
+    await Promise.all(urlsDoCeu(c, window.devicePixelRatio || 1).map(carregar));
     return true;
   } catch {
     return false;
