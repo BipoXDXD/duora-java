@@ -174,6 +174,9 @@ async function conectarCdp(adb, url, ignorar = new Set(), timeoutMs = 30000) {
   throw new Falha(`página ${url} não apareceu no DevTools do Chrome em ${timeoutMs / 1000}s`);
 }
 
+// Intents de abrir a URL antes de desistir: o primeiro pode se perder num aviso de primeira execução.
+const TENTATIVAS_DE_ABRIR_URL = 3;
+
 /**
  * Abre a URL no Chrome e conecta o CDP na aba. Um aviso de primeira execução às vezes engole o
  * intent e o Chrome fica na página inicial; aí fecha os avisos e manda o intent de novo.
@@ -186,7 +189,7 @@ async function abrirNoChrome(adb, url, base) {
     try {
       return await conectarCdp(adb, base, new Set(), 15000);
     } catch (e) {
-      if (tentativa === 3) throw e;
+      if (tentativa === TENTATIVAS_DE_ABRIR_URL) throw e;
     }
   }
 }
