@@ -30,7 +30,7 @@
   - Os commits de refatoração (Task 0 e cada Extract Function preparatório) são separados dos de comportamento, sempre com a suíte verde.
   - O estado do encontro passa a ser um tipo selado (State) antes de ganhar o pedido de ajuste: "make the change easy, then make the easy change".
   - No front, os campos novos de sessão entram só na variante `montagem` da união `EstadoDaTela` (1a), e todo `switch` sobre fase ou tela continua exaustivo.
-- Valem as restrições das Etapas 0, 1, 1a e 1b: Conventional Commits com o trailer `Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>`; `-Werror`; Spotless; lint do front com `--max-warnings 0`; E2E sem skip nos 3 navegadores; um pesado por vez com a trava `mkdir /private/tmp/claude-501/duora-pesado.lock` e `caffeinate -dims`; CSP inalterada; JS inicial ≤ 80 KB gzip (`TamanhoDoJsInicialTest`).
+- Valem as restrições das Etapas 0, 1, 1a e 1b: Conventional Commits com o trailer `Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>`; `-Werror`; Spotless; lint do front com `--max-warnings 0`; E2E sem skip nos 3 navegadores; um pesado por vez com a trava `mkdir /private/tmp/claude-501/duora-pesado.lock` e `caffeinate -dims`; CSP inalterada; JS inicial: teto 90 KB gzip (`TamanhoDoJsInicialTest`, `LIMITE_BYTES = 92_160`), meta 80 KB (a 1b terminou em 84,80 KB; voltar a 80 KB seria uma task de corte explícita).
 - **Mudanças de asserção permitidas, e só estas** (a 1c muda comportamento de propósito). Cada uma vai citada no corpo do commit com o motivo:
   - `RegrasTest`: os testes de `ajustar` passam a usar `pedirAjuste`/`recusarAjuste`, e os de `sinalizar` passam a ter destino;
   - `SalaApiTest`:
@@ -290,7 +290,7 @@ Hoje `Fase` é um enum, e `Regras`, `Estado` e `Visao` decidem por `if (estado.f
 - [ ] **Passo 2:** gerar o asset com a skill `duora-assets`. Pela ElevenLabs (efeito sonoro, cerca de 4 s, "notas suaves de rádio antigo tocando jazz baixo, sem voz"), converter para MP3 192 kbps / 48 kHz, conferir com `ffprobe` e registrar no `assets/manifest.md`. Gerar uma vez só, sem repetir a chamada para tentar de novo.
 - [ ] **Passo 3:** RED.
 - [ ] **Passo 4:** implementar.
-- [ ] **Passo 5:** `pnpm test`, o `RevelacaoIT`, o `RevelacaoCelularIT` e o `AxeIT` em chromium, verdes, e o `TamanhoDoJsInicialTest` ≤ 80 KB. Commit `feat(encontro): efeito por peça na revelação, texto pelas posições e tela cheia no celular`.
+- [ ] **Passo 5:** `pnpm test`, o `RevelacaoIT`, o `RevelacaoCelularIT` e o `AxeIT` em chromium, verdes, e o `TamanhoDoJsInicialTest` dentro do teto de 90 KB (teste; meta 80 KB). Commit `feat(encontro): efeito por peça na revelação, texto pelas posições e tela cheia no celular`.
 
 ### Task 5: Concordância para ajustar e saída gentil
 

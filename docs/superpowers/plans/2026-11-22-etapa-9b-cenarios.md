@@ -33,7 +33,7 @@
   - Conventional Commits em pt-BR com o trailer `Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>`;
   - `-Xlint:all -Werror`, Spotless, lint do front com `--max-warnings 0`;
   - E2E sem skip nos 3 navegadores, `AxeIT` em toda tela ou estado novo;
-  - JS inicial ≤ 80 KB gzip (`TamanhoDoJsInicialTest`).
+  - JS inicial: teto 90 KB gzip (`TamanhoDoJsInicialTest`, `LIMITE_BYTES = 92_160`), meta 80 KB; a 1b terminou em 84,80 KB. Voltar a 80 KB seria uma task de corte explícita, não um passo de verificação.
 - **Um pesado por vez:** Maven, Blender, export do Godot, compilação de template, Docker e emulador usam a trava `mkdir /private/tmp/claude-501/duora-pesado.lock` (e `rmdir` ao fim) e `caffeinate -dims`. Gerações na nuvem (Hi3D, Tripo, ElevenLabs) não pegam a trava.
 - **Formatos (sem exceção):** imagem em WebP q88 (props em 900/1800/2700; fundos em 1280/2560), áudio em MP3 192 kbps / 48 kHz. Masters em `assets/source/`. Cada asset tem linha em `assets/manifest.md` no mesmo commit, com status `Candidato a FINAL`; só o dono promove a `FINAL`.
 - **Geração:** 3D no Hi3D (assinatura, imagem Nano-Banana 2 → 3D v3.0). Fallback pago só pela decisão D2. 2D no Tripo `chat_image_2.5_sunburst` 4K, com `tripo_plan` coberto pela decisão D1. Áudio no ElevenLabs: uma chamada por som, `generations_count` no padrão, nunca repetir a chamada para tentar de novo.
@@ -380,8 +380,7 @@ Coordenadas em metros, no piso da cena (x lateral, y profundidade, z altura, com
 **Arquivos:**
 - Modificar:
   - `frontend/src/cenario/{ler.ts,tipos.ts,legenda.ts}` (a leitura valibot fica só no `ler.ts`), `frontend/src/cena/efeitos.ts`, `frontend/src/estilos/revelacao.css`;
-  - `frontend/src/componentes/{Resultado,Moldura}.tsx` (o título vem do cenário);
-  - `frontend/src/dominio/dados.ts` (o sprite da base vem de `geometria.base`, com padrão `"terraco"`);
+  - `frontend/src/componentes/{Resultado,Moldura}.tsx` (o título vem do cenário); o fundo da cena já vem de `cenario.json` → `fundo` (`CenarioFront.fundo`, 1b), sem mudança aqui;
   - `src/main/resources/static/assets/cenarios/terraco/cenario.json` (`titulo` "Antes da primeira estrela", sem mudar mais nada).
 - Criar: `frontend/src/cenario/variacoes.ts`, `src/test/java/bipotheking/net/duora/e2e/CenarioPagina.java`
 - Teste: `ler.test.ts` (todo `cenario.json` do disco), `legenda.test.ts`, `efeitos.test.ts`, `variacoes.test.ts`; `src/test/java/bipotheking/net/duora/game/CenarioJsonTest.java` (parametrizado); `e2e/CenarioFrontIT.java`; `VisualIT`/`ComparacaoVisualTest` (terraço idêntico)
@@ -438,7 +437,7 @@ Coordenadas em metros, no piso da cena (x lateral, y profundidade, z altura, com
   - `CenarioFrontIT.variacaoDoDesfechoApareceNaNoite`: a rota troca o `cenario.json` do terraço por um com `variacoes.ladoTelescopio.esquerdo = [{tipo:"tom",cor:"#112233",opacidade:0.1}]` e telescópio em C1 → depois de revelar, um `[data-efeito=tom][data-variacao=ladoTelescopio]`.
 - [ ] **Passo 2:** RED.
 - [ ] **Passo 3:** implementar. A `Moldura` usa `cenario.titulo` no heading, e o texto do terraço não muda.
-- [ ] **Passo 4:** rodar `pnpm test`, `./mvnw -q verify`, a suíte e2e em chromium, o `CenarioFrontIT` + `AxeIT` em firefox e webkit, e a comparação visual do terraço contra o "depois" da 1c, tudo verde. `TamanhoDoJsInicialTest` ≤ 80 KB.
+- [ ] **Passo 4:** rodar `pnpm test`, `./mvnw -q verify`, a suíte e2e em chromium, o `CenarioFrontIT` + `AxeIT` em firefox e webkit, e a comparação visual do terraço contra o "depois" da 1c, tudo verde. `TamanhoDoJsInicialTest`: teto 90 KB (teste), meta 80 KB.
 - [ ] **Passo 5:** commits separados:
   - `refactor(front): título e base da cena vindos do cenário` (comportamento idêntico);
   - `feat(cenario): efeitos de partículas, cardume, arco-íris e tom, e variações pelo desfecho`.
@@ -1077,7 +1076,7 @@ Pergunta que o spike responde: **o export web single-thread do Godot 4, sem `uns
 - [ ] **Passo 3:** implementar. Commits separados:
   - `refactor(game): atividade do cenário como tipo selado` (só a Montagem, com a suíte verde);
   - `feat(fliperama): jogo embutido no encontro`.
-- [ ] **Passo 4:** `./mvnw -q verify`, `pnpm test`, o `FliperamaIT` + `AxeIT` nos 3 navegadores (um por vez) e o `TamanhoDoJsInicialTest` ≤ 80 KB (o jogo não entra no JS inicial), tudo verde.
+- [ ] **Passo 4:** `./mvnw -q verify`, `pnpm test`, o `FliperamaIT` + `AxeIT` nos 3 navegadores (um por vez) e o `TamanhoDoJsInicialTest` dentro do teto de 90 KB (teste; meta 80 KB; o jogo não entra no JS inicial), tudo verde.
 
 ### Task 21: Prova de 5 s no Android e playtest do fliperama
 
