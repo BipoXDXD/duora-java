@@ -12,6 +12,11 @@ export default defineConfig(({ command }) => ({
     emptyOutDir: true,
     assetsDir: "app",
     manifest: true,
+    rolldownOptions: {
+      // Fontes e sprites de /assets/ são servidos pelo Spring (src/main/resources/static) e resolvidos
+      // em tempo de execução; declarar como externos evita o aviso "didn't resolve at build time".
+      external: [/^\/assets\//],
+    },
   },
   server: {
     proxy: {

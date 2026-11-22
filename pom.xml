@@ -124,7 +124,9 @@
                 <artifactId>spring-boot-maven-plugin</artifactId>
             </plugin>
             <!-- Front (frontend/): lint, build do Vite em target/vite e Vitest.
-                 target/vite ainda não é recurso: o app servido segue o de src/main/resources/static. -->
+                 target/vite ainda não é recurso: o app servido segue o de src/main/resources/static.
+                 O plugin registra o stderr do pnpm como [ERROR]; o silent tira o eco "$ comando" que o
+                 pnpm escreve lá, e a saída dos scripts (e as falhas, pelo código de saída) continua. -->
             <plugin>
                 <groupId>com.github.eirslett</groupId>
                 <artifactId>frontend-maven-plugin</artifactId>
@@ -162,7 +164,7 @@
                             <goal>pnpm</goal>
                         </goals>
                         <configuration>
-                            <arguments>run lint</arguments>
+                            <arguments>--silent run lint</arguments>
                         </configuration>
                     </execution>
                     <execution>
@@ -172,7 +174,7 @@
                             <goal>pnpm</goal>
                         </goals>
                         <configuration>
-                            <arguments>run build</arguments>
+                            <arguments>--silent run build</arguments>
                         </configuration>
                     </execution>
                     <execution>
@@ -182,7 +184,7 @@
                             <goal>pnpm</goal>
                         </goals>
                         <configuration>
-                            <arguments>test</arguments>
+                            <arguments>--silent test</arguments>
                             <skip>${skipUnitTests}</skip>
                         </configuration>
                     </execution>
