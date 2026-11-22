@@ -10,10 +10,12 @@
     "noUncheckedIndexedAccess": true,
     "verbatimModuleSyntax": true,
     "erasableSyntaxOnly": true,
+    // O loader do vite.config.ts pede a extensão nos imports relativos (vite.config.ts → build/).
+    "allowImportingTsExtensions": true,
     "noUnusedLocals": true,
     "noUnusedParameters": true,
     "noEmit": true,
     "skipLibCheck": true
   },
-  "include": ["vite.config.ts", "tailwind.test.ts", "avisos-do-build.test.ts"]
+  "include": ["vite.config.ts", "tailwind.test.ts", "avisos-do-build.test.ts", "build"]
 }
