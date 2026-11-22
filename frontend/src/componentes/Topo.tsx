@@ -28,6 +28,8 @@ const CLASSES_DO_TOPO = [
   "bg-noite-800 celular:items-center celular:h-(--altura-topo) celular:px-(--e-4) celular:py-0 celular:bg-noite-950",
   "celular:group-[.confirmando-saida]:h-auto celular:group-[.confirmando-saida]:min-h-(--altura-topo)",
   "celular:group-[.confirmando-saida]:pb-(--e-4)",
+  // Deitado, o topo divide a coluna com o painel e pode quebrar em duas linhas (zoom de 200%).
+  "celular-deitado:h-auto celular-deitado:min-h-(--altura-topo) celular-deitado:py-(--e-2)",
   "celular-alto:sticky celular-alto:top-0 celular-alto:z-5 celular-alto:group-[.confirmando-saida]:static",
 ].join(" ");
 

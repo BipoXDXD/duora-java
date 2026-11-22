@@ -104,12 +104,12 @@ function telaDaVez(props: Omit<PropsPainel, "refAviso">): TelaDoPainel {
   }
 }
 
-/** No celular a ordem muda: aviso, instrução, a tela (ou as peças), o resultado, o que falta e as ações. */
+/** No celular a ordem muda (deitado, o painel rola sozinho, ao lado da cena): aviso, instrução, a tela (ou as peças), o resultado, o que falta e as ações. */
 export function Painel({ refAviso, ...props }: PropsPainel) {
   const { visaoDoPar, instrucao, conteudo } = telaDaVez(props);
   return (
     <main
-      className="painel [grid-area:painel] flex flex-col gap-(--e-5) px-(--e-6) pt-(--e-5) pb-(--e-6) bg-noite-800 overflow-y-auto celular:px-(--e-4) celular:overflow-visible"
+      className="painel [grid-area:painel] flex flex-col gap-(--e-5) px-(--e-6) pt-(--e-5) pb-(--e-6) bg-noite-800 overflow-y-auto celular:px-(--e-4) celular:overflow-visible celular-deitado:overflow-y-auto"
       aria-label="Painel do terraço"
     >
       {visaoDoPar && <Par visao={visaoDoPar} />}

@@ -461,6 +461,17 @@
   }
 }
 
+/* Celular deitado: a cena ocupa a coluna da esquerda na altura da tela, e o palco cabe nela inteiro. */
+@media (max-width: 860px) and (max-height: 500px) and (orientation: landscape) {
+  .cena {
+    padding: 0 0 var(--e-3);
+  }
+
+  .palco {
+    width: min(112%, calc((100dvh - var(--e-3)) * var(--proporcao-palco)));
+  }
+}
+
 /* Só em tela alta a cena fica presa: em tela baixa (zoom de 200%, celular deitado)
    ela cobriria o painel e o foco (WCAG 1.4.10 e 2.4.11). */
 @media (max-width: 860px) and (min-height: 700px) {

@@ -16,11 +16,11 @@
     <!-- Esqueleto da primeira pintura (título e céu) enquanto o JS chega; o createRoot o substitui. -->
     <div id="raiz">
       <div
-        class="app group grid grid-cols-[minmax(0,1fr)_var(--largura-painel)] grid-rows-[auto_minmax(0,1fr)] [grid-template-areas:'cena_topo'_'cena_painel'] h-dvh min-h-[560px] celular:grid-cols-[minmax(0,1fr)] celular:grid-rows-[auto_auto_auto] celular:[grid-template-areas:'topo'_'cena'_'painel'] celular:h-auto celular:min-h-dvh"
+        class="app group grid grid-cols-[minmax(0,1fr)_var(--largura-painel)] grid-rows-[auto_minmax(0,1fr)] [grid-template-areas:'cena_topo'_'cena_painel'] h-dvh min-h-[560px] celular:grid-cols-[minmax(0,1fr)] celular:grid-rows-[auto_auto_auto] celular:[grid-template-areas:'topo'_'cena'_'painel'] celular:h-auto celular:min-h-dvh celular-deitado:grid-cols-[minmax(0,55fr)_minmax(0,45fr)] celular-deitado:grid-rows-[auto_minmax(0,1fr)] celular-deitado:[grid-template-areas:'cena_topo'_'cena_painel'] celular-deitado:h-dvh celular-deitado:min-h-0"
         data-momento="crepusculo"
       >
         <header
-          class="topo [grid-area:topo] flex flex-wrap items-baseline justify-between gap-(--e-4) px-(--e-6) pt-(--e-6) pb-0 bg-noite-800 celular:items-center celular:h-(--altura-topo) celular:px-(--e-4) celular:py-0 celular:bg-noite-950 celular:group-[.confirmando-saida]:h-auto celular:group-[.confirmando-saida]:min-h-(--altura-topo) celular:group-[.confirmando-saida]:pb-(--e-4) celular-alto:sticky celular-alto:top-0 celular-alto:z-5 celular-alto:group-[.confirmando-saida]:static"
+          class="topo [grid-area:topo] flex flex-wrap items-baseline justify-between gap-(--e-4) px-(--e-6) pt-(--e-6) pb-0 bg-noite-800 celular:items-center celular:h-(--altura-topo) celular:px-(--e-4) celular:py-0 celular:bg-noite-950 celular:group-[.confirmando-saida]:h-auto celular:group-[.confirmando-saida]:min-h-(--altura-topo) celular:group-[.confirmando-saida]:pb-(--e-4) celular-deitado:h-auto celular-deitado:min-h-(--altura-topo) celular-deitado:py-(--e-2) celular-alto:sticky celular-alto:top-0 celular-alto:z-5 celular-alto:group-[.confirmando-saida]:static"
         >
           <h1
             class="titulo m-0 font-titulo font-semibold text-[1.75rem] leading-[1.1] tracking-[-0.01em] celular:text-[1.25rem]"
