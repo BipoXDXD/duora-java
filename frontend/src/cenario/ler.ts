@@ -4,6 +4,7 @@
 import * as v from "valibot";
 import type { Geometria } from "../dominio/dados";
 import { legenda } from "./legenda";
+import { frasesDeRelacao } from "./relacoes";
 import { ErroCenario, type CenarioFront } from "./tipos";
 
 const Medidas = v.strictObject({ largura: v.number(), altura: v.number(), ancoraX: v.number(), ancoraY: v.number() });
@@ -54,6 +55,8 @@ const EsquemaCenario = v.strictObject({
   revelacao: v.optional(v.record(v.string(), v.array(Efeito)), {}),
   sons: v.strictObject({ ambiente: Som, meteoro: Som, revelacao: Som }),
   legenda: v.strictObject({ titulo: v.string(), texto: v.string() }),
+  raioPerto: v.optional(v.pipe(v.number(), v.minValue(0))),
+  relacoes: v.optional(v.array(v.strictObject({ pecas: v.tuple([v.string(), v.string()]), perto: v.string() })), []),
 });
 
 type CenarioLido = v.InferOutput<typeof EsquemaCenario>;
@@ -113,6 +116,12 @@ export function lerCenario(cenario: unknown, geometria: unknown, id: string): Ce
     som(nome) {
       return { url: `/assets/cenarios/${c.id}/audio/${nome}.mp3`, volume: c.sons[nome].volume };
     },
+    audio(nome: string) {
+      return `/assets/cenarios/${c.id}/audio/${nome}.mp3`;
+    },
+    frasesDeRelacao(colocadas) {
+      return frasesDeRelacao(c.relacoes, c.raioPerto ?? 0, g, colocadas);
+    },
     revelacao(peca: string) {
       return entrada(c.revelacao, peca) ?? [];
     },
@@ -157,6 +166,7 @@ function conferir(c: CenarioLido, g: Geometria, id: string): void {
       falha(`revelacao.${peca}`, "não é uma peça");
     }
   }
+  conferirRelacoes(c);
   for (const lugar of Object.keys(c.lugares)) {
     if (!Object.hasOwn(g.lugares, lugar)) {
       falha(`lugares.${lugar}`, `sem ponto no cena.json (lugares.${lugar})`);
@@ -169,6 +179,23 @@ function conferir(c: CenarioLido, g: Geometria, id: string): void {
       }
     }
   }
+}
+
+/** Cada relação liga duas peças diferentes do cenário, e relações exigem o raioPerto. */
+function conferirRelacoes(c: CenarioLido): void {
+  if (c.relacoes.length > 0 && c.raioPerto === undefined) {
+    falha("raioPerto", "obrigatório quando há relacoes");
+  }
+  c.relacoes.forEach(({ pecas }, i) => {
+    for (const [j, peca] of pecas.entries()) {
+      if (!Object.hasOwn(c.pecas, peca)) {
+        falha(`relacoes.${String(i)}.pecas.${String(j)}`, `"${peca}" não é uma peça`);
+      }
+    }
+    if (pecas[0] === pecas[1]) {
+      falha(`relacoes.${String(i)}.pecas`, "as duas peças são iguais");
+    }
+  });
 }
 
 /** Cada nome de sprite que a peça pode usar, com o caminho de onde veio. */

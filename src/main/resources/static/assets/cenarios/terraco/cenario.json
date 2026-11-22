@@ -53,5 +53,20 @@
   "legenda": {
     "titulo": "Uma noite de {secundariaA.nomeMinusculo} e {secundariaB.nomeMinusculo}",
     "texto": "O telescópio de {nomeA} aponta para o lado {ladoTelescopio} do céu, e é por ali que os meteoros passam. {nomeA} trouxe {secundariaA.artigo}; {nomeB}, o banco e {secundariaB.artigo}."
-  }
+  },
+  "raioPerto": 2.0,
+  "relacoes": [
+    { "pecas": ["manta", "banco"], "perto": "A manta ficou ao lado do banco, pronta para dividir." },
+    { "pecas": ["radio", "banco"], "perto": "O rádio ficou perto do banco, tocando baixinho." },
+    { "pecas": ["lanterna", "telescopio"], "perto": "A lanterna ilumina o telescópio de perto." },
+    { "pecas": ["garrafa", "telescopio"], "perto": "A garrafa térmica ficou ao alcance de quem observa." },
+    { "pecas": ["manta", "telescopio"], "perto": "A manta ficou junto do telescópio, para as horas de espera." },
+    { "pecas": ["radio", "telescopio"], "perto": "O rádio acompanha o telescópio com uma trilha baixa." },
+    { "pecas": ["lanterna", "banco"], "perto": "A lanterna clareia o banco." },
+    { "pecas": ["garrafa", "banco"], "perto": "A garrafa térmica ficou do lado de quem senta." },
+    { "pecas": ["manta", "lanterna"], "perto": "Manta e lanterna ficaram juntas: um canto quente e claro." },
+    { "pecas": ["manta", "garrafa"], "perto": "Manta e garrafa térmica lado a lado: ninguém passa frio." },
+    { "pecas": ["radio", "lanterna"], "perto": "Rádio e lanterna juntos fazem um canto de festa." },
+    { "pecas": ["radio", "garrafa"], "perto": "Rádio e garrafa térmica lado a lado: música e algo quente." }
+  ]
 }

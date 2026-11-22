@@ -1,6 +1,7 @@
 // Som opcional: ambiente em loop baixo, um acorde quando o céu escurece e um toque a cada
 // meteoro. Usa Web Audio (o loop de <audio> com MP3 deixa um silêncio a cada volta). Só
 // baixa os arquivos quando a pessoa liga o som e falha em silêncio. Nada depende dele.
+// Exceção: as notas do rádio tocam mesmo com o som desligado (o chamador decide quando).
 
 import type { CenarioFront, NomeSom } from "../cenario/tipos";
 
@@ -19,6 +20,10 @@ export interface Som {
   definir(ligado: boolean): void;
   meteoro(): void;
   revelacao(): void;
+  /** Toca uma vez o som da URL, mesmo com o som desligado; falha em silêncio. */
+  notas(url: string, volume: number): void;
+  /** Cria e retoma o contexto (dentro de um gesto), sem baixar nada. */
+  desbloquear(): void;
 }
 
 async function carregar(contexto: AudioContext, url: string): Promise<AudioBuffer | null> {
@@ -42,7 +47,8 @@ export function criarSom(c: CenarioFront): Som {
   let ambiente: AudioBufferSourceNode | null = null;
   let ganhoAmbiente: GainNode | null = null;
 
-  function preparar(): Promise<void> {
+  /** Cria o contexto na primeira vez e o retoma; null se o navegador não tem Web Audio. */
+  function desbloquear(): AudioContext | null {
     if (!contexto) {
       const janela: JanelaComAudio = window;
       // O tipo do DOM diz que AudioContext sempre existe; navegadores antigos discordam.
@@ -50,24 +56,39 @@ export function criarSom(c: CenarioFront): Som {
       const Contexto = window.AudioContext ?? janela.webkitAudioContext;
       // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
       if (!Contexto) {
-        return Promise.resolve();
+        return null;
       }
       contexto = new Contexto();
-      const meu = contexto;
-      carregamento = Promise.all(
-        NOMES.map(async (nome) => {
-          buffers[nome] = await carregar(meu, arquivos[nome].url);
-        }),
-      ).then(() => {
-        // Nada carregou (rede, servidor fora): descarta para tentar de novo no próximo clique.
-        if (Object.values(buffers).every((b) => !b) && contexto === meu) {
-          meu.close().catch(() => {});
-          contexto = null;
-          carregamento = null;
-        }
-      });
     }
-    return carregamento ?? Promise.resolve();
+    contexto.resume().catch(() => {});
+    return contexto;
+  }
+
+  function preparar(meu: AudioContext): Promise<void> {
+    carregamento ??= Promise.all(
+      NOMES.map(async (nome) => {
+        buffers[nome] = await carregar(meu, arquivos[nome].url);
+      }),
+    ).then(() => {
+      // Nada carregou (rede, servidor fora): esquece para tentar de novo no próximo clique.
+      if (Object.values(buffers).every((b) => !b)) {
+        carregamento = null;
+      }
+    });
+    return carregamento;
+  }
+
+  function tocar(meu: AudioContext, buffer: AudioBuffer, volume: number): void {
+    const ganho = meu.createGain();
+    ganho.gain.value = volume;
+    ganho.connect(meu.destination);
+    const fonte = meu.createBufferSource();
+    fonte.buffer = buffer;
+    fonte.connect(ganho);
+    fonte.addEventListener("ended", () => {
+      ganho.disconnect();
+    });
+    fonte.start();
   }
 
   function iniciarAmbiente(): void {
@@ -108,16 +129,7 @@ export function criarSom(c: CenarioFront): Som {
       });
       return;
     }
-    const ganho = contexto.createGain();
-    ganho.gain.value = arquivos[nome].volume;
-    ganho.connect(contexto.destination);
-    const fonte = contexto.createBufferSource();
-    fonte.buffer = buffer;
-    fonte.connect(ganho);
-    fonte.addEventListener("ended", () => {
-      ganho.disconnect();
-    });
-    fonte.start();
+    tocar(contexto, buffer, arquivos[nome].volume);
   }
 
   return {
@@ -129,9 +141,11 @@ export function criarSom(c: CenarioFront): Som {
         return;
       }
       // Criado e retomado dentro do clique, como os navegadores exigem.
-      const pronto = preparar();
-      contexto?.resume().catch(() => {});
-      void pronto.then(() => {
+      const meu = desbloquear();
+      if (!meu) {
+        return;
+      }
+      void preparar(meu).then(() => {
         if (ligado) {
           iniciarAmbiente();
         }
@@ -142,6 +156,22 @@ export function criarSom(c: CenarioFront): Som {
     },
     revelacao() {
       disparar("revelacao");
+    },
+    notas(url, volume) {
+      const meu = desbloquear();
+      if (!meu) {
+        return;
+      }
+      void carregar(meu, url)
+        .then((buffer) => {
+          if (buffer) {
+            tocar(meu, buffer, volume);
+          }
+        })
+        .catch(() => {});
+    },
+    desbloquear() {
+      desbloquear();
     },
   };
 }

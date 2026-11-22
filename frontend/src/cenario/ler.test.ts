@@ -137,6 +137,40 @@ describe("lerCenario: validação", () => {
     expect(erroAoLer(cenario, geometria, "minimo")).toContain('id: esperado "minimo", veio "terraco"');
   });
 
+  it("relação com peça inexistente é recusada", () => {
+    const { cenario, geometria } = jsonsDoTerraco();
+    (em(cenario).relacoes as unknown[]).push({ pecas: ["vaso", "banco"], perto: "Perto." });
+
+    expect(erroAoLer(cenario, geometria)).toContain("vaso");
+  });
+
+  it("relação com peças iguais é recusada", () => {
+    const { cenario, geometria } = jsonsDoTerraco();
+    (em(cenario).relacoes as unknown[]).push({ pecas: ["banco", "banco"], perto: "Perto." });
+
+    expect(erroAoLer(cenario, geometria)).toContain("relacoes.12");
+  });
+
+  it("relações sem raioPerto são recusadas", () => {
+    const { cenario, geometria } = jsonsDoTerraco();
+    delete em(cenario).raioPerto;
+
+    expect(erroAoLer(cenario, geometria)).toContain("raioPerto");
+  });
+
+  it("cenário sem relações continua válido", () => {
+    const { cenario, geometria } = jsonsDoTerraco();
+    delete em(cenario).raioPerto;
+    delete em(cenario).relacoes;
+
+    expect(
+      lerCenario(cenario, geometria, "terraco").frasesDeRelacao([
+        { peca: "telescopio", lugar: "C1" },
+        { peca: "lanterna", lugar: "L2" },
+      ]),
+    ).toEqual([]);
+  });
+
   it("o cenário mínimo é lido", () => {
     expect(CENARIO_MINIMO.id).toBe("minimo");
     expect(CENARIO_MINIMO.peca("pedra")).toEqual({
@@ -189,6 +223,10 @@ describe("lerCenario: consultas", () => {
 
   it("som traz url e volume", () => {
     expect(c.som("meteoro")).toEqual({ url: "/assets/cenarios/terraco/audio/meteoro.mp3", volume: 0.5 });
+  });
+
+  it("audio usa o nome-base", () => {
+    expect(c.audio("radio-notas")).toBe("/assets/cenarios/terraco/audio/radio-notas.mp3");
   });
 
   it("revelação da lanterna traz os dois efeitos", () => {
