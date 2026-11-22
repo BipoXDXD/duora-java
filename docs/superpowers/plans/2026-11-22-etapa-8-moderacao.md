@@ -2,6 +2,8 @@
 
 > **Para agentes:** sub-skill obrigatória: superpowers:subagent-driven-development (recomendado) ou superpowers:executing-plans. Passos com checkbox (`- [ ]`).
 
+> **Emenda 2026-11-22 (paridade com o mercado):** a fila passa a ter severidade **P0 ≤ 12 h, P1 ≤ 24 h, P2 ≤ 48 h** (contrato atualizado; substitui urgente/normal nas Tasks 4–7); a Task 9 (nova) avisa o denunciado com o motivo e dá **um recurso por decisão**; a Task 10 (nova) liga o Sightengine como reserva paga opcional, desligada por padrão; a Task 11 (nova) põe no painel a denúncia pública (Etapa 2), a denúncia automática da triagem, o clipe de voz e os casos de abuso infantil (Etapa 5).
+
 **Objetivo:** uma pessoa com papel ADMIN revisa denúncias (vendo só o conteúdo do denunciado: mensagem, imagem ou link) e fotos de perfil num painel React, confirma ou descarta; confirmar bane a conta (sessões derrubadas, fora da fila, das conexões e do encontro); "parece menor de idade" continua suspendendo na hora (Etapa 5) e a revisão reativa ou bane; toda ação de admin fica numa auditoria imutável; a fila tem SLA, alerta e métricas.
 
 **Arquitetura:**
@@ -21,12 +23,12 @@
 
 ## Restrições globais (Global Constraints)
 - Tudo do contrato e das restrições globais das Etapas 2, 4 e 5 vale aqui.
-- **Flyway:** só **V120–V139**. Usadas: V120 (resolução e evidência da denúncia), V121 (auditoria), V122 (banimento), V123 (alerta da fila). V124–V139 reservadas.
+- **Flyway:** só **V120–V139**. Usadas: V120 (resolução e evidência da denúncia), V121 (auditoria), V122 (banimento), V123 (alerta da fila), V124 (aviso e recurso, Task 9). V125–V139 reservadas.
 - **Só acrescentar** sobre `denuncia` e `bloqueio`: colunas novas e `check` ampliado; nada removido nem renomeado.
 - **Papel ADMIN:** `duora.admin.emails` (lista separada por vírgula, normalizada como `Email.chaveDeBloqueio()`), vazia por padrão; em `prod`, `${DUORA_ADMIN_EMAILS}`. Toda rota `/api/admin/**` exige sessão válida, conta ATIVA, e-mail na lista e sessão aberta há no máximo **12 h** (`duora.admin.sessao-maxima=PT12H`). Sem sessão ⇒ 401 `NAO_AUTENTICADO`; sem papel ⇒ 403 `ACESSO_NEGADO`; sessão velha ⇒ 403 `REAUTENTICACAO_NECESSARIA`.
 - **Conteúdo limitado ao denunciado:** o admin vê só o que o denunciado escreveu ou enviou. Nunca a mensagem nem o perfil de quem denunciou (só o apelido), nunca e-mail, data de nascimento ou célula. Links aparecem como texto com o host real em destaque, **nunca clicáveis**. Imagens chegam borradas, com "Ver imagem".
-- **SLA (proposta, ver D2):** `URGENTE` (`PARECE_MENOR`, `IMAGEM_SENSIVEL`) **12 h**; `NORMAL` (`ASSEDIO`, `SPAM_OU_GOLPE`, `OUTRO`) **48 h**; foto de perfil **24 h**. Propriedades `duora.moderacao.sla.{urgente,normal,foto}`.
-- **Confirmar bane** (P1); banimento definitivo no piloto (sem desbanir pela API).
+- **Severidade e SLA (spec, 2026-11-22):** `P0` **12 h** (`PARECE_MENOR`; caso de abuso infantil; denúncia pública `PARECE_MENOR`/`ABUSO_INFANTIL`); `P1` **24 h** (`IMAGEM_SENSIVEL`, `ASSEDIO`, denúncia de origem `TRIAGEM`, foto de perfil; denúncia pública `IMAGEM_INTIMA`/`ASSEDIO`); `P2` **48 h** (`SPAM_OU_GOLPE`, `OUTRO`, o resto da denúncia pública). Propriedades `duora.moderacao.sla.{p0,p1,p2}`. Onde as Tasks 4–7 dizem "urgente", leia-se P0; "normal" vira P1 e P2 separados.
+- **Confirmar bane** (P1); o banimento só é desfeito pela reversão de um recurso (Task 9).
 - **Auditoria:** uma linha por ação, gravada na transação da ação; `UPDATE` e `DELETE` recusados por trigger. Nota até 500 code points, sem controle exceto `\n`.
 - **Retenção da evidência:** pendente nunca expira; resolvida expira **30 dias** depois de `resolvida_em` (`PoliticaDeRetencao` `evidencias-de-denuncia`, com `tamanho()`); imagem de denúncia `IMAGEM_SENSIVEL` confirmada é apagada na hora (original e cópia).
 - **Códigos novos** (`moderacao/CodigoModeracao`, `admin/CodigoAdmin`, como `CodigoDeErro` do `nucleo/`): `ACESSO_NEGADO` 403, `REAUTENTICACAO_NECESSARIA` 403, `DENUNCIA_INEXISTENTE` 404, `DENUNCIA_JA_RESOLVIDA` 409, `NOTA_INVALIDA` 422 (e `FOTO_INEXISTENTE` da Etapa 3).
@@ -40,7 +42,8 @@
 - **Denúncia:** pedido de uma conta para a moderação olhar o comportamento de outra num contexto (encontro, conexão, mensagem ou imagem). Situação: **pendente**, **confirmada**, **descartada** ou **encerrada** (fechada sem análise porque a conta já foi banida por outra denúncia).
 - **Evidência:** cópia, feita no momento da denúncia, do conteúdo denunciado. É o que o admin analisa; sobrevive à expiração do chat.
 - **Conteúdo denunciado:** o que o denunciado escreveu ou enviou no contexto, e só isso.
-- **Prioridade:** urgente ou normal, derivada do motivo; ninguém a escolhe.
+- **Severidade:** P0, P1 ou P2, derivada do motivo e da origem; ninguém a escolhe.
+- **Recurso:** pedido único da pessoa sancionada para rever uma decisão; a resposta é definitiva.
 - **Prazo (SLA):** instante até o qual uma denúncia pendente deve ser analisada; depois dele, ela está **vencida**.
 - **Suspensão:** bloqueio automático e temporário da conta pela denúncia "parece menor de idade". Termina em **reativação** (descartada) ou **banimento** (confirmada).
 - **Banimento:** encerramento definitivo da conta por decisão de admin. Diferente de **exclusão** (pedida pela pessoa) e de **bloqueio** (decisão de uma pessoa sobre outra, sem moderação).
@@ -75,7 +78,7 @@
 | # | Decisão | Opções | Recomendação |
 |---|---|---|---|
 | D1 | Quem modera no piloto (denúncia contra pessoa real precisa de decisão humana; agente não bane) | (a) só o dono, pelo e-mail dele em `DUORA_ADMIN_EMAILS`; (b) o dono e mais uma pessoa de confiança | (a) para abrir; (b) se a fila passar de ~10 denúncias por semana. Trocar é editar uma variável |
-| D2 | SLA de análise | (a) urgente 12 h, normal 48 h, foto 24 h; (b) urgente 24 h, normal 72 h, foto 48 h; (c) urgente 4 h | (a): a suspensão automática já protege no caso "menor", e 12 h cabe em olhar o painel de manhã e à noite; (c) não se sustenta com uma pessoa |
+| D2 | SLA de análise — **decidida pela spec de 2026-11-22: P0 12 h, P1 24 h, P2 48 h** | (a) urgente 12 h, normal 48 h, foto 24 h; (b) urgente 24 h, normal 72 h, foto 48 h; (c) urgente 4 h | (a): a suspensão automática já protege no caso "menor", e 12 h cabe em olhar o painel de manhã e à noite; (c) não se sustenta com uma pessoa |
 | D3 | Canal do alerta da fila | (a) e-mail aos admins pelo Resend (via `Outbox`); (b) Web Push no PWA do admin; (c) os dois | (a): já existe e não depende de o admin ter instalado o PWA |
 
 Nenhuma bloqueia: tudo vem de propriedades, com (a) como padrão.
@@ -166,7 +169,7 @@ Nenhuma bloqueia: tudo vem de propriedades, com (a) como padrão.
 
 **Arquivos:**
 - Criar: `src/main/resources/db/migration/V120__denuncia_resolucao_e_evidencia.sql`
-- Criar: `moderacao/{ConteudoDenunciado,ConteudoParaRevisao,ItemRevisado,CapturaDeEvidencia,CopiaDeImagensDaEvidencia,RetencaoDeEvidencias,FilaDeDenuncias,DenunciaNaFila,DetalheDaDenuncia}.java`, `moderacao/dominio/{Prioridade,PrazosDeModeracao}.java`, `admin/web/{DenunciasAdminController,ImagensAdminController}.java`
+- Criar: `moderacao/{ConteudoDenunciado,ConteudoParaRevisao,ItemRevisado,CapturaDeEvidencia,CopiaDeImagensDaEvidencia,RetencaoDeEvidencias,FilaDeDenuncias,DenunciaNaFila,DetalheDaDenuncia}.java`, `moderacao/dominio/{Severidade,PrazosDeModeracao}.java`, `admin/web/{DenunciasAdminController,ImagensAdminController}.java`
 - Criar: `encontro/ConteudoDenunciadoDoEncontro.java`, `conexao/ConteudoDenunciadoDaConexao.java`
 - Teste: `moderacao/dominio/PrazosDeModeracaoTest.java`, `moderacao/{CapturaDeEvidenciaTest,FilaDeDenunciasTest}.java`, `admin/DenunciasAdminApiTest.java`, `encontro/ConteudoDenunciadoDoEncontroTest.java`, `conexao/ConteudoDenunciadoDaConexaoTest.java`
 
@@ -175,20 +178,20 @@ Nenhuma bloqueia: tudo vem de propriedades, com (a) como padrão.
 **Interfaces:**
 - Consome: `DenunciaRegistrada`, `MotivoDenuncia`, `ContextoDenuncia`, `TipoDeContextoDenuncia` (Etapa 5); `web.texto.Links.segmentar`/`Segmento` (Etapa 5); `web.ArmazemDeImagens.caminho/apagar`, `web.Variante` (Etapa 3); `notificacao.Outbox.registrar`, `ManipuladorDeOutbox` (Etapa 4); `Perfis.publico`; `retencao.PoliticaDeRetencao` (com `tamanho()`).
 - Produz:
-  - `Prioridade { URGENTE, NORMAL }` com `static Prioridade de(MotivoDenuncia)`; `PrazosDeModeracao(Duration urgente, Duration normal, Duration foto)`: `Instant prazo(MotivoDenuncia, Instant criadaEm)`, `Instant prazoDaFoto(Instant enviadaEm)`, `boolean vencida(Instant prazo, Instant agora)` (vencida só **depois** do prazo).
+  - `Severidade { P0, P1, P2 }` com `static Severidade de(MotivoDenuncia, OrigemDaDenuncia)` (a origem `TRIAGEM` é sempre P1) e `static Severidade daDenunciaPublica(String motivo)`; `PrazosDeModeracao(Duration p0, Duration p1, Duration p2)`: `Instant prazo(Severidade, Instant criadaEm)`, `Instant prazoDaFoto(Instant enviadaEm)` (= P1), `boolean vencida(Instant prazo, Instant agora)` (vencida só **depois** do prazo). O arquivo `Prioridade.java` vira `Severidade.java`.
   - `public interface ConteudoDenunciado { Set<TipoDeContextoDenuncia> tipos(); ConteudoParaRevisao capturar(ContextoDenuncia contexto, ContaId denunciado); }` — item: só se o autor for o denunciado; contexto inteiro: as últimas 20 mensagens do denunciado (P2); nada ⇒ `ConteudoParaRevisao.indisponivel()`. `ConteudoDenunciadoDoEncontro` cobre `ENCONTRO`, `MENSAGEM_ENCONTRO`, `IMAGEM_ENCONTRO`; `ConteudoDenunciadoDaConexao` cobre `CONEXAO`, `MENSAGEM_CONEXAO`. Tipo sem implementação ⇒ falha no boot.
   - `record ItemRevisado(UUID id, String tipo /* TEXTO|IMAGEM */, List<Segmento> segmentos, Optional<UUID> imagemId, Instant criadoEm)`; `record ConteudoParaRevisao(boolean disponivel, String contexto /* "Mensagem no encontro", "Imagem no encontro", "Encontro", "Mensagem na conversa", "Conversa" */, Optional<String> cenario, List<ItemRevisado> itens)`.
   - `CapturaDeEvidencia` (`@EventListener` de `DenunciaRegistrada`, **na transação** da denúncia): grava `evidencia_denuncia`; para cada imagem, `Outbox.registrar("copiar-imagem-de-evidencia", {denunciaId, imagemId})`.
   - `CopiaDeImagensDaEvidencia implements ManipuladorDeOutbox` (idempotente): copia as duas variantes de `caminho("encontro", id, v)` para `caminho("moderacao", id, v)` (acrescentar `ArmazemDeImagens.copiar(String origem, String destino, UUID id)` se não existir); original já apagada ⇒ marca o item como indisponível e termina sem erro.
   - `RetencaoDeEvidencias implements PoliticaDeRetencao`: `evidencias-de-denuncia`, `P30D`, referência `denuncia.resolvida_em`; apaga linhas e arquivos da categoria `moderacao` em lotes de 1000; pendente nunca expira.
-  - `FilaDeDenuncias`: `List<DenunciaNaFila> pendentes(int pagina)` (50 por página; `URGENTE` antes, depois `criada_em`, depois `id`); `Optional<DetalheDaDenuncia> detalhe(UUID id)` (lê só `denuncia` e `evidencia_denuncia`).
-  - `record DenunciaNaFila(UUID id, MotivoDenuncia motivo, Prioridade prioridade, String denunciadoApelido, Instant criadaEm, Instant prazo, boolean vencida, String contexto)`; `record DetalheDaDenuncia(UUID id, MotivoDenuncia motivo, Prioridade prioridade, Optional<String> detalhe, String denunciadoApelido, Optional<String> denunciadoFotoBorrada, String denuncianteApelido, String situacaoDoDenunciado, int outrasPendentesContraODenunciado, Instant criadaEm, Instant prazo, boolean vencida, ConteudoParaRevisao conteudo)`.
+  - `FilaDeDenuncias`: `List<DenunciaNaFila> pendentes(int pagina)` (50 por página; ordem por `prazo` crescente, que já põe P0 antes, depois `id`); `Optional<DetalheDaDenuncia> detalhe(UUID id)` (lê só `denuncia` e `evidencia_denuncia`).
+  - `record DenunciaNaFila(UUID id, MotivoDenuncia motivo, Severidade severidade, String origem /* PESSOA|TRIAGEM */, String denunciadoApelido, Instant criadaEm, Instant prazo, boolean vencida, String contexto)`; `record DetalheDaDenuncia(UUID id, MotivoDenuncia motivo, Prioridade prioridade, Optional<String> detalhe, String denunciadoApelido, Optional<String> denunciadoFotoBorrada, String denuncianteApelido, String situacaoDoDenunciado, int outrasPendentesContraODenunciado, Instant criadaEm, Instant prazo, boolean vencida, ConteudoParaRevisao conteudo)`.
   - Rotas: `GET /api/admin/denuncias?pagina=0` (0 a 100, senão 422); `GET /api/admin/denuncias/{id}` (404 `DENUNCIA_INEXISTENTE`); `GET /api/admin/denuncias/{id}/imagens/{imagemId}/{borrada|nitida}` → `image/webp`, `Cache-Control: private, no-store`, `X-Content-Type-Options: nosniff`, `Content-Disposition: inline`; imagem fora da evidência daquela denúncia ⇒ 404.
 - [ ] **Passo 1:** testes.
-  - `PrazosDeModeracaoTest` (`@ParameterizedTest`): `PARECE_MENOR` às 10:00 ⇒ 22:00; `ASSEDIO` ⇒ +48 h; foto ⇒ +24 h; `vencida` falsa no prazo exato e verdadeira 1 s depois.
+  - `PrazosDeModeracaoTest` (`@ParameterizedTest`): `PARECE_MENOR` às 10:00 ⇒ 22:00 (P0); `IMAGEM_SENSIVEL` e `ASSEDIO` ⇒ +24 h (P1); origem `TRIAGEM` com `IMAGEM_SENSIVEL` ⇒ P1; `SPAM_OU_GOLPE` e `OUTRO` ⇒ +48 h (P2); foto ⇒ +24 h; denúncia pública `ABUSO_INFANTIL` ⇒ P0 e `GOLPE` ⇒ P2; `vencida` falsa no prazo exato e verdadeira 1 s depois.
   - `ConteudoDenunciadoDoEncontroTest`: `itemDeOutroAutorEIndisponivel`; `encontroInteiroTrazSoAs20UltimasDoDenunciado` (25 do denunciado + 10 de quem denunciou ⇒ 20, todas do denunciado, da mais nova para a mais antiga); `linkVemSegmentadoComHostReal` (`https://banco.com@golpe.example/x` ⇒ host `golpe.example`); `imagemDenunciadaTrazImagemId`. `ConteudoDenunciadoDaConexaoTest`: os três primeiros para `MENSAGEM_CONEXAO`/`CONEXAO`.
   - `CapturaDeEvidenciaTest` (`BancoDeTeste`): `denunciaGravaEvidenciaNaMesmaTransacao`; `falhaNaCapturaDesfazADenuncia`; `imagemVaiParaAOutboxEECopiada` (rodar o despachante ⇒ arquivos em `moderacao/`); `copiaRepetidaNaoFalha`; `evidenciaSobreviveAExpiracaoDoChat` (rodar `RetencaoDoChatDoEncontro` e `RetencaoDasImagensDoEncontro` 31 dias depois ⇒ o detalhe continua com texto e imagem); `retencaoApagaResolvidaDepoisDe30DiasEMantemPendente`; `evidenciaNuncaTrazConteudoDeQuemDenunciou` (canário `CANARY-<uuid>` escrito por quem denunciou não aparece em `itens`).
-  - `FilaDeDenunciasTest`: `filaPaginaDe50EmOrdemDePrioridade` (60 normais antigas + 3 urgentes novas ⇒ página 0 começa pelas 3 urgentes e tem 50; página 1 tem 13); `resolvidasNaoAparecem`; `consultaUsaOIndiceParcial` (`EXPLAIN` menciona `denuncia_pendente_idx` com 5000 linhas e `ANALYZE`).
+  - `FilaDeDenunciasTest`: `filaPaginaDe50EmOrdemDePrioridade` (60 P2 antigas + 3 P0 novas ⇒ página 0 começa pelas 3 P0 e tem 50; página 1 tem 13); `triagemEntraComoP1SemDenunciante`; `resolvidasNaoAparecem`; `consultaUsaOIndiceParcial` (`EXPLAIN` menciona `denuncia_pendente_idx` com 5000 linhas e `ANALYZE`).
   - `DenunciasAdminApiTest`: `chavesDoDetalheSaoExatamenteAsDoRecord`; `detalheNaoTrazEmailNemNascimento` (canários); `imagemDeOutraDenunciaRecebe404`; `cabecalhosDaImagemDoAdmin`; `paginaNegativaRecebe422`.
 - [ ] **Passo 2:** RED.
 - [ ] **Passo 3:** implementar.
@@ -235,11 +238,11 @@ Nenhuma bloqueia: tudo vem de propriedades, com (a) como padrão.
 **Interfaces:**
 - Consome: `FilaDeDenuncias`, `PrazosDeModeracao` (T4); `FilaDeFotos`; `Outbox`, `ManipuladorDeOutbox`, `EnvioDeEmail`; `Administradores` (T1); `MeterRegistry`.
 - Produz:
-  - `ResumoDaFila.agora() -> EstadoDaFila`; `record EstadoDaFila(int urgentesPendentes, int normaisPendentes, int fotosPendentes, int vencidas, Optional<Instant> maisAntigaPendente, Optional<Instant> proximoPrazo)` (consultas agregadas, sem carregar linhas). `GET /api/admin/resumo` → `EstadoDaFila`.
+  - `ResumoDaFila.agora() -> EstadoDaFila`; `record EstadoDaFila(int p0Pendentes, int p1Pendentes, int p2Pendentes, int fotosPendentes, int vencidas, Optional<Instant> maisAntigaPendente, Optional<Instant> proximoPrazo)` (consultas agregadas, sem carregar linhas). `GET /api/admin/resumo` → `EstadoDaFila`.
   - `AlertaDaFila` (`@Scheduled(cron)`): se há urgente criada depois do último alerta `URGENTE`, ou vencida sem alerta `VENCIDA` nas últimas 6 h, numa transação insere `alerta_fila` (janela = início do quarto de hora; conflito ⇒ nada) e `Outbox.registrar("email-alerta-fila", {urgentes, vencidas})`. `EmailDeAlertaDaFila implements ManipuladorDeOutbox` envia a cada admin: assunto `Duora: denúncias aguardando análise`; corpo `Há {u} denúncias urgentes e {v} vencidas na fila. Abra {url-publica}/admin para analisar.` Só contagens.
-  - `MetricasDaFila`: gauges `duora.moderacao.pendentes{prioridade=urgente|normal}`, `duora.moderacao.fotos.pendentes`, `duora.moderacao.vencidas`, `duora.moderacao.idade.maxima.segundos`, com cache de 30 s sobre o `ResumoDaFila`.
+  - `MetricasDaFila`: gauges `duora.moderacao.pendentes{severidade=p0|p1|p2}`, `duora.moderacao.fotos.pendentes`, `duora.moderacao.vencidas`, `duora.moderacao.idade.maxima.segundos`, com cache de 30 s sobre o `ResumoDaFila`.
 - [ ] **Passo 1:** testes.
-  - `ResumoDaFilaTest`: 2 urgentes, 3 normais, 1 vencida, 4 fotos ⇒ contagens; vazia ⇒ zeros.
+  - `ResumoDaFilaTest`: 2 P0, 3 P1, 1 P2, 1 vencida, 4 fotos ⇒ contagens; vazia ⇒ zeros.
   - `AlertaDaFilaTest` (`EnvioDeEmail` falso, despachante da outbox executado à mão): `urgenteNovaDisparaUmEmailPorAdmin`; `segundaExecucaoNaMesmaJanelaNaoReenvia`; `vencidaRealertaSoDepoisDe6h` (5 h 59 min não, 6 h sim); `semPendenciaNaoEnvia`; `corpoSoTemContagens` (nem apelido canário nem id); `rollbackNaoDeixaEmailNaOutbox`.
   - `MetricasDaFilaTest`: os gauges com os valores do resumo; duas coletas em 10 s ⇒ uma consulta.
 - [ ] **Passo 2:** RED.
@@ -287,6 +290,71 @@ Nenhuma bloqueia: tudo vem de propriedades, com (a) como padrão.
 - [ ] **Passo 3:** Android (`scripts/android/`): a admin abre `/admin/denuncias` em retrato no emulador; captura em `target/android/admin-fila.png`; sem rolagem horizontal (largura do documento ≤ largura da janela).
 - [ ] **Passo 4:** `_mapa.md`. Commit `test(e2e): denúncia, análise e banimento de ponta a ponta`.
 
+### Task 9: Aviso ao denunciado com o motivo e um recurso por decisão (paridade, tese do STF de 2025)
+
+**Arquivos:**
+- Criar: `src/main/resources/db/migration/V124__aviso_e_recurso.sql`
+- Criar: `moderacao/{Recursos,RecursoNaFila,AvisoDeSancao,TextosDeMotivo,RecursoController}.java`, `moderacao/dominio/DecisaoDeRecurso.java`, `admin/web/RecursosAdminController.java`, `conta/BanimentoDeContas.java` (método novo `revogarBanimento`)
+- Criar: `frontend/src/conta/PedirRevisaoTela.tsx` (rota pública `/recurso`), `frontend/src/admin/RecursosTela.tsx` + testes
+- Modificar: `moderacao/{Moderacao,Banimentos}.java`, `moderacao/dominio/AcaoDeModeracao.java`, `conta/RotasPublicas.java` (`/api/recursos`), `frontend/src/conta/ContaIndisponivelTela.tsx`, `frontend/src/admin/rotas.tsx`
+- Teste: `moderacao/{RecursosTest,AvisoDeSancaoTest}.java`, `admin/RecursosAdminApiTest.java`, `e2e/RecursoIT.java`; Modificar: `AxeIT`
+
+**Esquema (V124):** `alter table banimento add column revertido_em timestamptz`; `recurso(id uuid primary key, conta_id uuid not null unique references banimento(conta_id), token_hash bytea not null unique, token_expira_em timestamptz not null, texto text check (char_length(texto) between 1 and 1000), enviado_em timestamptz, decisao text check (decisao in ('MANTIDA','REVERTIDA')), decidido_em timestamptz, decidido_por uuid references conta(id), check ((decisao is null) = (decidido_em is null)))`; o `check` de `acao_admin.tipo` ganha `RECURSO_MANTIDO` e `RECURSO_REVERTIDO`. Um banimento ⇒ um recurso (a `unique` em `conta_id`).
+
+**Interfaces:**
+- Consome: `Banimentos`, `ContaBanida` (T3), `Moderacao.executar`, `Auditoria` (T2, T5), `Outbox`, `Token` e o padrão do link mágico (Etapa 2), `EmailsBloqueados`.
+- Produz:
+  - `TextosDeMotivo.daRegra(MotivoBanimento, Optional<MotivoDenuncia>) -> String`: `IMAGEM_SENSIVEL` → `Envio de imagem com nudez, sexo, violência explícita ou conteúdo chocante.`; `ASSEDIO` → `Assédio ou ofensa a outra pessoa.`; `SPAM_OU_GOLPE` → `Spam ou tentativa de golpe.`; `PARECE_MENOR` → `Conta de pessoa com menos de 18 anos.`; `OUTRO` → `Violação dos termos de uso.`; `FOTO_SENSIVEL` → `Foto de perfil com conteúdo proibido.` A nota do admin nunca vai para a pessoa.
+  - `AvisoDeSancao` (ouvinte de `ContaBanida`, na transação): cria o `recurso` com token de 32 bytes (o banco guarda o SHA-256; vale 30 dias) e registra na outbox o e-mail para o endereço da conta: assunto `Duora: sua conta foi encerrada`; corpo `Sua conta no Duora foi encerrada. Motivo: {regra}. Se achar que foi um engano, você pode pedir uma revisão, uma vez, por este link (vale 30 dias):`, linha em branco, `<duora.url-publica>/recurso#t=<token>`.
+  - O 403 de conta banida (T3) ganha `"motivo": "{regra}"`; a `ContaIndisponivelTela` mostra `Motivo: {regra}. Enviamos ao seu e-mail um link para pedir revisão.`
+  - `POST /api/recursos` (público) `{ "token", "texto" }` → 202 `{"mensagem":"Recebemos seu pedido. A revisão leva até 48 horas e a resposta chega por e-mail."}`; consumo atômico do token (`UPDATE ... WHERE token_hash = :h AND enviado_em IS NULL AND token_expira_em > :agora`); token usado, vencido ou inexistente → 422 `RECURSO_INDISPONIVEL`; limite `recurso-ip` 5 por `PT1H`.
+  - Ações novas em `AcaoDeModeracao`: `ManterBanimento(UUID recurso, Optional<Nota> nota)` e `ReverterBanimento(UUID recurso, Optional<Nota> nota)`. Só depois de 24 h do banimento (revisão com a cabeça fria, já que há um admin só; antes → 409 `RECURSO_CEDO_DEMAIS`); recurso já decidido → 409. `ReverterBanimento` chama `BanimentoDeContas.revogarBanimento(ContaId)` (`BANIDA → ATIVA`, apaga a linha `BANIMENTO` de `email_bloqueado`, grava `banimento.revertido_em`); conexões desfeitas e encontros encerrados **não** voltam. Os dois mandam e-mail pela outbox (`Duora: resposta ao seu pedido de revisão` com `Sua conta foi reativada.` ou `A decisão foi mantida. Este pedido não tem nova revisão.`) e auditam `RECURSO_MANTIDO`/`RECURSO_REVERTIDO`.
+  - Fila: `GET /api/admin/recursos` (pendentes, prazo P2 de 48 h a partir de `enviado_em`), `POST /api/admin/recursos/{id}/manter|reverter`; o `ResumoDaFila` conta recursos pendentes; `RecursosTela` mostra o motivo, a evidência original (a mesma `DetalheDaDenuncia`) e o texto do recurso.
+  - Este recurso substitui a regra "banimento definitivo no piloto (sem desbanir pela API)": desbanir só existe pela reversão de recurso.
+- [ ] **Passo 1:** testes.
+  - `AvisoDeSancaoTest`: `banimentoMandaEmailComMotivoELink` (o corpo traz a regra e `#t=`, nunca a nota do admin); `fotoSensivelUsaTextoDaFoto`.
+  - `RecursosTest`: `umRecursoPorBanimento`; `tokenUsadoDuasVezesRecebe422`; `tokenDe30DiasE1sRecebe422`; `decidirAntesDe24hRecebe409` (23 h 59 não, 24 h sim); `reverterReativaELiberaOEmail` (`POST /api/conta/entrar` volta a mandar link); `reverterNaoRestauraConexoes`; `manterEDefinitivo` (segunda decisão → 409); `decisaoAuditada`.
+  - `RecursosAdminApiTest`: `contaComumRecebe403`; `chavesExatas`.
+  - `RecursoIT.banidaPedeRevisaoEAdminReverte`: Bia banida vê o motivo; abre o link do `EmailNoLog`, envia o texto; o relógio avança 24 h; a admin reverte; Bia entra de novo.
+  - `AxeIT`: `pedirRevisaoSemViolacoes`, `recursosAdminSemViolacoes`.
+- [ ] **Passo 2:** RED; implementar; verde. Commit `feat(moderacao): aviso com o motivo e um recurso por decisão`.
+
+### Task 10: Sightengine como reserva paga opcional (desligada por padrão)
+
+**Arquivos:**
+- Criar: `src/main/java/bipotheking/net/duora/web/imagens/{ClassificadorSightengine,ClassificadorComReserva}.java`
+- Modificar: `application.properties` (`duora.moderacao.sightengine.habilitado=false`, `max-por-dia=400`), `application-prod.properties` (`${DUORA_SIGHTENGINE_USER:}`, `${DUORA_SIGHTENGINE_SECRET:}`; habilitado sem chave ⇒ o boot falha)
+- Teste: `web/imagens/{ClassificadorSightengineTest,ClassificadorComReservaTest}.java`
+
+**Interfaces:**
+- Consome: `ClassificadorDeImagem`, `Classificacao`, `LimiaresDeTriagem`, `TriagemDeImagem` (Etapa 5 Task 13).
+- Produz:
+  - `ClassificadorSightengine implements ClassificadorDeImagem`: `POST https://api.sightengine.com/1.0/check.json` com a miniatura de triagem (224 px, sem metadados), `models=nudity-2.1`, `api_user`, `api_secret`; pontuação = `1 − nudity.none` (conferir o nome dos campos na doc atual pelo Context7 antes de codar e registrar no commit); timeout de conexão 3 s e de leitura 5 s.
+  - `ClassificadorComReserva implements ClassificadorDeImagem` (`@Primary` só com a reserva habilitada): chama o ONNX; se o resultado cair na zona cinzenta e o contador do dia estiver abaixo de `max-por-dia` (o plano grátis tem 500/dia), pede a segunda opinião e usa o **maior** dos dois; falha ou limite da reserva ⇒ fica o resultado do ONNX (nunca derruba o envio).
+  - Habilitar exige uma versão nova da política de privacidade (Etapa 9 Task 4: fornecedor Sightengine) antes de ir para produção.
+- [ ] **Passo 1:** testes (`HttpServer` local): `pontuacaoVemDeUmMenosNone`; `foraDaZonaCinzentaNaoChamaAReserva`; `zonaCinzentaUsaOMaior`; `reservaQueFalhaMantemOOnnx`; `limiteDoDiaParaDeChamar` (401ª no dia não chama); `desligadoPorPadrao` (sem a propriedade, o bean nem existe).
+- [ ] **Passo 2:** RED; implementar; verde. Commit `feat(moderacao): Sightengine como segunda opinião opcional na triagem`.
+
+### Task 11: Painel — denúncia pública, triagem, clipe de voz e casos de abuso infantil
+
+**Arquivos:**
+- Criar: `src/main/resources/db/migration/V125__acoes_de_paridade.sql` (amplia o `check` de `acao_admin.tipo` com `DENUNCIA_PUBLICA_RESOLVIDA`, `CASO_ABERTO`, `REPORTE_REGISTRADO`, `MATERIAL_APAGADO`, `MATERIAL_VISTO`)
+- Criar: `admin/web/{DenunciasPublicasAdminController,CasosAdminController}.java`, `frontend/src/admin/{DenunciasPublicasTela,CasosTela,CasoTela,PlayerDoClipe}.tsx` + testes
+- Modificar: `moderacao/{Moderacao,FilaDeDenuncias,DetalheDaDenuncia,ResumoDaFila,RetencaoDeEvidencias}.java`, `moderacao/dominio/AcaoDeModeracao.java`, `admin/web/DenunciasAdminController.java` (clipe), `frontend/src/admin/{DenunciaTela,rotas}.tsx`
+- Teste: `admin/{DenunciasPublicasAdminApiTest,CasosAdminApiTest,ClipeAdminApiTest}.java`, `e2e/CasoDeAbusoInfantilIT.java`; Modificar: `AxeIT`
+
+**Interfaces:**
+- Consome: `denuncia_publica` (Etapa 2 Task 16), `CasosDeAbusoInfantil` e `clipe_de_voz` (Etapa 5 Tasks 14 e 15), origem `TRIAGEM` (Etapa 5 Task 13), `Severidade` (T4).
+- Produz:
+  - Ações novas em `AcaoDeModeracao`: `ResolverDenunciaPublica(UUID, Optional<Nota>)`, `AbrirCasoDeAbusoInfantil(UUID imagemId, OrigemDoSinal origem)`, `RegistrarReporte(UUID caso, String protocolo)`, `ApagarMaterial(UUID caso)`; cada uma audita o tipo correspondente.
+  - Rotas: `GET /api/admin/denuncias-publicas` (pendentes por prazo, severidade por `Severidade.daDenunciaPublica`), `POST /api/admin/denuncias-publicas/{id}/resolver`; `GET /api/admin/casos`, `POST /api/admin/casos` `{ "imagemId", "origem": "CLOUDFLARE"|"ADMIN"|"DENUNCIA" }`, `POST /api/admin/casos/{id}/reporte` `{ "protocolo" }`, `POST /api/admin/casos/{id}/apagar-material`, `GET /api/admin/casos/{id}/imagem` (`no-store`; cada acesso audita `MATERIAL_VISTO`), `GET /api/admin/casos/{id}/pacote` (JSON dos metadados para o reporte manual); `GET /api/admin/denuncias/{id}/clipe` (`audio/wav`, `no-store`, `Content-Disposition: inline`).
+  - `DetalheDaDenuncia` ganha `origem` e `Optional<Integer> clipeDuracaoMs`; a `RetencaoDeEvidencias` apaga o clipe junto com a evidência (30 dias depois de resolvida).
+  - `DenunciaTela`: denúncia de imagem ganha `Suspeita de abuso infantil` (confirma com `Isso esconde a imagem de todos, preserva uma cópia restrita, suspende a conta e abre um caso P0 para reporte à Polícia Federal.`); origem `TRIAGEM` mostra `Denúncia automática da triagem`; com clipe, `PlayerDoClipe` (`<audio controls>` com a duração em texto).
+  - `CasoTela`: metadados, imagem só com `Ver imagem` explícito, `Registrar reporte` (campo `Protocolo da denúncia`, com o texto `Faça o reporte pela Denúncia Online da Polícia Federal ou pela SaferNet e registre aqui o protocolo.`) e `Apagar material` (habilitado só depois do reporte).
+  - `ResumoDaFila` passa a contar denúncias públicas e casos abertos sem reporte (todos P0 quando aplicável) e os alertas da T6 os incluem.
+- [ ] **Passo 1:** testes. `DenunciasPublicasAdminApiTest`: `abusoInfantilPublicaEntraComoP0`; `resolverAuditaEEntraNaRetencao`. `CasosAdminApiTest`: `abrirPeloPainelEscondeSuspendeEAudita`; `verImagemAuditaCadaAcesso`; `apagarAntesDoReporteRecebe409`; `contaComumRecebe403EmTodas`. `ClipeAdminApiTest`: `clipeSoParaAdminComCabecalhos`; `clipeSomeComAEvidencia`. Vitest: `suspeitaDeAbusoPedeConfirmacao`; `apagarMaterialSoDepoisDoReporte`; `playerMostraDuracaoEmTexto`. `CasoDeAbusoInfantilIT`: Bia envia a imagem de teste; a admin marca a suspeita; a imagem some para Ana e Bia; Bia vê o texto de suspensa; a admin registra o protocolo `TESTE-123` e apaga o material; a auditoria lista as quatro ações. `AxeIT`: `casosSemViolacoes`, `denunciasPublicasSemViolacoes`.
+- [ ] **Passo 2:** RED; implementar; verde. Commit `feat(admin): denúncia pública, triagem, clipe de voz e casos de abuso infantil no painel`.
+
 ## Ordem e paralelismo
 | Leva | Tasks (worktrees separados) | Depende de | Flyway |
 |---|---|---|---|
@@ -294,7 +362,9 @@ Nenhuma bloqueia: tudo vem de propriedades, com (a) como padrão.
 | 2 | T3 ∥ T4 | T2; Etapa 6 T3 para as partes de conexão | T3: V122; T4: V120 |
 | 3 | T5 | T2, T3, T4 | — |
 | 4 | T6 ∥ T7 | T4, T5 (T7 pode começar na Leva 2 contra as Interfaces, com `fetch` falso) | T6: V123 |
-| 5 | T8 | todas | — |
+| 5 | T9 ∥ T10 (paridade) | T3, T5 (T9); Etapa 5 T13 (T10) | T9: V124 |
+| 6 | T11 (paridade) | T4, T5, T9; Etapa 2 T16; Etapa 5 T13–T15 | V125 |
+| 7 | T8 | todas | — |
 
 - Sem out-of-order: se a T3 (V122) entrar antes da T4 (V120), a T4 renumera para V124 antes do merge (e a T6 segue com V123 só se V123 ainda for maior que tudo no branch; senão, o próximo livre).
 - No máximo 4 agentes ao mesmo tempo, contando as Etapas 5 e 6 que correm junto. A T3 edita `encontro/`, `conexao/`, `notificacao/` e `web/eventos/`: não rodar junto de task das Etapas 5/6 que edite os mesmos arquivos.
