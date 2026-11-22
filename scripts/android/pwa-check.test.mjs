@@ -1,4 +1,5 @@
-// Testes do pwa-check sem emulador: node --test scripts/android/
+// Testes do pwa-check sem emulador: node --test 'scripts/android/*.test.mjs'
+// (glob entre aspas, como no README; com só a pasta, o Node 24 não acha os testes).
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 
