@@ -1,8 +1,9 @@
-/* Tailwind sem preflight: o reset é o de base.css, para não mudar o visual do terraço. */
+/* Tailwind sem preflight: o reset é o de base.css, para não mudar o visual do terraço.
+   source(".."): só frontend/src é varrido atrás de classes, com ou sem .gitignore. */
 @layer theme, base, components, utilities;
 
 @import "tailwindcss/theme.css" layer(theme);
-@import "tailwindcss/utilities.css" layer(utilities);
+@import "tailwindcss/utilities.css" layer(utilities) source("..");
 
 @import "./tokens.css";
 @import "./base.css" layer(base);
