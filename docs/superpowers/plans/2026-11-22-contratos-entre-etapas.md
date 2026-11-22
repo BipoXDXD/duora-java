@@ -138,3 +138,27 @@ Valem as regras de `~/.claude/knowledge/regras-globais.md`: Qualidade de código
 | Revisão | `superpowers:requesting-code-review`, `mattpocock-skills:code-review`; ao receber, `superpowers:receiving-code-review` |
 | Antes de dizer "pronto" | `superpowers:verification-before-completion`, depois `duora-etapa` |
 | Fechar a branch | `superpowers:finishing-a-development-branch` |
+
+## Decisões do dono já tomadas (2026-11-22)
+Valem sobre as seções "Decisões do dono" dos planos.
+- **Etapa 5, decisão pós-encontro:** três respostas. "Sim" cria a conexão se for mútuo. "Agora não" bloqueia o par. "Topo outro encontro antes de decidir" permite reencontro se ninguém disse não.
+- **Etapa 9b, créditos:**
+  - O lote inteiro está aprovado: Tripo (~360) para 2D e ElevenLabs (~10–14 mil) para os sons de todos os cenários.
+  - O 3D sai do Hi3D. Se o Hi3D falhar ou não tiver o recurso, o fallback é o **Rodin-Business**: antes de gerar, consultar `rodin_estimate` e registrar o custo e o motivo do fallback. Não usar o Tripo para 3D.
+- **Etapa 9b, aceite de cada cenário (D4):** o cenário entra no sorteio se o playtest por agentes der "sim" nas perguntas 2–5 e as capturas não tiverem defeito visual. O dono recebe o pacote (capturas e relatório) e pode vetar, mas o padrão é liberar.
+- **Etapa 10, hospedagem:**
+  - VPS Hostinger em São Paulo, operada pelo conector Hostinger, num subdomínio de `meetduora.com`;
+  - backup no Backblaze B2 com Object Lock;
+  - monitoramento com UptimeRobot e Healthchecks.io;
+  - imagem pública no GHCR;
+  - um ambiente só, com o cadastro fechado até a abertura.
+- **Etapa 8, moderação:** o dono é o único admin. SLA de 12 h para denúncias urgentes (menor, imagem sensível), 48 h para as normais e 24 h para fotos, com alerta por e-mail. A suspensão por "parece menor" continua automática.
+
+**Escolhas padrão feitas pelo controlador** (o dono pode reverter):
+- **Remetente e contato:** `meetduora.com`.
+- **Gêneros:** lista inclusiva com "Prefiro descrever".
+- **Controlador na política de privacidade:** "o responsável pelo Duora".
+- **"Sair" na 1c:** mostra uma tela neutra; a decisão privada chega na Etapa 5.
+- **Prova de voz:** no emulador, forçado a passar pelo TURN, repetida na Etapa 10 com o coturn da VPS.
+- **JS inicial da 1a:** acima de 80 KB gzip, aceitar até +10 KB; além disso, avaliar preact/compat.
+- **Critério do piloto e rampa de capacidade (3 → 5 → 10):** confirmar com o dono antes de abrir o cadastro na Etapa 11.
