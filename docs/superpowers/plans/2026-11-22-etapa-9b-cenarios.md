@@ -314,7 +314,7 @@ Coordenadas em metros, no piso da cena (x lateral, y profundidade, z altura, com
    - O `ambiente.mp3` tem 60 s em laço: trilha `eleven_music` instrumental mais ambiência `eleven_text_to_sound` cerca de 12 dB abaixo, com crossfade de 4 s. O `revelacao.mp3` tem cerca de 4 s, −20 LUFS e fade de 0,8 s.
 6. **Manifesto e cache.**
    - Uma seção `## Cenário <nome>` em `assets/manifest.md`, com a tabela de exports, a tabela de gerações Hi3D (tarefas de imagem e 3D, master local), as tarefas Tripo e o flow/geração do ElevenLabs, com custos.
-   - Rodar o `ServiceWorkerVersaoTest` (depois da 1a, a versão sai da impressão; antes, copiar o valor para o `sw.js`, como manda a skill).
+   - Rodar o `ServiceWorkerVersaoTest` (o `CACHE_VERSION` do `sw.js` sai do build, pela impressão dos assets).
 7. **Commit**, separado por natureza:
    - `feat(assets): <cenario> — props, fundos e renders` (WebP + `cena.json` + manifesto);
    - `feat(assets): <cenario> — sons` (MP3 + manifesto + `montar.sh`).
@@ -324,7 +324,7 @@ Coordenadas em metros, no piso da cena (x lateral, y profundidade, z altura, com
 2. O controlador sobe o app numa porta livre conferida antes (`./mvnw spring-boot:run -Dspring-boot.run.arguments=--server.port=<p>`, mais `--duora.cenarios.sorteaveis=terraco,<cenario>` quando a Etapa 4 já existir).
 3. Despacha **um agente novo, que não implementou o cenário**. Pelo Playwright MCP, ele joga:
    - Ana em 1440×900;
-   - Bruno num contexto isolado de celular, criado por `browser_run_code_unsafe` (`browser.newContext({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true })`).
+   - Bruno num contexto isolado de celular (390×844, toque), criado pelo passo 0 de harness da P7 da 1c (`docs/superpowers/plans/2026-11-22-etapa-1c-ajustes-playtest.md`): `page.context().browser()?.newContext(…)`; com perfil persistente (browser `null`), `chromium.launch()` e o mesmo `newContext`; em último caso, `localhost` no mesmo contexto com toque emulado por CDP. O relatório do playtest registra a variante usada.
    - O encontro é aberto pelo caminho vigente: sala anônima com `"cenario":"<id>"` antes da Etapa 5; convite privado com o cenário depois. Nos dois casos o front carrega o cenário pela `visao.cenario` (Task 2b, pré-requisito do playtest).
 4. **Roteiro:**
    1. entrar;
@@ -1066,7 +1066,7 @@ Pergunta que o spike responde: **o export web single-thread do Godot 4, sem `uns
 
 **Arquivos:**
 - Modificar:
-  - `game/Cenario.java`: `sealed interface Atividade permits Atividade.Montagem, Atividade.Jogo`, com `record Montagem()` e `record Jogo(String caminho)`. O `Cenario` ganha `Atividade atividade` como último componente, e um construtor secundário sem ele assume `Montagem` (as chamadas existentes não mudam).
+  - `game/Cenario.java`: `sealed interface Atividade permits Atividade.Montagem, Atividade.Jogo`, com `record Montagem()` e `record Jogo(String caminho)`. O `Cenario` ganha `Atividade atividade` como último componente, depois do `abertura` da 1c (ordem `…, desfecho, abertura, atividade`), e um construtor secundário sem ele assume `Montagem` (as chamadas existentes não mudam).
   - `game/Regras.java`: com `Jogo`, `colocar`, `sinalizar` e `confirmar` recusam com `FASE_INVALIDA`.
   - `CenariosConfig`: registrar `Fliperama.CENARIO` com um `@Bean Cenario fliperama()`.
   - `CenarioJsonTest`: os cenários `Jogo` ficam fora dos testes de montagem e têm o seu.

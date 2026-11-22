@@ -154,6 +154,7 @@ Playtest por agente (2026-11-22): primeira ação clara; contribuição do outro
 - **Sinal com destino:** ao sugerir, a pessoa aponta um lugar livre ("Que tal aqui?"); o outro aceita (move) ou ignora. Sem texto livre.
 - **Efeito por peça na revelação:** cada peça tem efeito próprio (rádio toca notas mesmo com o som geral desligado, manta brilha, garrafa solta vapor, etc.) e o texto do resultado considera posições relativas. Definido por cenário, como dados do motor (1b).
 - **Concordância para encerrar:** "Ajustar" depois da revelação pede o aceite do outro; "Sair" leva quem saiu à decisão privada e o outro vê uma mensagem gentil ("o encontro terminou"). A revelação ganha modo tela cheia no celular.
+  - Na 1c, quem sai vê uma tela neutra ("Você saiu do terraço"); a decisão privada chega na Etapa 5, junto com as conexões reais (dono, 2026-11-22).
 - Correções sem decisão (achadas no playtest): "por o" → "pelo"; "Você foi chamado" neutro; tirar a dica de janela anônima e "Esc cancela" no celular; "O que falta" some quando nada falta; contorno de foco do título do resultado; convite novo na mesma aba troca de sala; 401 da primeira carga sem erro no console.
 - Vem depois da 1b, para que destaque, sinal com destino e concordância sejam do motor (valem para todos os cenários).
 
@@ -264,7 +265,7 @@ Playtest por agente (2026-11-22): primeira ação clara; contribuição do outro
 - Decisão ao final: ajustar, ampliar o piloto ou criar novos cenários.
 
 ## Dependências e paralelismo
-0 → 1 → 1a → 1b → 1c → 2 → 3 → 4 → 7 → 5 → 6 (a voz vem antes do encontro, que a usa). A 9b começa depois da 1b e roda em paralelo às etapas 2–8 (assets e dados não dependem de contas). A 8 começa junto com a 5 (denúncia e bloqueio básicos já entram na 5). A 9 é curta e fecha antes da 10. A 10 pode ser preparada em paralelo a partir da 6. A 11 depende de todas.
+0 → 1 → 1a → 1b → 1c → 2 → 3 → 4 → 7 → 5 → 6 (a voz vem antes do encontro, que a usa). A 9b começa depois da 1c e roda em paralelo às etapas 2–8 (assets e dados não dependem de contas). A 8 começa junto com a 5 (denúncia e bloqueio básicos já entram na 5). A 9 é curta e fecha antes da 10. A 10 pode ser preparada em paralelo a partir da 6. A 11 depende de todas.
 
 ## Verificação (por etapa e final)
 - Unitários e API: `./mvnw -q verify`.
