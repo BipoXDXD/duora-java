@@ -59,5 +59,7 @@
   --font-titulo: var(--fonte-titulo);
 }
 
+/* hover: sem o @media (hover: hover) do Tailwind, que mudaria o toque no celular (o hover antigo era só :hover). */
+@custom-variant hover (&:hover);
 @custom-variant celular (@media (max-width: 860px));
 @custom-variant celular-alto (@media (max-width: 860px) and (min-height: 700px));

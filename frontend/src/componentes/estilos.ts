@@ -1,16 +1,15 @@
 // Classes repetidas em mais de um componente, convertidas de css/app.css declaração por declaração.
 // O nome antigo (botao-primario...) fica na frente: é gancho de teste e de leitura, sem CSS próprio.
 //
-// Hover: [&:hover] e não hover:, que o Tailwind põe em @media (hover: hover) e mudaria o toque no celular.
-// Variante arbitrária sai depois de aria-*, então o hover cede ao estado com not-aria-*, como na cascata antiga.
+// hover: é só :hover (tokens.css); o not-aria-* faz o hover ceder ao estado, como na cascata antiga.
 
 /** Alto contraste: o estado indisponível não pode depender só de opacidade ou cor de fundo. */
-const INDISPONIVEL_EM_ALTO_CONTRASTE =
+export const INDISPONIVEL_EM_ALTO_CONTRASTE =
   "forced-colors:aria-disabled:text-[color:GrayText] forced-colors:aria-disabled:border-[color:GrayText]";
 
 export const BOTAO_PRIMARIO = [
   "botao-primario min-h-[52px] px-(--e-5) py-(--e-3) border-0 rounded-(--raio) bg-ambar text-ambar-tinta",
-  "text-[1.0625rem] font-semibold cursor-pointer [transition:background_var(--transicao)] [&:hover]:not-aria-disabled:bg-ambar-claro",
+  "text-[1.0625rem] font-semibold cursor-pointer [transition:background_var(--transicao)] hover:not-aria-disabled:bg-ambar-claro",
   "aria-disabled:bg-noite-700 aria-disabled:text-texto-3 aria-disabled:cursor-not-allowed",
   INDISPONIVEL_EM_ALTO_CONTRASTE,
 ].join(" ");

@@ -2,7 +2,7 @@ import { LARGURA_MINIATURA, dadosDaPeca, dadosDoLugar, sprite, urlSprite, type D
 import { textoBloqueio } from "../dominio/mensagens";
 import type { Visao, VisaoPeca } from "../dominio/visao";
 import type { Acao } from "../sessao/tipos";
-import { BOTAO_SECUNDARIO, SUBTITULO, seDisponivel } from "./estilos";
+import { BOTAO_SECUNDARIO, INDISPONIVEL_EM_ALTO_CONTRASTE, SUBTITULO, seDisponivel } from "./estilos";
 
 interface PropsInventario {
   visao: Visao;
@@ -16,11 +16,11 @@ interface PropsInventario {
 const CLASSES_DO_ITEM = [
   "item group/item grid grid-cols-[56px_1fr] items-center gap-(--e-3) w-full min-h-[64px] pl-(--e-1) pr-(--e-3)",
   "py-(--e-1) border border-transparent rounded-(--raio) bg-noite-700 text-left cursor-pointer",
-  "[transition:background_var(--transicao),border-color_var(--transicao)] [&:hover]:not-aria-pressed:bg-[#22465f]",
+  "[transition:background_var(--transicao),border-color_var(--transicao)] hover:not-aria-pressed:bg-[#22465f]",
   "aria-pressed:border-ambar aria-pressed:bg-[#2a4a5e] aria-disabled:cursor-not-allowed",
   "forced-colors:aria-pressed:border-[3px] forced-colors:aria-pressed:border-double",
   "forced-colors:aria-pressed:not-aria-disabled:border-[color:Highlight]",
-  "forced-colors:aria-disabled:text-[color:GrayText] forced-colors:aria-disabled:border-[color:GrayText]",
+  INDISPONIVEL_EM_ALTO_CONTRASTE,
 ].join(" ");
 
 function descreverZona(info: DadosPeca): string {

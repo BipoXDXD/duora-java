@@ -1,6 +1,12 @@
 import type { KeyboardEvent } from "react";
 import { textoConfirmarSaida } from "../dominio/mensagens";
-import { BOTAO_PERIGO, BOTAO_SECUNDARIO_SEM_MARGEM, BOTAO_TEXTO, seDisponivel } from "./estilos";
+import {
+  BOTAO_PERIGO,
+  BOTAO_SECUNDARIO_SEM_MARGEM,
+  BOTAO_TEXTO,
+  INDISPONIVEL_EM_ALTO_CONTRASTE,
+  seDisponivel,
+} from "./estilos";
 
 interface PropsTopo {
   /** O Sair só existe no convite e na montagem. */
@@ -52,7 +58,7 @@ export function Topo({
       </h1>
       <button
         type="button"
-        className={`botao-sair ${BOTAO_TEXTO} flex-none aria-disabled:opacity-70 aria-disabled:cursor-progress forced-colors:aria-disabled:text-[color:GrayText] forced-colors:aria-disabled:border-[color:GrayText]`}
+        className={`botao-sair ${BOTAO_TEXTO} flex-none aria-disabled:opacity-70 aria-disabled:cursor-progress ${INDISPONIVEL_EM_ALTO_CONTRASTE}`}
         id="sair"
         aria-expanded={confirmando}
         aria-controls={confirmando ? ID_CONFIRMACAO : undefined}
