@@ -57,8 +57,9 @@
 @media (max-width: 860px) and (min-height: 700px) {
   :root {
     --altura-cena: calc(96px + 112vw * 1186 / 1800 + var(--e-3));
-    /* O par e o aviso, uma linha cada, mais os respiros do bloco. */
-    --altura-par-e-aviso: calc(2 * 1.5rem + 3 * var(--e-2));
+    /* O par numa linha e o aviso em até duas (a 390 px, "Bruno entrou no terraço. Escolham as
+       primeiras peças." já quebra), mais os respiros do bloco e uma folga para o anel de foco. */
+    --altura-par-e-aviso: calc(3 * 1.5rem + 4 * var(--e-2));
   }
 
   /* O foco do Tab rola para baixo do topo, da cena e do bloco, sem ficar coberto (WCAG 2.4.11). */
