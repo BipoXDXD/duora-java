@@ -16,7 +16,9 @@ Spec: `docs/superpowers/specs/2026-11-21-duora-social-design.md`. Ordem: 0 → 1
   - `piloto/` (Etapa 11): `sala.LimiteDeSimultaneidade` e `conta.PortaoDeCadastro`, que fica fechado em produção até a abertura. As métricas vêm de portas `Estatisticas*`, uma por módulo dono dos dados, com `nucleo.IntervaloDeDia`.
   - O banimento é `BanimentoDeContas`: publica o evento `ContaBanida`, tratado na mesma transação, e chama `CanalDeEventos.encerrarStreams`.
   - Contas de teste usam o domínio `teste.duora.invalid`: nunca são pareadas com contas reais, ficam fora das métricas e nunca viram admin.
-  - Prazos de retenção extras, que exigem uma nova versão da política de privacidade: evidência de denúncia (30 dias depois de resolvida) e comentário do feedback (90 dias).
+  - Prazos de retenção extras, que exigem uma nova versão da política de privacidade: evidência de denúncia (30 dias depois de resolvida, incluindo o clipe de voz da Etapa 5), comentário do feedback (90 dias), registros de acesso (183 dias, Marco Civil art. 15, Etapa 2) e tentativas de verificação de idade (1 dia; só o resultado, a data e o método ficam).
+  - Verificação de idade (Etapa 2): AWS em `us-east-1` (Rekognition Face Liveness, DetectFaces e Textract AnalyzeID), chamada só pelo back-end com o usuário IAM `duora-java-verificacao`; o navegador recebe credencial curta do papel `duora-java-liveness-captura`. Selfie e documento nunca vão para disco, log nem S3. O estado de conta `AGUARDANDO_VERIFICACAO` fica entre `PENDENTE` e `ATIVA`, e `ContaResumo.verificada()` alimenta o selo "verificado".
+  - `conta.LimitesDeContaNova` (Etapa 2) é consumida pelo chat e pelas imagens do encontro (Etapa 5) e pelo convite privado (Etapa 4).
   - de infraestrutura: `web/` (filtros, cabeçalhos, MIME, erros, ids, `Clock`, limite de taxa, pipeline de imagens).
 - Faixas do Flyway por etapa (sem out-of-order): 2 → V1–V19, 3 → V20–V39, 9 → V40–V49, 4 → V50–V69, 7 → V70–V79, 5 → V80–V99, 6 → V100–V119, 8 → V120–V139, 11 → V140–V159.
 - O acesso é negado por padrão: o interceptor `ExigeSessao` cobre `/api/**`, com uma allowlist em `RotasPublicas` (o terraço anônimo `/api/sala(s)/**` fica nela até a Etapa 5).
@@ -60,7 +62,7 @@ Spec: `docs/superpowers/specs/2026-11-21-duora-social-design.md`. Ordem: 0 → 1
   - O e2e continua no Playwright Java (`*IT`), com seletores por papel, rótulo e texto, nunca por classe CSS.
   - Axe em toda tela nova.
 - **Service worker:** a lista do shell sai do manifest do Vite, e a versão do cache sai da impressão digital (guarda criada na Etapa 1). Nunca há cache de `/api`.
-- **CSP:** sem `unsafe-inline` nem `unsafe-eval` no app. Só a página do fliperama (9b) ganha `'wasm-unsafe-eval'`.
+- **CSP:** sem `unsafe-inline` nem `unsafe-eval` no app. Só duas páginas, cada uma com entrada HTML própria e CSP própria, ganham `'wasm-unsafe-eval'`: a do fliperama (9b, `/jogos/fliperama/**`) e a da verificação de idade (Etapa 2, `/verificacao`), que também libera câmera, `https://cdn.liveness.rekognition.amazonaws.com` e `wss://streaming-rekognition.us-east-1.amazonaws.com`. O SPA chega a elas por navegação de página inteira, nunca pelo roteador.
 - **Texto e estilo:** todo texto em pt-BR e com gênero neutro quando se refere à pessoa. O estilo segue `~/.claude/knowledge/ui-design.md` (Refactoring UI).
 
 ## Assets e ferramentas
@@ -90,7 +92,7 @@ Valem as regras de `~/.claude/knowledge/regras-globais.md`: Qualidade de código
 
 **Clean Architecture**
 - **Dependências:** o domínio (`game/`, regras de `pareamento/`, `encontro/`, `conexao/`) não importa Spring web, JDBC nem Jackson. As portas são interfaces no núcleo, e os adapters ficam na infraestrutura, com o sufixo `...Adapter` ou o nome da tecnologia.
-- **Portas:** só onde há borda real: `Clock`, `EnvioDeEmail`, `VerificacaoHumana`, `ProcessadorDeImagem`, `EnvioDePush`, `CredenciaisTurn` e os repositórios. Nada de interface 1:1 por reflexo.
+- **Portas:** só onde há borda real: `Clock`, `EnvioDeEmail`, `VerificacaoHumana`, `ProcessadorDeImagem`, `EnvioDePush`, `CredenciaisTurn`, `ProvaDeVida` e `LeituraDeDocumento` (AWS, Etapa 2), `ClassificadorDeImagem` (ONNX, Etapa 5; Sightengine, Etapa 8) e os repositórios. Nada de interface 1:1 por reflexo.
 - **Boundary:** parcial por padrão, com a completa só quando a parcial começar a custar.
 - **Fronteiras com fitness functions (ArchUnit no `verify`):**
   - nenhum ciclo entre módulos;
@@ -152,7 +154,7 @@ Valem sobre as seções "Decisões do dono" dos planos.
   - monitoramento com UptimeRobot e Healthchecks.io;
   - imagem pública no GHCR;
   - um ambiente só, com o cadastro fechado até a abertura.
-- **Etapa 8, moderação:** o dono é o único admin. SLA de 12 h para denúncias urgentes (menor, imagem sensível), 48 h para as normais e 24 h para fotos, com alerta por e-mail. A suspensão por "parece menor" continua automática.
+- **Etapa 8, moderação:** o dono é o único admin. Fila com severidade (spec, 2026-11-22): **P0 ≤ 12 h** (parece menor, suspeita de abuso infantil), **P1 ≤ 24 h** (imagem sensível, assédio, imagem da triagem automática, fotos de perfil) e **P2 ≤ 48 h** (spam ou golpe, outro, denúncia pública sem conta), com alerta por e-mail. A suspensão por "parece menor" continua automática.
 
 **Escolhas padrão feitas pelo controlador** (o dono pode reverter):
 - **Remetente e contato:** `meetduora.com`.
@@ -162,3 +164,5 @@ Valem sobre as seções "Decisões do dono" dos planos.
 - **Prova de voz:** no emulador, forçado a passar pelo TURN, repetida na Etapa 10 com o coturn da VPS.
 - **JS inicial da 1a:** acima de 80 KB gzip, aceitar até +10 KB; além disso, avaliar preact/compat.
 - **Critério do piloto e rampa de capacidade (3 → 5 → 10):** confirmar com o dono antes de abrir o cadastro na Etapa 11.
+- **Paridade com o mercado (2026-11-22), valores propostos em propriedades:** idade aprovada com `AgeRange.Low ≥ 21`, recusada com `AgeRange.High < 18`, prova de vida com confiança ≥ 90; contas com menos de 7 dias: 200 mensagens, 10 imagens e 3 convites privados por dia; triagem de imagem bloqueia com pontuação NSFW ≥ 0,90 e manda à fila de 0,50 a 0,90.
+- **Feedback pós-encontro:** sai da Etapa 11 (Task 2) para a Etapa 5 (Task 18), com a migração `V89`; a Etapa 11 só o mede.
