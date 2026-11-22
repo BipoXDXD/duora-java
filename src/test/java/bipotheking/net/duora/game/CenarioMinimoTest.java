@@ -17,7 +17,8 @@ import org.junit.jupiter.api.Test;
 /** O cenário mínimo joga de ponta a ponta com as mesmas regras do terraço. */
 class CenarioMinimoTest {
 
-  private final Estado montando = aceito(Regras.parceiroEntrou(CENARIO, Estado.inicial()));
+  private final Estado montando =
+      aceito(Regras.parceiroEntrou(CENARIO, Estado.inicial(), Instant.EPOCH));
 
   @Test
   void faltamDuasNoComeco() {

@@ -120,7 +120,7 @@ final class Sala {
       if (atual.encerramento().isPresent() || atual.participante(parceiro.assento()).isPresent()) {
         throw new ErroApi(Codigo.CONVITE_INVALIDO, "Este convite não vale mais.");
       }
-      Estado estado = aceitoOuFalha(Regras.parceiroEntrou(cenario, atual.estado()));
+      Estado estado = aceitoOuFalha(Regras.parceiroEntrou(cenario, atual.estado(), agora));
       atual = atual.comParceiro(parceiro, estado, agora);
       retrato = atual;
     } finally {

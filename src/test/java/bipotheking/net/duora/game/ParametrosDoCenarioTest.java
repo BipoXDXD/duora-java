@@ -115,7 +115,7 @@ class ParametrosDoCenarioTest {
   }
 
   private static Estado montando(Cenario cenario) {
-    return aceito(Regras.parceiroEntrou(cenario, Estado.inicial()));
+    return aceito(Regras.parceiroEntrou(cenario, Estado.inicial(), AGORA));
   }
 
   private static Estado colocar(Cenario cenario, Estado estado, Peca peca, Lugar lugar) {

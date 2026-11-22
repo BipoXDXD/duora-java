@@ -23,7 +23,7 @@ class RegrasTest {
 
   @Test
   void parceiroEntrandoPassaParaMontagemSemMudarVersao() {
-    Estado estado = aceito(Regras.parceiroEntrou(CENARIO, Estado.inicial()));
+    Estado estado = aceito(Regras.parceiroEntrou(CENARIO, Estado.inicial(), AGORA));
 
     assertThat(estado.fase()).isInstanceOf(Fase.Montando.class);
     assertThat(estado.versao()).isZero();
@@ -31,7 +31,8 @@ class RegrasTest {
 
   @Test
   void segundoParceiroNaoEntra() {
-    assertThat(Regras.parceiroEntrou(CENARIO, montando())).isEqualTo(recusa(Recusa.FASE_INVALIDA));
+    assertThat(Regras.parceiroEntrou(CENARIO, montando(), AGORA))
+        .isEqualTo(recusa(Recusa.FASE_INVALIDA));
   }
 
   @ParameterizedTest
@@ -599,7 +600,7 @@ class RegrasTest {
   }
 
   private static Estado montando() {
-    return aceito(Regras.parceiroEntrou(CENARIO, Estado.inicial()));
+    return aceito(Regras.parceiroEntrou(CENARIO, Estado.inicial(), AGORA));
   }
 
   /** Telescópio C1, banco C2, manta L1, lanterna R1: versão 4. */

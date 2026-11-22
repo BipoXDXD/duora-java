@@ -15,7 +15,8 @@ public final class Regras {
 
   private Regras() {}
 
-  public static Decisao parceiroEntrou(Cenario cenario, Estado estado) {
+  /** O par entrou pelo convite: começa a montagem. */
+  public static Decisao parceiroEntrou(Cenario cenario, Estado estado, Instant agora) {
     if (!(estado.fase() instanceof Fase.AguardandoPar)) {
       return recusar(Recusa.FASE_INVALIDA);
     }
@@ -207,6 +208,11 @@ public final class Regras {
     Composicao simulada =
         liberarEspacoPara(cenario, atual, peca).com(peca, cenario.da(peca.zona()).get(0));
     return violaPortao(cenario, atual, simulada, peca.dono());
+  }
+
+  /** Se confirmar agora seria aceito por completude: em {@link Fase.Montando} e completa. */
+  public static boolean podeConfirmar(Cenario cenario, Estado estado) {
+    return estado.fase() instanceof Fase.Montando && cenario.completa(estado.composicao());
   }
 
   /** O {@link Desfecho} do cenário sobre a composição revelada; vazio fora da revelação. */
