@@ -99,7 +99,7 @@ function telaDaVez(props: Omit<PropsPainel, "refAviso">): TelaDoPainel {
   }
 }
 
-/** No celular a ordem muda (deitado, o painel rola sozinho, ao lado da cena): aviso, instrução, a tela (ou as peças), o resultado, o que falta e as ações. */
+/** No celular a ordem muda (deitado, o painel rola sozinho, ao lado da cena): par e aviso, instrução, a tela (ou as peças), o resultado, o que falta e as ações. */
 export function Painel({ refAviso, ...props }: PropsPainel) {
   const { visaoDoPar, instrucao, conteudo } = telaDaVez(props);
   return (
@@ -107,7 +107,17 @@ export function Painel({ refAviso, ...props }: PropsPainel) {
       className={`${CLASSES_DO_PAINEL} overflow-y-auto celular:overflow-visible celular-deitado:overflow-y-auto`}
       aria-label="Painel do terraço"
     >
-      {visaoDoPar && <Par visao={visaoDoPar} />}
+      {/* O status logo abaixo dos nomes: o que o outro fez aparece onde se olha para saber dele. */}
+      <div className="par-e-aviso grid gap-(--e-2) celular:order-0 celular-deitado:order-0">
+        {visaoDoPar && <Par visao={visaoDoPar} />}
+        <p
+          ref={refAviso}
+          className="aviso m-0 min-h-[1.5em] text-verde-agua data-[tipo=erro]:text-coral"
+          id="aviso"
+          role="status"
+          aria-live="polite"
+        ></p>
+      </div>
       {instrucao !== null && (
         <p
           className="instrucao m-0 text-[1.25rem] leading-[1.35] max-w-[32ch] celular:order-1 celular:text-[1.125rem] celular-deitado:order-1 celular-deitado:text-[1.125rem]"
@@ -120,13 +130,6 @@ export function Painel({ refAviso, ...props }: PropsPainel) {
       {props.estado.tela !== "montagem" && (
         <BotaoSom somLigado={props.estado.somLigado} aoAlternarSom={props.aoAlternarSom} oculto />
       )}
-      <p
-        ref={refAviso}
-        className="aviso m-0 min-h-[1.5em] text-verde-agua data-[tipo=erro]:text-coral celular:order-0 celular-deitado:order-0"
-        id="aviso"
-        role="status"
-        aria-live="polite"
-      ></p>
     </main>
   );
 }

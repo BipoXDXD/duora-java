@@ -1,1 +1,85 @@
-/* Destaque das peças na cena, marcado por MarcasDaCena.destaques (cena/cena.ts). */
+/* Destaque das peças na cena, marcado por MarcasDaCena.destaques (cena/cena.ts), e o bloco do par e do
+   aviso, que no celular alto fica preso logo abaixo da cena. */
+
+/* O anel vai para trás do sprite: o botão em destaque isola o empilhamento, e o anel fica no piso. */
+.peca[data-destaque="true"] {
+  isolation: isolate;
+}
+
+/* Na cor do parceiro (a marca dele no par). O anel parado é o estado base: vale com movimento
+   reduzido e enquanto o destaque durar; o pulso só ecoa para fora e termina nele. */
+.anel-destaque {
+  position: absolute;
+  z-index: -1;
+  aspect-ratio: 2 / 1;
+  transform: translate(-50%, -50%);
+  border: 2px solid var(--verde-agua);
+  border-radius: 50%;
+  background: rgb(168 213 197 / 0.22);
+  pointer-events: none;
+}
+
+.anel-destaque[data-pulsar="true"] {
+  animation: pulso-destaque 600ms ease-out 2;
+}
+
+@keyframes pulso-destaque {
+  from {
+    box-shadow: 0 0 0 0 rgb(168 213 197 / 0.75);
+  }
+
+  to {
+    box-shadow: 0 0 0 14px rgb(168 213 197 / 0);
+  }
+}
+
+/* Selo fixo acima da peça; com o selo do sinal, sobe uma altura de selo para não cobri-lo. */
+.peca .selo-mudou {
+  top: 0;
+  transform: translate(-50%, -100%);
+  background: var(--verde-agua);
+  color: var(--noite-950);
+}
+
+.peca[data-sinalizada="true"] .selo-mudou {
+  transform: translate(-50%, calc(-200% - var(--e-1)));
+}
+
+@media (forced-colors: active) {
+  .anel-destaque {
+    border-color: Highlight;
+  }
+}
+
+/* Celular alto: topo e cena presos; o par e o aviso ficam logo abaixo deles, com fundo opaco, para o
+   status do outro aparecer sem rolar. A altura da cena é a do .cena no celular: o respiro de 96 px
+   acima do palco, o palco a 112% da largura na proporção do terraço e o respiro de baixo. */
+@media (max-width: 860px) and (min-height: 700px) {
+  :root {
+    --altura-cena: calc(96px + 112vw * 1186 / 1800 + var(--e-3));
+    /* O par numa linha e o aviso em até duas (a 390 px, "Bruno entrou no terraço. Escolham as
+       primeiras peças." já quebra), mais os respiros do bloco e uma folga para o anel de foco. */
+    --altura-par-e-aviso: calc(3 * 1.5rem + 4 * var(--e-2));
+  }
+
+  /* O foco do Tab rola para baixo do topo, da cena e do bloco, sem ficar coberto (WCAG 2.4.11). */
+  html {
+    scroll-padding-top: calc(var(--altura-topo) + var(--altura-cena) + var(--altura-par-e-aviso));
+  }
+
+  /* Preso logo abaixo da cena, que fica presa abaixo do topo. A margem negativa leva o fundo opaco
+     até as bordas do painel, para o que rola por baixo não aparecer dos lados. */
+  .par-e-aviso {
+    position: sticky;
+    top: calc(var(--altura-topo) + var(--altura-cena));
+    z-index: 3;
+    margin: calc(-1 * var(--e-2)) calc(-1 * var(--e-4)) 0;
+    padding: var(--e-2) var(--e-4);
+    background: var(--noite-800);
+  }
+
+  /* Com a confirmação de saída aberta, o topo solta e a cena sobe até o alto da tela. */
+  .app.confirmando-saida .par-e-aviso {
+    top: var(--altura-cena);
+  }
+}
