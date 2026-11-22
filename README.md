@@ -62,8 +62,11 @@ node scripts/android/pwa-check.mjs --porta 8080
 ```
 
 O `pwa-check.mjs` abre o app no Chrome do emulador, confere a instalabilidade pelo DevTools, exige o
-terraço na largura 1800 com o aparelho em pé, captura a tela deitada e instala o app. O resultado
-(JSON e capturas) fica em `target/android/`.
+terraço na largura 1800 com o aparelho em pé, captura a tela em pé e deitada (e devolve a rotação de
+antes), instala o app, abre o app instalado e exige o modo standalone, sem a barra do navegador. O
+resultado (JSON e as capturas `-em-pe`, `-deitado`, `-standalone` e `-home`) fica em
+`target/android/`. A ordem dos passos e a volta da rotação têm testes que rodam sem emulador:
+`node --test 'scripts/android/*.test.mjs'`.
 
 Atenção: `emulador.sh instalar` aceita sozinho as licenças do Android SDK (`sdkmanager
 --licenses`). Leia as licenças antes de rodar se isso importa para você.
