@@ -53,6 +53,15 @@ class CacheDosBundlesTest {
     assertThat(index.headers().firstValue("Cache-Control")).hasValue("no-cache");
   }
 
+  @Test
+  void arquivoInexistenteEmAppNaoFicaEmCache() throws Exception {
+    HttpResponse<String> resposta = buscar("/app/inexistente.js");
+
+    assertThat(resposta.statusCode()).isEqualTo(404);
+    assertThat(resposta.headers().firstValue("Cache-Control").orElse(""))
+        .doesNotContain("immutable");
+  }
+
   private HttpResponse<String> buscar(String caminho) throws IOException, InterruptedException {
     HttpRequest pedido =
         HttpRequest.newBuilder(URI.create("http://127.0.0.1:" + porta + caminho)).build();

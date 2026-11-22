@@ -15,8 +15,8 @@ import org.springframework.web.filter.OncePerRequestFilter;
 /**
  * Cabeçalhos de segurança em toda resposta. A API nunca é guardada em cache; o index.html, o
  * service worker e o manifest são revalidados a cada busca, para uma versão nova chegar no próximo
- * carregamento. Os arquivos de /app/ levam o hash do conteúdo no nome: um conteúdo novo é uma URL
- * nova, então podem ficar em cache para sempre.
+ * carregamento. O cache imutável dos bundles de /app/ fica em {@link BundlesComHash}, que só o põe
+ * quando o arquivo existe.
  */
 @Component
 @Order(Ordered.HIGHEST_PRECEDENCE)
@@ -28,9 +28,6 @@ class CabecalhosDeSeguranca extends OncePerRequestFilter {
 
   private static final Set<String> SEMPRE_REVALIDADOS =
       Set.of("/", "/index.html", "/sw.js", "/manifest.webmanifest");
-
-  private static final String PASTA_COM_HASH = "/app/";
-  private static final String IMUTAVEL = "public, max-age=31536000, immutable";
 
   @Override
   protected void doFilterInternal(
@@ -44,8 +41,6 @@ class CabecalhosDeSeguranca extends OncePerRequestFilter {
       response.setHeader(HttpHeaders.CACHE_CONTROL, "no-store");
     } else if (SEMPRE_REVALIDADOS.contains(request.getRequestURI())) {
       response.setHeader(HttpHeaders.CACHE_CONTROL, "no-cache");
-    } else if (request.getRequestURI().startsWith(PASTA_COM_HASH)) {
-      response.setHeader(HttpHeaders.CACHE_CONTROL, IMUTAVEL);
     }
     chain.doFilter(request, response);
   }
