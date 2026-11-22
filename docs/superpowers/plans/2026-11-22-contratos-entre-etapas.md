@@ -6,7 +6,13 @@ Spec: `docs/superpowers/specs/2026-11-21-duora-social-design.md`. Ordem: 0 → 1
 
 ## Back-end
 - Java 25 LTS e Spring Boot 4.2.0. Um módulo Maven só, com Maven Wrapper. Compilação com `-Xlint:all -Werror`, Spotless e JaCoCo.
-- Pacotes em `bipotheking.net.duora`: `game/`, `encontro/` (evolução de `room/`), `conta/`, `perfil/`, `sala/` (encontros públicos e privados, fila contínua), `pareamento/`, `conexao/`, `voz/`, `moderacao/`, `notificacao/`, `admin/`, `web/` (filtros, cabeçalhos, MIME, erros).
+- Pacotes em `bipotheking.net.duora`:
+  - de domínio: `game/`, `encontro/` (evolução de `room/`), `conta/`, `perfil/`, `sala/` (encontros públicos e privados, fila contínua), `pareamento/`, `conexao/`, `voz/`, `moderacao/`, `notificacao/` (inclui o `EnvioDeEmail`), `admin/`, `retencao/` (políticas e jobs de expiração);
+  - de infraestrutura: `web/` (filtros, cabeçalhos, MIME, erros, ids, `Clock`, limite de taxa, pipeline de imagens).
+- Faixas do Flyway por etapa (sem out-of-order): 2 → V1–V19, 3 → V20–V39, 9 → V40–V49, 4 → V50–V69, 7 → V70–V79, 5 → V80–V99, 6 → V100–V119, 8 → V120–V139.
+- O acesso é negado por padrão: o interceptor `ExigeSessao` cobre `/api/**`, com uma allowlist em `RotasPublicas` (o terraço anônimo `/api/sala(s)/**` fica nela até a Etapa 5).
+- O link mágico leva o token no fragmento (`#t=`) e o consome por POST, então o token nunca chega ao log do servidor nem ao cabeçalho Referer.
+- `duora.sessao.cookie-seguro` (padrão `true`) só pode ficar `false` em testes e2e locais por http, porque o WebKit descarta o cookie `Secure`.
 - **Banco:**
   - PostgreSQL 18 com Flyway, migrações em `src/main/resources/db/migration/V<n>__<descricao>.sql`, e números novos sempre crescentes.
   - Acesso por Spring Data JDBC (agregados) e `JdbcClient` (consultas próprias). Sem JPA.
@@ -18,7 +24,7 @@ Spec: `docs/superpowers/specs/2026-11-21-duora-social-design.md`. Ordem: 0 → 1
   - Cookie `duora_sessao` (`HttpOnly; Secure; SameSite=Lax; Path=/`). O banco guarda só o SHA-256 do token.
   - Controllers recebem `ContaId` por um argument resolver anotado com `@ContaAtual`. Sem sessão, a resposta é 401 `NAO_AUTENTICADO`.
   - A CSRF continua coberta pelos filtros atuais `MesmaOrigem` e `X-Duora`.
-- **Erros:** JSON `{ "codigo": "<CODIGO_EM_MAIUSCULAS>", "mensagem": "<pt-BR>" }` pelo `TratamentoDeErros` existente. 422 para regra de negócio, 409 para conflito ou versão, 429 para limite de taxa (com `Retry-After`).
+- **Erros:** `application/problem+json` (RFC 9457) com os campos extras `codigo` (`<CODIGO_EM_MAIUSCULAS>`) e `mensagem` (pt-BR, igual a `detail`) pelo `TratamentoDeErros` existente. 422 para regra de negócio, 409 para conflito ou versão, 429 para limite de taxa (com `Retry-After`).
 - **Limite de taxa:** Bucket4j core em memória (uma instância só), chave por IP e por conta ou e-mail, configurada em `application.properties`.
 - **Tempo real:**
   - Um único stream SSE por sessão em `GET /api/eventos`. Os eventos têm nome com prefixo do domínio: `fila.*`, `encontro.*`, `chat.*`, `voz.*`, `conexao.*`, `moderacao.*`.
@@ -35,10 +41,11 @@ Spec: `docs/superpowers/specs/2026-11-21-duora-social-design.md`. Ordem: 0 → 1
 
 ## Front (a partir da Etapa 1a)
 - **Código e build:**
-  - O código fica em `frontend/`: Vite, React 19, TypeScript `strict` (com `noUncheckedIndexedAccess`) e Tailwind CSS 4.
+  - O código fica em `frontend/`: Vite, React 19, TypeScript `strict` (com `noUncheckedIndexedAccess`) e Tailwind CSS 4 sem preflight, para não alterar o visual atual.
+- Os bundles com hash são servidos em `/app/` com `Cache-Control: immutable`. O `sw.js` é gerado no build a partir do manifest do Vite, e os testes de guarda leem `target/classes/static`.
   - O build roda pelo `frontend-maven-plugin`, com Node e pnpm fixados e baixados pelo plugin. A saída vai para `target/classes/static/` e não é versionada.
   - Os assets binários continuam em `src/main/resources/static/assets/`.
-- **Rotas e dados:** React Router (modo de dados) e TanStack Query para o estado do servidor. Sem Redux. Os formulários usam elementos nativos com validação de UI; a validação de verdade fica no servidor.
+- **Rotas e dados:** React Router (modo de dados, rotas com lazy loading) e TanStack Query para o estado do servidor, ambos entrando **na Etapa 2**, que é quando surgem várias telas. A 1a mantém a tela única, e o encontro mantém o próprio laço de polling até o SSE. Sem Redux. Os formulários usam elementos nativos com validação de UI; a validação de verdade fica no servidor.
 - **Testes:**
   - Unidade e componentes com Vitest e Testing Library.
   - O e2e continua no Playwright Java (`*IT`), com seletores por papel, rótulo e texto, nunca por classe CSS.
