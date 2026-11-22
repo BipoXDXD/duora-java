@@ -36,6 +36,10 @@ _Evitar_: cenário de composição
 
 ### Montagem
 
+**Abertura**:
+O ritual sem palavras que um cenário pode declarar no começo da montagem (no terraço, acender as lanternas juntos). Acontece uma vez por encontro e termina quando os dois tocam dentro da janela ou quando o tempo máximo passa; enquanto dura, ninguém mexe em peças.
+_Evitar_: tutorial, introdução, aquecimento
+
 **Zona**:
 Grupo de lugares que aceita certas peças (centro, lateral).
 _Evitar_: área, região
@@ -89,6 +93,10 @@ _Evitar_: placar, pontuação
 **Revelação**:
 O momento em que os dois confirmaram e o resultado aparece.
 _Evitar_: fim, resolução
+
+**Pedido de ajuste**:
+Depois da revelação, o pedido de um participante para voltar à montagem. Só volta quando o outro aceita; o outro pode recusar, e o pedido não expira. Não é um **sinal**: o sinal sugere mover uma peça durante a montagem.
+_Evitar_: ajustar (sozinho, como nome), sinal, refazer
 
 **Momento**:
 Estado visual da cena: crepúsculo (montagem) e noite (revelação).

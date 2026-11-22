@@ -82,24 +82,25 @@
   - Passo 0 (antes de codar): `mattpocock-skills:domain-modeling` para o Encontro (fases, invariantes, eventos, linguagem); o resultado vira a seção "Modelo" do ADR.
   - `encontro.dominio.Participante(Assento assento, ContaId conta, Apelido apelido, Optional<String> fotoBorradaUrl)`.
   - `Encontros implements AberturaDeEncontro, OcupacaoDeEncontros`, mais `Optional<Encontro> ativoDe(ContaId)` e `Optional<Encontro> porId(String)`.
-  - Rotas (`@ContaAtual`): `GET /api/encontro` (com ETag), `POST /api/encontro/pecas`, `/sinal`, `/pronto`, `/ajustar`. Sem encontro ativo ⇒ 404 `FORA_DE_ENCONTRO`. `POST /api/encontros/privados` e `/entrar` continuam, sem `Set-Cookie`.
+  - Rotas (`@ContaAtual`): `GET /api/encontro` (com ETag), `POST /api/encontro/pecas`, `/sinal`, `/pronto`, `/ajustar`, `/ajustar/recusar`, `/abertura` (as duas últimas vêm da 1c). Sem encontro ativo, o `GET /api/encontro` responde 204 sem corpo, como o `GET /api/sala` sem cookie desde a 1c (o `PrimeiraCargaIT` não aceita resposta ≥ 400 na primeira carga); as mutações respondem 404 `FORA_DE_ENCONTRO`. `POST /api/encontros/privados` e `/entrar` continuam, sem `Set-Cookie`.
   - `Visao` ganha `encontroId` e `parceiro.fotoBorradaUrl` (nula ⇒ silhueta).
   - `VozNoEncontro implements AutorizacaoDeVoz` (contexto `ENCONTRO`, id = `encontroId`, as duas contas no encontro em andamento).
   - `LimitesDoEncontro(Duration duracao, Duration aviso, Duration conviteSemConvidado, Duration pedidoDeEncerrar, Duration presenca, Duration lapide)` com `PADRAO = (30 min, 5 min, 30 min, 60 s, 15 s, 5 min)`; sai a expiração por inatividade.
   - `AcessoAFotoPadrao` (P3): titular ⇒ `NITIDA`; bloqueio em qualquer sentido ⇒ `NENHUM` (a partir da Task 7); encontro em comum ativo ou encerrado há até 24 h ⇒ `BORRADA`; resto ⇒ `NENHUM`.
 
 - [ ] **Passo 1:** commit de refatoração: `git mv` e renomeações, sem mudar comportamento; suíte verde. Commit `refactor(encontro): room vira encontro com domínio em encontro/dominio`.
-- [ ] **Passo 2:** migrar os testes de API: criar o par com `EncontrosDeTeste.parear(ana, bia)` ou o convite privado, trocar o cookie de assento pelo de sessão e `/api/sala` por `/api/encontro`. As asserções de peças, versões, fases, sinais e resultado **não mudam**. Testes que só existiam para o fluxo anônimo são apagados (lista na mensagem de commit). Acrescentar: `semSessaoRecebe401`; `contaSemEncontroRecebe404`; `terceiraContaNaoVeOEncontro` (404, corpo sem apelidos); `fotoPendenteViraSilhueta`; e, em `perfil/`, `estranhoNaoVeFotoBorrada` e `parDoEncontroVeABorrada`.
+- [ ] **Passo 2:** migrar os testes de API: criar o par com `EncontrosDeTeste.parear(ana, bia)` ou o convite privado, trocar o cookie de assento pelo de sessão e `/api/sala` por `/api/encontro`. As asserções de peças, versões, fases, sinais e resultado **não mudam**. Testes que só existiam para o fluxo anônimo são apagados (lista na mensagem de commit). Acrescentar: `semSessaoRecebe401`; `contaSemEncontroRecebe204NoGet`; `mutacaoSemEncontroRecebe404`; `terceiraContaNaoVeOEncontro` (204 no GET, 404 nas mutações, nenhuma resposta com apelidos); `fotoPendenteViraSilhueta`; e, em `perfil/`, `estranhoNaoVeFotoBorrada` e `parDoEncontroVeABorrada`.
 - [ ] **Passo 3:** RED; ligar à conta, remover a ponte e o `VozNaSala`, registrar `VozNoEncontro`, ajustar o `AcessoAFotoPadrao`; verde (um Docker por vez). Commit `feat(encontro): assento ligado à conta e foto borrada só para o par`.
 
 ### Task 2: Front e e2e no encontro com conta
 
 **Arquivos:**
 - Modificar: `frontend/src/` (cliente do cenário: `/api/sala*` → `/api/encontro*`; sem criação anônima; `#convite=` leva à `EntrarPorConviteTela`)
-- Modificar: `src/test/java/bipotheking/net/duora/e2e/{TerracoPagina,JornadaDoisNavegadoresIT,PollingIT,RevelacaoIT,AcessibilidadeLayoutIT,AcessibilidadeFocoIT,AxeIT,LayoutCelularIT,ImagensIT,CenarioFrontIT}.java`
+- Modificar: `src/test/java/bipotheking/net/duora/e2e/{TerracoPagina,JornadaDoisNavegadoresIT,PollingIT,RevelacaoIT,AcessibilidadeLayoutIT,AcessibilidadeFocoIT,AxeIT,LayoutCelularIT,ImagensIT,CenarioFrontIT,PrimeiraCargaIT,AberturaIT}.java`
 
 **Interfaces:**
 - Produz: `TerracoPagina.entrarEmParComContas(ContaDeTeste ana, ContaDeTeste bia)` no lugar de `criarTerraco` + `entrarNoTerraco` (convite privado, cenário `terraco`).
+- Mantém: a suíte e2e herda `duora.cenarios.abertura.maximo=PT0S` do perfil `e2e` do `pom.xml` (a abertura conclui apagada já na entrada), e só o `AberturaIT` liga a abertura (`duora.cenarios.abertura.maximo=PT90S`). O `PrimeiraCargaIT` continua sem erro no console e sem resposta ≥ 400.
 
 - [ ] **Passo 1:** trocar os passos de criação no page object; as asserções dos ITs não mudam.
 - [ ] **Passo 2:** ajustar o front até a suíte e2e passar em chromium, firefox e webkit, sem skip. Commit `refactor(web): cenário só com conta e convite privado`.

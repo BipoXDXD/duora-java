@@ -83,6 +83,6 @@ Edição local também muda a linha: descreva o ajuste (ex.: "luz da vela mais q
 | Usar o MP3 do ElevenLabs como veio (44,1 kHz / 128 kbps) | Passe por `montar.sh` / `ffmpeg -ar 48000 -b:a 192k` |
 | Gerar imagem 2D no Hi3D | 2D é no Tripo `chat_image_2.5_sunburst` 4K |
 | Esquecer o `cena.json`, um dos momentos ou uma largura | Commit leva `<prop>-crepusculo-<largura>.webp` e `<prop>-noite-<largura>.webp` nas três larguras, e o `cena.json` |
-| Trocar asset em `static/` sem mudar o `CACHE_VERSION` | Rode o `ServiceWorkerVersaoTest` e copie para o `sw.js` o valor que a falha mostra |
+| Editar o `CACHE_VERSION` do `sw.js` à mão depois de trocar asset em `static/` | O `CACHE_VERSION` vem do build; rode o `ServiceWorkerVersaoTest` (passo 6) |
 | Pular o manifesto ou marcar `FINAL` por conta própria | Linha completa, status `Candidato a FINAL` |
 | Versionar GLB, brutos não escolhidos ou masters gigantes | Respeite o `.gitignore`; o manifesto diz como baixar de novo |
