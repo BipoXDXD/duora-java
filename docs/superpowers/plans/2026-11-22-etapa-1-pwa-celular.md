@@ -159,10 +159,10 @@
   - Explicar que a porta tem de ser a mesma dos dois lados, por causa do `HostLocal`.
   - Commit `feat(pwa): manifest, ícones e service worker para instalar no Android`.
 
-### Task 4: Prova no Android (dono)
-- [ ] O controlador sobe o servidor e passa ao dono os passos do README.
-- [ ] O dono instala o PWA e confere três coisas: o ícone na tela inicial, a abertura sem a barra do navegador e o terraço nítido em pé e deitado.
-- [ ] O resultado vai para o handoff. Ajustes viram tasks antes da Etapa 2.
+### Task 4: Prova no Android (emulador, por agente)
+- [ ] Um agente sobe o AVD `duora-pixel` com `scripts/android/emulador.sh subir`, sobe o app (`./mvnw spring-boot:run`) e roda `scripts/android/pwa-check.py 8080`. O script faz o `adb reverse`, abre a URL no Chrome do emulador, checa `Page.getInstallabilityErrors` vazio, instala e captura telas em pé e deitado em `target/android/`.
+- [ ] O agente confere nas capturas três coisas: o ícone na tela inicial, a abertura sem a barra do navegador e o terraço nítido (variante 1800 no DPR do Pixel).
+- [ ] O resultado vai para o handoff. Problemas viram tasks. Ao dono chegam só escolhas, nunca a execução.
 
 ## Ordem e paralelismo
 - **Primeiro:** a Task 1, sozinha, porque cria as fábricas de contexto que as outras usam.
@@ -170,4 +170,4 @@
   - Task 2: `cena.py`, assets, `dados.js`, `cena.js`, `index.html` (corpo) e `app.css` (céu);
   - Task 3: `index.html` (head), `main.js`, SW, servidor, `NavegadorExtension` e CI.
   - Os trechos de `index.html` e `app.css` não se sobrepõem. O render do Blender (Task 2) e o Maven (Task 3) entram na fila de "um pesado por vez".
-- **No fim:** a Task 4, com o dono.
+- **No fim:** a Task 4, por agente, no emulador.

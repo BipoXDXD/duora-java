@@ -72,7 +72,7 @@ Cada etapa termina com uma prova demonstrável, testes verdes (`./mvnw -q verify
 - Renders responsivos: o `cena.py` gera variantes 1x/2x/3x e retrato, servidas com `srcset`. O layout mobile ganha fallback sem `:has()`.
 - Teste e2e com emulação de dispositivo móvel e checagem de instalabilidade (manifest + SW registrados).
 
-**Prova**: instalado num Android real e terraço nítido no celular.
+**Prova**: instalado no emulador Android e terraço nítido nas capturas, verificado por agente.
 
 ### Etapa 1b: Motor de cenários
 - `game/` deixa de ter o terraço fixo no código: um `Cenario` descreve lugares, zonas, peças por participante, regras de colocação e como a composição vira o final. O terraço vira o primeiro cenário, descrito como dados, sem mudar nenhum comportamento: a suíte atual tem de continuar verde.
@@ -186,7 +186,7 @@ Cada etapa termina com uma prova demonstrável, testes verdes (`./mvnw -q verify
 - E2E afetados: `./mvnw -q -Pe2e verify -Dit.test=...` no chromium, com a matriz firefox/webkit rodando na CI.
 - `AxeIT` estendido a cada tela nova.
 - Testcontainers para o banco, uma suíte com Docker por vez.
-- Provas manuais listadas em cada etapa, num Android real.
+- Provas de celular num emulador Android (AVD arm64 com Chrome, `scripts/android/`), conduzidas por agentes. Playtests feitos por agentes com roteiro e capturas; ao dono chegam só escolhas (dono, 2026-11-22).
 - Final: smoke e2e contra homologação e uma janela de teste com o dono e mais uma pessoa antes do piloto.
 
 ## Backlog de cenários (ideias do dono, 2026-11-22)
