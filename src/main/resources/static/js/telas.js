@@ -68,6 +68,8 @@ export function criarTelas(el, { aoEnviarApelido, aoCriarOutro, aoEncerrar, avis
 
   function abrirConfirmacaoSaida() {
     el.confirmarSaida.hidden = false;
+    // O CSS solta o topo por esta classe: :has() falta em navegadores de celular mais antigos.
+    el.app.classList.add("confirmando-saida");
     el.sair.setAttribute("aria-expanded", "true");
     el.sair.setAttribute("aria-controls", el.confirmarSaida.id);
     el.continuar.focus();
@@ -75,6 +77,7 @@ export function criarTelas(el, { aoEnviarApelido, aoCriarOutro, aoEncerrar, avis
 
   function fecharConfirmacaoSaida({ focarSair = false } = {}) {
     el.confirmarSaida.hidden = true;
+    el.app.classList.remove("confirmando-saida");
     el.sair.setAttribute("aria-expanded", "false");
     el.sair.removeAttribute("aria-controls");
     if (focarSair) {
