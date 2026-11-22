@@ -58,6 +58,9 @@ type TelaSemSala = Extract<EstadoDaTela, { tela: "carregando" | "entrada" | "enc
  */
 type TelaSemVisao = TelaSemSala | Extract<EstadoDaTela, { tela: "convite" | "montagem" }>;
 
+/** O aviso de um erro fora da API (um defeito, não uma resposta do servidor). */
+const MENSAGEM_DE_DEFEITO = "Algo deu errado ao falar com o servidor. Recarregue a página.";
+
 const CODIGOS_SEM_SALA = new Set(["SEM_ASSENTO", "SALA_INEXISTENTE", "SALA_ENCERRADA"]);
 
 const semSala = (erro: unknown): boolean => erro instanceof ErroApi && CODIGOS_SEM_SALA.has(erro.codigo);
@@ -304,6 +307,9 @@ export function criarSessao({ api, aviso, convite, criarPolling = criarPollingPa
 
   function tratarErroDeAcao(erro: unknown, peca: string | null): void {
     if (!(erro instanceof ErroApi)) {
+      // Um defeito, não uma resposta: a tela sai do "enviando" e avisa antes de o erro seguir.
+      publicar();
+      aviso.avisar(MENSAGEM_DE_DEFEITO, "erro");
       throw erro;
     }
     if (CODIGOS_SEM_SALA.has(erro.codigo)) {
@@ -444,7 +450,7 @@ export function criarSessao({ api, aviso, convite, criarPolling = criarPollingPa
       // voltam ao início.
       estado.semVisao = telaDaVez;
       publicar();
-      aviso.avisar("Algo deu errado ao falar com o servidor. Recarregue a página.", "erro");
+      aviso.avisar(MENSAGEM_DE_DEFEITO, "erro");
       return;
     }
     const semAssento = erro.status === 401 || (erro.status === 404 && !estavaNaSala);

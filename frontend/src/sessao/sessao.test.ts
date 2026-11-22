@@ -409,6 +409,23 @@ describe("criarSessao", () => {
     expect(aviso.avisar).toHaveBeenLastCalledWith("O servidor não aceitou o pedido (0). Tente de novo.", "erro");
   });
 
+  it("ação aceita sem a visão na resposta solta o envio, avisa e propaga o defeito", async () => {
+    const { sessao, aviso } = naSala(visao({ confirmacao: { podeConfirmar: true, faltam: 0 } }), {
+      api: { marcarPronto: vi.fn(() => Promise.resolve(resposta(null))) },
+    });
+    const ouvinte = vi.fn();
+    sessao.assinar(ouvinte);
+
+    await expect(sessao.confirmar()).rejects.toThrow("Resposta da API sem a visão da sala");
+
+    expect(sessao.obter()).toMatchObject({ tela: "montagem", enviando: null });
+    expect(ouvinte).toHaveBeenCalledTimes(2);
+    expect(aviso.avisar).toHaveBeenLastCalledWith(
+      "Algo deu errado ao falar com o servidor. Recarregue a página.",
+      "erro",
+    );
+  });
+
   it("erro fora da API no polling mantém a tela, apaga a noite e o som e avisa", () => {
     const resultado = { secundariaA: "manta", secundariaB: "lanterna", ladoTelescopio: "esquerda" };
     const { sessao, doPolling, aviso } = naSala(visao({ fase: "REVELADO", resultado }));
