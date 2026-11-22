@@ -34,16 +34,6 @@ public record Composicao(Map<Peca, Lugar> lugares) {
     return (int) lugares.keySet().stream().filter(peca -> peca.dono() == dono).count();
   }
 
-  /** Fachada provisória: completa no terraço ({@link Cenario#completa}). Sai na B4. */
-  public boolean completa() {
-    return Terraco.CENARIO.completa(this);
-  }
-
-  /** Fachada provisória: quantas faltam no terraço ({@link Cenario#faltam}). Sai na B4. */
-  public int faltam() {
-    return Terraco.CENARIO.faltam(this);
-  }
-
   public Composicao com(Peca peca, Lugar lugar) {
     Map<Peca, Lugar> novos = new HashMap<>();
     novos.putAll(lugares);

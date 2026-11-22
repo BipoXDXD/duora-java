@@ -11,19 +11,19 @@ class IgualdadePorValorTest {
 
   @Test
   void pecaAceitaLugarIgualMasNaoIdentico() {
-    assertThat(Peca.MANTA.aceita(new Lugar("L1", new Zona("lateral")))).isTrue();
+    assertThat(Terraco.MANTA.aceita(new Lugar("L1", new Zona("lateral")))).isTrue();
   }
 
   @Test
   void ocupanteAchaLugarIgualMasNaoIdentico() {
-    Composicao composicao = Composicao.vazia().com(Peca.MANTA, Lugar.L1);
+    Composicao composicao = Composicao.vazia().com(Terraco.MANTA, Terraco.L1);
 
-    assertThat(composicao.ocupante(new Lugar("L1", new Zona("lateral")))).contains(Peca.MANTA);
+    assertThat(composicao.ocupante(new Lugar("L1", new Zona("lateral")))).contains(Terraco.MANTA);
   }
 
   @Test
   void lugaresDaZonaIgualMasNaoIdentica() {
-    assertThat(Lugar.da(new Zona("centro"))).containsExactly(Lugar.C1, Lugar.C2);
+    assertThat(Terraco.CENARIO.da(new Zona("centro"))).containsExactly(Terraco.C1, Terraco.C2);
   }
 
   @Test
@@ -32,10 +32,11 @@ class IgualdadePorValorTest {
         new Estado(
             Fase.MONTANDO,
             0,
-            Composicao.vazia().com(Peca.TELESCOPIO, new Lugar("C1", new Zona("centro"))),
+            Composicao.vazia().com(Terraco.TELESCOPIO, new Lugar("C1", new Zona("centro"))),
             Set.of(),
             Optional.empty());
 
-    assertThat(Regras.lugaresPermitidos(estado, Peca.TELESCOPIO)).containsExactly(Lugar.C2);
+    assertThat(Regras.lugaresPermitidos(Terraco.CENARIO, estado, Terraco.TELESCOPIO))
+        .containsExactly(Terraco.C2);
   }
 }

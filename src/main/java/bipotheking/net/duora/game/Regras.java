@@ -10,9 +10,6 @@ import java.util.Set;
  * Regras de um cenário como funções puras: recebem o cenário, o estado e o pedido e devolvem uma
  * {@link Decisao}. O servidor é a autoridade; nada aqui conhece HTTP, relógio de sistema ou
  * concorrência.
- *
- * <p>As versões sem {@link Cenario} são provisórias e delegam ao {@link Terraco#CENARIO}: saem na
- * B4.
  */
 public final class Regras {
 
@@ -25,11 +22,6 @@ public final class Regras {
     return aceitar(
         new Estado(
             Fase.MONTANDO, estado.versao(), estado.composicao(), estado.prontos(), estado.sinal()));
-  }
-
-  /** Provisória: {@link #parceiroEntrou(Cenario, Estado)} no terraço. Sai na B4. */
-  public static Decisao parceiroEntrou(Estado estado) {
-    return parceiroEntrou(Terraco.CENARIO, estado);
   }
 
   /**
@@ -72,12 +64,6 @@ public final class Regras {
     return aceitar(new Estado(Fase.MONTANDO, estado.versao() + 1, nova, Set.of(), sinal));
   }
 
-  /** Provisória: {@link #colocar(Cenario, Estado, Assento, Peca, Optional, long)}. Sai na B4. */
-  public static Decisao colocar(
-      Estado estado, Assento quem, Peca peca, Optional<Lugar> destino, long versaoEsperada) {
-    return colocar(Terraco.CENARIO, estado, quem, peca, destino, versaoEsperada);
-  }
-
   /**
    * Sinaliza uma peça colocada do parceiro por {@link Cenario#duracaoSinal()}. Não muda a versão.
    */
@@ -97,11 +83,6 @@ public final class Regras {
             estado.composicao(),
             estado.prontos(),
             Optional.of(sinal)));
-  }
-
-  /** Provisória: {@link #sinalizar(Cenario, Estado, Assento, Peca, Instant)}. Sai na B4. */
-  public static Decisao sinalizar(Estado estado, Assento quem, Peca peca, Instant agora) {
-    return sinalizar(Terraco.CENARIO, estado, quem, peca, agora);
   }
 
   /**
@@ -133,11 +114,6 @@ public final class Regras {
     return aceitar(new Estado(fase, estado.versao(), estado.composicao(), prontos, estado.sinal()));
   }
 
-  /** Provisória: {@link #confirmar(Cenario, Estado, Assento, boolean, long)}. Sai na B4. */
-  public static Decisao confirmar(Estado estado, Assento quem, boolean pronto, long versao) {
-    return confirmar(Terraco.CENARIO, estado, quem, pronto, versao);
-  }
-
   /** Volta da revelação para a montagem, zerando as confirmações. */
   public static Decisao ajustar(Cenario cenario, Estado estado) {
     if (estado.fase() != Fase.REVELADO) {
@@ -146,11 +122,6 @@ public final class Regras {
     return aceitar(
         new Estado(
             Fase.MONTANDO, estado.versao() + 1, estado.composicao(), Set.of(), estado.sinal()));
-  }
-
-  /** Provisória: {@link #ajustar(Cenario, Estado)} no terraço. Sai na B4. */
-  public static Decisao ajustar(Estado estado) {
-    return ajustar(Terraco.CENARIO, estado);
   }
 
   /** Lugares para onde a peça própria pode ir agora (vazio fora de {@link Fase#MONTANDO}). */
@@ -166,11 +137,6 @@ public final class Regras {
         .toList();
   }
 
-  /** Provisória: {@link #lugaresPermitidos(Cenario, Estado, Peca)} no terraço. Sai na B4. */
-  public static List<Lugar> lugaresPermitidos(Estado estado, Peca peca) {
-    return lugaresPermitidos(Terraco.CENARIO, estado, peca);
-  }
-
   /** Se colocar a peça agora seria barrado pelo portão da primeira peça. */
   public static boolean bloqueadaPeloPortao(Cenario cenario, Estado estado, Peca peca) {
     Composicao atual = estado.composicao();
@@ -182,22 +148,12 @@ public final class Regras {
     return violaPortao(cenario, atual, simulada, peca.dono());
   }
 
-  /** Provisória: {@link #bloqueadaPeloPortao(Cenario, Estado, Peca)} no terraço. Sai na B4. */
-  public static boolean bloqueadaPeloPortao(Estado estado, Peca peca) {
-    return bloqueadaPeloPortao(Terraco.CENARIO, estado, peca);
-  }
-
   /** O {@link Desfecho} do cenário sobre a composição revelada; vazio fora da revelação. */
   public static Optional<Resultado> resultado(Cenario cenario, Estado estado) {
     if (estado.fase() != Fase.REVELADO) {
       return Optional.empty();
     }
     return Optional.of(cenario.desfecho().de(estado.composicao(), cenario));
-  }
-
-  /** Provisória: {@link #resultado(Cenario, Estado)} no terraço. Sai na B4. */
-  public static Optional<Resultado> resultado(Estado estado) {
-    return resultado(Terraco.CENARIO, estado);
   }
 
   /** Tira a própria peça e, se ela é secundária, a outra secundária do mesmo dono (troca). */
