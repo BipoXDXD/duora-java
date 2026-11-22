@@ -10,7 +10,7 @@ Hipótese herdada (`duora-java-mvp.md` §1): uma pequena criação compartilhada
 | Ambição | **Piloto aberto**: cadastro público, sem convite, com pessoas reais. Começa pequeno e cresce conforme validar |
 | Jornada | **Encontro primeiro**: a pessoa define filtros, é pareada e as duas fazem a atividade no cenário com apelido e foto borrada. Depois cada uma decide em privado; o perfil completo, o chat e a voz só abrem se as duas disserem sim |
 | Quando | **Sem horário fixo** (dono, 2026-11-22). Quem abre o encontro escolhe: **público** (o pareamento traz alguém compatível a qualquer hora) ou **privado** (só por convite, via link). Substitui as janelas marcadas |
-| Stack | **Evoluir o Duora Java** (Spring Boot 4.2, Java 25, JS nativo) |
+| Stack | **Evoluir o Duora Java** (Spring Boot 4.2, Java 25); front em TypeScript + React + Tailwind (Vite) a partir da Etapa 1a |
 | Hospedagem | **VPS + Docker Compose** (Caddy, PostgreSQL, coturn no mesmo host), no padrão do `infra/` do projeto C# |
 | Critério de namoro | **Gênero + quem quer conhecer**: compatível nos dois sentidos. Gênero em lista inclusiva mais "prefiro descrever" |
 | LGPD | **Versão leve**: termos e política curtos, consentimento simples, exclusão de conta. Sem mapa de dados, relatório de impacto ou revisão jurídica obrigatória no piloto |
@@ -78,6 +78,16 @@ Cada etapa termina com uma prova demonstrável, testes verdes (`./mvnw -q verify
 - Teste e2e com emulação de dispositivo móvel e checagem de instalabilidade (manifest + SW registrados).
 
 **Prova**: instalado no emulador Android e terraço nítido nas capturas, verificado por agente.
+
+### Etapa 1a: Front em TypeScript, React e Tailwind
+Decisão do dono (2026-11-22): o front migra antes da 1b, porque as etapas seguintes são quase todas interface.
+- Vite com React e TypeScript `strict`, mais Tailwind. CSS próprio só onde o Tailwind não ajuda (a cena: sprites, céu, meteoros, brilho), e a cena continua imperativa dentro de um componente com ref.
+- O build roda pelo Maven (Node fixado, sem instalação global), e a saída vai para `static/`. A CI usa o mesmo caminho.
+- O service worker passa a ler o manifest do Vite (arquivos com hash) em vez de uma lista fixa de arquivos. A guarda de versão por impressão continua valendo.
+- A CSP não muda (sem `unsafe-inline` nem `unsafe-eval`). Nenhuma dependência de CDN.
+- Comportamento, textos e visual idênticos. Os seletores dos testes por papel e texto continuam valendo.
+
+**Prova**: os e2e e o axe verdes nos 3 navegadores sem mudar asserções, o visual igual por comparação de capturas antes e depois, e o tamanho do JS inicial medido e registrado (meta: ≤ 80 KB gzip).
 
 ### Etapa 1b: Motor de cenários
 - `game/` deixa de ter o terraço fixo no código: um `Cenario` descreve lugares, zonas, peças por participante, regras de colocação e como a composição vira o final. O terraço vira o primeiro cenário, descrito como dados, sem mudar nenhum comportamento: a suíte atual tem de continuar verde.
@@ -202,7 +212,7 @@ Playtest por agente (2026-11-22): primeira ação clara; contribuição do outro
 - Decisão ao final: ajustar, ampliar o piloto ou criar novos cenários.
 
 ## Dependências e paralelismo
-0 → 1 → 1b → 1c → 2 → 3 → 4 → 7 → 5 → 6 (a voz vem antes do encontro, que a usa). A 9b começa depois da 1b e roda em paralelo às etapas 2–8 (assets e dados não dependem de contas). A 8 começa junto com a 5 (denúncia e bloqueio básicos já entram na 5). A 9 é curta e fecha antes da 10. A 10 pode ser preparada em paralelo a partir da 6. A 11 depende de todas.
+0 → 1 → 1a → 1b → 1c → 2 → 3 → 4 → 7 → 5 → 6 (a voz vem antes do encontro, que a usa). A 9b começa depois da 1b e roda em paralelo às etapas 2–8 (assets e dados não dependem de contas). A 8 começa junto com a 5 (denúncia e bloqueio básicos já entram na 5). A 9 é curta e fecha antes da 10. A 10 pode ser preparada em paralelo a partir da 6. A 11 depende de todas.
 
 ## Verificação (por etapa e final)
 - Unitários e API: `./mvnw -q verify`.
