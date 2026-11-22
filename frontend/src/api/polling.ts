@@ -77,6 +77,7 @@ export function criarPolling(api: Api, { aoReceber, aoFalhar, aoRecuperar }: Gan
           aoFalhar(erro, espera());
         } else {
           ativo = false;
+          document.removeEventListener("visibilitychange", aoVoltarAAba);
           aoFalhar(erro, null);
         }
       }
@@ -100,11 +101,12 @@ export function criarPolling(api: Api, { aoReceber, aoFalhar, aoRecuperar }: Gan
     }
   }
 
-  document.addEventListener("visibilitychange", () => {
+  // Ligado só com o laço ativo: parar() o desliga, e a desmontagem não deixa ouvinte para trás.
+  function aoVoltarAAba(): void {
     if (!document.hidden) {
       consultarAgora();
     }
-  });
+  }
 
   return {
     iniciar() {
@@ -113,9 +115,11 @@ export function criarPolling(api: Api, { aoReceber, aoFalhar, aoRecuperar }: Gan
       }
       ativo = true;
       falhas = 0;
+      document.addEventListener("visibilitychange", aoVoltarAAba);
       consultarAgora();
     },
     parar() {
+      document.removeEventListener("visibilitychange", aoVoltarAAba);
       ativo = false;
       epoca += 1;
       etag = null;

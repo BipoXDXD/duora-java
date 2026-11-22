@@ -28,6 +28,8 @@ export interface Sessao {
   /** Chama o ouvinte a cada mudança; devolve a função que cancela a assinatura. */
   assinar: (ouvinte: () => void) => () => void;
   iniciar: () => void;
+  /** Para o polling (desmontagem, StrictMode); iniciar() retoma. */
+  parar: () => void;
   escolherPeca: (peca: string, minha: boolean) => Promise<void>;
   /** bloqueio: o motivo de o lugar não aceitar a peça selecionada ("ocupado"...), ou null. */
   escolherLugar: (lugar: string, bloqueio: string | null) => Promise<void>;
@@ -51,6 +53,13 @@ type TelaSemSala = Extract<EstadoDaTela, { tela: "carregando" | "entrada" | "enc
 const CODIGOS_SEM_SALA = new Set(["SEM_ASSENTO", "SALA_INEXISTENTE", "SALA_ENCERRADA"]);
 
 const semSala = (erro: unknown): boolean => erro instanceof ErroApi && CODIGOS_SEM_SALA.has(erro.codigo);
+
+/** A peça selecionada segue escolhível na visão nova: ainda na montagem e ainda sua. */
+function selecaoContinua(visao: Visao, selecionada: string | null): boolean {
+  return (
+    visao.fase === "MONTANDO" && visao.pecas.some((p) => p.peca === selecionada && p.assento === visao.voce.assento)
+  );
+}
 
 /** As mutações aceitas trazem a visão nova; sem ela, o contrato quebrou. */
 function exigirVisao(resposta: Resposta): Visao {
@@ -171,8 +180,7 @@ export function criarSessao({ api, aviso, convite, criarPolling = criarPollingPa
     if (visao.parceiro) {
       estado.ultimoParceiro = visao.parceiro.nome;
     }
-    const minha = visao.pecas.find((p) => p.peca === estado.selecionada && p.assento === visao.voce.assento);
-    if (visao.fase !== "MONTANDO" || !minha) {
+    if (!selecaoContinua(visao, estado.selecionada)) {
       estado.selecionada = null;
     }
     let texto = anterior ? novidade(anterior, visao, propria) : null;
@@ -309,11 +317,7 @@ export function criarSessao({ api, aviso, convite, criarPolling = criarPollingPa
    * senão, volta à peça no inventário. Decidido antes de aplicar a visão, que publica o retrato.
    */
   function focarAposRecusa(visao: Visao, peca: string): void {
-    const continuaSelecionada =
-      estado.selecionada !== null &&
-      visao.fase === "MONTANDO" &&
-      visao.pecas.some((p) => p.peca === estado.selecionada && p.assento === visao.voce.assento);
-    pedirFoco(continuaSelecionada ? { alvo: "apos-recusa", peca } : { alvo: "item", peca });
+    pedirFoco(selecaoContinua(visao, estado.selecionada) ? { alvo: "apos-recusa", peca } : { alvo: "item", peca });
   }
 
   async function entrarOuCriar(apelido: string): Promise<void> {
@@ -454,6 +458,9 @@ export function criarSessao({ api, aviso, convite, criarPolling = criarPollingPa
     iniciar() {
       mostrarSemSala({ tela: "carregando" }, null);
       polling.iniciar();
+    },
+    parar() {
+      polling.parar();
     },
     escolherPeca,
     escolherLugar,
