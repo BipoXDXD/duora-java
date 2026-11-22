@@ -1,7 +1,7 @@
 import { useCenario } from "../cenario/contexto";
 import { interpolar } from "../cenario/legenda";
 import type { CenarioFront } from "../cenario/tipos";
-import type { Visao, VisaoPeca } from "../dominio/visao";
+import { aberturaAtiva, type Visao, type VisaoPeca } from "../dominio/visao";
 import { SUBTITULO } from "./estilos";
 
 /** As quatro metas da composição, com o que cada uma diz e se já foi cumprida. */
@@ -54,7 +54,7 @@ function IconePendente() {
   );
 }
 
-/** "O que falta": some quando nada falta e quando a noite é revelada. */
+/** "O que falta": some quando nada falta, durante a abertura e quando a noite é revelada. */
 export function Falta({ visao }: { visao: Visao }) {
   const c = useCenario();
   const linhas = linhasDaFalta(c, visao);
@@ -63,7 +63,7 @@ export function Falta({ visao }: { visao: Visao }) {
     <section
       className="falta celular:order-4 celular-deitado:order-4"
       aria-labelledby="falta-titulo"
-      hidden={nadaFalta || visao.fase === "REVELADO"}
+      hidden={nadaFalta || aberturaAtiva(visao) || visao.fase === "REVELADO"}
     >
       <h2 id="falta-titulo" className={SUBTITULO}>
         O que falta

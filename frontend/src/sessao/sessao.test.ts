@@ -33,6 +33,7 @@ function visao(mudancas: Partial<Visao> = {}): Visao {
     sinal: null,
     resultado: null,
     ajuste: null,
+    abertura: null,
     ...mudancas,
   };
 }
@@ -79,6 +80,7 @@ function montar({
     sinalizar: vi.fn(pendente),
     marcarPronto: vi.fn(pendente),
     pedirAjuste: vi.fn(pendente),
+    tocarAbertura: vi.fn(pendente),
     recusarAjuste: vi.fn(pendente),
     sair: vi.fn(pendente),
     ...api,
@@ -183,6 +185,29 @@ describe("criarSessao", () => {
       selecionada: null,
       instrucao: "Escolha uma das suas peças e depois um lugar no terraço.",
     });
+  });
+
+  it("tocarAberturaEnviaOToqueEMostraAVisaoDaResposta", async () => {
+    const ativa = { ativa: true, voceTocou: false, outroTocou: false, acesa: false };
+    const tocou = visao({ abertura: { ...ativa, voceTocou: true } });
+    const { sessao, api } = naSala(visao({ abertura: ativa }), {
+      api: { tocarAbertura: vi.fn(() => Promise.resolve(resposta(tocou))) },
+    });
+
+    await sessao.tocarAbertura();
+
+    expect(api.tocarAbertura).toHaveBeenCalledOnce();
+    expect(sessao.obter()).toMatchObject({ tela: "montagem", visao: tocou, instrucao: "", enviando: null });
+  });
+
+  it("toqueRecusadoPelaAberturaAvisaParaEsperar", async () => {
+    const erro = new ErroApi({ status: 409, codigo: "ABERTURA_EM_ANDAMENTO" });
+    const { sessao, aviso } = naSala(visao(), { api: { moverPeca: vi.fn(() => Promise.reject(erro)) } });
+    await sessao.escolherPeca("telescopio", true);
+
+    await sessao.escolherLugar("C1", null);
+
+    expect(aviso.avisar).toHaveBeenLastCalledWith("Espere as lanternas acenderem.", "erro");
   });
 
   it("a visão em AGUARDANDO_PAR mostra o convite", () => {

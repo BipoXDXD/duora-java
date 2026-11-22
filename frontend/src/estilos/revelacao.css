@@ -15,6 +15,31 @@
   opacity: 1;
 }
 
+/* As lanternas da abertura acendem ainda no crepúsculo: a chama treme enquanto o dono dela tocou e,
+   acesas, o poço de luz e a chama da revelação aparecem em escala menor. */
+.lanterna .tremular,
+.lanterna[data-acesa] [data-efeito] {
+  opacity: 1;
+}
+
+.lanterna .tremular::before {
+  animation: tremular 2.7s linear infinite;
+}
+
+/* Só no primeiro desenho acesas; os redesenhos seguintes já nascem acesos. Termina no estado base. */
+.lanterna[data-acender] [data-efeito] {
+  animation: acender 1.6s ease-out;
+}
+
+@keyframes acender {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
 /* A peça focada passa à frente das próprias luzes: o halo e a chama clareiam em "screen" e, por cima
    do anel de foco, apagariam a faixa escura dele. */
 .app[data-momento="noite"] .peca:focus-visible {

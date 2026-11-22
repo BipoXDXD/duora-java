@@ -37,6 +37,9 @@ export function mensagemDeErro(erro: ErroComCodigo, visao: Visao | null | undefi
       return textoBloqueio("ESPERE_PRIMEIRA_PECA", visao);
     case "FASE_INVALIDA":
       return "Essa ação não vale nesta etapa. O terraço foi atualizado.";
+    case "ABERTURA_EM_ANDAMENTO":
+      // O mesmo texto do detalhe do servidor: as peças esperam a abertura acabar.
+      return "Espere as lanternas acenderem.";
     case "INCOMPLETA":
       return "Ainda faltam peças no terraço para confirmar.";
     case "LUGAR_INVALIDO":

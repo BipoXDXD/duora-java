@@ -98,7 +98,15 @@ describe("useSessao", () => {
   });
 
   it("o pedido da peça na cena foca o botão dela na cena, não o item do inventário", () => {
-    const { container, publicar } = montar();
+    // A cena de verdade foca o botão da peça na camada dela (cena.test.ts); aqui, o mesmo no #pecas.
+    const cena = {
+      focarPrimeiroLugar: vi.fn(() => false),
+      focarPeca: (peca: string) => {
+        document.querySelector<HTMLElement>(`#pecas [data-peca=${peca}]`)?.focus();
+        return true;
+      },
+    };
+    const { container, publicar } = montar(cena);
 
     publicar(ENCERRADO, { alvo: "peca-na-cena", peca: "manta" });
 
@@ -106,7 +114,7 @@ describe("useSessao", () => {
   });
 
   it("depois de uma recusa sem lugar livre, o foco volta à peça no inventário", () => {
-    const cena = { focarPrimeiroLugar: vi.fn(() => false) };
+    const cena = { focarPrimeiroLugar: vi.fn(() => false), focarPeca: vi.fn(() => false) };
     const { container, publicar } = montar(cena);
 
     publicar(ENCERRADO, { alvo: "apos-recusa", peca: "manta" });
@@ -116,7 +124,7 @@ describe("useSessao", () => {
   });
 
   it("depois de uma recusa com lugar livre, o foco fica no lugar que a cena focou", () => {
-    const cena = { focarPrimeiroLugar: vi.fn(() => true) };
+    const cena = { focarPrimeiroLugar: vi.fn(() => true), focarPeca: vi.fn(() => false) };
     const { container, publicar } = montar(cena);
     const naCena = container.querySelector<HTMLElement>("#pecas [data-peca=manta]");
     naCena?.focus();

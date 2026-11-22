@@ -174,6 +174,7 @@ export function App({ convite, cenario }: { convite: string | null; cenario: Cen
           cenario={cenario}
           aoEscolherPeca={(peca, minha) => void sessao.escolherPeca(peca, minha)}
           aoEscolherLugar={(lugar, bloqueio) => void sessao.escolherLugar(lugar, bloqueio)}
+          aoTocarAbertura={() => void sessao.tocarAbertura()}
           aoMeteoro={() => {
             som.meteoro();
           }}

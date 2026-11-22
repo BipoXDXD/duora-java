@@ -23,6 +23,7 @@ const REVELADO: Visao = {
   sinal: null,
   resultado: { secundariaA: "manta", secundariaB: "lanterna", ladoTelescopio: "esquerdo" },
   ajuste: null,
+  abertura: null,
 };
 
 /** A tela cheia de verdade mora no App (useTelaCheia); aqui basta o liga-desliga. */

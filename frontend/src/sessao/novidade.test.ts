@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import type { Visao } from "../dominio/visao";
+import type { Visao, VisaoAbertura } from "../dominio/visao";
 import { cenarioDoTerraco } from "../teste/cenarioDoTerraco";
 import { instrucao, novidade } from "./novidade";
 
@@ -24,9 +24,12 @@ function visao(mudancas: Partial<Visao> = {}): Visao {
     sinal: null,
     resultado: null,
     ajuste: null,
+    abertura: null,
     ...mudancas,
   };
 }
+
+const ABERTURA_ATIVA: VisaoAbertura = { ativa: true, voceTocou: false, outroTocou: false, acesa: false };
 
 describe("novidade", () => {
   it("sinal novo do parceiro", () => {
@@ -102,7 +105,56 @@ describe("novidade", () => {
   });
 });
 
+describe("novidade: abertura", () => {
+  it("lanternasAcesasAnunciam", () => {
+    const antes = visao({ abertura: { ...ABERTURA_ATIVA, outroTocou: true } });
+    const agora = visao({ abertura: { ativa: false, voceTocou: true, outroTocou: true, acesa: true } });
+
+    expect(novidade(CENARIO, antes, agora, false)).toBe("As lanternas acenderam.");
+  });
+
+  it("lanternasAcesasPeloProprioToqueTambemAnunciam", () => {
+    const antes = visao({ abertura: { ...ABERTURA_ATIVA, outroTocou: true } });
+    const agora = visao({ abertura: { ativa: false, voceTocou: true, outroTocou: true, acesa: true } });
+
+    expect(novidade(CENARIO, antes, agora, true)).toBe("As lanternas acenderam.");
+  });
+
+  it("aberturaPeloTempoNaoAnuncia", () => {
+    const antes = visao({ abertura: { ...ABERTURA_ATIVA, voceTocou: true } });
+    const agora = visao({ abertura: { ativa: false, voceTocou: false, outroTocou: false, acesa: false } });
+
+    expect(novidade(CENARIO, antes, agora, false)).toBeNull();
+  });
+
+  it("lanternasJaAcesasNaoAnunciamDeNovo", () => {
+    const acesa = visao({ abertura: { ativa: false, voceTocou: false, outroTocou: false, acesa: true } });
+
+    expect(novidade(CENARIO, acesa, { ...acesa, versao: 4 }, false)).toBeNull();
+  });
+
+  it("parceiroEntrouDuranteAAberturaNaoPedePecas", () => {
+    const antes = visao({ fase: "AGUARDANDO_PAR", parceiro: null });
+
+    expect(novidade(CENARIO, antes, visao({ abertura: ABERTURA_ATIVA }), false)).toBe("Bruno entrou no terraço.");
+  });
+});
+
 describe("instrucao", () => {
+  it("duranteAAberturaSemInstrucao", () => {
+    expect(instrucao(CENARIO, visao({ abertura: ABERTURA_ATIVA }), null, null)).toBe("");
+  });
+
+  it("duranteOEnvioDoToqueContinuaSemInstrucao", () => {
+    expect(instrucao(CENARIO, visao({ abertura: ABERTURA_ATIVA }), null, "abertura")).toBe("");
+  });
+
+  it("depoisDaAberturaAInstrucaoVolta", () => {
+    const concluida = visao({ abertura: { ...ABERTURA_ATIVA, ativa: false, acesa: true } });
+
+    expect(instrucao(CENARIO, concluida, null, null)).toBe("Escolha uma das suas peças e depois um lugar no terraço.");
+  });
+
   it("durante um envio", () => {
     expect(instrucao(CENARIO, visao(), null, "pecas")).toBe("Enviando…");
   });

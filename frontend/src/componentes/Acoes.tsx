@@ -1,5 +1,5 @@
 import { textoMotivoConfirmacao } from "../dominio/mensagens";
-import type { Visao } from "../dominio/visao";
+import { aberturaAtiva, type Visao } from "../dominio/visao";
 import type { AcoesDaSessao } from "../sessao/sessao";
 import type { Acao } from "../sessao/tipos";
 import { BOTAO_PRIMARIO, BOTAO_TEXTO, seDisponivel } from "./estilos";
@@ -13,7 +13,10 @@ interface PropsAcoes {
   aoAlternarSom: () => void;
 }
 
-/** Confirmação e som. Na noite revelada some só a confirmação; o som continua acessível para os meteoros. */
+/**
+ * Confirmação e som. Na noite revelada some só a confirmação; o som continua acessível para os
+ * meteoros. Durante a abertura o bloco inteiro some: a lanterna na cena é a única ação.
+ */
 export function Acoes({ visao, enviando, somLigado, acoes, aoAlternarSom }: PropsAcoes) {
   const voceConfirmou = visao.prontos.voce;
   const revelado = visao.fase === "REVELADO";
@@ -24,7 +27,10 @@ export function Acoes({ visao, enviando, somLigado, acoes, aoAlternarSom }: Prop
   }
 
   return (
-    <div className="acoes grid gap-(--e-2) mt-auto celular:order-5 celular-deitado:order-5">
+    <div
+      className="acoes grid gap-(--e-2) mt-auto celular:order-5 celular-deitado:order-5"
+      hidden={aberturaAtiva(visao)}
+    >
       <button
         type="button"
         className={BOTAO_PRIMARIO}

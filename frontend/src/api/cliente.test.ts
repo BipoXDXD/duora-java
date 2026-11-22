@@ -128,6 +128,18 @@ describe("api", () => {
     expect(initRecusa?.method).toBe("POST");
   });
 
+  it("tocarAberturaChamaARota", async () => {
+    const fetchFalso = responder(200, VISAO);
+
+    const resposta = await api.tocarAbertura();
+
+    const [url, init] = fetchFalso.mock.calls[0] ?? [];
+    expect(url).toBe("/api/sala/abertura");
+    expect(init?.method).toBe("POST");
+    expect(init?.body).toBeUndefined();
+    expect(resposta.visao).toEqual(VISAO);
+  });
+
   it("envia o corpo em JSON no caminho do contrato", async () => {
     const fetchFalso = responder(200, VISAO);
 

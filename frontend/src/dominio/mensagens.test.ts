@@ -27,6 +27,7 @@ function visao(mudancas: Partial<Visao> = {}): Visao {
     sinal: null,
     resultado: null,
     ajuste: null,
+    abertura: null,
     ...mudancas,
   };
 }
@@ -53,6 +54,10 @@ describe("mensagemDeErro", () => {
     ["LIMITE_SALAS", "O servidor já tem 20 terraços abertos. Tente de novo em alguns minutos."],
   ])("%s", (codigo, texto) => {
     expect(mensagemDeErro(erro(codigo), visao())).toBe(texto);
+  });
+
+  it("aberturaEmAndamentoPedeParaEsperarAsLanternas", () => {
+    expect(mensagemDeErro(erro("ABERTURA_EM_ANDAMENTO", 409), visao())).toBe("Espere as lanternas acenderem.");
   });
 
   it("código desconhecido mostra o status", () => {

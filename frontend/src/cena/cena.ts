@@ -1,9 +1,9 @@
 // Desenha a cena do cenário a partir da visão da sala. Não decide regras: usa os lugares
 // permitidos que a visão traz para a peça selecionada e os destinos sugeríveis das do parceiro.
 
-import type { CenarioFront } from "../cenario/tipos";
+import type { AberturaDoCenario, CenarioFront, Efeito } from "../cenario/tipos";
 import { escolherVariante, type MedidasSprite, type Momento, pct, type Ponto } from "../dominio/dados";
-import type { Visao, VisaoPeca } from "../dominio/visao";
+import type { Assento, Visao, VisaoAbertura, VisaoPeca } from "../dominio/visao";
 import { type CamadaDoEfeito, criarElementosDoEfeito } from "./efeitos";
 
 const MOMENTOS: readonly Momento[] = ["crepusculo", "noite"];
@@ -35,6 +35,8 @@ export interface OpcoesCena {
   cenario: CenarioFront;
   aoEscolherPeca: (peca: string, minha: boolean) => void;
   aoEscolherLugar: (lugar: string, bloqueio: string | null) => void;
+  /** O toque na própria lanterna da abertura. */
+  aoTocarAbertura: () => void;
 }
 
 /** O que a sessão marca na cena além da visão: a peça selecionada, a que você está sugerindo mover e as peças em destaque. */
@@ -50,9 +52,53 @@ export interface CenaImperativa {
   limpar(): void;
   /** Foca o primeiro lugar livre; diz se havia algum. */
   focarPrimeiroLugar(): boolean;
+  /** Foca o botão da peça na cena (não os efeitos dela, que também têm data-peca); diz se ela está lá. */
+  focarPeca(peca: string): boolean;
 }
 
 type PecaColocada = VisaoPeca & { lugar: string };
+
+/**
+ * A luz de uma lanterna da abertura acesa, em metros da lanterna em tamanho real: o poço de luz da
+ * revelação e a chama. A cena os desenha na escala da abertura.
+ */
+const LUZ_DA_LANTERNA: readonly Efeito[] = [
+  { tipo: "brilho", cor: "#ffc982", largura: 2.4 },
+  { tipo: "halo", alturaProjetada: 0.3464, largura: 0.75 },
+];
+
+const TREMOR_DA_CHAMA: Efeito = { tipo: "tremular" };
+
+/** O anel da lanterna própria passa um pouco do sprite, para o dedo e para o olho. */
+const FOLGA_DO_ANEL = 1.25;
+
+const SVG = "http://www.w3.org/2000/svg";
+
+/** Mão aberta sob uma chama: o gesto de acender, sem palavras. Decorativo (o botão tem nome). */
+function criarIconeDeAcender(): SVGSVGElement {
+  const svg = document.createElementNS(SVG, "svg");
+  svg.setAttribute("viewBox", "0 0 24 24");
+  svg.setAttribute("aria-hidden", "true");
+  svg.setAttribute("class", "icone-acender");
+  const chama = document.createElementNS(SVG, "path");
+  chama.setAttribute(
+    "d",
+    "M12 2.5c.7 2.3 3.4 3.8 3.4 6.9a3.4 3.4 0 0 1-6.8 0c0-1.5.8-2.5 1.6-3.4.3 1 .8 1.6 1.4 1.8-.3-1.8-.2-3.5.4-5.3z",
+  );
+  chama.setAttribute("fill", "currentColor");
+  const mao = document.createElementNS(SVG, "path");
+  mao.setAttribute(
+    "d",
+    "M3 15c1.6-.5 3 .1 4 1.1l1.2 1.2h5c.8 0 1.4.6 1.4 1.4H9.4M14.6 17.5l3.4-2.4c.8-.5 1.8-.3 2.2.4.4.6.3 1.4-.2 1.9l-3.6 3.2c-.7.6-1.6 1-2.5 1H8.5L6 20.2H3",
+  );
+  mao.setAttribute("fill", "none");
+  mao.setAttribute("stroke", "currentColor");
+  mao.setAttribute("stroke-width", "1.6");
+  mao.setAttribute("stroke-linecap", "round");
+  mao.setAttribute("stroke-linejoin", "round");
+  svg.append(chama, mao);
+  return svg;
+}
 
 const colocada = (p: VisaoPeca): p is PecaColocada => p.lugar !== null;
 
@@ -63,6 +109,7 @@ export function criarCena({
   cenario,
   aoEscolherPeca,
   aoEscolherLugar,
+  aoTocarAbertura,
 }: OpcoesCena): CenaImperativa {
   const { geometria } = cenario;
   const { largura, altura } = geometria;
@@ -72,6 +119,8 @@ export function criarCena({
   const variante = mostrarTerraco(palco, cenario);
   // "peça@lugar" em destaque no último desenho: a mesma peça movida de novo volta a pulsar.
   let destaquesDesenhados = new Set<string>();
+  // As lanternas acendem animadas só no primeiro desenho acesas: os redesenhos seguintes as mantêm.
+  let lanternasAcesasDesenhadas = false;
 
   // Um lugar ou sprite fora do cena.json é contrato quebrado, não um caso a tratar.
   function pontoDe(lugar: string): Ponto {
@@ -90,8 +139,99 @@ export function criarCena({
     return medidas;
   }
 
+  /**
+   * Uma lanterna de mão por lado, atrás das peças. Na abertura ativa, a sua é o botão de acender e a
+   * chama de cada lado tremula enquanto o dono dela tocou (o convite para o outro tocar também).
+   * Acesas, as duas ficam com a luz da revelação em escala menor; apagadas pelo tempo, somem.
+   */
+  function desenharLanternas(visao: Visao): HTMLElement[] {
+    const abertura = cenario.abertura();
+    const estado = visao.abertura;
+    if (abertura === null || estado === null || visao.fase !== "MONTANDO" || (!estado.ativa && !estado.acesa)) {
+      lanternasAcesasDesenhadas = false;
+      return [];
+    }
+    const acender = estado.acesa && !lanternasAcesasDesenhadas;
+    lanternasAcesasDesenhadas = estado.acesa;
+    const lados: readonly Assento[] = ["A", "B"];
+    return lados.map((lado) => criarLanterna(abertura, estado, lado, lado === visao.voce.assento, acender));
+  }
+
+  function criarLanterna(
+    abertura: AberturaDoCenario,
+    estado: VisaoAbertura,
+    lado: Assento,
+    minha: boolean,
+    acender: boolean,
+  ): HTMLElement {
+    const { escala } = abertura;
+    const ponto = pontoDe(abertura.lugares[lado]);
+    const { crepusculo: m } = medidasDe(abertura.sprite);
+    // Os efeitos medem em metros: com o pxPorMetro na escala da lanterna, a luz encolhe junto.
+    const emEscala = { ...geometria, pxPorMetro: geometria.pxPorMetro * escala };
+    const tocou = estado.ativa && (minha ? estado.voceTocou : estado.outroTocou);
+    const efeitos = [...(estado.acesa ? LUZ_DA_LANTERNA : []), ...(tocou ? [TREMOR_DA_CHAMA] : [])].flatMap((e) =>
+      criarElementosDoEfeito(e, `abertura-${lado}`, ponto, emEscala),
+    );
+
+    const lanterna = document.createElement("div");
+    lanterna.className = "lanterna";
+    lanterna.dataset.lanterna = lado;
+    lanterna.dataset.dono = minha ? "voce" : "parceiro";
+    if (estado.acesa) {
+      lanterna.dataset.acesa = "true";
+    }
+    if (acender) {
+      lanterna.dataset.acender = "true";
+    }
+
+    const caixa = {
+      x: ponto.x - m.ancoraX * escala,
+      y: ponto.y - m.ancoraY * escala,
+      largura: m.largura * escala,
+      altura: m.altura * escala,
+    };
+    const img = new Image();
+    img.src = cenario.urlSprite(abertura.sprite, "crepusculo", variante);
+    img.alt = "";
+    img.className = "sprite-lanterna";
+    img.style.left = pct(caixa.x, largura);
+    img.style.top = pct(caixa.y, altura);
+    img.style.width = pct(caixa.largura, largura);
+
+    lanterna.append(...efeitos.filter((e) => e.camada === "piso").map((e) => e.el), img);
+    if (minha && estado.ativa) {
+      lanterna.append(criarBotaoDaLanterna(caixa, tocou));
+    }
+    lanterna.append(...efeitos.filter((e) => e.camada === "frente").map((e) => e.el));
+    return lanterna;
+  }
+
+  /** O anel de toque em volta da sua lanterna, com a mão e a chama; o nome diz o gesto. */
+  function criarBotaoDaLanterna(
+    caixa: { x: number; y: number; largura: number; altura: number },
+    tocou: boolean,
+  ): HTMLButtonElement {
+    const botao = document.createElement("button");
+    botao.type = "button";
+    botao.className = "botao-lanterna";
+    botao.dataset.abertura = "";
+    // O toque fica pressionado até a janela expirar: o leitor de tela ouve o mesmo que o anel sólido mostra.
+    botao.setAttribute("aria-pressed", String(tocou));
+    botao.setAttribute("aria-label", "Acender sua lanterna");
+    botao.style.left = pct(caixa.x + caixa.largura / 2, largura);
+    botao.style.top = pct(caixa.y + caixa.altura / 2, altura);
+    botao.style.setProperty("--tamanho-lanterna", pct(Math.max(caixa.largura, caixa.altura) * FOLGA_DO_ANEL, largura));
+    botao.append(criarIconeDeAcender());
+    botao.addEventListener("click", () => {
+      aoTocarAbertura();
+    });
+    return botao;
+  }
+
   function desenharPecas(visao: Visao, { selecionada, sugerindo, destaques }: MarcasDaCena): void {
     const fragmento = document.createDocumentFragment();
+    fragmento.append(...desenharLanternas(visao));
     const colocadas = visao.pecas.filter(colocada);
     colocadas.sort((a, b) => pontoDe(a.lugar).y - pontoDe(b.lugar).y);
 
@@ -326,6 +466,7 @@ export function criarCena({
     },
     limpar() {
       destaquesDesenhados = new Set();
+      lanternasAcesasDesenhadas = false;
       camadaPecas.replaceChildren();
       camadaLugares.replaceChildren();
       palco.dataset.selecionando = "false";
@@ -335,6 +476,11 @@ export function criarCena({
       const lugar = camadaLugares.querySelector<HTMLElement>(".lugar:not([aria-disabled])");
       lugar?.focus();
       return Boolean(lugar);
+    },
+    focarPeca(peca) {
+      const botao = camadaPecas.querySelector<HTMLElement>(`button[data-peca="${peca}"]`);
+      botao?.focus();
+      return Boolean(botao);
     },
   };
 }

@@ -21,6 +21,7 @@ function visao(
     sinal: null,
     resultado: null,
     ajuste: null,
+    abertura: null,
   };
 }
 

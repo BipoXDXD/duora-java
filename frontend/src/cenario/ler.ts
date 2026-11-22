@@ -72,6 +72,14 @@ const EsquemaCenario = v.strictObject({
   legenda: v.strictObject({ titulo: v.string(), texto: v.string() }),
   raioPerto: v.optional(v.pipe(v.number(), v.minValue(0))),
   relacoes: v.optional(v.array(v.strictObject({ pecas: v.tuple([v.string(), v.string()]), perto: v.string() })), []),
+  abertura: v.optional(
+    v.strictObject({
+      tipo: v.picklist(["acender-junto"]),
+      sprite: v.string(),
+      escala: v.number(),
+      lugares: v.strictObject({ A: v.string(), B: v.string() }),
+    }),
+  ),
 });
 
 type CenarioLido = v.InferOutput<typeof EsquemaCenario>;
@@ -144,6 +152,9 @@ export function lerCenario(cenario: unknown, geometria: unknown, id: string): Ce
     revelacao(peca: string) {
       return entrada(c.revelacao, peca) ?? [];
     },
+    abertura() {
+      return c.abertura ?? null;
+    },
     legenda(resultado, nomes) {
       return legenda(c.legenda, resultado, nomes, front);
     },
@@ -186,6 +197,7 @@ function conferir(c: CenarioLido, g: Geometria, id: string): void {
     }
   }
   conferirRelacoes(c);
+  conferirAbertura(c, g);
   for (const lugar of Object.keys(c.lugares)) {
     if (!Object.hasOwn(g.lugares, lugar)) {
       falha(`lugares.${lugar}`, `sem ponto no cena.json (lugares.${lugar})`);
@@ -215,6 +227,21 @@ function conferirRelacoes(c: CenarioLido): void {
       falha(`relacoes.${String(i)}.pecas`, "as duas peças são iguais");
     }
   });
+}
+
+/** A lanterna de cada lado fica num lugar do cenário e o sprite dela tem medidas no cena.json. */
+function conferirAbertura(c: CenarioLido, g: Geometria): void {
+  if (c.abertura === undefined) {
+    return;
+  }
+  if (!Object.hasOwn(g.props, c.abertura.sprite)) {
+    falha("abertura.sprite", `o sprite "${c.abertura.sprite}" não tem medidas no cena.json`);
+  }
+  for (const [assento, lugar] of Object.entries(c.abertura.lugares)) {
+    if (!Object.hasOwn(c.lugares, lugar)) {
+      falha(`abertura.lugares.${assento}`, `"${lugar}" não é um lugar`);
+    }
+  }
 }
 
 /** Cada nome de sprite que a peça pode usar, com o caminho de onde veio. */

@@ -20,6 +20,7 @@ const VISAO: Visao = {
   sinal: null,
   resultado: null,
   ajuste: null,
+  abertura: null,
 };
 
 const obterSala = vi.fn<(etag: string | null) => Promise<Resposta>>();

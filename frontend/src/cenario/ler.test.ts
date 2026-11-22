@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { cenarioDoTerraco, jsonsDoTerraco } from "../teste/cenarioDoTerraco";
+import {
+  cenarioDoTerraco,
+  cenarioDoTerracoComAbertura,
+  jsonsDoTerraco,
+  jsonsDoTerracoComAbertura,
+} from "../teste/cenarioDoTerraco";
 import { CENARIO_MINIMO } from "../teste/cenarioMinimo";
 import { lerCenario } from "./ler";
 import { ErroCenario } from "./tipos";
@@ -179,6 +184,27 @@ describe("lerCenario: validação", () => {
     expect(erroAoLer(cenario, geometria)).toContain("revelacao.radio.0.som");
   });
 
+  it("aberturaComLugarInexistenteRecusada", () => {
+    const { cenario, geometria } = jsonsDoTerracoComAbertura();
+    em(cenario, "abertura", "lugares").A = "Z9";
+
+    expect(erroAoLer(cenario, geometria)).toContain("abertura.lugares.A");
+  });
+
+  it("aberturaComSpriteSemMedidasRecusada", () => {
+    const { cenario, geometria } = jsonsDoTerracoComAbertura();
+    em(cenario, "abertura").sprite = "lampiao";
+
+    expect(erroAoLer(cenario, geometria)).toContain("abertura.sprite");
+  });
+
+  it("aberturaDeTipoDesconhecidoRecusada", () => {
+    const { cenario, geometria } = jsonsDoTerracoComAbertura();
+    em(cenario, "abertura").tipo = "soprar-junto";
+
+    expect(erroAoLer(cenario, geometria)).toContain("abertura.tipo");
+  });
+
   it("cenário sem relações continua válido", () => {
     const { cenario, geometria } = jsonsDoTerraco();
     delete em(cenario).raioPerto;
@@ -260,6 +286,22 @@ describe("lerCenario: consultas", () => {
       { tipo: "halo", alturaProjetada: 0.3464, largura: 0.75 },
       { tipo: "tremular" },
     ]);
+  });
+
+  it("aberturaTrazSpriteEscalaELugares", () => {
+    expect(cenarioDoTerracoComAbertura().abertura()).toEqual({
+      tipo: "acender-junto",
+      sprite: "lanterna",
+      escala: 0.5,
+      lugares: { A: "L2", B: "R2" },
+    });
+  });
+
+  it("cenárioSemAberturaDevolveNull", () => {
+    const { cenario, geometria } = jsonsDoTerraco();
+    delete em(cenario).abertura;
+
+    expect(lerCenario(cenario, geometria, "terraco").abertura()).toBeNull();
   });
 
   it("peça sem efeitos não tem revelação", () => {

@@ -25,6 +25,7 @@ const porId = (id: string): HTMLElement => {
 beforeEach(() => {
   document.body.innerHTML = `
     <input id="link-convite">
+    <div id="pecas"><button id="lanterna" data-abertura>Acender sua lanterna</button></div>
     <ul id="inventario"><li><button id="item">Telescópio</button></li></ul>
     <button id="pronto">Pronto</button>
     <h2 id="resultado-titulo" tabindex="-1">Resultado</h2>
@@ -56,6 +57,12 @@ describe("destinoDoFoco", () => {
     mostrar("item", "pronto");
 
     expect(destinoDoFoco("MONTANDO", document)).toBe(porId("item"));
+  });
+
+  it("focoVaiParaALanternaDuranteAbertura", () => {
+    mostrar("lanterna", "item", "pronto");
+
+    expect(destinoDoFoco("MONTANDO", document)).toBe(porId("lanterna"));
   });
 
   it("montagem sem item visível: o Pronto", () => {

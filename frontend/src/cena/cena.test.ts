@@ -18,26 +18,33 @@ function visao(pecas: VisaoPeca[]): Visao {
     sinal: null,
     resultado: null,
     ajuste: null,
+    abertura: null,
   };
 }
 
 /** Monta o #palco com as duas camadas e desenha as peças com o cenário dado. */
 function desenhar(cenario: CenarioFront, pecas: VisaoPeca[], fundos: HTMLElement[] = []): HTMLElement {
+  return montarCena(cenario, pecas, fundos).palco;
+}
+
+function montarCena(cenario: CenarioFront, pecas: VisaoPeca[], fundos: HTMLElement[] = []) {
   const palco = document.createElement("div");
   palco.id = "palco";
   const camadaPecas = document.createElement("div");
   const camadaLugares = document.createElement("div");
   palco.append(...fundos, camadaPecas, camadaLugares);
   document.body.append(palco);
-  criarCena({
+  const cena = criarCena({
     palco,
     camadaPecas,
     camadaLugares,
     cenario,
     aoEscolherPeca: () => {},
     aoEscolherLugar: () => {},
-  }).desenhar(visao(pecas), { selecionada: null, sugerindo: null, destaques: [] });
-  return palco;
+    aoTocarAbertura: () => {},
+  });
+  cena.desenhar(visao(pecas), { selecionada: null, sugerindo: null, destaques: [] });
+  return { palco, cena };
 }
 
 afterEach(() => {
@@ -68,6 +75,19 @@ describe("criarCena", () => {
 
     expect(fundo.src).toMatch(/\/chao-crepusculo-2700\.webp$/);
     expect(palco.querySelector<HTMLImageElement>(".sprite-crepusculo")?.src).toMatch(/\/pedra-crepusculo-2700\.webp$/);
+  });
+
+  it("focarPecaFocaOBotaoDaPecaNaoOsEfeitos", () => {
+    const { palco, cena } = montarCena(cenarioDoTerraco(), [{ peca: "lanterna", assento: "B", lugar: "R1" }]);
+
+    expect(cena.focarPeca("lanterna")).toBe(true);
+    expect(document.activeElement).toBe(palco.querySelector("button[data-peca='lanterna']"));
+  });
+
+  it("focarPecaForaDaCenaDizQueNaoHa", () => {
+    const { cena } = montarCena(cenarioDoTerraco(), []);
+
+    expect(cena.focarPeca("lanterna")).toBe(false);
   });
 
   it("peça sem efeito não ganha brilho", () => {

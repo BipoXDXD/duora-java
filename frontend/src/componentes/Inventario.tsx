@@ -3,7 +3,7 @@ import type { CenarioFront } from "../cenario/tipos";
 import { porArtigo } from "../dominio/artigos";
 import { LARGURA_MINIATURA } from "../dominio/dados";
 import { textoBloqueio } from "../dominio/mensagens";
-import type { Visao, VisaoPeca, VisaoSinal } from "../dominio/visao";
+import { aberturaAtiva, type Visao, type VisaoPeca, type VisaoSinal } from "../dominio/visao";
 import type { AcoesDaSessao } from "../sessao/sessao";
 import type { Acao } from "../sessao/tipos";
 import { BOTAO_SECUNDARIO, INDISPONIVEL_EM_ALTO_CONTRASTE, SUBTITULO, seDisponivel } from "./estilos";
@@ -112,7 +112,7 @@ function Item({ peca, estado, pressionado, indisponivel, aoEscolher, sugerido, e
   );
 }
 
-/** "Suas peças": as centrais primeiro e, depois de um aviso, as laterais para escolher. Some na noite revelada. */
+/** "Suas peças": as centrais primeiro e, depois de um aviso, as laterais para escolher. Some durante a abertura e na noite revelada. */
 export function Inventario({ visao, selecionada, enviando, acoes }: PropsInventario) {
   const c = useCenario();
   const minhas = visao.pecas.filter((p) => p.assento === visao.voce.assento);
@@ -124,7 +124,7 @@ export function Inventario({ visao, selecionada, enviando, acoes }: PropsInventa
     <section
       className="inventario celular:order-2 celular-deitado:order-2"
       aria-labelledby="inventario-titulo"
-      hidden={visao.fase === "REVELADO"}
+      hidden={aberturaAtiva(visao) || visao.fase === "REVELADO"}
     >
       <h2 id="inventario-titulo" className={SUBTITULO}>
         Suas peças
