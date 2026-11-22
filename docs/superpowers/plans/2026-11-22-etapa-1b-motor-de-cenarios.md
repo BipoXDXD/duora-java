@@ -10,7 +10,7 @@
 - Um `CatalogoDeCenarios` (bean Spring) resolve o cenário pelo id.
 - No front, os textos e efeitos de cada cenário vêm de `/cenarios/<id>/cenario.json`. As regras continuam no servidor.
 
-**Stack:** Java 25, Spring Boot 4.1.3, JS nativo, Playwright Java 1.65.1.
+**Stack:** Java 25, Spring Boot 4.2.0, JS nativo, Playwright Java 1.65.1.
 
 **Spec:** `docs/superpowers/specs/2026-11-21-duora-social-design.md` (Etapa 1b). Pré-requisito: a Etapa 1 integrada na `main`, porque o `cena.json` já terá `variantes`.
 
