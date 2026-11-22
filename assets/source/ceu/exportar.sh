@@ -5,7 +5,7 @@
 set -euo pipefail
 
 AQUI="$(cd "$(dirname "$0")" && pwd)"
-SAIDA="$AQUI/../../../src/main/resources/static/assets/ceu"
+SAIDA="$AQUI/../../../src/main/resources/static/assets/cenarios/terraco/ceu"
 QUALIDADE=88
 
 mkdir -p "$SAIDA"

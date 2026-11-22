@@ -3,9 +3,9 @@
 // baixa os arquivos quando a pessoa liga o som e falha em silêncio. Nada depende dele.
 
 const ARQUIVOS = {
-  ambiente: "/assets/audio/ambiente.mp3",
-  meteoro: "/assets/audio/meteoro.mp3",
-  revelacao: "/assets/audio/revelacao.mp3",
+  ambiente: "/assets/cenarios/terraco/audio/ambiente.mp3",
+  meteoro: "/assets/cenarios/terraco/audio/meteoro.mp3",
+  revelacao: "/assets/cenarios/terraco/audio/revelacao.mp3",
 };
 
 type NomeSom = keyof typeof ARQUIVOS;

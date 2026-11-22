@@ -81,7 +81,7 @@ describe("Inventario", () => {
     renderizar(MONTANDO);
 
     const miniatura = item(/^Telescópio/).querySelector("img.miniatura");
-    expect(miniatura).toHaveAttribute("src", "/assets/cena/telescopio-esq-crepusculo-900.webp");
+    expect(miniatura).toHaveAttribute("src", "/assets/cenarios/terraco/cena/telescopio-esq-crepusculo-900.webp");
     expect(miniatura).toHaveAttribute("alt", "");
   });
 

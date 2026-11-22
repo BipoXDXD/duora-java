@@ -57,5 +57,8 @@ export default defineConfig(({ command }) => ({
   test: {
     environment: "jsdom",
     setupFiles: ["src/teste/configurar.ts"],
+    // O Vitest troca todo .css por "" (inclusive o ?raw); os testes que leem o CSS como texto
+    // precisam do conteúdo, e o ?raw não passa pelo processamento de CSS do Vite.
+    css: { include: [/\.css\?raw$/] },
   },
 }));

@@ -9,9 +9,9 @@ Status: `PROVISÓRIO`, `Candidato a FINAL` (gerado, aguarda o aceite visual do d
 
 | Export | Origem | Ferramenta | Licença | Status |
 |---|---|---|---|---|
-| `cena/terraco-{crepusculo,noite}-{900,1800,2700}.webp` | `source/blender/cena.py` (geometria procedural) | Blender 5.3, Cycles, câmera ortográfica; mestre em 2700 px reduzido pelo `cwebp` (2026-11-22) | Própria | Candidato a FINAL |
-| `cena/{telescopio-esq,telescopio-dir,banco,manta,radio,lanterna,garrafa}-{crepusculo,noite}-{900,1800,2700}.webp` | `source/modelos/*.glb` (Hi3D) importados pelo `cena.py`, malha reduzida a 8% | Hi3D (imagem Nano-Banana 2 → 3D v3.0, PBR) + Blender 5.3 | CC BY 4.0 (gerado pelo autor no Hi3D) | Candidato a FINAL (aguarda aceite) |
-| `ceu/ceu-{crepusculo,noite}-{1280,2560}.webp` (1280×720 e 2560×1440, WebP q88, `source/ceu/exportar.sh`, 2026-11-22) | `source/ceu/ceu-{crepusculo,noite}-4k.png` | Tripo `chat_image_2.5_sunburst`, quality high (noite: texto→imagem; crepúsculo: edição da noite). Lua descida ~480 px no master por edição local (PIL), igual nas duas | CC BY 4.0 (gerado pelo autor no Tripo) | Candidato a FINAL |
+| `cenarios/terraco/cena/terraco-{crepusculo,noite}-{900,1800,2700}.webp` | `source/blender/cena.py` (geometria procedural) | Blender 5.3, Cycles, câmera ortográfica; mestre em 2700 px reduzido pelo `cwebp` (2026-11-22) | Própria | Candidato a FINAL |
+| `cenarios/terraco/cena/{telescopio-esq,telescopio-dir,banco,manta,radio,lanterna,garrafa}-{crepusculo,noite}-{900,1800,2700}.webp` | `source/modelos/*.glb` (Hi3D) importados pelo `cena.py`, malha reduzida a 8% | Hi3D (imagem Nano-Banana 2 → 3D v3.0, PBR) + Blender 5.3 | CC BY 4.0 (gerado pelo autor no Hi3D) | Candidato a FINAL (aguarda aceite) |
+| `cenarios/terraco/ceu/ceu-{crepusculo,noite}-{1280,2560}.webp` (1280×720 e 2560×1440, WebP q88, `source/ceu/exportar.sh`, 2026-11-22) | `source/ceu/ceu-{crepusculo,noite}-4k.png` | Tripo `chat_image_2.5_sunburst`, quality high (noite: texto→imagem; crepúsculo: edição da noite). Lua descida ~480 px no master por edição local (PIL), igual nas duas | CC BY 4.0 (gerado pelo autor no Tripo) | Candidato a FINAL |
 
 ### Gerações Hi3D (pela assinatura/OAuth)
 
@@ -27,10 +27,10 @@ Status: `PROVISÓRIO`, `Candidato a FINAL` (gerado, aguarda o aceite visual do d
 Total Hi3D: 6 × (4 + 45) = 294 pts. Total Tripo (céu): 2 × 40 = 80 créditos (tarefas `f6e4ca3f-10ac-4e86-8690-773002c81569` e `2be7bd5e-f7db-455d-b988-9805c4458647`; `source/ceu/tripo-*-task.json`).
 
 Os GLBs têm ~48 MB (≈2 milhões de faces, texturas 8K) e ficam fora do Git (`.gitignore`). Para baixar de novo, use `get_task_outputs` no MCP do Hi3D com o ID da tarefa 3D e salve em `assets/source/modelos/<nome>.glb`. Sem o GLB, o `cena.py` volta ao prop procedural. Giros padrão: telescópio 90°, banco 180° (encosto para a câmera), demais 0°. A vela da lanterna vem apagada no modelo; o brilho noturno é um halo + poço de luz em CSS.
-| `cena/cena.json` | Gerado pelo mesmo script; medidas em px de referência (1800 de largura) e `variantes` | Blender | Própria | Gerado |
+| `cenarios/terraco/cena/cena.json` | Gerado pelo mesmo script; medidas em px de referência (1800 de largura) e `variantes` | Blender | Própria | Gerado |
 | `icone.svg` | Desenhado à mão (vetor) | — | Própria | Candidato a FINAL |
 
-Larguras (2026-11-22): o `cena.py` renderiza uma vez na largura mestre (`DUORA_LARGURA`, padrão 2700) e exporta cada imagem em 900, 1800 e 2700 px (a largura do terraço da família; um prop da família 900 tem metade do tamanho da 1800). O recorte dos props cai na grade de 3 px do mestre, então as três famílias têm medidas exatas. A página escolhe a família pela largura do palco × densidade da tela (`escolherVariante` em `js/dados.js`); o céu usa `image-set()` com 1280 (1x) e 2560 (2x).
+Larguras (2026-11-22): o `cena.py` renderiza uma vez na largura mestre (`DUORA_LARGURA`, padrão 2700) e exporta cada imagem em 900, 1800 e 2700 px (a largura do terraço da família; um prop da família 900 tem metade do tamanho da 1800). O recorte dos props cai na grade de 3 px do mestre, então as três famílias têm medidas exatas. A página escolhe a família pela largura do palco × densidade da tela (`escolherVariante` em `frontend/src/dominio/dados.ts`); o céu usa `image-set()` com 1280 (1x) e 2560 (2x).
 
 Regenerar (sem créditos):
 
@@ -45,9 +45,9 @@ Gerado no ElevenLabs (flow `1v6oSiEKugInq7KOaP0r`, "Duora — Antes da primeira 
 
 | Export | Bruto escolhido | Modelo | Geração | Tratamento |
 |---|---|---|---|---|
-| `audio/ambiente.mp3` (60 s, loop, 192 kbps) | `brutos/trilha-1.mp3` + `brutos/amb-4.mp3` | `eleven_music_v2_5` (75 s, instrumental) + `eleven_text_to_sound_v3` (30 s, loop) | `fKL1ZLtQgXCJrs8Wozxw` + `NsfI9LaOcHiABvoptabd` | trilha recortada com crossfade de 4 s no laço; ambiência ~12 dB abaixo |
-| `audio/meteoro.mp3` (1,6 s, 192 kbps) | `brutos/met-2.mp3` | `eleven_text_to_sound_v3` | `aSb0KGD3NtHW5csUciBX` | −20 LUFS, fade de 0,35 s |
-| `audio/revelacao.mp3` (4 s, 192 kbps) | `brutos/rev-2.mp3` | `eleven_text_to_sound_v3` | `8JgqRj9O0Str52ENxIdK` | −20 LUFS, fade de 0,8 s |
+| `cenarios/terraco/audio/ambiente.mp3` (60 s, loop, 192 kbps) | `brutos/trilha-1.mp3` + `brutos/amb-4.mp3` | `eleven_music_v2_5` (75 s, instrumental) + `eleven_text_to_sound_v3` (30 s, loop) | `fKL1ZLtQgXCJrs8Wozxw` + `NsfI9LaOcHiABvoptabd` | trilha recortada com crossfade de 4 s no laço; ambiência ~12 dB abaixo |
+| `cenarios/terraco/audio/meteoro.mp3` (1,6 s, 192 kbps) | `brutos/met-2.mp3` | `eleven_text_to_sound_v3` | `aSb0KGD3NtHW5csUciBX` | −20 LUFS, fade de 0,35 s |
+| `cenarios/terraco/audio/revelacao.mp3` (4 s, 192 kbps) | `brutos/rev-2.mp3` | `eleven_text_to_sound_v3` | `8JgqRj9O0Str52ENxIdK` | −20 LUFS, fade de 0,8 s |
 
 Custo: 16 gerações = ~4.972 créditos ElevenLabs (trilhas 4 × 1.125; ambiência 4 × 100; meteoro 4 × 5; revelação 4 × 13). Os brutos não escolhidos ficam fora do Git.
 

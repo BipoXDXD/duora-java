@@ -81,7 +81,7 @@ export const LARGURA_MINIATURA = 900;
 export type Momento = "crepusculo" | "noite";
 
 export function urlSprite(nome: string, momento: Momento, largura: number): string {
-  return `/assets/cena/${nome}-${momento}-${String(largura)}.webp`;
+  return `/assets/cenarios/terraco/cena/${nome}-${momento}-${String(largura)}.webp`;
 }
 
 export interface Ponto {
@@ -107,7 +107,7 @@ export interface Geometria {
 }
 
 export async function carregarCena(): Promise<Geometria> {
-  const resposta = await fetch("/assets/cena/cena.json");
+  const resposta = await fetch("/assets/cenarios/terraco/cena/cena.json");
   if (!resposta.ok) {
     throw new Error(`cena.json indisponível (${String(resposta.status)})`);
   }

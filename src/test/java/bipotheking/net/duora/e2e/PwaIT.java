@@ -30,7 +30,7 @@ class PwaIT {
 
   private static final String TITULO = "Antes da primeira estrela";
   private static final String COR = "#132B40";
-  private static final String CENA_JSON = "/assets/cena/cena.json";
+  private static final String CENA_JSON = "/assets/cenarios/terraco/cena/cena.json";
 
   /**
    * Espera o service worker ficar {@code activated}. No Firefox e no WebKit, o {@code ready} pode
