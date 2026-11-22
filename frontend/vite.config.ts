@@ -33,6 +33,9 @@ export default defineConfig(({ command }) => ({
     emptyOutDir: true,
     assetsDir: "app",
     manifest: true,
+    // Sem o polyfill de modulepreload: os navegadores-alvo já têm <link rel="modulepreload">, e ele
+    // pesava no orçamento do JS inicial (meta de 80 KB em gzip, TamanhoDoJsInicialTest).
+    modulePreload: { polyfill: false },
     rolldownOptions: {
       // Fontes e sprites de /assets/ são servidos pelo Spring (src/main/resources/static) e resolvidos
       // em tempo de execução; declarar como externos evita o aviso "didn't resolve at build time".
