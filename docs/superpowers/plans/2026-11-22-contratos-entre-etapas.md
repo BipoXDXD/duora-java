@@ -8,6 +8,9 @@ Spec: `docs/superpowers/specs/2026-11-21-duora-social-design.md`. Ordem: 0 → 1
 - Java 25 LTS e Spring Boot 4.2.0. Um módulo Maven só, com Maven Wrapper. Compilação com `-Xlint:all -Werror`, Spotless e JaCoCo.
 - Pacotes em `bipotheking.net.duora`:
   - de domínio: `game/`, `encontro/` (evolução de `room/`), `conta/`, `perfil/`, `sala/` (encontros públicos e privados, fila contínua), `pareamento/`, `conexao/`, `voz/`, `moderacao/`, `notificacao/` (inclui o `EnvioDeEmail`), `admin/`, `retencao/` (políticas e jobs de expiração);
+  - `nucleo/` (Java puro): `ErroDeNegocio`, `CodigoDeErro` e `TipoDeErro`, que não conhecem HTTP. Só o `web/TratamentoDeErros` traduz para status.
+  - Dentro de cada módulo, a raiz é a API pública e os casos de uso; `dominio/` fica sem Spring web, JDBC nem Jackson; `web/` e `infra/` guardam os adapters.
+  - A `Outbox` (`registrar`, `ProcessadorDeOutbox`) fica em `notificacao/`. Cada `PoliticaDeRetencao` expõe `tamanho()` para a métrica.
   - de infraestrutura: `web/` (filtros, cabeçalhos, MIME, erros, ids, `Clock`, limite de taxa, pipeline de imagens).
 - Faixas do Flyway por etapa (sem out-of-order): 2 → V1–V19, 3 → V20–V39, 9 → V40–V49, 4 → V50–V69, 7 → V70–V79, 5 → V80–V99, 6 → V100–V119, 8 → V120–V139.
 - O acesso é negado por padrão: o interceptor `ExigeSessao` cobre `/api/**`, com uma allowlist em `RotasPublicas` (o terraço anônimo `/api/sala(s)/**` fica nela até a Etapa 5).
