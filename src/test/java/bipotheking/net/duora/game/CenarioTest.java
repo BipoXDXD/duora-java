@@ -10,7 +10,12 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import java.time.Duration;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Stream;
+import org.assertj.core.api.ThrowableAssert.ThrowingCallable;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.MethodSource;
 
 /** O construtor do {@link Cenario} recusa dados inconsistentes citando o valor ofensor. */
 class CenarioTest {
@@ -53,7 +58,31 @@ class CenarioTest {
   void pecasPorPessoaAlemDoQueOAssentoTemNaoConstroi() {
     assertThatThrownBy(() -> cenario("minimo", List.of(P1, P2), List.of(PEDRA, FOLHA), 2))
         .isInstanceOf(IllegalArgumentException.class)
-        .hasMessageContaining("2");
+        .hasMessageContaining("pecasPorPessoaCompleta 2");
+  }
+
+  @ParameterizedTest(name = "{0}")
+  @MethodSource("parametrosInvalidos")
+  void parametroInvalidoNaoConstroiCitandoOValor(String mensagem, ThrowingCallable construir) {
+    assertThatThrownBy(construir)
+        .isInstanceOf(IllegalArgumentException.class)
+        .hasMessageContaining(mensagem);
+  }
+
+  static Stream<Arguments> parametrosInvalidos() {
+    return Stream.of(
+        Arguments.of(
+            "nome vazio no cenário minimo",
+            (ThrowingCallable) () -> cenario("minimo", " ", 1, Duration.ofSeconds(20), 1)),
+        Arguments.of(
+            "limiteAntesDoParceiro menor que 1: 0",
+            (ThrowingCallable) () -> cenario("minimo", "Mínimo", 0, Duration.ofSeconds(20), 1)),
+        Arguments.of(
+            "duracaoSinal não positiva: PT0S",
+            (ThrowingCallable) () -> cenario("minimo", "Mínimo", 1, Duration.ZERO, 1)),
+        Arguments.of(
+            "pecasPorPessoaCompleta 0",
+            (ThrowingCallable) () -> cenario("minimo", "Mínimo", 1, Duration.ofSeconds(20), 0)));
   }
 
   @Test
@@ -73,6 +102,23 @@ class CenarioTest {
         pecas,
         1,
         Duration.ofSeconds(20),
+        pecasPorPessoaCompleta,
+        (composicao, c) -> new Resultado(Map.of()));
+  }
+
+  private static Cenario cenario(
+      String id,
+      String nome,
+      int limiteAntesDoParceiro,
+      Duration duracaoSinal,
+      int pecasPorPessoaCompleta) {
+    return new Cenario(
+        id,
+        nome,
+        List.of(P1, P2),
+        List.of(PEDRA, FOLHA),
+        limiteAntesDoParceiro,
+        duracaoSinal,
         pecasPorPessoaCompleta,
         (composicao, c) -> new Resultado(Map.of()));
   }
