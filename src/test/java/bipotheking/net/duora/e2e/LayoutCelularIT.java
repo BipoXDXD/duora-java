@@ -8,10 +8,14 @@ import static bipotheking.net.duora.e2e.TerracoPagina.Lugar.C1;
 import static bipotheking.net.duora.e2e.TerracoPagina.Peca.TELESCOPIO;
 import static com.microsoft.playwright.assertions.PlaywrightAssertions.assertThat;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import bipotheking.net.duora.e2e.NavegadorExtension.Participantes;
 import com.microsoft.playwright.Browser;
+import com.microsoft.playwright.Locator;
 import com.microsoft.playwright.Page;
+import com.microsoft.playwright.options.AriaRole;
+import java.util.List;
 import java.util.function.Supplier;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -32,6 +36,28 @@ import org.springframework.test.annotation.DirtiesContext;
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 @ExtendWith(NavegadorExtension.class)
 class LayoutCelularIT {
+
+  /** Vazio se a caixa do seletor cabe inteira na janela; senão, diz onde ela vaza. */
+  private static final String FORA_DA_JANELA =
+      """
+      (s) => {
+        const c = document.querySelector(s).getBoundingClientRect();
+        const dentro = c.width > 0 && c.height > 0 && c.left >= 0 && c.top >= 0
+            && c.right <= innerWidth + 1 && c.bottom <= innerHeight + 1;
+        return dentro ? "" : `${c.left},${c.top} até ${c.right},${c.bottom} em ${innerWidth}×${innerHeight}`;
+      }
+      """;
+
+  /** Vazio se o elemento está inteiro na parte visível do painel e da janela. */
+  private static final String DENTRO_DO_PAINEL =
+      """
+      (el) => {
+        const a = el.getBoundingClientRect();
+        const p = document.querySelector(".painel").getBoundingClientRect();
+        const dentro = a.top >= p.top && a.bottom <= p.bottom && a.top >= 0 && a.bottom <= innerHeight;
+        return dentro ? "" : `título em ${a.top}..${a.bottom}, painel em ${p.top}..${p.bottom}`;
+      }
+      """;
 
   /** Abaixo disso o contexto é de celular: meta viewport, toque e densidade 3. */
   private static final int LARGURA_DE_MESA = 1000;
@@ -104,6 +130,47 @@ class LayoutCelularIT {
 
     assertThat(ana.confirmacaoDeSaida()).isHidden();
     assertThat(ana.app()).not().containsClass("confirmando-saida");
+  }
+
+  @Test
+  void deitadoMostraCenaEPainelLadoALado(Participantes participantes) {
+    TerracoPagina ana = participantes.novo(opcoes(844, 390));
+    levarAte("montagem", ana, () -> participantes.novo(opcoes(844, 390)));
+    Page page = ana.page();
+
+    assertEquals("", page.evaluate(FORA_DA_JANELA, ".cena"), "cena");
+    assertEquals("", page.evaluate(FORA_DA_JANELA, ".painel"), "painel");
+    double direitaDaCena = borda(page, ".cena", "right");
+    double esquerdaDoPainel = borda(page, ".painel", "left");
+    assertTrue(
+        direitaDaCena <= esquerdaDoPainel + 1,
+        "cena termina em " + direitaDaCena + ", painel começa em " + esquerdaDoPainel);
+
+    // Rolar até "Suas peças" mexe só no painel: a página fica parada e a cena continua à vista.
+    Locator titulo =
+        page.getByRole(AriaRole.HEADING, new Page.GetByRoleOptions().setName("Suas peças"));
+    titulo.scrollIntoViewIfNeeded();
+    assertEquals(0, ((Number) page.evaluate("() => scrollY")).intValue(), "a página rolou");
+    assertEquals("", titulo.evaluate(DENTRO_DO_PAINEL));
+    assertEquals("", page.evaluate(FORA_DA_JANELA, ".cena"), "cena depois de rolar");
+  }
+
+  @Test
+  void deitadoSemAreaVaziaADireita(Participantes participantes) {
+    TerracoPagina ana = participantes.novo(opcoes(844, 390));
+    levarAte("montagem", ana, () -> participantes.novo(opcoes(844, 390)));
+    Page page = ana.page();
+
+    double direitaDoPainel = borda(page, ".painel", "right");
+    assertTrue(direitaDoPainel >= 0.95 * 844, "painel termina em " + direitaDoPainel);
+  }
+
+  private static double borda(Page page, String seletor, String lado) {
+    return ((Number)
+            page.evaluate(
+                "([s, lado]) => document.querySelector(s).getBoundingClientRect()[lado]",
+                List.of(seletor, lado)))
+        .doubleValue();
   }
 
   private TerracoPagina confirmacaoAbertaNoCelular(Participantes participantes) {
