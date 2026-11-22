@@ -160,7 +160,7 @@
   - Commit `feat(pwa): manifest, ícones e service worker para instalar no Android`.
 
 ### Task 4: Prova no Android (emulador, por agente)
-- [ ] Um agente sobe o AVD `duora-pixel` com `scripts/android/emulador.sh subir`, sobe o app (`./mvnw spring-boot:run`) e roda `scripts/android/pwa-check.py 8080`. O script faz o `adb reverse`, abre a URL no Chrome do emulador, checa `Page.getInstallabilityErrors` vazio, instala e captura telas em pé e deitado em `target/android/`.
+- [ ] Um agente sobe o AVD `duora-pixel` com `scripts/android/emulador.sh subir`, sobe o app (`./mvnw spring-boot:run`) e roda `node scripts/android/pwa-check.mjs --porta 8080`. O script faz o `adb reverse`, abre a URL no Chrome do emulador, checa `Page.getInstallabilityErrors` vazio, instala e captura telas em pé e deitado em `target/android/`.
 - [ ] O agente confere nas capturas três coisas: o ícone na tela inicial, a abertura sem a barra do navegador e o terraço nítido (variante 1800 no DPR do Pixel).
 - [ ] O resultado vai para o handoff. Problemas viram tasks. Ao dono chegam só escolhas, nunca a execução.
 
