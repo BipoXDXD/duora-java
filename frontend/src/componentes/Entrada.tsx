@@ -1,16 +1,20 @@
 import { useRef, useState, type SubmitEvent } from "react";
 import { validarApelido } from "../dominio/apelido";
-import { BOTAO_PRIMARIO, CAMPO, DICA, ENTRADA_DE_TEXTO, ROTULO, TELA } from "./estilos";
+import { BOTAO_PRIMARIO, BOTAO_SECUNDARIO_SEM_MARGEM, CAMPO, DICA, ENTRADA_DE_TEXTO, ROTULO, TELA } from "./estilos";
 
 interface PropsEntrada {
   /** A URL trouxe #convite=: a ação vira "Entrar no terraço". */
   comConvite: boolean;
+  /** O convite é de outra sala, com esta ainda aberta: entrar encerra a atual. */
+  trocaDeSala?: boolean;
   enviando: boolean;
   /** Erro do servidor para o apelido; "" quando não há. */
   erro: string;
   aoEnviar: (apelido: string) => void;
   /** Digitou um apelido válido: o erro do servidor (se houver) deixa de valer. */
   aoCorrigir: () => void;
+  /** Desiste da troca e volta ao terraço atual (só na troca de sala). */
+  aoContinuar?: () => void;
 }
 
 /**
@@ -30,7 +34,15 @@ function useErroDoApelido(erro: string, enviando: boolean) {
   return [doCampo ?? erro, setDoCampo] as const;
 }
 
-export function Entrada({ comConvite, enviando, erro, aoEnviar, aoCorrigir }: PropsEntrada) {
+export function Entrada({
+  comConvite,
+  trocaDeSala = false,
+  enviando,
+  erro,
+  aoEnviar,
+  aoCorrigir,
+  aoContinuar,
+}: PropsEntrada) {
   const refApelido = useRef<HTMLInputElement>(null);
   const [erroMostrado, mostrarErro] = useErroDoApelido(erro, enviando);
   const acao = comConvite ? "Entrar no terraço" : "Criar terraço";
@@ -77,13 +89,18 @@ export function Entrada({ comConvite, enviando, erro, aoEnviar, aoCorrigir }: Pr
           autoComplete="nickname"
           spellCheck={false}
           required
-          aria-describedby="apelido-dica apelido-erro"
+          aria-describedby={trocaDeSala ? "apelido-dica apelido-troca apelido-erro" : "apelido-dica apelido-erro"}
           aria-invalid={erroMostrado ? true : undefined}
           onInput={aoDigitar}
         />
         <p className={DICA} id="apelido-dica">
           De 1 a 20 caracteres. A outra pessoa vê este nome.
         </p>
+        {trocaDeSala && (
+          <p className="m-0 max-w-[40ch] text-texto-2" id="apelido-troca">
+            Entrar neste convite encerra o terraço atual para os dois.
+          </p>
+        )}
         <p className="erro-campo m-0 text-[0.875rem] leading-[1.45] text-coral empty:hidden" id="apelido-erro">
           {erroMostrado}
         </p>
@@ -91,6 +108,21 @@ export function Entrada({ comConvite, enviando, erro, aoEnviar, aoCorrigir }: Pr
       <button type="submit" className={BOTAO_PRIMARIO} id="entrar" aria-disabled={enviando ? true : undefined}>
         {enviando ? "Enviando…" : acao}
       </button>
+      {trocaDeSala && (
+        <button
+          type="button"
+          className={BOTAO_SECUNDARIO_SEM_MARGEM}
+          id="continuar-no-terraco"
+          aria-disabled={enviando ? true : undefined}
+          onClick={() => {
+            if (!enviando) {
+              aoContinuar?.();
+            }
+          }}
+        >
+          Continuar no terraço
+        </button>
+      )}
     </form>
   );
 }

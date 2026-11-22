@@ -23,6 +23,35 @@ describe("Entrada", () => {
     expect(screen.getByRole("button", { name: "Entrar no terraço" })).toBeInTheDocument();
   });
 
+  it("na troca de sala, avisa que o terraço atual acaba e deixa continuar nele", async () => {
+    const aoContinuar = vi.fn();
+    render(
+      <Entrada
+        comConvite
+        trocaDeSala
+        enviando={false}
+        erro=""
+        aoEnviar={vi.fn()}
+        aoCorrigir={vi.fn()}
+        aoContinuar={aoContinuar}
+      />,
+    );
+
+    expect(screen.getByLabelText("Seu apelido")).toHaveAccessibleDescription(
+      expect.stringContaining(
+        "De 1 a 20 caracteres. A outra pessoa vê este nome. Entrar neste convite encerra o terraço atual para os dois.",
+      ),
+    );
+    await userEvent.click(screen.getByRole("button", { name: "Continuar no terraço" }));
+    expect(aoContinuar).toHaveBeenCalledOnce();
+  });
+
+  it("fora da troca, não há botão de continuar", () => {
+    render(<Entrada comConvite enviando={false} erro="" aoEnviar={vi.fn()} aoCorrigir={vi.fn()} />);
+
+    expect(screen.queryByRole("button", { name: "Continuar no terraço" })).not.toBeInTheDocument();
+  });
+
   it("apelido válido vai sem espaços nas pontas", async () => {
     const aoEnviar = vi.fn();
     render(<Entrada comConvite={false} enviando={false} erro="" aoEnviar={aoEnviar} aoCorrigir={vi.fn()} />);

@@ -64,6 +64,8 @@ function adiada() {
   return { promessa, resolver, rejeitar };
 }
 
+const CONVITE_PROPRIO = "Este é o convite do seu terraço. Mande para a outra pessoa.";
+
 const ENCERRADA_PELO_PARCEIRO = new ErroApi({ status: 410, codigo: "SALA_ENCERRADA", motivo: "SAIU" });
 
 /** Monta a sessão com api, aviso e polling falsos; o polling devolve os ganchos para o teste agir por ele. */
@@ -71,7 +73,8 @@ function montar({
   api = {},
   convite = null,
   agendar,
-}: { api?: Partial<Api>; convite?: string | null; agendar?: Agendar } = {}) {
+  ehToque,
+}: { api?: Partial<Api>; convite?: string | null; agendar?: Agendar; ehToque?: () => boolean } = {}) {
   const apiFalsa: Api = {
     criarSala: vi.fn(pendente),
     entrar: vi.fn(pendente),
@@ -99,6 +102,7 @@ function montar({
     convite,
     cenario: cenarioDoTerraco(),
     ...(agendar ? { agendar } : {}),
+    ...(ehToque ? { ehToque } : {}),
     criarPolling: (_api, g) => {
       ganchos = g;
       return polling;
@@ -490,11 +494,154 @@ describe("criarSessao", () => {
     const { sessao, doPolling, aviso } = montar({ convite: "abc" });
     sessao.iniciar();
 
-    doPolling().aoReceber(visao());
+    doPolling().aoReceber(visao({ fase: "AGUARDANDO_PAR", parceiro: null, convite: "abc" }));
 
-    expect(aviso.avisar).toHaveBeenCalledWith(
-      "Este navegador já está em um terraço. Para usar o convite, abra-o em uma janela anônima ou em outro navegador.",
+    expect(aviso.avisar).toHaveBeenCalledWith(CONVITE_PROPRIO);
+    expect(sessao.obter()).toMatchObject({ tela: "convite" });
+  });
+
+  it("noToqueAInstrucaoNaoCitaEsc", async () => {
+    const { sessao } = naSala(visao(), { ehToque: () => true });
+
+    await sessao.escolherPeca("telescopio", true);
+
+    expect(sessao.obter()).toMatchObject({
+      instrucao: "Escolha onde o telescópio fica: na área de observação, no centro.",
+    });
+  });
+
+  it("proprioConviteAvisaSemTrocar", () => {
+    const { sessao, api, aviso } = naSala(visao({ fase: "AGUARDANDO_PAR", parceiro: null, convite: "abc" }));
+
+    sessao.receberConvite("abc");
+
+    expect(aviso.avisar).toHaveBeenCalledWith(CONVITE_PROPRIO);
+    expect(sessao.obter()).toMatchObject({ tela: "convite" });
+    expect(api.sair).not.toHaveBeenCalled();
+  });
+
+  it("conviteJaVistoContinuaProprioDepoisQueOParceiroEntra", () => {
+    const { sessao, doPolling, aviso } = naSala(visao({ fase: "AGUARDANDO_PAR", parceiro: null, convite: "abc" }));
+    doPolling().aoReceber(visao({ versao: 4 }));
+
+    sessao.receberConvite("abc");
+
+    expect(aviso.avisar).toHaveBeenLastCalledWith(CONVITE_PROPRIO);
+    expect(sessao.obter()).toMatchObject({ tela: "montagem" });
+  });
+
+  it("conviteJaUsadoNestaAbaNaoSai", async () => {
+    const deBruno = visao({
+      voce: { assento: "B", nome: "Bruno" },
+      parceiro: { assento: "A", nome: "Ana", conectado: true },
+    });
+    const { sessao, api, doPolling, aviso } = montar({
+      convite: "xyz",
+      api: { entrar: vi.fn(() => Promise.resolve(resposta(deBruno))) },
+    });
+    sessao.iniciar();
+    doPolling().aoFalhar(new ErroApi({ status: 401, codigo: "SEM_ASSENTO" }), null);
+    await sessao.enviarApelido("Bruno");
+
+    sessao.receberConvite("xyz");
+
+    expect(api.sair).not.toHaveBeenCalled();
+    expect(api.entrar).toHaveBeenCalledOnce();
+    expect(aviso.avisar).toHaveBeenLastCalledWith(CONVITE_PROPRIO);
+    expect(sessao.obter()).toMatchObject({ tela: "montagem" });
+  });
+
+  it("conviteDeOutraSalaMostraATrocaEOPollingNaoATira", () => {
+    const { sessao, doPolling, polling } = naSala();
+    sessao.consumirFoco();
+
+    sessao.receberConvite("outra");
+    doPolling().aoReceber(visao({ versao: 4 }));
+
+    expect(sessao.obter()).toMatchObject({ tela: "entrada", comConvite: true, trocaDeSala: true, erroApelido: "" });
+    expect(sessao.consumirFoco()).toEqual({ alvo: "apelido" });
+    expect(polling.parar).not.toHaveBeenCalled();
+  });
+
+  it("conviteDeOutraSalaSaiEEntra", async () => {
+    const nova = visao({ versao: 1, parceiro: { assento: "A", nome: "Carla", conectado: true } });
+    const { sessao, api, aviso } = naSala(visao(), {
+      api: {
+        sair: vi.fn(() => Promise.resolve(resposta(null, null))),
+        entrar: vi.fn(() => Promise.resolve(resposta(nova))),
+      },
+    });
+    sessao.receberConvite("outra");
+
+    await sessao.enviarApelido("Ana");
+
+    expect(api.entrar).toHaveBeenCalledWith("outra", "Ana");
+    expect(vi.mocked(api.sair).mock.invocationCallOrder[0]).toBeLessThan(
+      vi.mocked(api.entrar).mock.invocationCallOrder[0] ?? 0,
     );
+    expect(sessao.obter()).toMatchObject({ tela: "montagem", enviando: null });
+    expect(aviso.avisar).toHaveBeenLastCalledWith("Você entrou no terraço de Carla.");
+  });
+
+  it("trocaEntraMesmoSeASalaAtualJaAcabou", async () => {
+    const { sessao, api } = naSala(visao(), {
+      api: {
+        sair: vi.fn(() => Promise.reject(ENCERRADA_PELO_PARCEIRO)),
+        entrar: vi.fn(() => Promise.resolve(resposta(visao({ versao: 1 })))),
+      },
+    });
+    sessao.receberConvite("outra");
+
+    await sessao.enviarApelido("Ana");
+
+    expect(api.entrar).toHaveBeenCalledWith("outra", "Ana");
+  });
+
+  it("trocaComSaidaRecusadaFicaNaTrocaEReabreOPolling", async () => {
+    const { sessao, api, aviso, polling } = naSala(visao(), {
+      api: { sair: vi.fn(() => Promise.reject(new ErroApi({ status: 0, codigo: "REDE" }))) },
+    });
+    sessao.receberConvite("outra");
+
+    await sessao.enviarApelido("Ana");
+
+    expect(api.entrar).not.toHaveBeenCalled();
+    expect(sessao.obter()).toMatchObject({ tela: "entrada", trocaDeSala: true, enviando: null });
+    expect(polling.iniciar).toHaveBeenCalledTimes(2);
+    expect(aviso.avisar).toHaveBeenLastCalledWith(expect.any(String), "erro");
+  });
+
+  it("conviteProprioDuranteATrocaDesfazATroca", () => {
+    const { sessao, doPolling, aviso } = naSala(visao({ fase: "AGUARDANDO_PAR", parceiro: null, convite: "abc" }));
+    doPolling().aoReceber(visao({ versao: 4 }));
+    sessao.receberConvite("outra");
+
+    sessao.receberConvite("abc");
+
+    expect(aviso.avisar).toHaveBeenLastCalledWith(CONVITE_PROPRIO);
+    expect(sessao.obter()).toMatchObject({ tela: "montagem" });
+  });
+
+  it("continuarNoTerracoDesisteDaTroca", async () => {
+    const { sessao, api } = naSala();
+    sessao.receberConvite("outra");
+
+    sessao.continuarNoTerraco();
+
+    expect(sessao.obter()).toMatchObject({ tela: "montagem" });
+    await sessao.escolherPeca("telescopio", true);
+    expect(sessao.obter()).toMatchObject({ selecionada: "telescopio" });
+    expect(api.sair).not.toHaveBeenCalled();
+  });
+
+  it("conviteSemSessaoMostraAEntradaComConvite", () => {
+    const { sessao, doPolling } = montar();
+    sessao.iniciar();
+    doPolling().aoFalhar(new ErroApi({ status: 401, codigo: "SEM_ASSENTO" }), null);
+
+    sessao.receberConvite("abc");
+
+    expect(sessao.obter()).toMatchObject({ tela: "entrada", comConvite: true, trocaDeSala: false });
   });
 
   it("queda transitória avisa com detalhe e a volta avisa uma vez", () => {

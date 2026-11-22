@@ -6,11 +6,12 @@
 import { type Api, ErroApi, type Resposta } from "../api/cliente";
 import { criarPolling as criarPollingPadrao, type GanchosDoPolling, type Polling } from "../api/polling";
 import type { CenarioFront } from "../cenario/tipos";
+import { ehToque as ehToqueDoDispositivo } from "../dispositivo";
 import { type ErroComCodigo, mensagemDeErro, textoEncerrado } from "../dominio/mensagens";
 import type { Visao } from "../dominio/visao";
 import type { Aviso } from "./aviso";
 import { type Agendar, agendarComSetTimeout, DURACAO_DESTAQUE_MS, pecasQueMudaram } from "./destaques";
-import { instrucao, novidade, textoRecusaDoSinal, textoSinalEnviado } from "./novidade";
+import { instrucao, novidade, SUFIXO_ESC_CANCELA, textoRecusaDoSinal, textoSinalEnviado } from "./novidade";
 import type { Acao, EstadoDaSessao, EstadoDaTela, PedidoDeFoco } from "./tipos";
 
 export type { Acao, EstadoDaSessao, EstadoDaTela, PedidoDeFoco, Tela } from "./tipos";
@@ -20,6 +21,8 @@ export interface OpcoesDaSessao {
   aviso: Aviso;
   /** O token de #convite= que a página trouxe, já tirado da barra de endereço. */
   convite: string | null;
+  /** Tela de toque, sem Esc à mão; o padrão pergunta ao navegador. */
+  ehToque?: () => boolean;
   /** O cenário em jogo, já carregado antes de o app montar. */
   cenario: CenarioFront;
   criarPolling?: (api: Api, ganchos: GanchosDoPolling) => Polling;
@@ -54,6 +57,13 @@ export interface Sessao {
   /** Toca a própria lanterna da abertura; quem acende as duas é o servidor. */
   tocarAbertura: () => Promise<void>;
   enviarApelido: (apelido: string) => Promise<void>;
+  /**
+   * Um #convite= aberto nesta aba depois da carga. Sem sala, leva à entrada com o convite; o
+   * convite do próprio terraço só avisa; o de outra sala pede a troca (que encerra a atual).
+   */
+  receberConvite: (token: string) => void;
+  /** Desiste da troca de sala: o convite em espera cai e o terraço atual volta à tela. */
+  continuarNoTerraco: () => void;
   /** O campo voltou a ter um apelido válido: o erro do servidor some (a validação fica na tela). */
   limparErroApelido: () => void;
   criarOutro: () => void;
@@ -81,6 +91,7 @@ export type AcoesDaSessao = Pick<
   | "criarOutro"
   | "enviarApelido"
   | "limparErroApelido"
+  | "continuarNoTerraco"
 >;
 
 /** Telas sem sala; com visão, a tela sai da fase dela. */
@@ -91,6 +102,9 @@ type TelaSemSala = Extract<EstadoDaTela, { tela: "carregando" | "entrada" | "enc
  * da sala, que fica parada como estava.
  */
 type TelaSemVisao = TelaSemSala | Extract<EstadoDaTela, { tela: "convite" | "montagem" }>;
+
+/** Abrir de novo, nesta aba, o convite do próprio terraço. */
+const TEXTO_CONVITE_PROPRIO = "Este é o convite do seu terraço. Mande para a outra pessoa.";
 
 /** O aviso de um erro fora da API (um defeito, não uma resposta do servidor). */
 const MENSAGEM_DE_DEFEITO = "Algo deu errado ao falar com o servidor. Recarregue a página.";
@@ -142,8 +156,11 @@ export function criarSessao({
   cenario,
   criarPolling = criarPollingPadrao,
   agendar = agendarComSetTimeout,
+  ehToque = ehToqueDoDispositivo,
 }: OpcoesDaSessao): Sessao {
+  const sufixoCancelar = ehToque() ? "" : SUFIXO_ESC_CANCELA;
   const estado = {
+    // O convite em espera: o da carga ou um aberto depois; com sala, ele pede a troca.
     convite,
     visao: null as Visao | null,
     selecionada: null as string | null,
@@ -160,6 +177,9 @@ export function criarSessao({
   // Muda a cada sessão encerrada: respostas de mutações enviadas antes disso são descartadas, como
   // as consultas velhas do polling.
   let epoca = 0;
+  // Os convites desta aba: o token com que ela entrou e todo visao.convite já visto. Abrir um deles
+  // de novo não troca de sala.
+  const convitesProprios = new Set<string>();
   let foco: PedidoDeFoco | null = null;
   const ouvintes = new Set<() => void>();
   // Peça em destaque → cancela o fim dele. A lista muda de objeto só quando o conjunto muda.
@@ -197,7 +217,8 @@ export function criarSessao({
 
   function telaAtual(): EstadoDaTela {
     const { visao, selecionada, sugerindo, enviando } = estado;
-    if (visao === null) {
+    // A troca de sala vence a sala atual enquanto o convite espera, mesmo com o polling seguindo.
+    if (visao === null || emTroca()) {
       return estado.semVisao;
     }
     if (visao.fase === "AGUARDANDO_PAR") {
@@ -209,7 +230,7 @@ export function criarSessao({
       selecionada,
       sugerindo,
       destaques,
-      instrucao: instrucao(cenario, visao, selecionada, enviando, sugerindo),
+      instrucao: instrucao(cenario, visao, selecionada, enviando, sugerindo, sufixoCancelar),
     };
   }
 
@@ -263,6 +284,37 @@ export function criarSessao({
     );
   }
 
+  /** A entrada que troca de sala: com o convite em espera, a sala atual fica por trás. */
+  function mostrarTroca(): void {
+    estado.semVisao = { tela: "entrada", comConvite: true, trocaDeSala: true, erroApelido: "" };
+    estado.confirmandoSaida = false;
+    pedirFoco({ alvo: "apelido" });
+  }
+
+  function emTroca(): boolean {
+    return estado.semVisao.tela === "entrada" && estado.semVisao.trocaDeSala;
+  }
+
+  /** Sai da troca sem tocar na sala: a tela volta a sair da visão. */
+  function desfazerTroca(): void {
+    estado.convite = null;
+    estado.semVisao = { tela: "carregando" };
+  }
+
+  /**
+   * Com sala e convite em espera: o convite próprio só avisa (devolve o texto); o de outra sala
+   * mostra a troca (devolve null).
+   */
+  function decidirConvite(token: string): string | null {
+    if (convitesProprios.has(token)) {
+      desfazerTroca();
+      return TEXTO_CONVITE_PROPRIO;
+    }
+    estado.convite = token;
+    mostrarTroca();
+    return null;
+  }
+
   function mostrarEncerrado({ titulo, texto }: { titulo: string; texto: string }): void {
     mostrarSemSala({ tela: "encerrado", titulo, texto }, { alvo: "titulo-encerrado" });
   }
@@ -305,6 +357,9 @@ export function criarSessao({
   function aplicarVisao(visao: Visao, propria: boolean): void {
     const anterior = estado.visao;
     estado.visao = visao;
+    if (visao.convite) {
+      convitesProprios.add(visao.convite);
+    }
     if (visao.parceiro) {
       estado.ultimoParceiro = visao.parceiro.nome;
     }
@@ -318,11 +373,9 @@ export function criarSessao({
       destacar(pecasQueMudaram(anterior, visao));
     }
     let texto = anterior ? novidade(cenario, anterior, visao, propria) : null;
-    if (!anterior && estado.convite) {
-      // Abrir o próprio convite no mesmo navegador cai na sala que já existe.
-      estado.convite = null;
-      texto =
-        "Este navegador já está em um terraço. Para usar o convite, abra-o em uma janela anônima ou em outro navegador.";
+    if (!anterior && estado.convite && !emTroca()) {
+      // O convite chegou antes da sala (na carga): só agora dá para saber se é o próprio.
+      texto = decidirConvite(estado.convite);
     }
     if (texto) {
       aviso.avisar(texto);
@@ -517,7 +570,13 @@ export function criarSessao({
     aviso.avisar("");
     const conviteEmMaos = estado.convite;
     try {
+      if (emTroca()) {
+        await sairParaTrocar();
+      }
       const resposta = conviteEmMaos ? await api.entrar(conviteEmMaos, apelido) : await api.criarSala(apelido);
+      if (conviteEmMaos) {
+        convitesProprios.add(conviteEmMaos);
+      }
       estado.convite = null;
       estado.enviando = null;
       const visao = exigirVisao(resposta);
@@ -543,6 +602,26 @@ export function criarSessao({
       }
       aviso.avisar(mensagemDeErro(erro, null), "erro");
     }
+  }
+
+  /**
+   * Primeiro passo da troca: sai da sala atual (a que já acabou também serve) e a solta, ficando na
+   * entrada com o convite. Outra recusa devolve o polling e segue como erro, ainda na troca.
+   */
+  async function sairParaTrocar(): Promise<void> {
+    polling.parar();
+    try {
+      await api.sair();
+    } catch (erro) {
+      if (!semSala(erro)) {
+        polling.iniciar();
+        throw erro;
+      }
+    }
+    limparSessao();
+    estado.semVisao = { tela: "entrada", comConvite: true, trocaDeSala: false, erroApelido: "" };
+    estado.enviando = "entrada";
+    publicar();
   }
 
   /** Devolve se o erro mudou. */
@@ -694,6 +773,29 @@ export function criarSessao({
         () => null,
       ),
     enviarApelido: entrarOuCriar,
+    receberConvite(token) {
+      if (estado.visao === null) {
+        estado.convite = token;
+        // Carregando, a decisão fica para a primeira resposta da sala.
+        if (estado.semVisao.tela !== "carregando") {
+          aviso.avisar("");
+          mostrarEntrada(true);
+        }
+        return;
+      }
+      const texto = decidirConvite(token);
+      if (texto) {
+        aviso.avisar(texto);
+      }
+      publicar();
+    },
+    continuarNoTerraco() {
+      if (estado.enviando === "entrada") {
+        return;
+      }
+      desfazerTroca();
+      publicar();
+    },
     limparErroApelido() {
       if (definirErroApelido("")) {
         publicar();

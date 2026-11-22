@@ -30,6 +30,7 @@ function acoesFalsas(): AcoesDaSessao {
     criarOutro: vi.fn(),
     enviarApelido: vi.fn(),
     limparErroApelido: vi.fn(),
+    continuarNoTerraco: vi.fn(),
   };
 }
 
@@ -78,6 +79,22 @@ function desenharMontagem(abertura: VisaoAbertura | null) {
 }
 
 describe("Painel", () => {
+  it("entradaComConviteDizRecebeu", () => {
+    renderComCenario(
+      <Painel
+        estado={{ ...ENCERRADO, tela: "entrada", comConvite: true, trocaDeSala: false, erroApelido: "" }}
+        refAviso={createRef()}
+        acoes={acoesFalsas()}
+        aoCopiarConvite={vi.fn()}
+        aoAlternarSom={vi.fn()}
+      />,
+    );
+
+    expect(
+      screen.getByText("Você recebeu um convite para montar um terraço a dois. Escolha seu apelido."),
+    ).toBeInTheDocument();
+  });
+
   it("painelEscondeInventarioDuranteAbertura", () => {
     const { container } = desenharMontagem({ ativa: true, voceTocou: false, outroTocou: false, acesa: false });
 
