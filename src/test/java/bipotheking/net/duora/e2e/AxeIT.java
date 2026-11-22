@@ -1,20 +1,16 @@
 package bipotheking.net.duora.e2e;
 
+import static bipotheking.net.duora.e2e.Axe.assertSemViolacoes;
 import static bipotheking.net.duora.e2e.Cenarios.ANA;
 import static bipotheking.net.duora.e2e.Cenarios.comporTerraco;
 import static bipotheking.net.duora.e2e.Cenarios.entrarEmPar;
 import static bipotheking.net.duora.e2e.Cenarios.raiz;
 import static bipotheking.net.duora.e2e.TerracoPagina.Peca.TELESCOPIO;
 import static com.microsoft.playwright.assertions.PlaywrightAssertions.assertThat;
-import static java.util.stream.Collectors.joining;
-import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import bipotheking.net.duora.e2e.NavegadorExtension.Participantes;
-import com.deque.html.axecore.playwright.AxeBuilder;
-import com.deque.html.axecore.results.Rule;
 import com.microsoft.playwright.Route;
 import com.microsoft.playwright.options.AriaRole;
-import java.util.List;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.springframework.beans.factory.annotation.Value;
@@ -23,10 +19,8 @@ import org.springframework.test.annotation.DirtiesContext;
 
 /**
  * Varredura automática do axe-core (WCAG 2.0, 2.1 e 2.2, níveis A e AA) em quatro estados da
- * jornada e na tela de erro do cenário. Complementa os ITs de acessibilidade escritos à mão. O céu,
- * os meteoros e a cidade são decorativos ({@code aria-hidden}) e ficam fora da análise: cada
- * seletor é excluído à parte, porque {@code AxeBuilder.exclude(List)} trata a lista como um único
- * caminho de iframes. Os participantes usam movimento reduzido: a análise de contraste não pega
+ * jornada e na tela de erro do cenário, pelo {@link Axe}. Complementa os ITs de acessibilidade
+ * escritos à mão. Os participantes usam movimento reduzido: a análise de contraste não pega
  * elementos no meio de uma transição.
  */
 // Aplicação nova por classe: as salas de um IT não somam com as de outro no limite de 20 salas
@@ -36,10 +30,6 @@ import org.springframework.test.annotation.DirtiesContext;
 @ExtendWith(NavegadorExtension.class)
 class AxeIT {
 
-  private static final List<String> TAGS =
-      List.of("wcag2a", "wcag2aa", "wcag21a", "wcag21aa", "wcag22aa");
-  private static final List<String> DECORATIVOS = List.of(".ceu", "#meteoros", ".cidade");
-
   @Value("${local.server.port}")
   private int porta;
 
@@ -48,7 +38,7 @@ class AxeIT {
     TerracoPagina ana = participantes.novo().abrir(raiz(porta));
     assertThat(ana.botao("Criar terraço")).isVisible();
 
-    assertSemViolacoes(ana);
+    assertSemViolacoes(ana.page(), "entrada");
   }
 
   @Test
@@ -57,7 +47,7 @@ class AxeIT {
     ana.criarTerraco(ANA);
     ana.esperarLinkDoConvite();
 
-    assertSemViolacoes(ana);
+    assertSemViolacoes(ana.page(), "convite");
   }
 
   @Test
@@ -66,7 +56,7 @@ class AxeIT {
     entrarEmPar(ana, participantes.novo(), raiz(porta));
     ana.selecionar(TELESCOPIO);
 
-    assertSemViolacoes(ana);
+    assertSemViolacoes(ana.page(), "montagem com peça selecionada");
   }
 
   @Test
@@ -79,7 +69,7 @@ class AxeIT {
     bruno.botaoPronto().click();
     assertThat(ana.app()).hasAttribute("data-momento", "noite");
 
-    assertSemViolacoes(ana);
+    assertSemViolacoes(ana.page(), "revelado");
   }
 
   @Test
@@ -93,24 +83,6 @@ class AxeIT {
             .abrir(raiz(porta));
     assertThat(ana.page().getByRole(AriaRole.ALERT)).isVisible();
 
-    assertSemViolacoes(ana);
-  }
-
-  private static void assertSemViolacoes(TerracoPagina pagina) {
-    AxeBuilder axe = new AxeBuilder(pagina.page()).withTags(TAGS);
-    DECORATIVOS.forEach(axe::exclude);
-    List<Rule> violacoes = axe.analyze().getViolations();
-    assertEquals(List.of(), violacoes, () -> descrever(violacoes));
-  }
-
-  private static String descrever(List<Rule> violacoes) {
-    return violacoes.stream()
-        .map(regra ->
-            regra.getId()
-                + " -> "
-                + regra.getNodes().stream()
-                    .map(no -> String.valueOf(no.getTarget()))
-                    .collect(joining(", ")))
-        .collect(joining("; ", "violações do axe: ", ""));
+    assertSemViolacoes(ana.page(), "erro de cenário");
   }
 }

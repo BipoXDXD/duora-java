@@ -14,8 +14,10 @@ final class TerracoPagina {
   enum Peca {
     TELESCOPIO("Telescópio", "o telescópio"),
     MANTA("Manta", "a manta"),
+    RADIO("Rádio", "o rádio"),
     BANCO("Banco", "o banco"),
-    LANTERNA("Lanterna", "a lanterna");
+    LANTERNA("Lanterna", "a lanterna"),
+    GARRAFA("Garrafa térmica", "a garrafa térmica");
 
     final String nome;
     final String artigo;
@@ -29,6 +31,7 @@ final class TerracoPagina {
   enum Lugar {
     C1("centro, à esquerda"),
     C2("centro, à direita"),
+    L1("fundo, à esquerda"),
     L2("frente, à esquerda"),
     R1("fundo, à direita"),
     R2("frente, à direita");
