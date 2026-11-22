@@ -6,7 +6,7 @@
 import { type Api, ErroApi, type Resposta } from "../api/cliente";
 import { criarPolling as criarPollingPadrao, type GanchosDoPolling, type Polling } from "../api/polling";
 import { dadosDaPeca } from "../dominio/dados";
-import { mensagemDeErro, textoEncerrado } from "../dominio/mensagens";
+import { type ErroComCodigo, mensagemDeErro, textoEncerrado } from "../dominio/mensagens";
 import type { Visao } from "../dominio/visao";
 import type { Aviso } from "./aviso";
 import { instrucao, novidade } from "./novidade";
@@ -37,6 +37,8 @@ export interface Sessao {
   confirmar: () => Promise<void>;
   ajustar: () => Promise<void>;
   enviarApelido: (apelido: string) => Promise<void>;
+  /** O campo voltou a ter um apelido válido: o erro do servidor some (a validação fica na tela). */
+  limparErroApelido: () => void;
   criarOutro: () => void;
   abrirSaida: () => void;
   fecharSaida: () => void;
@@ -59,6 +61,11 @@ function selecaoContinua(visao: Visao, selecionada: string | null): boolean {
   return (
     visao.fase === "MONTANDO" && visao.pecas.some((p) => p.peca === selecionada && p.assento === visao.voce.assento)
   );
+}
+
+/** Erro fora da API (um defeito, não uma resposta) lido como ErroComCodigo, para a mensagem genérica. */
+function comoErroComCodigo(erro: unknown): ErroComCodigo {
+  return erro instanceof ErroApi ? erro : { codigo: "DESCONHECIDO", status: 0, motivo: null };
 }
 
 /** As mutações aceitas trazem a visão nova; sem ela, o contrato quebrou. */
@@ -126,10 +133,9 @@ export function criarSessao({ api, aviso, convite, criarPolling = criarPollingPa
   }
 
   /** Revelado: noite com meteoros do lado do telescópio. Qualquer outra fase: crepúsculo. */
-  function montarRetrato(): EstadoDaSessao {
+  function camposForaDaTela(): Omit<EstadoDaSessao, keyof EstadoDaTela> {
     const noite = estado.visao?.fase === "REVELADO";
     return {
-      ...telaAtual(),
       enviando: estado.enviando,
       confirmandoSaida: estado.confirmandoSaida,
       somLigado: estado.somLigado,
@@ -138,9 +144,21 @@ export function criarSessao({ api, aviso, convite, criarPolling = criarPollingPa
     };
   }
 
+  function montarRetrato(): EstadoDaSessao {
+    return { ...telaAtual(), ...camposForaDaTela() };
+  }
+
   /** O desenhar() de antes: um retrato novo para quem assina. */
   function publicar(): void {
     retrato = montarRetrato();
+    for (const ouvinte of ouvintes) {
+      ouvinte();
+    }
+  }
+
+  /** Atualiza só o que vale fora da tela (envio, saída, som, céu), mantendo a tela publicada. */
+  function publicarSemTrocarTela(): void {
+    retrato = { ...retrato, ...camposForaDaTela() };
     for (const ouvinte of ouvintes) {
       ouvinte();
     }
@@ -325,6 +343,8 @@ export function criarSessao({ api, aviso, convite, criarPolling = criarPollingPa
       return;
     }
     estado.enviando = "entrada";
+    // Como o submit do form antigo: cada tentativa começa sem o erro da anterior.
+    definirErroApelido("");
     publicar();
     aviso.avisar("");
     const conviteEmMaos = estado.convite;
@@ -357,10 +377,17 @@ export function criarSessao({ api, aviso, convite, criarPolling = criarPollingPa
     }
   }
 
-  function marcarErroApelido(texto: string): void {
-    if (estado.semSala.tela === "entrada") {
-      estado.semSala = { ...estado.semSala, erroApelido: texto };
+  /** Devolve se o erro mudou. */
+  function definirErroApelido(texto: string): boolean {
+    if (estado.semSala.tela !== "entrada" || estado.semSala.erroApelido === texto) {
+      return false;
     }
+    estado.semSala = { ...estado.semSala, erroApelido: texto };
+    return true;
+  }
+
+  function marcarErroApelido(texto: string): void {
+    definirErroApelido(texto);
     pedirFoco({ alvo: "apelido" });
     publicar();
   }
@@ -389,10 +416,7 @@ export function criarSessao({ api, aviso, convite, criarPolling = criarPollingPa
         estado.enviando = null;
         publicar();
         polling.iniciar();
-        if (!(erro instanceof ErroApi)) {
-          throw erro;
-        }
-        aviso.avisar(mensagemDeErro(erro, estado.visao), "erro");
+        aviso.avisar(mensagemDeErro(comoErroComCodigo(erro), estado.visao), "erro");
         return;
       }
     }
@@ -417,7 +441,8 @@ export function criarSessao({ api, aviso, convite, criarPolling = criarPollingPa
     const parceiro = estado.visao?.parceiro?.nome ?? estado.ultimoParceiro;
     limparSessao();
     if (!(erro instanceof ErroApi)) {
-      publicar();
+      // Como antes: a tela da vez fica, só a cena, o céu, o som e a confirmação de saída voltam ao início.
+      publicarSemTrocarTela();
       aviso.avisar("Algo deu errado ao falar com o servidor. Recarregue a página.", "erro");
       return;
     }
@@ -483,6 +508,11 @@ export function criarSessao({ api, aviso, convite, criarPolling = criarPollingPa
         () => "De volta à montagem. As confirmações foram zeradas.",
       ),
     enviarApelido: entrarOuCriar,
+    limparErroApelido() {
+      if (definirErroApelido("")) {
+        publicar();
+      }
+    },
     criarOutro() {
       aviso.avisar("");
       mostrarEntrada(Boolean(estado.convite));
