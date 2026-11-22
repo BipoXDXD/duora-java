@@ -15,6 +15,7 @@ import static bipotheking.net.duora.game.Peca.MANTA;
 import static bipotheking.net.duora.game.Peca.RADIO;
 import static bipotheking.net.duora.game.Peca.TELESCOPIO;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.entry;
 
 import java.time.Instant;
 import java.util.List;
@@ -347,8 +348,11 @@ class RegrasTest {
 
   @Test
   void resultadoTrazSecundariasELadoDoTelescopio() {
-    assertThat(Regras.resultado(revelado()))
-        .contains(new Resultado(MANTA, LANTERNA, Lado.ESQUERDO));
+    assertThat(Regras.resultado(revelado()).orElseThrow().valores())
+        .containsExactly(
+            entry("secundariaA", "manta"),
+            entry("secundariaB", "lanterna"),
+            entry("ladoTelescopio", "esquerdo"));
   }
 
   @Test
@@ -357,7 +361,11 @@ class RegrasTest {
     estado = colocar(estado, GARRAFA, R2);
     Estado revelado = confirmar(confirmar(estado, A), B);
 
-    assertThat(Regras.resultado(revelado)).contains(new Resultado(MANTA, GARRAFA, Lado.DIREITO));
+    assertThat(Regras.resultado(revelado).orElseThrow().valores())
+        .containsExactly(
+            entry("secundariaA", "manta"),
+            entry("secundariaB", "garrafa"),
+            entry("ladoTelescopio", "direito"));
   }
 
   @Test

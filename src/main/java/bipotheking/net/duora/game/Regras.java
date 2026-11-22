@@ -1,6 +1,5 @@
 package bipotheking.net.duora.game;
 
-import java.time.Duration;
 import java.time.Instant;
 import java.util.EnumSet;
 import java.util.List;
@@ -8,18 +7,18 @@ import java.util.Optional;
 import java.util.Set;
 
 /**
- * Regras do terraço como funções puras: recebem o estado e o pedido e devolvem uma {@link Decisao}.
- * O servidor é a autoridade; nada aqui conhece HTTP, relógio de sistema ou concorrência.
+ * Regras de um cenário como funções puras: recebem o cenário, o estado e o pedido e devolvem uma
+ * {@link Decisao}. O servidor é a autoridade; nada aqui conhece HTTP, relógio de sistema ou
+ * concorrência.
+ *
+ * <p>As versões sem {@link Cenario} são provisórias e delegam ao {@link Terraco#CENARIO}: saem na
+ * B4.
  */
 public final class Regras {
 
-  public static final Duration DURACAO_SINAL = Duration.ofSeconds(20);
-
-  private static final int LIMITE_ANTES_DO_PARCEIRO = 1;
-
   private Regras() {}
 
-  public static Decisao parceiroEntrou(Estado estado) {
+  public static Decisao parceiroEntrou(Cenario cenario, Estado estado) {
     if (estado.fase() != Fase.AGUARDANDO_PAR) {
       return recusar(Recusa.FASE_INVALIDA);
     }
@@ -28,12 +27,22 @@ public final class Regras {
             Fase.MONTANDO, estado.versao(), estado.composicao(), estado.prontos(), estado.sinal()));
   }
 
+  /** Provisória: {@link #parceiroEntrou(Cenario, Estado)} no terraço. Sai na B4. */
+  public static Decisao parceiroEntrou(Estado estado) {
+    return parceiroEntrou(Terraco.CENARIO, estado);
+  }
+
   /**
    * Coloca, move ou retira (destino vazio) uma peça própria. Pedir o lugar em que a peça já está é
    * aceito sem mudança, qualquer que seja a versão.
    */
   public static Decisao colocar(
-      Estado estado, Assento quem, Peca peca, Optional<Lugar> destino, long versaoEsperada) {
+      Cenario cenario,
+      Estado estado,
+      Assento quem,
+      Peca peca,
+      Optional<Lugar> destino,
+      long versaoEsperada) {
     if (peca.dono() != quem) {
       return recusar(Recusa.PECA_ALHEIA);
     }
@@ -47,7 +56,7 @@ public final class Regras {
     if (estado.fase() != Fase.MONTANDO) {
       return recusar(Recusa.FASE_INVALIDA);
     }
-    Composicao semAPeca = liberarEspacoPara(atual, peca);
+    Composicao semAPeca = liberarEspacoPara(cenario, atual, peca);
     if (destino.isPresent() && semAPeca.ocupante(destino.get()).isPresent()) {
       return recusar(Recusa.LUGAR_OCUPADO);
     }
@@ -55,7 +64,7 @@ public final class Regras {
       return recusar(Recusa.VERSAO_OBSOLETA);
     }
     Composicao nova = destino.map(lugar -> semAPeca.com(peca, lugar)).orElse(semAPeca);
-    if (violaPortao(atual, nova, quem)) {
+    if (violaPortao(cenario, atual, nova, quem)) {
       return recusar(Recusa.ESPERE_PRIMEIRA_PECA);
     }
     Optional<Sinal> sinal =
@@ -63,15 +72,24 @@ public final class Regras {
     return aceitar(new Estado(Fase.MONTANDO, estado.versao() + 1, nova, Set.of(), sinal));
   }
 
-  /** Sinaliza uma peça colocada do parceiro por {@link #DURACAO_SINAL}. Não muda a versão. */
-  public static Decisao sinalizar(Estado estado, Assento quem, Peca peca, Instant agora) {
+  /** Provisória: {@link #colocar(Cenario, Estado, Assento, Peca, Optional, long)}. Sai na B4. */
+  public static Decisao colocar(
+      Estado estado, Assento quem, Peca peca, Optional<Lugar> destino, long versaoEsperada) {
+    return colocar(Terraco.CENARIO, estado, quem, peca, destino, versaoEsperada);
+  }
+
+  /**
+   * Sinaliza uma peça colocada do parceiro por {@link Cenario#duracaoSinal()}. Não muda a versão.
+   */
+  public static Decisao sinalizar(
+      Cenario cenario, Estado estado, Assento quem, Peca peca, Instant agora) {
     if (peca.dono() == quem) {
       return recusar(Recusa.PECA_ALHEIA);
     }
     if (estado.fase() != Fase.MONTANDO || !estado.composicao().colocada(peca)) {
       return recusar(Recusa.FASE_INVALIDA);
     }
-    Sinal sinal = new Sinal(peca, quem, agora.plus(DURACAO_SINAL));
+    Sinal sinal = new Sinal(peca, quem, agora.plus(cenario.duracaoSinal()));
     return aceitar(
         new Estado(
             estado.fase(),
@@ -81,11 +99,17 @@ public final class Regras {
             Optional.of(sinal)));
   }
 
+  /** Provisória: {@link #sinalizar(Cenario, Estado, Assento, Peca, Instant)}. Sai na B4. */
+  public static Decisao sinalizar(Estado estado, Assento quem, Peca peca, Instant agora) {
+    return sinalizar(Terraco.CENARIO, estado, quem, peca, agora);
+  }
+
   /**
    * Confirma (ou desfaz a confirmação de) a composição de uma versão. As duas confirmações na mesma
    * versão revelam o céu.
    */
-  public static Decisao confirmar(Estado estado, Assento quem, boolean pronto, long versao) {
+  public static Decisao confirmar(
+      Cenario cenario, Estado estado, Assento quem, boolean pronto, long versao) {
     if (estado.pronto(quem) == pronto) {
       return aceitar(estado);
     }
@@ -95,7 +119,7 @@ public final class Regras {
     if (versao != estado.versao()) {
       return recusar(Recusa.VERSAO_OBSOLETA);
     }
-    if (pronto && !estado.composicao().completa()) {
+    if (pronto && !cenario.completa(estado.composicao())) {
       return recusar(Recusa.INCOMPLETA);
     }
     Set<Assento> prontos = EnumSet.noneOf(Assento.class);
@@ -109,8 +133,13 @@ public final class Regras {
     return aceitar(new Estado(fase, estado.versao(), estado.composicao(), prontos, estado.sinal()));
   }
 
+  /** Provisória: {@link #confirmar(Cenario, Estado, Assento, boolean, long)}. Sai na B4. */
+  public static Decisao confirmar(Estado estado, Assento quem, boolean pronto, long versao) {
+    return confirmar(Terraco.CENARIO, estado, quem, pronto, versao);
+  }
+
   /** Volta da revelação para a montagem, zerando as confirmações. */
-  public static Decisao ajustar(Estado estado) {
+  public static Decisao ajustar(Cenario cenario, Estado estado) {
     if (estado.fase() != Fase.REVELADO) {
       return recusar(Recusa.FASE_INVALIDA);
     }
@@ -119,50 +148,63 @@ public final class Regras {
             Fase.MONTANDO, estado.versao() + 1, estado.composicao(), Set.of(), estado.sinal()));
   }
 
+  /** Provisória: {@link #ajustar(Cenario, Estado)} no terraço. Sai na B4. */
+  public static Decisao ajustar(Estado estado) {
+    return ajustar(Terraco.CENARIO, estado);
+  }
+
   /** Lugares para onde a peça própria pode ir agora (vazio fora de {@link Fase#MONTANDO}). */
-  public static List<Lugar> lugaresPermitidos(Estado estado, Peca peca) {
+  public static List<Lugar> lugaresPermitidos(Cenario cenario, Estado estado, Peca peca) {
     if (estado.fase() != Fase.MONTANDO) {
       return List.of();
     }
-    Composicao semAPeca = liberarEspacoPara(estado.composicao(), peca);
+    Composicao semAPeca = liberarEspacoPara(cenario, estado.composicao(), peca);
     Optional<Lugar> atual = estado.composicao().lugarDe(peca);
-    return Lugar.da(peca.zona()).stream()
+    return cenario.da(peca.zona()).stream()
         .filter(lugar -> atual.isEmpty() || !atual.get().equals(lugar))
         .filter(lugar -> semAPeca.ocupante(lugar).isEmpty())
         .toList();
   }
 
+  /** Provisória: {@link #lugaresPermitidos(Cenario, Estado, Peca)} no terraço. Sai na B4. */
+  public static List<Lugar> lugaresPermitidos(Estado estado, Peca peca) {
+    return lugaresPermitidos(Terraco.CENARIO, estado, peca);
+  }
+
   /** Se colocar a peça agora seria barrado pelo portão da primeira peça. */
-  public static boolean bloqueadaPeloPortao(Estado estado, Peca peca) {
+  public static boolean bloqueadaPeloPortao(Cenario cenario, Estado estado, Peca peca) {
     Composicao atual = estado.composicao();
     if (estado.fase() != Fase.MONTANDO || atual.colocada(peca)) {
       return false;
     }
-    Composicao simulada = liberarEspacoPara(atual, peca).com(peca, Lugar.da(peca.zona()).get(0));
-    return violaPortao(atual, simulada, peca.dono());
+    Composicao simulada =
+        liberarEspacoPara(cenario, atual, peca).com(peca, cenario.da(peca.zona()).get(0));
+    return violaPortao(cenario, atual, simulada, peca.dono());
   }
 
-  public static Optional<Resultado> resultado(Estado estado) {
+  /** Provisória: {@link #bloqueadaPeloPortao(Cenario, Estado, Peca)} no terraço. Sai na B4. */
+  public static boolean bloqueadaPeloPortao(Estado estado, Peca peca) {
+    return bloqueadaPeloPortao(Terraco.CENARIO, estado, peca);
+  }
+
+  /** O {@link Desfecho} do cenário sobre a composição revelada; vazio fora da revelação. */
+  public static Optional<Resultado> resultado(Cenario cenario, Estado estado) {
     if (estado.fase() != Fase.REVELADO) {
       return Optional.empty();
     }
-    Composicao composicao = estado.composicao();
-    Lado lado =
-        composicao.lugarDe(Peca.TELESCOPIO).orElseThrow().equals(Lugar.C1)
-            ? Lado.ESQUERDO
-            : Lado.DIREITO;
-    return Optional.of(
-        new Resultado(
-            composicao.secundariaDe(Assento.A).orElseThrow(),
-            composicao.secundariaDe(Assento.B).orElseThrow(),
-            lado));
+    return Optional.of(cenario.desfecho().de(estado.composicao(), cenario));
+  }
+
+  /** Provisória: {@link #resultado(Cenario, Estado)} no terraço. Sai na B4. */
+  public static Optional<Resultado> resultado(Estado estado) {
+    return resultado(Terraco.CENARIO, estado);
   }
 
   /** Tira a própria peça e, se ela é secundária, a outra secundária do mesmo dono (troca). */
-  private static Composicao liberarEspacoPara(Composicao composicao, Peca peca) {
+  private static Composicao liberarEspacoPara(Cenario cenario, Composicao composicao, Peca peca) {
     Composicao resultado = composicao.sem(peca);
     if (!peca.obrigatoria()) {
-      for (Peca irma : Peca.secundariasDe(peca.dono())) {
+      for (Peca irma : cenario.secundariasDe(peca.dono())) {
         resultado = resultado.sem(irma);
       }
     }
@@ -170,13 +212,15 @@ public final class Regras {
   }
 
   /**
-   * Portão da primeira peça: enquanto o parceiro não colocou nenhuma, cada um tem no máximo uma.
-   * Mover ou trocar o que já está colocado não aumenta a contagem e é sempre permitido.
+   * Portão da primeira peça: enquanto o parceiro não colocou nenhuma, cada um tem no máximo {@link
+   * Cenario#limiteAntesDoParceiro()}. Mover ou trocar o que já está colocado não aumenta a contagem
+   * e é sempre permitido.
    */
-  private static boolean violaPortao(Composicao antes, Composicao depois, Assento quem) {
+  private static boolean violaPortao(
+      Cenario cenario, Composicao antes, Composicao depois, Assento quem) {
     int minhasDepois = depois.colocadas(quem);
     return depois.colocadas(quem.parceiro()) == 0
-        && minhasDepois > LIMITE_ANTES_DO_PARCEIRO
+        && minhasDepois > cenario.limiteAntesDoParceiro()
         && minhasDepois > antes.colocadas(quem);
   }
 
