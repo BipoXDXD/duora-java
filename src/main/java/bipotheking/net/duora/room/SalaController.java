@@ -1,7 +1,12 @@
 package bipotheking.net.duora.room;
 
+import static java.util.Objects.requireNonNullElse;
+
+import bipotheking.net.duora.game.CatalogoDeCenarios;
+import bipotheking.net.duora.game.Cenario;
 import bipotheking.net.duora.game.Lugar;
 import bipotheking.net.duora.game.Peca;
+import bipotheking.net.duora.game.Terraco;
 import java.util.HexFormat;
 import java.util.Optional;
 import org.jspecify.annotations.Nullable;
@@ -24,16 +29,24 @@ class SalaController {
   private static final int BYTES_ETAG = 16;
 
   private final Salas salas;
+  private final CatalogoDeCenarios catalogo;
   private final JsonMapper json;
 
-  SalaController(Salas salas, JsonMapper json) {
+  SalaController(Salas salas, CatalogoDeCenarios catalogo, JsonMapper json) {
     this.salas = salas;
+    this.catalogo = catalogo;
     this.json = json;
   }
 
+  /** Erros na ordem: apelido, cenário (sem cenário, o terraço), limite de salas. */
   @PostMapping("/salas")
   ResponseEntity<Visao> criar(@RequestBody Pedidos.CriarSala pedido) {
-    Salas.Entrada entrada = salas.criar(Apelido.de(pedido.apelido()));
+    Apelido apelido = Apelido.de(pedido.apelido());
+    Cenario cenario =
+        catalogo
+            .porId(requireNonNullElse(pedido.cenario(), Terraco.ID))
+            .orElseThrow(() -> new ErroApi(Codigo.CENARIO_INVALIDO, "Cenário desconhecido."));
+    Salas.Entrada entrada = salas.criar(apelido, cenario);
     return ResponseEntity.status(HttpStatus.CREATED)
         .header(HttpHeaders.SET_COOKIE, CookieAssento.emitir(entrada.token()))
         .body(entrada.visao());
@@ -61,8 +74,9 @@ class SalaController {
       @CookieValue(name = CookieAssento.NOME) Optional<String> token,
       @RequestBody Pedidos.Colocar pedido) {
     Salas.Assentado eu = salas.localizar(token);
-    Peca peca = peca(pedido.peca());
-    Optional<Lugar> destino = destino(pedido.lugar());
+    Cenario cenario = eu.sala().cenario();
+    Peca peca = peca(cenario, pedido.peca());
+    Optional<Lugar> destino = destino(cenario, pedido.lugar());
     long versao = obrigatorio(pedido.versaoEsperada());
     return eu.sala().colocar(eu.assento(), peca, destino, versao);
   }
@@ -72,7 +86,7 @@ class SalaController {
       @CookieValue(name = CookieAssento.NOME) Optional<String> token,
       @RequestBody Pedidos.Sinalizar pedido) {
     Salas.Assentado eu = salas.localizar(token);
-    Peca peca = peca(pedido.peca());
+    Peca peca = peca(eu.sala().cenario(), pedido.peca());
     return eu.sala().sinalizar(eu.assento(), peca);
   }
 
@@ -105,18 +119,20 @@ class SalaController {
     return "\"" + HexFormat.of().formatHex(resumo, 0, BYTES_ETAG) + "\"";
   }
 
-  private static Peca peca(@Nullable String id) {
+  /** Ids resolvidos pelo cenário da sala: peça de outro cenário é peça desconhecida. */
+  private static Peca peca(Cenario cenario, @Nullable String id) {
     return Optional.ofNullable(id)
-        .flatMap(Peca::deId)
+        .flatMap(cenario::peca)
         .orElseThrow(() -> new ErroApi(Codigo.PECA_INVALIDA, "Peça desconhecida."));
   }
 
-  private static Optional<Lugar> destino(@Nullable String id) {
+  private static Optional<Lugar> destino(Cenario cenario, @Nullable String id) {
     if (id == null) {
       return Optional.empty();
     }
     return Optional.of(
-        Lugar.deId(id)
+        cenario
+            .lugar(id)
             .orElseThrow(() -> new ErroApi(Codigo.LUGAR_INVALIDO, "Lugar desconhecido.")));
   }
 

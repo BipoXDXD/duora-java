@@ -20,6 +20,7 @@ enum Codigo {
   LUGAR_INVALIDO(HttpStatus.UNPROCESSABLE_CONTENT, "Lugar inválido"),
   PECA_INVALIDA(HttpStatus.UNPROCESSABLE_CONTENT, "Peça inválida"),
   APELIDO_INVALIDO(HttpStatus.UNPROCESSABLE_CONTENT, "Apelido inválido"),
+  CENARIO_INVALIDO(HttpStatus.UNPROCESSABLE_CONTENT, "Cenário inválido"),
   CORPO_INVALIDO(HttpStatus.BAD_REQUEST, "Corpo inválido"),
   LIMITE_SALAS(HttpStatus.SERVICE_UNAVAILABLE, "Limite de salas"),
   ERRO_INTERNO(HttpStatus.INTERNAL_SERVER_ERROR, "Erro interno");

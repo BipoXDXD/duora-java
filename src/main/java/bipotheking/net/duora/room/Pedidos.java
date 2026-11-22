@@ -7,7 +7,7 @@ final class Pedidos {
 
   private Pedidos() {}
 
-  record CriarSala(@Nullable String apelido) {}
+  record CriarSala(@Nullable String apelido, @Nullable String cenario) {}
 
   record Entrar(@Nullable String convite, @Nullable String apelido) {
     @Override

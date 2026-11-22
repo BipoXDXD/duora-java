@@ -6,6 +6,7 @@ import bipotheking.net.duora.game.Assento;
 import bipotheking.net.duora.game.Fase;
 import bipotheking.net.duora.game.Lugar;
 import bipotheking.net.duora.game.Peca;
+import bipotheking.net.duora.game.Terraco;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
@@ -60,7 +61,7 @@ class ConcorrenciaTest {
   void duasEntradasSimultaneasComOMesmoConviteSoUmaVence() throws Exception {
     Salas salas = salas(SEM_LIMITE_DE_SALAS);
     for (int i = 0; i < REPETICOES; i++) {
-      Salas.Entrada criacao = salas.criar(Apelido.de("Ana"));
+      Salas.Entrada criacao = salas.criar(Apelido.de("Ana"), Terraco.CENARIO);
       String convite = criacao.visao().convite();
 
       List<Desfecho> desfechos =
@@ -133,7 +134,8 @@ class ConcorrenciaTest {
       List<Desfecho> desfechos =
           simultaneamente(
               IntStream.range(0, pedidos)
-                  .<Callable<Visao>>mapToObj(n -> () -> salas.criar(Apelido.de("Ana")).visao())
+                  .<Callable<Visao>>mapToObj(
+                      n -> () -> salas.criar(Apelido.de("Ana"), Terraco.CENARIO).visao())
                   .toList());
 
       assertThat(desfechos).filteredOn(Desfecho::aceito).hasSize(limite);
@@ -161,7 +163,7 @@ class ConcorrenciaTest {
   }
 
   private static Mesa mesaMontando(Salas salas) {
-    Salas.Entrada criacao = salas.criar(Apelido.de("Ana"));
+    Salas.Entrada criacao = salas.criar(Apelido.de("Ana"), Terraco.CENARIO);
     Salas.Entrada entrada = salas.entrar(criacao.visao().convite(), Apelido.de("Bruno"));
     return new Mesa(
         salas.localizar(Optional.of(criacao.token())).sala(),
