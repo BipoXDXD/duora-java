@@ -21,14 +21,16 @@ Hipótese herdada (`duora-java-mvp.md` §1): uma pequena criação compartilhada
 | Reencontro | **Só se ninguém disse "não"**. Um "não", uma saída ou uma denúncia bloqueiam o par para sempre; conectados não voltam a ser pareados; encontro interrompido sem decisão conta como "não" |
 
 ## Escolhas minhas (podem ser corrigidas)
-- **18+ em todo o piloto**, inclusive para amizade. **Decisão do dono: autodeclaração + moderação.**
-  - A data de nascimento é declarada no cadastro e não pode ser editada depois. Uma data abaixo de 18 bloqueia o cadastro e grava um hash do e-mail para impedir nova tentativa.
+- **18+ em todo o piloto, com verificação de idade** (dono, 2026-11-22; substitui a autodeclaração). Motivo: o ECA Digital (Lei 15.211/2025, art. 9º §1º, em vigor desde 17/03/2026) veda a autodeclaração, e o Decreto 12.880/2026 inclui apps de encontros entre os serviços vedados a menores. A fiscalização começa em jan/2027 (fonte: `docs/pesquisa/seguranca-ux-mobile.md`; não é parecer jurídico).
+  - **Método:** prova de vida mais estimativa de idade pela selfie, feitas na **AWS** (Rekognition Face Liveness e DetectFaces AgeRange, em `sa-east-1`). O documento é a reserva, só quando a estimativa fica na faixa de dúvida (Textract AnalyzeID, que só existe em `us-east-1`; registrar essa transferência internacional na política). Selfie e documento são apagados logo após a checagem, e fica só o resultado (aprovado ou recusado, data, método).
+  - **Selo:** quem passa recebe o selo "verificado", e cada pessoa pode escolher "só encontros com verificados".
+  - A data de nascimento continua declarada e imutável e precisa bater com a verificação. Abaixo de 18, o cadastro é bloqueado e um hash do e-mail é gravado para impedir nova tentativa.
   - A denúncia "parece menor de idade" suspende a conta na hora, sem depender do admin, até a revisão.
-  - Risco aceito pelo dono: a autodeclaração é frágil para namoro público.
 - **Login**: link mágico por e-mail (Resend, já usado no C#), sem senha. O cadastro aberto ganha proteção contra robôs (Cloudflare Turnstile), rate limit por IP e por e-mail, e recusa de domínios de e-mail descartável.
 - **Localização**: obtida pelo Geolocation do navegador, só com consentimento. O servidor guarda apenas a célula (geohash de precisão 5, ≈5 km) e a coordenada exata é descartada. A tela mostra faixas ("até 5 km", "até 20 km", "até 50 km") e nunca a distância exata.
 - **Foto**: o servidor reprocessa a imagem (remove EXIF, converte para WebP q88) e gera a versão borrada. A original nítida só é servida a conexões mútuas, e o admin aprova cada foto antes de ela valer.
-- **Voz** (WebRTC 1:1, só áudio, sem gravação) já no encontro, por decisão do dono. Cada um liga o próprio microfone; ninguém é ouvido sem ter ligado. Botão de silenciar o outro sempre visível.
+- **Voz** (WebRTC 1:1, só áudio, sem gravação no servidor) já no encontro, por decisão do dono. Cada um liga o próprio microfone; ninguém é ouvido sem ter ligado. Botão de silenciar o outro sempre visível.
+  - **Prova de denúncia de voz** (dono, 2026-11-22): o aparelho de cada pessoa guarda em memória só os últimos 60 s do áudio recebido. Nada sai do aparelho, a menos que ela denuncie e confirme o envio do clipe. O aviso disso aparece no início de todo encontro, e a memória é descartada ao fim.
 - **Sair é sempre unilateral** (segurança): qualquer um sai a qualquer momento e vai à decisão privada. O que exige os dois é **encerrar antes dos 30 min de comum acordo**.
 - **Links:** domínio em destaque, só `http(s)` (nada de `javascript:`/`data:`), `rel="noopener noreferrer nofollow ugc"`, aviso "você vai sair do Duora" ao clicar, sem prévia automática.
 - **Imagens:** liberadas só quando os dois aceitam após um aviso explícito (e qualquer um desliga a qualquer momento); até 5 MB; reprocessadas no servidor (WebP q88, sem metadados); chegam borradas com toque para ver; denunciáveis; expiram com o chat do encontro (30 dias).
@@ -40,7 +42,54 @@ Hipótese herdada (`duora-java-mvp.md` §1): uma pequena criação compartilhada
 - **Excedente da capacidade**: com 10 encontros simultâneos já em andamento, quem chega espera na fila, vendo a posição e o tempo estimado.
 
 ## Não-objetivos do piloto
-Verificação documental ou por selfie, matching por questionário ou score, salas em grupo, voz ou vídeo dentro do encontro, app nativo, monetização, cenários além dos 5 escolhidos, telemetria remota (lições do C#).
+Matching por questionário ou score, salas em grupo, voz ou vídeo dentro do encontro, app nativo, monetização, cenários além dos 5 escolhidos, telemetria remota (lições do C#).
+
+## Paridade com o mercado (pesquisa de 2026-11-22)
+As fontes ficam em `docs/pesquisa/` (namoro, amizade e atividades, segurança e UX mobile). Itens adotados, por etapa:
+- **Etapa 2:**
+  - verificação de idade e selo (acima);
+  - limites para contas novas (mensagens, imagens e convites por dia nos primeiros 7 dias);
+  - logs de acesso guardados por 6 meses (Marco Civil);
+  - canal público de denúncia (ECA Digital, arts. 28 e 29);
+  - contato do encarregado da LGPD.
+- **Etapa 3:**
+  - gênero, orientação e pronomes granulares, com "prefiro descrever";
+  - "só encontros com verificados";
+  - pausar a conta sem apagá-la.
+- **Etapa 4:**
+  - liquidez visível: tempo de espera estimado e horários com mais gente;
+  - notificações confiáveis e discretas, com texto que não expõe nada na tela bloqueada.
+- **Etapa 5:**
+  - sair, silenciar, denunciar e bloquear a um toque, dentro da cena;
+  - avisos "Tem certeza?" antes de enviar algo ofensivo e "Isso te incomodou?" depois de receber;
+  - alerta de troca de contato ou de link e de golpe via PIX ("golpe do amor");
+  - triagem automática das imagens antes da entrega: modelo NSFW open source (Falconsai, Apache-2.0) via ONNX Runtime Java, mais o fluxo de abuso infantil por hash (Cloudflare CSAM Scanning Tool), com remoção, preservação e reporte à Polícia Federal (ECA Digital, art. 27);
+  - clipe de voz para denúncia (acima);
+  - perguntas embutidas nos objetos da cena como quebra-gelo;
+  - cartão-postal do encontro que os dois guardam;
+  - feedback pós-encontro.
+- **Etapa 6:**
+  - próximo passo depois do sim, com lembrete gentil contra o sumiço (anti-ghosting);
+  - ocultar conversa;
+  - notificação por conversa.
+- **Etapa 8:**
+  - fila com severidade (P0 ≤ 12 h, P1 ≤ 24 h, P2 ≤ 48 h);
+  - aviso ao denunciado com o motivo e um recurso por decisão (tese do STF de 2025);
+  - Sightengine como reserva paga opcional, desligada por padrão.
+- **Etapa 9:**
+  - central de segurança com recursos do Brasil (Ligue 180, SaferNet, polícia);
+  - termos com remoção após notificação;
+  - RIPD curto;
+  - plano de incidente com comunicação em 3 dias úteis.
+- **Etapas 1c e 9b:**
+  - abertura sem palavras no terraço (acender as lanternas juntos);
+  - papéis que se alternam no "Dois faróis";
+  - criação em turnos com revelação no fim.
+- **Backlog (experimento no piloto):** desfoque que diminui com marcos de cooperação, só com o consentimento dos dois (dono, 2026-11-22: "não agora; testar no piloto").
+- **Não copiar:**
+  - paywall em segurança e em "ver quem curtiu";
+  - vídeo como centro do produto (Tinder e Hinge removeram);
+  - dark patterns de retenção (streaks punitivos, escassez falsa).
 
 ## Arquitetura alvo (monólito modular)
 Pacotes em `bipotheking.net.duora`:
