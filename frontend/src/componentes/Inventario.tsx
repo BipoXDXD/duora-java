@@ -3,7 +3,7 @@ import type { CenarioFront } from "../cenario/tipos";
 import { porArtigo } from "../dominio/artigos";
 import { LARGURA_MINIATURA } from "../dominio/dados";
 import { textoBloqueio } from "../dominio/mensagens";
-import type { Visao, VisaoPeca } from "../dominio/visao";
+import type { Visao, VisaoPeca, VisaoSinal } from "../dominio/visao";
 import type { AcoesDaSessao } from "../sessao/sessao";
 import type { Acao } from "../sessao/tipos";
 import { BOTAO_SECUNDARIO, INDISPONIVEL_EM_ALTO_CONTRASTE, SUBTITULO, seDisponivel } from "./estilos";
@@ -12,7 +12,7 @@ interface PropsInventario {
   visao: Visao;
   selecionada: string | null;
   enviando: Acao | null;
-  acoes: Pick<AcoesDaSessao, "escolherPeca" | "retirar">;
+  acoes: Pick<AcoesDaSessao, "escolherPeca" | "retirar" | "moverPara">;
 }
 
 /** A miniatura esmaece no item indisponível; o texto do motivo mantém o contraste. */
@@ -25,6 +25,23 @@ const CLASSES_DO_ITEM = [
   "forced-colors:aria-pressed:not-aria-disabled:border-[color:Highlight]",
   INDISPONIVEL_EM_ALTO_CONTRASTE,
 ].join(" ");
+
+/**
+ * O aceite da sugestão, abaixo do item e alinhado ao texto dele. O contorno coral repete o do selo
+ * "Sugerido mover" e o do lugar sugerido na cena: os três falam da mesma sugestão.
+ */
+const CLASSES_DO_MOVER = [
+  "botao-mover min-h-[44px] mt-(--e-1) ml-[72px] px-(--e-4) py-(--e-2) border-2 border-coral rounded-(--raio)",
+  "[background:none] text-marfim font-semibold cursor-pointer [transition:background_var(--transicao)]",
+  "hover:not-aria-disabled:bg-[rgb(240_154_145_/_0.14)] aria-disabled:opacity-70 aria-disabled:cursor-progress",
+  INDISPONIVEL_EM_ALTO_CONTRASTE,
+].join(" ");
+
+/** A sugestão do parceiro para uma peça sua, se houver. */
+function sugestaoRecebida(visao: Visao, peca: string): VisaoSinal | null {
+  const { sinal } = visao;
+  return sinal !== null && sinal.peca === peca && sinal.deAssento !== visao.voce.assento ? sinal : null;
+}
 
 /** O que o item diz embaixo do nome: o bloqueio, onde está, a troca que fará ou para onde vai. */
 function estadoDoItem(c: CenarioFront, p: VisaoPeca, minhas: VisaoPeca[], visao: Visao): string {
@@ -48,9 +65,14 @@ interface PropsItem {
   pressionado: boolean;
   indisponivel: boolean;
   aoEscolher: (peca: string) => void;
+  /** O lugar que o parceiro sugeriu para a peça, ou null. */
+  sugerido: string | null;
+  /** Um envio em voo: o "Mover …" espera. */
+  enviando: boolean;
+  aoMoverPara: (peca: string, lugar: string) => void;
 }
 
-function Item({ peca, estado, pressionado, indisponivel, aoEscolher }: PropsItem) {
+function Item({ peca, estado, pressionado, indisponivel, aoEscolher, sugerido, enviando, aoMoverPara }: PropsItem) {
   const c = useCenario();
   return (
     <li>
@@ -74,6 +96,18 @@ function Item({ peca, estado, pressionado, indisponivel, aoEscolher }: PropsItem
           <span className="estado-item block text-texto-2 text-[0.875rem] leading-[1.35]">{estado}</span>
         </span>
       </button>
+      {sugerido !== null && (
+        <button
+          type="button"
+          className={CLASSES_DO_MOVER}
+          aria-disabled={enviando ? true : undefined}
+          onClick={seDisponivel(enviando, () => {
+            aoMoverPara(peca.peca, sugerido);
+          })}
+        >
+          {`Mover ${c.peca(peca.peca).artigo}: ${c.lugar(sugerido).nome}`}
+        </button>
+      )}
     </li>
   );
 }
@@ -105,6 +139,9 @@ export function Inventario({ visao, selecionada, enviando, acoes }: PropsInventa
               pressionado={selecionada === p.peca}
               indisponivel={Boolean(p.bloqueio) || enviando !== null}
               aoEscolher={(peca) => void acoes.escolherPeca(peca, true)}
+              sugerido={sugestaoRecebida(visao, p.peca)?.lugar ?? null}
+              enviando={enviando !== null}
+              aoMoverPara={(peca, lugar) => void acoes.moverPara(peca, lugar)}
             />
           );
           if (p !== primeiraLateral) {

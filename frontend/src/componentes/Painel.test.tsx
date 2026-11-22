@@ -24,6 +24,7 @@ describe("Painel", () => {
         refAviso={createRef()}
         acoes={{
           escolherPeca: vi.fn(),
+          moverPara: vi.fn(),
           retirar: vi.fn(),
           confirmar: vi.fn(),
           ajustar: vi.fn(),

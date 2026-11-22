@@ -97,6 +97,14 @@ describe("useSessao", () => {
     expect(document.activeElement).toBe(container.querySelector("#inventario [data-peca=manta]"));
   });
 
+  it("o pedido da peça na cena foca o botão dela na cena, não o item do inventário", () => {
+    const { container, publicar } = montar();
+
+    publicar(ENCERRADO, { alvo: "peca-na-cena", peca: "manta" });
+
+    expect(document.activeElement).toBe(container.querySelector("#pecas [data-peca=manta]"));
+  });
+
   it("depois de uma recusa sem lugar livre, o foco volta à peça no inventário", () => {
     const cena = { focarPrimeiroLugar: vi.fn(() => false) };
     const { container, publicar } = montar(cena);

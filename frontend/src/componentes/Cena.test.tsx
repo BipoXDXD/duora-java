@@ -36,9 +36,13 @@ function visaoDeBruno(pecas: VisaoPeca[]): Visao {
 /** O mesmo array a cada render, como a sessão faz. */
 const SEM_DESTAQUES: readonly string[] = [];
 
-const MANTA_DE_BRUNO: VisaoPeca = { peca: "manta", assento: "A", lugar: "L2" };
+const MANTA_DE_BRUNO: VisaoPeca = { peca: "manta", assento: "A", lugar: "L2", destinosSugeriveis: ["L1"] };
+
+/** A lanterna de Bruno em R2, que Ana pode sugerir para L1 ou R1. */
+const LANTERNA_DE_BRUNO: VisaoPeca = { peca: "lanterna", assento: "A", lugar: "R2", destinosSugeriveis: ["L1", "R1"] };
 
 interface Extras {
+  sugerindo?: string | null;
   destaques?: readonly string[];
   enviando?: boolean;
   momento?: Momento;
@@ -48,12 +52,18 @@ interface Extras {
 function desenhar(
   visao: Visao,
   selecionada: string | null = null,
-  { destaques = SEM_DESTAQUES, enviando = false, momento = "crepusculo", ladoTelescopio = null }: Extras = {},
+  {
+    sugerindo = null,
+    destaques = SEM_DESTAQUES,
+    enviando = false,
+    momento = "crepusculo",
+    ladoTelescopio = null,
+  }: Extras = {},
 ) {
   return (
     <Cena
       visao={visao}
-      marcas={{ selecionada, sugerindo: null, destaques }}
+      marcas={{ selecionada, sugerindo, destaques }}
       enviando={enviando}
       momento={momento}
       ladoTelescopio={ladoTelescopio}
@@ -85,6 +95,51 @@ describe("Cena", () => {
     expect(
       screen.getByRole("button", { name: "Manta de Bruno, frente, à esquerda. Ative para sugerir que mova" }),
     ).toBeInTheDocument();
+  });
+
+  it("semDestinoAPecaFicaIndisponivel", () => {
+    render(desenhar(visaoDeAna([{ ...MANTA_DE_BRUNO, destinosSugeriveis: [] }])));
+
+    const manta = screen.getByRole("button", { name: "Manta de Bruno, frente, à esquerda" });
+    expect(manta).toHaveAttribute("aria-disabled", "true");
+  });
+
+  it("sugerindoMostraQueTalAquiEmCadaDestinoESoNeles", () => {
+    const { container } = render(desenhar(visaoDeAna([LANTERNA_DE_BRUNO]), null, { sugerindo: "lanterna" }));
+
+    const destinos = screen.getAllByRole("button", { name: /^Que tal aqui\? Sugerir a lanterna: / });
+    expect(destinos.map((d) => d.getAttribute("aria-label"))).toEqual([
+      "Que tal aqui? Sugerir a lanterna: fundo, à esquerda",
+      "Que tal aqui? Sugerir a lanterna: fundo, à direita",
+    ]);
+    expect(destinos.every((d) => d.dataset.sugestao === "true" && d.textContent === "Que tal aqui?")).toBe(true);
+    expect(container.querySelectorAll("#lugares .lugar")).toHaveLength(2);
+    expect(screen.getByRole("button", { name: /^Lanterna de Bruno/ })).toHaveAttribute("aria-pressed", "true");
+  });
+
+  it("quemRecebeVeOLugarSugeridoComContorno", () => {
+    const lanterna: VisaoPeca = { peca: "lanterna", assento: "A", lugar: "R2", lugaresPermitidos: ["R1"] };
+    const comSinal: Visao = { ...visaoDeBruno([lanterna]), sinal: { peca: "lanterna", deAssento: "B", lugar: "R1" } };
+
+    const { container } = render(desenhar(comSinal));
+
+    const marca = container.querySelector(".lugar-sugerido");
+    expect(marca).toHaveAttribute("data-lugar", "R1");
+    expect(marca).toHaveAttribute("aria-hidden", "true");
+    expect(
+      screen.getByRole("button", { name: /^Lanterna de Bruno, frente, à direita\..*Sugerido mover/ }),
+    ).toBeVisible();
+  });
+
+  it("quemSugeriuNaoVeOLugarSugerido", () => {
+    const comSinal: Visao = {
+      ...visaoDeAna([LANTERNA_DE_BRUNO]),
+      sinal: { peca: "lanterna", deAssento: "B", lugar: "R1" },
+    };
+
+    const { container } = render(desenhar(comSinal));
+
+    expect(container.querySelector(".lugar-sugerido")).toBeNull();
   });
 
   it("pecaEmDestaqueTemSeloENome", () => {

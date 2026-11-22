@@ -100,6 +100,16 @@ final class TerracoPagina {
     return botao("Colocar " + peca.artigo + ": " + lugar.nome);
   }
 
+  /** Um destino da sugestão para a peça do parceiro (o "Que tal aqui?" na cena). */
+  Locator destinoSugerivel(Peca peca, Lugar lugar) {
+    return botao("Que tal aqui? Sugerir " + peca.artigo + ": " + lugar.nome);
+  }
+
+  /** O aceite, no inventário, da sugestão do parceiro para a peça. */
+  Locator botaoMover(Peca peca, Lugar lugar) {
+    return botao("Mover " + peca.artigo + ": " + lugar.nome);
+  }
+
   Locator lugarOcupado(Lugar lugar, String dono) {
     return botao(lugar.nome + ", ocupado por " + dono);
   }

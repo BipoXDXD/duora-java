@@ -28,10 +28,11 @@ function visao(pecas: VisaoPeca[]): Visao {
 
 const MONTANDO = visao([peca("telescopio", "C1"), peca("manta", "L1"), peca("radio", null)]);
 
-/** As ações da sessão que o inventário usa, ligadas a dois espiões: a peça escolhida e o "Tirar do terraço". */
+/** As ações da sessão que o inventário usa, ligadas a espiões: a peça escolhida, o "Tirar do terraço" e o "Mover …". */
 function acoesEspiadas() {
   const aoEscolher = vi.fn<(peca: string) => void>();
   const aoRetirar = vi.fn<() => void>();
+  const aoMoverPara = vi.fn<(peca: string, lugar: string) => void>();
   const acoes = {
     escolherPeca: (peca: string) => {
       aoEscolher(peca);
@@ -41,15 +42,19 @@ function acoesEspiadas() {
       aoRetirar();
       return Promise.resolve();
     },
+    moverPara: (peca: string, lugar: string) => {
+      aoMoverPara(peca, lugar);
+      return Promise.resolve();
+    },
   };
-  return { acoes, aoEscolher, aoRetirar };
+  return { acoes, aoEscolher, aoRetirar, aoMoverPara };
 }
 
 function renderizar(v: Visao, mudancas: Partial<Parameters<typeof Inventario>[0]> = {}) {
-  const { acoes, aoEscolher, aoRetirar } = acoesEspiadas();
+  const { acoes, aoEscolher, aoRetirar, aoMoverPara } = acoesEspiadas();
   const props = { visao: v, selecionada: null, enviando: null, acoes, ...mudancas };
   renderComCenario(<Inventario {...props} />);
-  return { ...props, aoEscolher, aoRetirar };
+  return { ...props, aoEscolher, aoRetirar, aoMoverPara };
 }
 
 const item = (nome: RegExp) => screen.getByRole("button", { name: nome });
@@ -138,6 +143,43 @@ describe("Inventario", () => {
     expect(props.aoRetirar).not.toHaveBeenCalled();
     expect(props.aoEscolher).not.toHaveBeenCalled();
     expect(item(/^Rádio/)).toHaveAttribute("aria-disabled", "true");
+  });
+
+  it("itemSinalizadoTemBotaoMover", async () => {
+    const comSinal: Visao = {
+      ...visao([peca("lanterna", "R2")]),
+      sinal: { peca: "lanterna", deAssento: "B", lugar: "R1" },
+    };
+    const props = renderizar(comSinal);
+
+    await userEvent.click(screen.getByRole("button", { name: "Mover a lanterna: fundo, à direita" }));
+
+    expect(props.aoMoverPara).toHaveBeenCalledExactlyOnceWith("lanterna", "R1");
+  });
+
+  it("o próprio sinal não põe o botão Mover no inventário", () => {
+    const meuSinal: Visao = {
+      ...visao([peca("lanterna", "R2")]),
+      sinal: { peca: "banco", deAssento: "A", lugar: "C1" },
+    };
+
+    renderizar(meuSinal);
+
+    expect(screen.queryByRole("button", { name: /^Mover/ })).not.toBeInTheDocument();
+  });
+
+  it("durante um envio, o botão Mover fica indisponível", async () => {
+    const comSinal: Visao = {
+      ...visao([peca("lanterna", "R2")]),
+      sinal: { peca: "lanterna", deAssento: "B", lugar: "R1" },
+    };
+    const props = renderizar(comSinal, { enviando: "pronto" });
+
+    const mover = screen.getByRole("button", { name: "Mover a lanterna: fundo, à direita" });
+    await userEvent.click(mover);
+
+    expect(mover).toHaveAttribute("aria-disabled", "true");
+    expect(props.aoMoverPara).not.toHaveBeenCalled();
   });
 
   it("cenário mínimo usa os nomes dele", () => {

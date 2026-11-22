@@ -32,7 +32,24 @@ describe("novidade", () => {
   it("sinal novo do parceiro", () => {
     const agora = visao({ sinal: { peca: "manta", deAssento: "B", lugar: "L2" } });
 
-    expect(novidade(CENARIO, visao(), agora, false)).toBe("Bruno sugeriu mover a manta.");
+    expect(novidade(CENARIO, visao(), agora, false)).toBe("Bruno sugeriu mover a manta: frente, à esquerda.");
+  });
+
+  it("novidadeDoSinalCitaODestino", () => {
+    const deBruno = visao({
+      voce: { assento: "B", nome: "Bruno" },
+      parceiro: { assento: "A", nome: "Ana", conectado: true },
+    });
+    const agora = { ...deBruno, sinal: { peca: "lanterna", deAssento: "A", lugar: "R1" } } as const;
+
+    expect(novidade(CENARIO, deBruno, agora, false)).toBe("Ana sugeriu mover a lanterna: fundo, à direita.");
+  });
+
+  it("o mesmo sinal para outro lugar é novidade", () => {
+    const antes = visao({ sinal: { peca: "manta", deAssento: "B", lugar: "L2" } });
+    const agora = visao({ sinal: { peca: "manta", deAssento: "B", lugar: "R1" } });
+
+    expect(novidade(CENARIO, antes, agora, false)).toBe("Bruno sugeriu mover a manta: fundo, à direita.");
   });
 
   it("o próprio sinal não é novidade", () => {

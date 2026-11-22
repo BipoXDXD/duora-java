@@ -14,7 +14,9 @@ export type PedidoDeFoco =
   | { alvo: "apelido" | "link-convite" | "titulo-encerrado" | "sair" | "continuar" | "primeiro-lugar" }
   | { alvo: "item"; peca: string }
   /** Primeiro lugar livre ou, se não houver, o item da peça. */
-  | { alvo: "apos-recusa"; peca: string };
+  | { alvo: "apos-recusa"; peca: string }
+  /** O botão da peça na cena (a do parceiro, depois de sugerir ou cancelar a sugestão). */
+  | { alvo: "peca-na-cena"; peca: string };
 
 /** Cada tela só carrega o que existe nela (State com tipo selado). */
 export type EstadoDaTela =

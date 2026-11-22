@@ -304,6 +304,16 @@
   filter: drop-shadow(0 0 6px rgb(242 189 112 / 0.9));
 }
 
+/* Sugestão: a peça do parceiro escolhida brilha no verde-água dos destinos "Que tal aqui?". */
+.peca[data-dono="parceiro"][aria-pressed="true"] {
+  filter: drop-shadow(0 0 6px rgb(168 213 197 / 0.9));
+}
+
+/* Peça do parceiro sem destino livre: não aceita sugestão. */
+.peca[data-dono="parceiro"][aria-disabled="true"] {
+  cursor: not-allowed;
+}
+
 .peca[data-sinalizada="true"] {
   animation: chamar 1.4s ease-in-out 3;
 }
@@ -403,6 +413,39 @@
   color: var(--texto-2);
   font-size: 0.75rem;
   white-space: nowrap;
+}
+
+/* Destinos da sugestão: verde-água (o da voz do parceiro no aviso), para não confundir com colocar
+   a própria peça, em âmbar. O rótulo "Que tal aqui?" fica visível em toda largura: o seletor mais
+   específico vence o que esconde os rótulos no celular. */
+.lugar[data-sugestao="true"]::before {
+  border-color: var(--verde-agua);
+  background: rgb(168 213 197 / 0.18);
+}
+
+.lugar[data-sugestao="true"]:hover::before,
+.lugar[data-sugestao="true"]:focus-visible::before {
+  border-color: var(--verde-agua);
+  background: rgb(168 213 197 / 0.38);
+}
+
+.lugar[data-sugestao="true"] .rotulo-lugar {
+  display: block;
+  background: var(--verde-agua);
+  color: var(--noite-950);
+  font-weight: 600;
+}
+
+/* O destino sugerido, para quem recebe: contorno duplo coral (o do selo "Sugerido mover"), parado. */
+.lugar-sugerido {
+  position: absolute;
+  min-width: 44px;
+  aspect-ratio: 2 / 1;
+  transform: translate(-50%, -50%);
+  border: 5px double var(--coral);
+  border-radius: 50%;
+  background: rgb(240 154 145 / 0.14);
+  pointer-events: none;
 }
 
 .palco[data-enviando="true"] .peca,

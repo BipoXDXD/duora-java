@@ -1,5 +1,5 @@
 // Desenha a cena do cenário a partir da visão da sala. Não decide regras: usa os lugares
-// permitidos que a visão traz para a peça selecionada.
+// permitidos que a visão traz para a peça selecionada e os destinos sugeríveis das do parceiro.
 
 import type { CenarioFront } from "../cenario/tipos";
 import { escolherVariante, type MedidasSprite, type Momento, pct, type Ponto } from "../dominio/dados";
@@ -90,7 +90,7 @@ export function criarCena({
     return medidas;
   }
 
-  function desenharPecas(visao: Visao, { selecionada, destaques }: MarcasDaCena): void {
+  function desenharPecas(visao: Visao, { selecionada, sugerindo, destaques }: MarcasDaCena): void {
     const fragmento = document.createDocumentFragment();
     const colocadas = visao.pecas.filter(colocada);
     colocadas.sort((a, b) => pontoDe(a.lugar).y - pontoDe(b.lugar).y);
@@ -117,12 +117,14 @@ export function criarCena({
       botao.style.width = pct(medidas.largura, largura);
       const sinalizada = visao.sinal?.peca === p.peca;
       const emDestaque = destaques.includes(p.peca);
+      // A peça do parceiro sem destino livre não aceita sugestão: fica indisponível, sem o convite.
+      const sugerivel = !minha && (p.destinosSugeriveis?.length ?? 0) > 0;
       // O texto visível (selo "Você", selo do sinal, selo "Mudou") entra no nome, depois do prefixo
       // "<peça> de <dono>, <lugar>"; o destaque fecha o nome.
       const complementos = [
         minha ? "Você colocou" : null,
         sinalizada ? "Sugerido mover" : null,
-        minha ? null : "Ative para sugerir que mova",
+        sugerivel ? "Ative para sugerir que mova" : null,
         emDestaque ? "Mudou agora" : null,
       ].filter((c): c is string => c !== null);
       botao.setAttribute(
@@ -131,6 +133,10 @@ export function criarCena({
       );
       if (minha) {
         botao.setAttribute("aria-pressed", String(selecionada === p.peca));
+      } else if (sugerivel) {
+        botao.setAttribute("aria-pressed", String(sugerindo === p.peca));
+      } else {
+        botao.setAttribute("aria-disabled", "true");
       }
       if (sinalizada) {
         botao.dataset.sinalizada = "true";
@@ -213,8 +219,20 @@ export function criarCena({
     return [anel, selo];
   }
 
-  function desenharLugares(visao: Visao, selecionada: string | null): void {
+  function desenharLugares(visao: Visao, { selecionada, sugerindo }: MarcasDaCena): void {
     camadaLugares.replaceChildren();
+    const recebido = visao.sinal !== null && visao.sinal.deAssento !== visao.voce.assento ? visao.sinal : null;
+    if (recebido) {
+      // Antes dos botões: fica por baixo de um lugar livre no mesmo ponto.
+      camadaLugares.append(criarLugarSugerido(recebido.lugar));
+    }
+    if (sugerindo) {
+      const doParceiro = visao.pecas.find((p) => p.peca === sugerindo);
+      for (const id of doParceiro?.destinosSugeriveis ?? []) {
+        camadaLugares.append(criarSugestao(id, sugerindo));
+      }
+      return;
+    }
     if (!selecionada) {
       return;
     }
@@ -231,16 +249,53 @@ export function criarCena({
     }
   }
 
-  function criarLugar(id: string, peca: string, bloqueio: string | null): HTMLButtonElement {
+  /** Posição e tamanho de um lugar no palco, iguais para botões e marcas. */
+  function posicionarNoLugar(el: HTMLElement, id: string): void {
     const ponto = pontoDe(id);
+    el.dataset.lugar = id;
+    el.style.left = pct(ponto.x, largura);
+    el.style.top = pct(ponto.y, altura);
+    el.style.width = pct(diametroLugar, largura);
+  }
+
+  /**
+   * O destino que o parceiro sugeriu, para quem recebe: decorativo (o nome da peça já diz
+   * "Sugerido mover" e o inventário tem o "Mover …"). Contorno duplo, não só cor.
+   */
+  function criarLugarSugerido(id: string): HTMLElement {
+    const marca = document.createElement("div");
+    marca.className = "lugar-sugerido";
+    marca.setAttribute("aria-hidden", "true");
+    posicionarNoLugar(marca, id);
+    return marca;
+  }
+
+  /** Um destino possível na sugestão: o rótulo "Que tal aqui?" fica visível, também no celular. */
+  function criarSugestao(id: string, peca: string): HTMLButtonElement {
+    const botao = document.createElement("button");
+    botao.type = "button";
+    botao.className = "lugar";
+    botao.dataset.sugestao = "true";
+    posicionarNoLugar(botao, id);
+    // O rótulo visível abre o nome (WCAG 2.5.3); o resto diz o que a sugestão leva ao parceiro.
+    botao.setAttribute("aria-label", `Que tal aqui? Sugerir ${cenario.peca(peca).artigo}: ${cenario.lugar(id).nome}`);
+    const etiqueta = document.createElement("span");
+    etiqueta.className = "rotulo-lugar";
+    etiqueta.textContent = "Que tal aqui?";
+    etiqueta.setAttribute("aria-hidden", "true");
+    botao.append(etiqueta);
+    botao.addEventListener("click", () => {
+      aoEscolherLugar(id, null);
+    });
+    return botao;
+  }
+
+  function criarLugar(id: string, peca: string, bloqueio: string | null): HTMLButtonElement {
     const nomeLugar = cenario.lugar(id).nome;
     const botao = document.createElement("button");
     botao.type = "button";
     botao.className = "lugar";
-    botao.dataset.lugar = id;
-    botao.style.left = pct(ponto.x, largura);
-    botao.style.top = pct(ponto.y, altura);
-    botao.style.width = pct(diametroLugar, largura);
+    posicionarNoLugar(botao, id);
     const rotulo = `Colocar ${cenario.peca(peca).artigo}: ${nomeLugar}`;
     if (bloqueio) {
       botao.setAttribute("aria-disabled", "true");
@@ -263,16 +318,18 @@ export function criarCena({
 
   return {
     desenhar(visao, marcas) {
-      const { selecionada } = marcas;
+      const { selecionada, sugerindo } = marcas;
       desenharPecas(visao, marcas);
-      desenharLugares(visao, selecionada);
+      desenharLugares(visao, marcas);
       palco.dataset.selecionando = selecionada ? "true" : "false";
+      palco.dataset.sugerindo = sugerindo ? "true" : "false";
     },
     limpar() {
       destaquesDesenhados = new Set();
       camadaPecas.replaceChildren();
       camadaLugares.replaceChildren();
       palco.dataset.selecionando = "false";
+      palco.dataset.sugerindo = "false";
     },
     focarPrimeiroLugar() {
       const lugar = camadaLugares.querySelector<HTMLElement>(".lugar:not([aria-disabled])");
