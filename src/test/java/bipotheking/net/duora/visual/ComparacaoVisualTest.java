@@ -54,6 +54,17 @@ class ComparacaoVisualTest {
     assertEquals(1, resultado.diferentes());
   }
 
+  @Test
+  void capturasIguaisApagamODiffDeUmaRodadaAnterior() throws IOException {
+    Path antes = gravar("antes.png", imagem());
+    Path depois = gravar("depois.png", imagem());
+    Path diffAntigo = gravar("diff.png", imagem());
+
+    ComparadorDeCapturas.comparar(antes, depois, diffAntigo);
+
+    assertFalse(Files.exists(diffAntigo), "diff antigo continua em " + diffAntigo);
+  }
+
   @TestFactory
   @EnabledIfSystemProperty(named = "visual.antes", matches = ".+")
   @EnabledIfSystemProperty(named = "visual.depois", matches = ".+")
