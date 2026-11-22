@@ -98,6 +98,9 @@ export function criarSessao({ api, aviso, convite, criarPolling = criarPollingPa
     confirmandoSaida: false,
     somLigado: false,
   };
+  // Muda a cada sessão encerrada: respostas de mutações enviadas antes disso são descartadas, como
+  // as consultas velhas do polling.
+  let epoca = 0;
   let foco: PedidoDeFoco | null = null;
   const ouvintes = new Set<() => void>();
   let retrato = montarRetrato();
@@ -278,15 +281,14 @@ export function criarSessao({ api, aviso, convite, criarPolling = criarPollingPa
     if (estado.enviando || !visao) {
       return;
     }
+    const minhaEpoca = epoca;
     estado.enviando = acao;
     aviso.avisar("");
     publicar();
     try {
       const resposta = await chamada(visao);
-      if (!estado.visao) {
-        // A sessão terminou durante o envio; o retrato não pode ficar preso em "enviando".
-        estado.enviando = null;
-        publicar();
+      if (minhaEpoca !== epoca) {
+        // A sessão terminou durante o envio (e já soltou o "enviando"): a resposta é de outra sala.
         return;
       }
       polling.aceitar(resposta.etag);
@@ -298,10 +300,14 @@ export function criarSessao({ api, aviso, convite, criarPolling = criarPollingPa
         aviso.avisar(mensagem);
       }
     } catch (erro) {
+      if (minhaEpoca !== epoca) {
+        if (!(erro instanceof ErroApi)) {
+          throw erro;
+        }
+        return;
+      }
       estado.enviando = null;
       tratarErroDeAcao(erro, peca);
-    } finally {
-      estado.enviando = null;
     }
   }
 
@@ -424,14 +430,18 @@ export function criarSessao({ api, aviso, convite, criarPolling = criarPollingPa
         return;
       }
     }
-    estado.enviando = null;
     limparSessao();
     aviso.avisar("");
     mostrarEncerrado(textoEncerrado("VOCE_SAIU"));
   }
 
-  /** Sem visão, o momento volta ao crepúsculo e a cena fica vazia. */
+  /**
+   * Sem visão, o momento volta ao crepúsculo e a cena fica vazia. A ação em voo deixa de valer: o
+   * envio é solto e a resposta dela, quando chegar, é descartada (a época mudou).
+   */
   function limparSessao(): void {
+    epoca += 1;
+    estado.enviando = null;
     estado.visao = null;
     estado.selecionada = null;
     estado.confirmandoSaida = false;
