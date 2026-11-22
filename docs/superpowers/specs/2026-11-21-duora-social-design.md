@@ -96,7 +96,7 @@ As fontes ficam em `docs/pesquisa/` (namoro, amizade e atividades, segurança e 
 
 ## Arquitetura alvo (monólito modular)
 Pacotes em `bipotheking.net.duora`:
-- `game/`: regras puras do terraço, inalteradas.
+- `game/`: regras puras dos cenários (motor da Etapa 1b).
 - `encontro/`: evolução de `room/`, com a sala vinculada a um par pareado.
 - `conta/`: cadastro, login, sessão e exclusão.
 - `perfil/`: apelido, nascimento, intenção, preferências, foto e célula de localização.
@@ -143,7 +143,7 @@ Decisão do dono (2026-11-22): o front migra antes da 1b, porque as etapas segui
 
 ### Etapa 1b: Motor de cenários
 - `game/` deixa de ter o terraço fixo no código: um `Cenario` descreve lugares, zonas, peças por participante, regras de colocação e como a composição vira o final. O terraço vira o primeiro cenário, descrito como dados, sem mudar nenhum comportamento: a suíte atual tem de continuar verde.
-- O front lê a descrição do cenário (`cena.json` por cenário) em vez de constantes; os assets ficam em `assets/cena/<cenario>/`.
+- O front lê a apresentação de cada cenário (`cenario.json`) e a geometria (`cena/cena.json`) em vez de constantes; os assets ficam em `assets/cenarios/<id>/` (`cena/`, `ceu/`, `audio/`).
 - A sala/encontro guarda qual cenário está em jogo. O pareamento (Etapa 4) sorteia um cenário que nenhum dos dois jogou ainda.
 
 **Prova**: a suíte inteira segue verde com o terraço vindo de dados, e um cenário de teste mínimo (2 lugares, 2 peças) roda de ponta a ponta.
@@ -286,3 +286,5 @@ Escolhidos para o piloto (Etapa 9b): aquário, piquenique, cachoeira, jantar e f
 | Jantar | Montar a mesa e escolher pratos a dois; a revelação é o jantar servido com a trilha escolhida |
 | Piquenique | Preparar a toalha e a cesta; o clima e os passantes reagem às escolhas |
 | Fliperama | Jogo cooperativo original a dois (sem recriar jogos existentes); um recorde conjunto, não competição |
+
+Nome de exibição do terraço: **Terraço das Estrelas Cadentes**. O nome de cada cenário novo é decidido pelo dono depois de construí-lo (Etapa 9b), sem padrão único.

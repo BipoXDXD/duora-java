@@ -44,7 +44,7 @@
 
 ## Dependências assumidas
 Nomes publicados nos planos das Etapas 1b, 2, 3 e 9. Se divergirem na `main`, ajuste os usos aqui, sem mudar o comportamento.
-- **1b:** `room.CatalogoDeCenarios.porId(String) -> Optional<Cenario>`; `Cenario.id()`; `Salas.criar(Apelido, Cenario)`; `Visao.cenario`.
+- **1b:** `game.CatalogoDeCenarios.porId(String) -> Optional<Cenario>` e `todos()` (Java puro, bean montado por `room/CenariosConfig`); `Cenario.id()`; `Salas.criar(Apelido, Cenario)`; `Visao.cenario`.
 - **2 (`conta/`, `web/`):** `ContaId(UUID valor)`; `@ContaAtual` (padrão `cadastroConcluido = true`; o `ExigeSessao` já dá 401 `NAO_AUTENTICADO` e 403 `CONTA_INDISPONIVEL`); `ConsultaDeContas.porId(ContaId) -> Optional<ContaResumo>` com `estado()` e `OptionalInt idadeEm(LocalDate hoje)`; `AoExcluirConta.excluir(ContaId)`; `LimiteDeTaxa`/`LimiteExcedido`; `ErroDeNegocio(CodigoDeErro, String)`; `GeradorDeIds.novo()`; testes `BancoDeTeste`, `ContasDeTeste.criar(String apelido, LocalDate nascimento) -> ContaDeTeste(ContaId id, String cookie)`, `RelogioDeTeste`, `Participantes.novoComConta(ContaDeTeste)`.
 - **3 (`perfil/`):** `Perfis` com `publico`, `preferencias`, `celula`, `boolean prontoParaFila(ContaId)` (falso com a conta pausada) e `boolean pausada(ContaId)`; `PerfilPublico(ContaId conta, String apelido, Optional<String> fotoBorradaUrl, Optional<String> pronomes, boolean verificado)`; `Preferencias(Set<Intencao> intencao, FaixaEtaria faixaEtaria, Raio raio, boolean raioObrigatorio, Optional<Genero> generoProprio, Set<Genero> generosBuscados)` (Etapa 3 Task 6; a Task 9 não a muda); `FaixaEtaria.contem(int)`; `Raio.km() -> OptionalInt`; `enum Genero`; `CelulaGeohash(String valor)` com `double distanciaKm(CelulaGeohash)`; `Localizacoes.consentida(ContaId)` e `Localizacoes.atualizar(ContaId, double, double)`; teste `PerfisDeTeste.definir(ContaId, String apelido, Preferencias, Optional<CelulaGeohash>)`.
 - **9 (`retencao/`):** `PoliticaDeRetencao { String nome(); Duration prazo(); int expirar(Instant limite); }`, rodada diariamente pela `ExpiracaoDeDados`.
@@ -169,8 +169,8 @@ Nomes publicados nos planos das Etapas 1b, 2, 3 e 9. Se divergirem na `main`, aj
 **Arquivos:**
 - Criar: `src/main/resources/db/migration/V51__par_vetado.sql`, `V52__cenario_jogado.sql`
 - Criar: `src/main/java/bipotheking/net/duora/pareamento/{VetosDePar,MotivoVeto,PareamentoAoExcluirConta}.java`, `sala/{HistoricoDeCenarios,SorteioDeCenario}.java`
-- Modificar: `room/CatalogoDeCenarios.java` (`sorteaveis()`), `application.properties` (`duora.cenarios.sorteaveis=terraco`)
-- Teste: `pareamento/VetosDeParTest.java`, `sala/{HistoricoDeCenariosTest,SorteioDeCenarioTest}.java`, `room/CatalogoDeCenariosTest.java`
+- Modificar: `game/CatalogoDeCenarios.java` (`sorteaveis()`, com a lista recebida pelo construtor; o catálogo continua sem Spring), `room/CenariosConfig.java` (lê `duora.cenarios.sorteaveis` e a passa ao catálogo), `application.properties` (`duora.cenarios.sorteaveis=terraco`)
+- Teste: `pareamento/VetosDeParTest.java`, `sala/{HistoricoDeCenariosTest,SorteioDeCenarioTest}.java`, `game/CatalogoDeCenariosTest.java`
 
 **Interfaces (produz):**
 - `V51`: `par_vetado(conta_menor uuid not null references conta(id), conta_maior uuid not null references conta(id), motivo text not null check (motivo in ('NAO','SAIDA','DENUNCIA','BLOQUEIO','CONECTADOS','SEM_DECISAO')), vetado_em timestamptz not null, primary key (conta_menor, conta_maior), check (conta_menor < conta_maior))`; índice em `conta_maior`.
@@ -179,7 +179,7 @@ Nomes publicados nos planos das Etapas 1b, 2, 3 e 9. Se divergirem na `main`, aj
 - `VetosDePar`: `void vetar(ParDeContas par, MotivoVeto motivo)` (`insert ... on conflict (conta_menor, conta_maior) do update set motivo = excluded.motivo where par_vetado.motivo = 'CONECTADOS'`: um veto real sobrepõe `CONECTADOS`, nunca o contrário); `Optional<MotivoVeto> motivo(ParDeContas)`; `Set<ParDeContas> vetadosEntre(Collection<ContaId>)` (uma consulta, `= any(:contas)` nas duas colunas).
 - `HistoricoDeCenarios`: `void registrar(ContaId, String cenarioId)` (idempotente); `Set<String> jogados(ContaId)`.
 - `SorteioDeCenario.sortear(Set<String> jogadosA, Set<String> jogadosB, List<String> sorteaveis, RandomGenerator aleatorio) -> String` (P6; lista vazia ⇒ `IllegalStateException`).
-- `CatalogoDeCenarios.sorteaveis() -> List<Cenario>` na ordem da propriedade; id sem cenário ⇒ a aplicação não sobe.
+- `CatalogoDeCenarios.sorteaveis() -> List<Cenario>` na ordem da propriedade, que o `CenariosConfig` lê e entrega ao catálogo; id sem cenário ⇒ a aplicação não sobe.
 - `PareamentoAoExcluirConta implements AoExcluirConta`: apaga os vetos, o histórico e a entrada na fila da conta.
 
 - [ ] **Passo 1:** testes: `VetosDeParTest` (`vetarDuasVezesNaoDuplica`; `vetoRealSobrepoeConectados`; `conectadosNaoSobrepoeVetoReal`; `valeNosDoisSentidos`; `vetadosEntreTrazSoParesDoConjunto`; `listaVaziaNaoConsulta`); `HistoricoDeCenariosTest` (`registrarDuasVezesUmaLinha`; `semHistoricoVazio`); `SorteioDeCenarioTest` com `new SplittableRandom(42)` (`preferePrimeiroOQueNinguemJogou`; `semIneditoEscolheOQueSoUmJogou`; `todosJogadosAindaSorteia`; `listaVaziaFalha`); `CatalogoDeCenariosTest` (`sorteaveisSegueAPropriedade`; `idDesconhecidoImpedeASubida`); exclusão: `excluirContaApagaVetosEHistorico`.

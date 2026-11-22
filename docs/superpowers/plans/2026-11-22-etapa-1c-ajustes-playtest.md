@@ -220,18 +220,18 @@ Hoje `Fase` é um enum, e `Regras`, `Estado` e `Visao` decidem por `if (estado.f
 ### Task 4: Revelação — efeito por peça, texto com posições relativas e tela cheia no celular
 
 **Arquivos:**
-- Modificar: `frontend/src/cenario/esquema.ts` (campos `revelacao`, `relacoes` e `raioPerto`), `src/main/resources/static/assets/cenarios/terraco/cenario.json`
+- Modificar: `frontend/src/cenario/ler.ts` e `frontend/src/cenario/tipos.ts` (variantes novas de `Efeito` na chave `revelacao`, que já existe desde a 1b; campos novos `relacoes` e `raioPerto`), `src/main/resources/static/assets/cenarios/terraco/cenario.json`
 - Criar: `frontend/src/cena/efeitos.ts`, `frontend/src/cenario/relacoes.ts`, `frontend/src/estilos/revelacao.css`
 - Modificar: `frontend/src/cena/som.ts` (`notas(url, volume)`), `frontend/src/componentes/{Cena,Resultado,Moldura}.tsx`, `frontend/src/App.tsx`
 - Criar asset: `static/assets/cenarios/terraco/audio/radio-notas.mp3` (skill `duora-assets`, ElevenLabs), registrado em `assets/manifest.md`
-- Teste: `relacoes.test.ts`, `efeitos.test.ts`, `esquema.test.ts`, `e2e/RevelacaoIT.java` (testes novos), `e2e/RevelacaoCelularIT.java` (novo), `e2e/AxeIT.java` (estado "tela cheia")
+- Teste: `relacoes.test.ts`, `efeitos.test.ts`, `ler.test.ts`, `e2e/RevelacaoIT.java` (testes novos), `e2e/RevelacaoCelularIT.java` (novo), `e2e/AxeIT.java` (estado "tela cheia")
 
 **Interfaces:**
 - Consome: `CenarioFront`, `Geometria` e `criarSom` (1a/1b).
 - Produz:
   - Esquema:
-    - `revelacao`: peça → lista de `Efeito`, com `type Efeito =`
-      - `{ tipo: "meteoros" }`;
+    - `revelacao` (peça → lista de `Efeito`) já existe desde a 1b, com a união `Efeito` = `brilho-piso | halo`. A 1c só acrescenta variantes à união:
+      - `| { tipo: "meteoros" }`;
       - `| { tipo: "brilho"; cor: string; largura: number }`;
       - `| { tipo: "vapor" }`;
       - `| { tipo: "tremular" }`;
@@ -244,7 +244,7 @@ Hoje `Fase` é um enum, e `Regras`, `Estado` e `Visao` decidem por `if (estado.f
       - banco `brilho` (âmbar, 1,6 m);
       - manta `brilho` (vinho, 1,2 m);
       - rádio `notas` (`radio-notas.mp3`, volume 0,4);
-      - lanterna `tremular`;
+      - lanterna: mantém `brilho-piso` e `halo` (os efeitos da 1b) e ganha `tremular`;
       - garrafa `vapor`.
     - `raioPerto` 2.0, e `relacoes` com estas frases:
       - manta–banco: "A manta ficou ao lado do banco, pronta para dividir.";
@@ -277,7 +277,7 @@ Hoje `Fase` é um enum, e `Regras`, `Estado` e `Visao` decidem por `if (estado.f
   - `efeitos.test.ts`:
     - `cadaTipoCriaSeuElemento` (os 5 tipos);
     - `notasSoTocamAoVivo` (som falso: `aoVivo` falso → `notas` não chamado).
-  - `esquema.test.ts`: `relacaoComPecaInexistenteERecusada`.
+  - `ler.test.ts`: `relacaoComPecaInexistenteERecusada`.
   - `RevelacaoIT`, com a sonda de `AudioContext` que já existe:
     - `cadaPecaColocadaTemSeuEfeitoNaNoite`: telescópio, banco, manta e lanterna → `[data-efeito=brilho]` 2, `[data-efeito=tremular]` 1, e `#meteoros` com `data-lado`;
     - `radioTocaNotasComSomDesligado`: com o rádio colocado e `#som` em `aria-pressed="false"` → um `createBufferSource` iniciado na revelação;
@@ -410,7 +410,7 @@ Hoje `Fase` é um enum, e `Regras`, `Estado` e `Visao` decidem por `if (estado.f
 Precedente: Journey e Sky começam com uma ação conjunta sem palavras, que tira a pressão de puxar assunto. A abertura é do motor (vale para qualquer cenário que a declare); só o terraço a declara no piloto.
 
 **Arquivos:**
-- Modificar: `game/{Cenario,Terraco,Regras,Estado}.java` (a fase `Montando` ganha a abertura), `room/{Visao,SalaController}.java`, `static/assets/cenarios/terraco/cenario.json` e o esquema valibot da 1b (`abertura`), a cena (`cena.ts`: duas lanternas de mão, uma em cada lado, com o sprite `lanterna` já existente em escala 0,5; sem asset novo), `frontend/src/` (sessão e `Inventario`, que fica oculto durante a abertura)
+- Modificar: `game/{Cenario,Terraco,Regras,Estado}.java` (a fase `Montando` ganha a abertura), `room/{Visao,SalaController}.java`, `static/assets/cenarios/terraco/cenario.json` e a leitura valibot da 1b em `frontend/src/cenario/ler.ts` (`abertura`), a cena (`cena.ts`: duas lanternas de mão, uma em cada lado, com o sprite `lanterna` já existente em escala 0,5; sem asset novo), `frontend/src/` (sessão e `Inventario`, que fica oculto durante a abertura)
 - Modificar: `src/test/java/bipotheking/net/duora/e2e/TerracoPagina.java` (`passarAbertura()`, chamado pelo passo de entrada dos ITs existentes, sem mudar asserção)
 - Criar: `game/AberturaTest.java`, `e2e/AberturaIT.java`; Modificar: `AxeIT`
 
@@ -418,7 +418,7 @@ Precedente: Journey e Sky começam com uma ação conjunta sem palavras, que tir
 - Produz:
   - `record DefinicaoDeAbertura(String tipo, Duration janela, Duration maximo)` em `Cenario` (`Optional<DefinicaoDeAbertura> abertura()`); o terraço declara `("acender-junto", 5 s, 90 s)`. Cenário sem abertura começa direto na montagem, como hoje.
   - `record Abertura(Map<Assento, Instant> toques, Optional<Instant> concluidaEm, boolean acesa)` dentro de `Montando` (`Optional<Abertura>`; vazia = abertura concluída ou inexistente). Peças, sinais e pronto durante a abertura → recusa `ABERTURA_EM_ANDAMENTO` (409).
-  - `Regras.tocarAbertura(Estado, Cenario, Assento, Instant) -> Decisao`: registra o toque; se o outro tocou há no máximo `janela`, conclui com `acesa = true`. `Regras.avancarAbertura(Estado, Cenario, Instant)`: passado `maximo` desde a entrada do segundo participante, conclui com `acesa = false` (a montagem começa do mesmo jeito; ninguém é cobrado).
+  - `Regras.tocarAbertura(Cenario, Estado, Assento, Instant) -> Decisao`: registra o toque; se o outro tocou há no máximo `janela`, conclui com `acesa = true`. `Regras.avancarAbertura(Cenario, Estado, Instant)`: passado `maximo` desde a entrada do segundo participante, conclui com `acesa = false` (a montagem começa do mesmo jeito; ninguém é cobrado).
   - `POST /api/sala/abertura` (sem corpo) → 200 `Visao`; `Visao.abertura` = `{ "ativa": bool, "voceTocou": bool, "outroTocou": bool, "acesa": bool }` (`null` sem abertura). `Visao.fase` continua `"MONTANDO"`.
   - Cena: cada pessoa vê a própria lanterna com um ícone de mão e chama (sem frase na tela); o botão acessível tem `aria-label="Acender sua lanterna"`, alcançável por teclado. O toque do outro faz a lanterna dele tremular (`data-efeito="tremular"`); com os dois na janela, as duas acendem com o brilho da revelação em escala menor e o inventário aparece. Movimento reduzido: troca direta de apagada para acesa. A região viva anuncia só `As lanternas acenderam.` (ou nada, se a abertura acabar pelo tempo).
 - [ ] **Passo 1:** testes.
@@ -432,7 +432,7 @@ Precedente: Journey e Sky começam com uma ação conjunta sem palavras, que tir
 - **Primeiro:** a Task 0 (refatoração), e depois a Task 1, as duas sozinhas e no mesmo worktree. A Task 1 muda o contrato da API e o cliente mínimo.
 - **Onda A, em paralelo (3 worktrees):**
   - Task 2: `cena.ts` (desenho da peça), `Painel`, `destaque.css`;
-  - Task 4: `efeitos.ts`, `relacoes.ts`, o esquema e o JSON, `som.ts`, `Resultado` (texto), `Moldura`, `revelacao.css` e o asset;
+  - Task 4: `efeitos.ts`, `relacoes.ts`, a leitura (`cenario/ler.ts`) e o JSON, `som.ts`, `Resultado` (texto), `Moldura`, `revelacao.css` e o asset;
   - Task 6: `mensagens.ts`, `Inventario`, `Entrada`, `Convite`, `Falta`, `main.tsx` e `base.css`.
   - O `sessao.ts` muda nas Tasks 2 e 6, em funções diferentes, e o `app.css` ganha uma linha de import em 2 e 4. O merge resolve à mão.
   - O asset da Task 4 (ElevenLabs) e o Maven entram na fila de "um pesado por vez".

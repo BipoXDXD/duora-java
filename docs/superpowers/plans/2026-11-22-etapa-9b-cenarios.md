@@ -45,6 +45,7 @@
 - **Quebra-gelos (paridade):** cada cenário de composição traz `quebraGelos` no `cenario.json` (3 objetos, 3 perguntas por tom, 3 opções cada; regras de texto da Etapa 5 Task 16) e passa no `CatalogoTemQuebraGelosTest`. Os objetos escolhidos ficam na task de dados de cada cenário. A abertura sem palavras (1c Task 8) é opcional por cenário e fica desligada nos quatro, salvo pedido do playtest.
 - **Momentos:** os ids técnicos continuam `crepusculo` (montagem) e `noite` (revelação), porque o motor (1a/1b) e os testes dependem deles. Cada cenário dá a sua arte a cada momento.
 - **Texto:** pt-BR, voz ativa, gênero neutro para pessoas. Os textos fixados neste plano são usados exatamente como escritos.
+- **Nome de exibição:** o terraço chama-se **Terraço das Estrelas Cadentes**. O `nome` de cada cenário novo (no `Cenario` e no `cenario.json`, igual nos dois) é decidido pelo dono depois de construí-lo, sem padrão único; este plano não fixa nenhum. Até a decisão, o `nome` provisório é o próprio id. Cada task de playtest leva essa escolha ao dono.
 - **Liberação:** um cenário só entra em `duora.cenarios.sorteaveis` depois do "sim" do dono (decisão D4). Antes disso, ele fica no catálogo e só é alcançável em teste, playtest ou pelo convite privado com a propriedade de teste.
 - **Fliperama:**
   - a CSP muda só em `/jogos/fliperama/**`;
@@ -378,16 +379,16 @@ Coordenadas em metros, no piso da cena (x lateral, y profundidade, z altura, com
 
 **Arquivos:**
 - Modificar:
-  - `frontend/src/cenario/{esquema.ts,legenda.ts}`, `frontend/src/cena/efeitos.ts`, `frontend/src/estilos/revelacao.css`;
+  - `frontend/src/cenario/{ler.ts,tipos.ts,legenda.ts}` (a leitura valibot fica só no `ler.ts`), `frontend/src/cena/efeitos.ts`, `frontend/src/estilos/revelacao.css`;
   - `frontend/src/componentes/{Resultado,Moldura}.tsx` (o título vem do cenário);
   - `frontend/src/dominio/dados.ts` (o sprite da base vem de `geometria.base`, com padrão `"terraco"`);
   - `src/main/resources/static/assets/cenarios/terraco/cenario.json` (`titulo` "Antes da primeira estrela", sem mudar mais nada).
 - Criar: `frontend/src/cenario/variacoes.ts`, `src/test/java/bipotheking/net/duora/e2e/CenarioPagina.java`
-- Teste: `esquema.test.ts` (todo `cenario.json` do disco), `legenda.test.ts`, `efeitos.test.ts`, `variacoes.test.ts`; `src/test/java/bipotheking/net/duora/game/CenarioJsonTest.java` (parametrizado); `e2e/CenarioFrontIT.java`; `VisualIT`/`ComparacaoVisualTest` (terraço idêntico)
+- Teste: `ler.test.ts` (todo `cenario.json` do disco), `legenda.test.ts`, `efeitos.test.ts`, `variacoes.test.ts`; `src/test/java/bipotheking/net/duora/game/CenarioJsonTest.java` (parametrizado); `e2e/CenarioFrontIT.java`; `VisualIT`/`ComparacaoVisualTest` (terraço idêntico)
 
 **Interfaces:**
 - Consome:
-  - 1b: `CenarioFront`, `parseCenario`, `interpolar`, `CatalogoDeCenarios`, `Cenario`, `Desfecho`, `Resultado.valores()`;
+  - 1b: `CenarioFront`, `lerCenario` (`cenario/ler.ts`), `interpolar`, `game.CatalogoDeCenarios` (`porId`, `todos`), `Cenario`, `Desfecho`, `Resultado.valores()`;
   - 1c: `Efeito`, `revelacao`, `relacoes`, `raioPerto`, `criarEfeitos(...).mostrar(pecas, aoVivo)`.
 - Produz:
   - `Efeito` ganha 4 variantes:
@@ -421,7 +422,7 @@ Coordenadas em metros, no piso da cena (x lateral, y profundidade, z altura, com
     - `int efeitos(Page, String tipo)` (conta `[data-efeito=<tipo>]`).
 
 - [ ] **Passo 1:** escrever os testes.
-  - `esquema.test.ts`:
+  - `ler.test.ts`:
     - `todoCenarioDoDiscoEValido` (glob em `static/assets/cenarios/*/cenario.json`);
     - `ancoraDeLugarInexistenteERecusada`;
     - `corForaDoFormatoERecusada`;
@@ -493,14 +494,14 @@ Coordenadas em metros, no piso da cena (x lateral, y profundidade, z altura, com
   - `src/test/java/bipotheking/net/duora/game/AquarioTest.java`;
   - `src/test/java/bipotheking/net/duora/e2e/JornadaAquarioIT.java`.
 - Modificar:
-  - `CatalogoDeCenarios.java` (em `room/` antes da Etapa 5, `encontro/` depois): registrar `Aquario.CENARIO`;
+  - `CenariosConfig.java` (em `room/` antes da Etapa 5, `encontro/` depois): registrar o cenário com um `@Bean Cenario aquario()` que devolve `Aquario.CENARIO`; o `game.CatalogoDeCenarios` não muda;
   - `e2e/AxeIT.java` (estados "aquário montagem" e "aquário revelação").
 
 **Interfaces:**
 - Consome: `Cenario`, `Zona`, `Lugar`, `Peca`, `Desfecho`, `Resultado`, `Regras.*(Cenario, ...)` (1b/1c); `CenarioPagina` (Task 2); assets da Task 3 (`cena.json`, sprites `peixe`).
 - Produz:
   - `public final class Aquario`:
-    - `CENARIO` com id `"aquario"`;
+    - `CENARIO` com id `"aquario"` e o `nome` provisório (ver "Nome de exibição" nas restrições globais);
     - zonas `AREIA` (`"areia"`) e `CANTOS` (`"cantos"`);
     - lugares `A1, A2, E1, E2, D1, D2`, nessa ordem;
     - peças `ROCHA, ALGA, CONCHA` (A) e `TRONCO, CORAL, ANFORA` (B), nessa ordem;
@@ -531,6 +532,7 @@ Coordenadas em metros, no piso da cena (x lateral, y profundidade, z altura, com
 **Procedimento:** P-P, com `<cenario>` = `aquario`. Na 2ª composição, mudar o `cardume` (ex.: juntas → divididas).
 - [ ] **Passo 1:** P-P 1–4.
 - [ ] **Passo 2:** P-P 5–6. Prova: capturas + "sim" em 2–5, registrados no handoff, e o pacote da D4 pronto.
+- [ ] **Passo 3: nome de exibição.** Levar ao dono, junto do pacote da D4, a escolha do `nome` do cenário `aquario` (escolha livre, sem padrão único). Com a resposta, gravar o mesmo `nome` no `Cenario` e no `cenario.json` (o `CenarioJsonTest` confere) e commitar `feat(cenario): nome de exibição do cenário aquario`.
 
 ### Task 6: Piquenique — assets
 
@@ -593,6 +595,7 @@ Coordenadas em metros, no piso da cena (x lateral, y profundidade, z altura, com
 ### Task 8: Piquenique — playtest por agente
 **Procedimento:** P-P com `piquenique`. A 2ª composição muda o `visitante`.
 - [ ] **Passos 1–2:** como na Task 5.
+- [ ] **Passo 3: nome de exibição.** Levar ao dono, junto do pacote da D4, a escolha do `nome` do cenário `piquenique` (escolha livre, sem padrão único). Com a resposta, gravar o mesmo `nome` no `Cenario` e no `cenario.json` (o `CenarioJsonTest` confere) e commitar `feat(cenario): nome de exibição do cenário piquenique`.
 
 ### Task 9: Cachoeira — assets
 
@@ -647,6 +650,7 @@ Coordenadas em metros, no piso da cena (x lateral, y profundidade, z altura, com
 ### Task 11: Cachoeira — playtest por agente
 **Procedimento:** P-P com `cachoeira`. A 2ª composição muda o `arcoIris`.
 - [ ] **Passos 1–2:** como na Task 5.
+- [ ] **Passo 3: nome de exibição.** Levar ao dono, junto do pacote da D4, a escolha do `nome` do cenário `cachoeira` (escolha livre, sem padrão único). Com a resposta, gravar o mesmo `nome` no `Cenario` e no `cenario.json` (o `CenarioJsonTest` confere) e commitar `feat(cenario): nome de exibição do cenário cachoeira`.
 
 ### Task 12: Jantar — assets
 
@@ -705,6 +709,7 @@ Coordenadas em metros, no piso da cena (x lateral, y profundidade, z altura, com
 ### Task 14: Jantar — playtest por agente
 **Procedimento:** P-P com `jantar`. A 2ª composição muda a `trilha` e o `centro`.
 - [ ] **Passos 1–2:** como na Task 5.
+- [ ] **Passo 3: nome de exibição.** Levar ao dono, junto do pacote da D4, a escolha do `nome` do cenário `jantar` (escolha livre, sem padrão único). Com a resposta, gravar o mesmo `nome` no `Cenario` e no `cenario.json` (o `CenarioJsonTest` confere) e commitar `feat(cenario): nome de exibição do cenário jantar`.
 
 ---
 
@@ -1028,10 +1033,10 @@ Pergunta que o spike responde: **o export web single-thread do Godot 4, sem `uns
 - Modificar:
   - `game/Cenario.java`: `sealed interface Atividade permits Atividade.Montagem, Atividade.Jogo`, com `record Montagem()` e `record Jogo(String caminho)`. O `Cenario` ganha `Atividade atividade` como último componente, e um construtor secundário sem ele assume `Montagem` (as chamadas existentes não mudam).
   - `game/Regras.java`: com `Jogo`, `colocar`, `sinalizar` e `confirmar` recusam com `FASE_INVALIDA`.
-  - `CatalogoDeCenarios`: registrar `Fliperama.CENARIO`.
+  - `CenariosConfig`: registrar `Fliperama.CENARIO` com um `@Bean Cenario fliperama()`.
   - `CenarioJsonTest`: os cenários `Jogo` ficam fora dos testes de montagem e têm o seu.
   - Front:
-    - `frontend/src/cenario/esquema.ts`: o cenário vira uma união por `atividade.tipo` — `"montagem"` (o esquema atual) ou `"jogo"` (`{ tipo: "jogo"; src: string; titulo: string }`, com `src` começando por `/jogos/`);
+    - `frontend/src/cenario/ler.ts` (e `tipos.ts`): o cenário vira uma união por `atividade.tipo` — `"montagem"` (o esquema atual) ou `"jogo"` (`{ tipo: "jogo"; src: string; titulo: string }`, com `src` começando por `/jogos/`);
     - a tela do cenário: com `jogo`, renderiza `<JogoEmbutido>` no lugar de `<Cena>`, `<Inventario>` e `<Resultado>`;
     - `frontend/src/sw/rotas.ts`: `/jogos/` → cache primeiro em tempo de execução, sem precache, no cache `duora-<versão>`.
 - Criar:
@@ -1040,7 +1045,7 @@ Pergunta que o spike responde: **o export web single-thread do Godot 4, sem `uns
   - `frontend/src/componentes/JogoEmbutido.tsx` e `frontend/src/jogo/ponte.ts`.
 - Teste:
   - `game/FliperamaCenarioTest.java`;
-  - `JogoEmbutido.test.tsx`, `ponte.test.ts`, `esquema.test.ts` (o JSON do jogo), `rotas.test.ts`;
+  - `JogoEmbutido.test.tsx`, `ponte.test.ts`, `ler.test.ts` (o JSON do jogo), `rotas.test.ts`;
   - `e2e/FliperamaIT.java`, `e2e/AxeIT.java` (estado "fliperama").
 
 **Interfaces (produz):**
@@ -1091,6 +1096,7 @@ Pergunta que o spike responde: **o export web single-thread do Godot 4, sem `uns
     - **4:** os números de cada rodada diferem e batem com o que as capturas mostram;
     - **5:** "Jogar de novo" está a 1 toque, e o agente jogou a 3ª rodada por escolha.
 - [ ] **Passo 3:** fechamento do P-P 6 (pacote da D4 do fliperama) e commit `docs(adr): 0006 com a prova no Android`.
+- [ ] **Passo 4: nome de exibição.** Levar ao dono, junto do pacote da D4, a escolha do `nome` do cenário `fliperama` (escolha livre, sem padrão único). Com a resposta, gravar o mesmo `nome` no `Cenario` e no `cenario.json` (o `CenarioJsonTest` confere) e commitar `feat(cenario): nome de exibição do cenário fliperama`.
 
 ### Task 22: Liberação no sorteio e fechamento da etapa
 
@@ -1108,7 +1114,7 @@ Pergunta que o spike responde: **o export web single-thread do Godot 4, sem `uns
 Precedente: o álbum do Gartic Phone. Cada pessoa põe uma peça por vez sem ver o que o outro escolheu como secundária; tudo aparece junto na revelação. Roda **antes do Passo 3 da Task 13** (dados do jantar) e depois da Task 2.
 
 **Arquivos:**
-- Modificar: `game/{Cenario,Regras,Estado}.java`, `room/Visao.java` (ou `encontro/Visao.java`, conforme a etapa em que a 9b estiver), o esquema valibot e o leitor do `cenario.json`, a cena (`cena.ts`: peça coberta), `game/Jantar.java` (`TURNOS_OCULTOS`)
+- Modificar: `game/{Cenario,Regras,Estado}.java`, `room/Visao.java` (ou `encontro/Visao.java`, conforme a etapa em que a 9b estiver), a leitura valibot do `cenario.json` em `frontend/src/cenario/ler.ts`, a cena (`cena.ts`: peça coberta), `game/Jantar.java` (`TURNOS_OCULTOS`)
 - Criar: `game/TurnosOcultosTest.java`; Modificar: `game/JantarTest.java`, `e2e/JornadaJantarIT.java`, `AxeIT`
 
 **Interfaces:**
@@ -1172,6 +1178,7 @@ Precedente: o álbum do Gartic Phone. Cada pessoa põe uma peça por vez sem ver
 - **D4. Aceite de cada cenário (playtest do dono, exigido pelo spec).** Para cada cenário chegam:
   - as 4 melhores capturas (montagem e revelação, desktop e celular);
   - o relatório do agente;
+  - a escolha do `nome` de exibição do cenário (livre, sem padrão único; até lá vale o id);
   - a escolha **aprovar** (entra no sorteio e os assets viram `FINAL`) ou **ajustar** (com 2–3 ajustes sugeridos).
   - **Recomendação:** aprovar os que tiveram "sim" em 2–5 e capturas sem defeito visual.
 - **D5. Sincronia do fliperama (informativa; o dono pode reverter).** O spec descreve "repasse das entradas dos dois", e o plano usa servidor autoritativo (justificativa na Task 16).
