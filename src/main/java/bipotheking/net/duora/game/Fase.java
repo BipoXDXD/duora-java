@@ -4,9 +4,10 @@ import java.util.Objects;
 import java.util.Optional;
 
 /**
- * Fases do terraço enquanto a sala está aberta (padrão State). O encerramento é tratado pela sala.
- * Cada variante é um valor: o que for próprio de uma fase mora nela, e as {@link Regras} só criam
- * uma nova instância ao entrar na fase, preservando a atual nas jogadas dentro dela.
+ * Fases do terraço enquanto a sala está aberta, como tipo selado; o encerramento é tratado pela
+ * sala. Cada variante é um valor e carrega o que é próprio dela (a abertura na montagem, o pedido
+ * de ajuste na revelação). As {@link Regras} decidem por variante e criam uma nova instância só
+ * quando a fase muda ou muda o que ela carrega; as demais jogadas preservam a instância atual.
  */
 public sealed interface Fase {
 
@@ -21,8 +22,29 @@ public sealed interface Fase {
     }
   }
 
-  /** Os dois montam a composição e confirmam uma versão. */
-  record Montando() implements Fase {
+  /**
+   * Os dois montam a composição e confirmam uma versão.
+   *
+   * @param abertura a abertura do encontro, ativa ou já concluída; vazia quando o cenário não
+   *     declara abertura e na montagem depois de um ajuste (a abertura acontece uma vez por
+   *     encontro)
+   */
+  record Montando(Optional<Abertura> abertura) implements Fase {
+
+    public Montando {
+      Objects.requireNonNull(abertura);
+    }
+
+    /** Montagem sem abertura. */
+    public Montando() {
+      this(Optional.empty());
+    }
+
+    /** Se a abertura ainda espera os toques; enquanto isso, a montagem fica parada. */
+    public boolean aberturaAtiva() {
+      return abertura.filter(Abertura::ativa).isPresent();
+    }
+
     @Override
     public String nome() {
       return "MONTANDO";

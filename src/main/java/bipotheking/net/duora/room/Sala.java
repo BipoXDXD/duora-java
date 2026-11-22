@@ -220,6 +220,7 @@ final class Sala {
       case ESPERE_PRIMEIRA_PECA -> "Espere a outra pessoa colocar a primeira peça.";
       case FASE_INVALIDA -> "Isso não pode ser feito agora.";
       case INCOMPLETA -> "A composição ainda não está completa.";
+      case ABERTURA_EM_ANDAMENTO -> "Espere as lanternas acenderem.";
     };
   }
 

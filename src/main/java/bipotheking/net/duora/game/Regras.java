@@ -1,5 +1,6 @@
 package bipotheking.net.duora.game;
 
+import java.time.Duration;
 import java.time.Instant;
 import java.util.EnumSet;
 import java.util.List;
@@ -15,18 +16,57 @@ public final class Regras {
 
   private Regras() {}
 
-  /** O par entrou pelo convite: começa a montagem. */
+  /**
+   * O par entrou pelo convite: começa a montagem e, se o cenário declara abertura, ela começa
+   * {@code agora}.
+   */
   public static Decisao parceiroEntrou(Cenario cenario, Estado estado, Instant agora) {
     if (!(estado.fase() instanceof Fase.AguardandoPar)) {
       return recusar(Recusa.FASE_INVALIDA);
     }
-    return aceitar(
-        new Estado(
-            new Fase.Montando(),
-            estado.versao(),
-            estado.composicao(),
-            estado.prontos(),
-            estado.sinal()));
+    Optional<Abertura> abertura = cenario.abertura().map(definicao -> Abertura.iniciada(agora));
+    return aceitar(comFase(estado, new Fase.Montando(abertura)));
+  }
+
+  /**
+   * Toque de quem na abertura ativa: se o outro tocou há no máximo {@link
+   * DefinicaoDeAbertura#janela()}, as lanternas acendem e a abertura conclui. Tocar depois da
+   * conclusão não muda nada. Nunca muda a versão.
+   */
+  public static Decisao tocarAbertura(Cenario cenario, Estado estado, Assento quem, Instant agora) {
+    if (!(estado.fase() instanceof Fase.Montando montando)) {
+      return recusar(Recusa.FASE_INVALIDA);
+    }
+    Optional<Abertura> abertura = montando.abertura();
+    Optional<DefinicaoDeAbertura> definicao = cenario.abertura();
+    if (abertura.isEmpty() || definicao.isEmpty()) {
+      return recusar(Recusa.FASE_INVALIDA);
+    }
+    if (!abertura.get().ativa()) {
+      return aceitar(estado);
+    }
+    Abertura tocada = abertura.get().tocada(quem, agora, definicao.get().janela());
+    return aceitar(comFase(estado, new Fase.Montando(Optional.of(tocada))));
+  }
+
+  /**
+   * Conclui apagada a abertura ativa que chegou a {@link DefinicaoDeAbertura#maximo()}. Total: em
+   * qualquer outro caso devolve a mesma instância do estado.
+   */
+  public static Estado avancarAbertura(Cenario cenario, Estado estado, Instant agora) {
+    if (!(estado.fase() instanceof Fase.Montando montando)) {
+      return estado;
+    }
+    Optional<Abertura> abertura = montando.abertura();
+    Optional<Duration> maximo = cenario.abertura().map(DefinicaoDeAbertura::maximo);
+    if (abertura.isEmpty() || maximo.isEmpty()) {
+      return estado;
+    }
+    Abertura avancada = abertura.get().avancada(agora, maximo.get());
+    if (avancada == abertura.get()) {
+      return estado;
+    }
+    return comFase(estado, new Fase.Montando(Optional.of(avancada)));
   }
 
   /**
@@ -49,6 +89,9 @@ public final class Regras {
     Composicao atual = estado.composicao();
     if (atual.lugarDe(peca).equals(destino)) {
       return aceitar(estado);
+    }
+    if (emAbertura(estado)) {
+      return recusar(Recusa.ABERTURA_EM_ANDAMENTO);
     }
     if (!(estado.fase() instanceof Fase.Montando montando)) {
       return recusar(Recusa.FASE_INVALIDA);
@@ -81,6 +124,9 @@ public final class Regras {
     if (peca.dono() == quem) {
       return recusar(Recusa.PECA_ALHEIA);
     }
+    if (emAbertura(estado)) {
+      return recusar(Recusa.ABERTURA_EM_ANDAMENTO);
+    }
     Composicao composicao = estado.composicao();
     Optional<Lugar> atual = composicao.lugarDe(peca);
     if (!(estado.fase() instanceof Fase.Montando) || atual.isEmpty()) {
@@ -111,6 +157,9 @@ public final class Regras {
     if (estado.pronto(quem) == pronto) {
       return aceitar(estado);
     }
+    if (emAbertura(estado)) {
+      return recusar(Recusa.ABERTURA_EM_ANDAMENTO);
+    }
     if (!(estado.fase() instanceof Fase.Montando montando)) {
       return recusar(Recusa.FASE_INVALIDA);
     }
@@ -134,7 +183,8 @@ public final class Regras {
   /**
    * Pede para voltar da revelação à montagem. Sem pedido pendente, o de quem pede fica gravado; com
    * o pedido do outro pendente, pedir é aceitar (pedidos cruzados viram aceite): volta à montagem
-   * numa versão nova, sem confirmações nem sinal. Repetir o próprio pedido não muda nada.
+   * numa versão nova, sem confirmações, sinal nem abertura (ela acontece uma vez por encontro).
+   * Repetir o próprio pedido não muda nada.
    */
   public static Decisao pedirAjuste(Cenario cenario, Estado estado, Assento quem) {
     if (!(estado.fase() instanceof Fase.Revelado revelado)) {
@@ -172,12 +222,13 @@ public final class Regras {
 
   /**
    * Lugares para onde se pode sugerir levar uma peça colocada: os livres da zona dela, sem o atual,
-   * na ordem do cenário. Vazio fora de {@link Fase.Montando} e com a peça fora da cena.
+   * na ordem do cenário. Vazio fora de {@link Fase.Montando}, durante a abertura e com a peça fora
+   * da cena.
    */
   public static List<Lugar> destinosSugeriveis(Cenario cenario, Estado estado, Peca peca) {
     Composicao composicao = estado.composicao();
     Optional<Lugar> atual = composicao.lugarDe(peca);
-    if (!(estado.fase() instanceof Fase.Montando) || atual.isEmpty()) {
+    if (!(estado.fase() instanceof Fase.Montando) || emAbertura(estado) || atual.isEmpty()) {
       return List.of();
     }
     return cenario.da(peca.zona()).stream()
@@ -186,9 +237,12 @@ public final class Regras {
         .toList();
   }
 
-  /** Lugares para onde a peça própria pode ir agora (vazio fora de {@link Fase.Montando}). */
+  /**
+   * Lugares para onde a peça própria pode ir agora (vazio fora de {@link Fase.Montando} e durante a
+   * abertura).
+   */
   public static List<Lugar> lugaresPermitidos(Cenario cenario, Estado estado, Peca peca) {
-    if (!(estado.fase() instanceof Fase.Montando)) {
+    if (!(estado.fase() instanceof Fase.Montando) || emAbertura(estado)) {
       return List.of();
     }
     Composicao semAPeca = liberarEspacoPara(cenario, estado.composicao(), peca);
@@ -210,9 +264,14 @@ public final class Regras {
     return violaPortao(cenario, atual, simulada, peca.dono());
   }
 
-  /** Se confirmar agora seria aceito por completude: em {@link Fase.Montando} e completa. */
+  /**
+   * Se confirmar agora seria aceito por completude: em {@link Fase.Montando}, sem abertura ativa e
+   * com a composição completa.
+   */
   public static boolean podeConfirmar(Cenario cenario, Estado estado) {
-    return estado.fase() instanceof Fase.Montando && cenario.completa(estado.composicao());
+    return estado.fase() instanceof Fase.Montando montando
+        && !montando.aberturaAtiva()
+        && cenario.completa(estado.composicao());
   }
 
   /** O {@link Desfecho} do cenário sobre a composição revelada; vazio fora da revelação. */
@@ -223,13 +282,16 @@ public final class Regras {
     return Optional.of(cenario.desfecho().de(estado.composicao(), cenario));
   }
 
+  private static boolean emAbertura(Estado estado) {
+    return estado.fase() instanceof Fase.Montando montando && montando.aberturaAtiva();
+  }
+
+  private static Estado comFase(Estado estado, Fase fase) {
+    return new Estado(fase, estado.versao(), estado.composicao(), estado.prontos(), estado.sinal());
+  }
+
   private static Estado naRevelacao(Estado estado, Optional<Assento> pedidoDeAjuste) {
-    return new Estado(
-        new Fase.Revelado(pedidoDeAjuste),
-        estado.versao(),
-        estado.composicao(),
-        estado.prontos(),
-        estado.sinal());
+    return comFase(estado, new Fase.Revelado(pedidoDeAjuste));
   }
 
   /** Tira a própria peça e, se ela é secundária, a outra secundária do mesmo dono (troca). */
