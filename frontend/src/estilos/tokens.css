@@ -1,0 +1,63 @@
+/* Tokens do terraço, com os mesmos nomes de css/app.css (o ContrasteTest lê este bloco). Fica fora de camada. */
+:root {
+  /* Noite: estrutura e céu (matiz ~210). */
+  --noite-950: #08131f;
+  --noite-900: #0d1f30;
+  --noite-800: #132b40;
+  --noite-700: #1b3a55;
+  --ceu-600: #345e78;
+  --ceu-400: #6f93ab;
+  /* Texto em três tons do mesmo matiz. */
+  --marfim: #f5f1e7;
+  --texto-2: #c9d4dd;
+  --texto-3: #9db1c2;
+  /* Acentos. */
+  --ambar: #f2bd70;
+  --ambar-claro: #f7d39e;
+  --ambar-tinta: #2b1a04;
+  --verde-agua: #a8d5c5;
+  --coral: #f09a91;
+
+  --fonte: "Atkinson Hyperlegible Next", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --fonte-titulo: "Fraunces", Georgia, serif;
+
+  --e-1: 4px;
+  --e-2: 8px;
+  --e-3: 12px;
+  --e-4: 16px;
+  --e-5: 24px;
+  --e-6: 32px;
+  --e-7: 48px;
+  --e-8: 64px;
+
+  --raio: 10px;
+  --largura-painel: 380px;
+  --altura-topo: 56px;
+  --proporcao-palco: 1800 / 1186;
+  --foco: 0 0 0 3px var(--noite-900), 0 0 0 6px var(--ambar);
+  --transicao: 180ms ease-out;
+}
+
+/* Utilitários do Tailwind (bg-ambar, text-texto-2, font-titulo...) apontando para os tokens acima. */
+@theme inline {
+  --color-noite-950: var(--noite-950);
+  --color-noite-900: var(--noite-900);
+  --color-noite-800: var(--noite-800);
+  --color-noite-700: var(--noite-700);
+  --color-ceu-600: var(--ceu-600);
+  --color-ceu-400: var(--ceu-400);
+  --color-marfim: var(--marfim);
+  --color-texto-2: var(--texto-2);
+  --color-texto-3: var(--texto-3);
+  --color-ambar: var(--ambar);
+  --color-ambar-claro: var(--ambar-claro);
+  --color-ambar-tinta: var(--ambar-tinta);
+  --color-verde-agua: var(--verde-agua);
+  --color-coral: var(--coral);
+
+  --font-texto: var(--fonte);
+  --font-titulo: var(--fonte-titulo);
+}
+
+@custom-variant celular (@media (max-width: 860px));
+@custom-variant celular-alto (@media (max-width: 860px) and (min-height: 700px));

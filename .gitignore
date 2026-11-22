@@ -31,6 +31,8 @@ target/
 build/
 !**/src/main/**/build/
 !**/src/test/**/build/
+# Plugins de build do Vite (Task 6) ficam em frontend/build/ e são versionados.
+!frontend/build/
 
 ### VS Code ###
 .vscode/
@@ -47,6 +49,10 @@ build/
 
 ### Ferramentas locais ###
 .playwright-mcp/
+
+### Front: Node e pnpm baixados pelo frontend-maven-plugin, e dependências ###
+frontend/node/
+frontend/node_modules/
 
 ### Modelos gerados (grandes; ver assets/manifest.md para baixar de novo) ###
 assets/source/modelos/*.glb
