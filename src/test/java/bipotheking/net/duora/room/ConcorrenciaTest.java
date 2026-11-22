@@ -121,6 +121,27 @@ class ConcorrenciaTest {
     }
   }
 
+  /** Em qualquer ordem, o destino acaba ocupado e nenhum sinal fica apontando para ele. */
+  @Test
+  void sinalEColocacaoNoDestinoSimultaneos() throws Exception {
+    Salas salas = salas(SEM_LIMITE_DE_SALAS);
+    for (int i = 0; i < REPETICOES; i++) {
+      Mesa mesa = mesaMontando(salas);
+      mesa.b().colocar(Assento.B, Terraco.LANTERNA, Optional.of(Terraco.R2), 0);
+
+      List<Desfecho> desfechos =
+          simultaneamente(
+              () -> mesa.a().sinalizar(Assento.A, Terraco.LANTERNA, Terraco.L2),
+              () -> mesa.a().colocar(Assento.A, Terraco.MANTA, Optional.of(Terraco.L2), 1));
+
+      assertThat(desfechos.get(0).erro()).isIn(Optional.empty(), Optional.of(Codigo.LUGAR_OCUPADO));
+      assertThat(desfechos.get(1).aceito()).isTrue();
+      Visao finalB = mesa.b().consultar(Assento.B);
+      assertThat(finalB.pecas()).filteredOn(p -> "L2".equals(lugarDe(p))).hasSize(1);
+      assertThat(finalB.sinal()).isNull();
+    }
+  }
+
   @Test
   void criacoesSimultaneasRespeitamOLimiteDeSalas() throws Exception {
     int limite = 20;

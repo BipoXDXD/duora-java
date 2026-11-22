@@ -1,7 +1,9 @@
 package bipotheking.net.duora.room;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.hamcrest.Matchers.contains;
 import static org.hamcrest.Matchers.containsString;
+import static org.hamcrest.Matchers.empty;
 import static org.hamcrest.Matchers.hasSize;
 import static org.hamcrest.Matchers.matchesPattern;
 import static org.hamcrest.Matchers.not;
@@ -113,7 +115,8 @@ class SalaApiTest {
             "resultado");
     assertThat(pecaPropria)
         .containsExactlyInAnyOrder("peca", "assento", "lugar", "lugaresPermitidos", "bloqueio");
-    assertThat(pecaDoParceiro).containsExactlyInAnyOrder("peca", "assento", "lugar");
+    assertThat(pecaDoParceiro)
+        .containsExactlyInAnyOrder("peca", "assento", "lugar", "destinosSugeriveis");
   }
 
   @Test
@@ -343,17 +346,72 @@ class SalaApiTest {
   }
 
   @Test
-  void sinalApareceParaODonoDaPecaSemMudarVersao() throws Exception {
+  void sinalComDestinoApareceParaODono() throws Exception {
     Pessoa ana = criar("Ana");
     Pessoa bruno = entrar(ana.convite(), "Bruno");
     colocar(bruno, "banco", "C2", 0).andExpect(status().isOk());
 
-    acao(ana, "/api/sala/sinal", "{\"peca\":\"banco\"}").andExpect(status().isOk());
+    acao(ana, "/api/sala/sinal", "{\"peca\":\"banco\",\"lugar\":\"C1\"}")
+        .andExpect(status().isOk());
 
     consultar(bruno)
         .andExpect(jsonPath("$.sinal.peca").value("banco"))
+        .andExpect(jsonPath("$.sinal.lugar").value("C1"))
         .andExpect(jsonPath("$.sinal.deAssento").value("A"))
         .andExpect(jsonPath("$.versao").value(1));
+  }
+
+  @Test
+  void visaoDoParceiroTrazDestinosSugeriveis() throws Exception {
+    Pessoa ana = criar("Ana");
+    Pessoa bruno = entrar(ana.convite(), "Bruno");
+    colocar(bruno, "lanterna", "R2", 0).andExpect(status().isOk());
+
+    consultar(ana)
+        .andExpect(jsonPath("$.pecas[4].peca").value("lanterna"))
+        .andExpect(jsonPath("$.pecas[4].destinosSugeriveis", contains("L1", "L2", "R1")))
+        .andExpect(jsonPath("$.pecas[3].destinosSugeriveis", empty()));
+  }
+
+  @Test
+  void sinalSemLugarResponde422() throws Exception {
+    Pessoa ana = criar("Ana");
+    entrar(ana.convite(), "Bruno");
+
+    acao(ana, "/api/sala/sinal", "{\"peca\":\"lanterna\"}")
+        .andExpect(status().isUnprocessableContent())
+        .andExpect(jsonPath("$.codigo").value("LUGAR_INVALIDO"));
+  }
+
+  @Test
+  void sinalComLugarDesconhecidoResponde422() throws Exception {
+    Pessoa ana = criar("Ana");
+    entrar(ana.convite(), "Bruno");
+
+    acao(ana, "/api/sala/sinal", "{\"peca\":\"lanterna\",\"lugar\":\"Z9\"}")
+        .andExpect(status().isUnprocessableContent())
+        .andExpect(jsonPath("$.codigo").value("LUGAR_INVALIDO"));
+  }
+
+  @Test
+  void pecaDesconhecidaNoSinalVemAntesDoLugar() throws Exception {
+    Pessoa ana = criar("Ana");
+    entrar(ana.convite(), "Bruno");
+
+    acao(ana, "/api/sala/sinal", "{\"peca\":\"foguete\"}")
+        .andExpect(status().isUnprocessableContent())
+        .andExpect(jsonPath("$.codigo").value("PECA_INVALIDA"));
+  }
+
+  @Test
+  void sinalComLugarInvalidoEmSalaEncerradaResponde422() throws Exception {
+    Pessoa ana = criar("Ana");
+    Pessoa bruno = entrar(ana.convite(), "Bruno");
+    acao(ana, "/api/sala/sair", "").andExpect(status().isNoContent());
+
+    acao(bruno, "/api/sala/sinal", "{\"peca\":\"telescopio\",\"lugar\":\"Z9\"}")
+        .andExpect(status().isUnprocessableContent())
+        .andExpect(jsonPath("$.codigo").value("LUGAR_INVALIDO"));
   }
 
   // Entrada malformada

@@ -64,22 +64,34 @@ public final class Regras {
       return recusar(Recusa.ESPERE_PRIMEIRA_PECA);
     }
     Optional<Sinal> sinal =
-        estado.sinal().filter(s -> nova.lugarDe(s.peca()).equals(atual.lugarDe(s.peca())));
+        estado
+            .sinal()
+            .filter(s -> nova.lugarDe(s.peca()).equals(atual.lugarDe(s.peca())))
+            .filter(s -> nova.ocupante(s.destino()).isEmpty());
     return aceitar(new Estado(montando, estado.versao() + 1, nova, Set.of(), sinal));
   }
 
   /**
-   * Sinaliza uma peça colocada do parceiro por {@link Cenario#duracaoSinal()}. Não muda a versão.
+   * Sugere levar uma peça colocada do parceiro a um lugar livre da mesma zona, por {@link
+   * Cenario#duracaoSinal()}. O novo sinal substitui o anterior, de quem for. Não muda a versão.
    */
   public static Decisao sinalizar(
-      Cenario cenario, Estado estado, Assento quem, Peca peca, Instant agora) {
+      Cenario cenario, Estado estado, Assento quem, Peca peca, Lugar destino, Instant agora) {
     if (peca.dono() == quem) {
       return recusar(Recusa.PECA_ALHEIA);
     }
-    if (!(estado.fase() instanceof Fase.Montando) || !estado.composicao().colocada(peca)) {
+    Composicao composicao = estado.composicao();
+    Optional<Lugar> atual = composicao.lugarDe(peca);
+    if (!(estado.fase() instanceof Fase.Montando) || atual.isEmpty()) {
       return recusar(Recusa.FASE_INVALIDA);
     }
-    Sinal sinal = new Sinal(peca, quem, agora.plus(cenario.duracaoSinal()));
+    if (!cenario.da(peca.zona()).contains(destino) || atual.get().equals(destino)) {
+      return recusar(Recusa.LUGAR_INVALIDO);
+    }
+    if (composicao.ocupante(destino).isPresent()) {
+      return recusar(Recusa.LUGAR_OCUPADO);
+    }
+    Sinal sinal = new Sinal(peca, quem, destino, agora.plus(cenario.duracaoSinal()));
     return aceitar(
         new Estado(
             estado.fase(),
@@ -130,6 +142,22 @@ public final class Regras {
             estado.composicao(),
             Set.of(),
             estado.sinal()));
+  }
+
+  /**
+   * Lugares para onde se pode sugerir levar uma peça colocada: os livres da zona dela, sem o atual,
+   * na ordem do cenário. Vazio fora de {@link Fase.Montando} e com a peça fora da cena.
+   */
+  public static List<Lugar> destinosSugeriveis(Cenario cenario, Estado estado, Peca peca) {
+    Composicao composicao = estado.composicao();
+    Optional<Lugar> atual = composicao.lugarDe(peca);
+    if (!(estado.fase() instanceof Fase.Montando) || atual.isEmpty()) {
+      return List.of();
+    }
+    return cenario.da(peca.zona()).stream()
+        .filter(lugar -> !lugar.equals(atual.get()))
+        .filter(lugar -> composicao.ocupante(lugar).isEmpty())
+        .toList();
   }
 
   /** Lugares para onde a peça própria pode ir agora (vazio fora de {@link Fase.Montando}). */

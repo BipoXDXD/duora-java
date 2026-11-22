@@ -5,8 +5,8 @@ import static bipotheking.net.duora.e2e.Cenarios.BRUNO;
 import static bipotheking.net.duora.e2e.Cenarios.entrarEmPar;
 import static bipotheking.net.duora.e2e.Cenarios.raiz;
 import static bipotheking.net.duora.e2e.TerracoPagina.Lugar.C1;
-import static bipotheking.net.duora.e2e.TerracoPagina.Lugar.C2;
-import static bipotheking.net.duora.e2e.TerracoPagina.Peca.BANCO;
+import static bipotheking.net.duora.e2e.TerracoPagina.Lugar.R2;
+import static bipotheking.net.duora.e2e.TerracoPagina.Peca.LANTERNA;
 import static bipotheking.net.duora.e2e.TerracoPagina.Peca.MANTA;
 import static bipotheking.net.duora.e2e.TerracoPagina.Peca.TELESCOPIO;
 import static com.microsoft.playwright.assertions.PlaywrightAssertions.assertThat;
@@ -157,14 +157,14 @@ class AcessibilidadeLayoutIT {
     entrarEmPar(ana, bruno, raiz(porta));
     ana.colocar(TELESCOPIO, C1, ANA);
     assertThat(bruno.pecaNoTerraco(TELESCOPIO, ANA, C1)).isVisible();
-    bruno.colocar(BANCO, C2, BRUNO);
-    assertThat(ana.pecaNoTerraco(BANCO, BRUNO, C2)).isVisible();
+    bruno.colocar(LANTERNA, R2, BRUNO);
+    assertThat(ana.pecaNoTerraco(LANTERNA, BRUNO, R2)).isVisible();
 
-    ana.pecaNoTerraco(BANCO, BRUNO, C2).click();
+    ana.pecaNoTerraco(LANTERNA, BRUNO, R2).click();
 
-    Locator banco = bruno.pecaNoTerraco(BANCO, BRUNO, C2);
-    assertThat(banco).hasAccessibleName(Pattern.compile("Sugerido mover"));
-    assertThat(banco.getByText("Sugerido mover")).isVisible();
+    Locator lanterna = bruno.pecaNoTerraco(LANTERNA, BRUNO, R2);
+    assertThat(lanterna).hasAccessibleName(Pattern.compile("Sugerido mover"));
+    assertThat(lanterna.getByText("Sugerido mover")).isVisible();
   }
 
   @Test

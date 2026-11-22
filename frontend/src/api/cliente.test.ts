@@ -96,12 +96,22 @@ describe("api", () => {
     const fetchFalso = responder(204);
 
     await api.sair();
-    await api.sinalizar("manta");
+    await api.sinalizar("manta", "L2");
 
     for (const [, init] of fetchFalso.mock.calls) {
       expect(new Headers(init?.headers).get("X-Duora")).toBe("1");
     }
     expect(fetchFalso).toHaveBeenCalledTimes(2);
+  });
+
+  it("sinalizarEnviaPecaELugar", async () => {
+    const fetchFalso = responder(200, VISAO);
+
+    await api.sinalizar("manta", "L2");
+
+    const [url, init] = fetchFalso.mock.calls[0] ?? [];
+    expect(url).toBe("/api/sala/sinal");
+    expect(init?.body).toBe('{"peca":"manta","lugar":"L2"}');
   });
 
   it("envia o corpo em JSON no caminho do contrato", async () => {

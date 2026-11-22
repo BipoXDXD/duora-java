@@ -235,9 +235,14 @@ export function criarSessao({
       return;
     }
     if (!minha) {
+      // Até a escolha do destino (F3), sugere o primeiro destino livre; sem destino, o toque não faz nada.
+      const destino = visao.pecas.find((p) => p.peca === peca)?.destinosSugeriveis?.[0];
+      if (destino === undefined) {
+        return;
+      }
       await enviar(
         "sinal",
-        () => api.sinalizar(peca),
+        () => api.sinalizar(peca, destino),
         () => `Você sugeriu que ${String(visao.parceiro?.nome)} mova ${cenario.peca(peca).artigo}.`,
       );
       return;

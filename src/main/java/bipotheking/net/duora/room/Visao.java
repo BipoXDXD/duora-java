@@ -37,7 +37,7 @@ record Visao(
 
   record Parceiro(Assento assento, String nome, boolean conectado) {}
 
-  /** Peças próprias trazem lugares permitidos e bloqueio; as do parceiro, não. */
+  /** Peças próprias trazem lugares permitidos e bloqueio; as do parceiro, destinos sugeríveis. */
   sealed interface VisaoPeca permits PecaPropria, PecaDoParceiro {}
 
   record PecaPropria(
@@ -48,14 +48,15 @@ record Visao(
       @Nullable String bloqueio)
       implements VisaoPeca {}
 
-  record PecaDoParceiro(String peca, Assento assento, @Nullable String lugar)
+  record PecaDoParceiro(
+      String peca, Assento assento, @Nullable String lugar, List<String> destinosSugeriveis)
       implements VisaoPeca {}
 
   record Prontos(boolean voce, boolean parceiro) {}
 
   record Confirmacao(boolean podeConfirmar, int faltam) {}
 
-  record VisaoSinal(String peca, Assento deAssento) {}
+  record VisaoSinal(String peca, Assento deAssento, String lugar) {}
 
   @Override
   public String toString() {
@@ -84,7 +85,7 @@ record Visao(
             cenario.faltam(estado.composicao())),
         estado
             .sinalAtivoEm(agora)
-            .map(s -> new VisaoSinal(s.peca().id(), s.deAssento()))
+            .map(s -> new VisaoSinal(s.peca().id(), s.deAssento(), s.destino().id()))
             .orElse(null),
         Regras.resultado(cenario, estado).map(Resultado::valores).orElse(null));
   }
@@ -99,7 +100,11 @@ record Visao(
   private static VisaoPeca visaoDa(Cenario cenario, Peca peca, Estado estado, Assento quem) {
     String lugar = estado.composicao().lugarDe(peca).map(Lugar::id).orElse(null);
     if (peca.dono() != quem) {
-      return new PecaDoParceiro(peca.id(), peca.dono(), lugar);
+      return new PecaDoParceiro(
+          peca.id(),
+          peca.dono(),
+          lugar,
+          Regras.destinosSugeriveis(cenario, estado, peca).stream().map(Lugar::id).toList());
     }
     return new PecaPropria(
         peca.id(),

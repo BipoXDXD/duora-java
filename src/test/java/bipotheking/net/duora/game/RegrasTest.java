@@ -407,19 +407,21 @@ class RegrasTest {
   }
 
   @Test
-  void sinalSobrePecaColocadaDoParceiroNaoMudaVersao() {
-    Estado estado = colocar(montando(), BANCO, C2);
+  void sinalComDestinoLivreEAceito() {
+    Estado estado = colocar(montando(), LANTERNA, R2);
 
-    Estado sinalizado = aceito(Regras.sinalizar(CENARIO, estado, A, BANCO, AGORA));
+    Estado sinalizado = aceito(Regras.sinalizar(CENARIO, estado, A, LANTERNA, R1, AGORA));
 
-    assertThat(sinalizado.sinal()).contains(new Sinal(BANCO, A, AGORA.plusSeconds(20)));
+    assertThat(sinalizado.sinal())
+        .isEqualTo(Optional.of(new Sinal(LANTERNA, A, R1, AGORA.plusSeconds(20))));
     assertThat(sinalizado.versao()).isEqualTo(estado.versao());
   }
 
   @Test
   void sinalVale20Segundos() {
     Estado sinalizado =
-        aceito(Regras.sinalizar(CENARIO, colocar(montando(), BANCO, C2), A, BANCO, AGORA));
+        aceito(
+            Regras.sinalizar(CENARIO, colocar(montando(), LANTERNA, R2), A, LANTERNA, R1, AGORA));
 
     assertThat(sinalizado.sinalAtivoEm(AGORA.plusSeconds(19))).isPresent();
     assertThat(sinalizado.sinalAtivoEm(AGORA.plusSeconds(20))).isEmpty();
@@ -429,34 +431,87 @@ class RegrasTest {
   void sinalSobrePecaPropriaEhRecusado() {
     Estado estado = colocar(montando(), TELESCOPIO, C1);
 
-    assertThat(Regras.sinalizar(CENARIO, estado, A, TELESCOPIO, AGORA))
+    assertThat(Regras.sinalizar(CENARIO, estado, A, TELESCOPIO, C2, AGORA))
         .isEqualTo(recusa(Recusa.PECA_ALHEIA));
   }
 
   @Test
   void sinalSobrePecaNaoColocadaEhRecusado() {
-    assertThat(Regras.sinalizar(CENARIO, montando(), A, BANCO, AGORA))
+    assertThat(Regras.sinalizar(CENARIO, montando(), A, BANCO, C1, AGORA))
         .isEqualTo(recusa(Recusa.FASE_INVALIDA));
   }
 
   @Test
-  void sinalSomeQuandoODonoMoveAPeca() {
-    Estado estado = colocar(colocar(montando(), BANCO, C2), TELESCOPIO, C1);
-    Estado sinalizado = aceito(Regras.sinalizar(CENARIO, estado, A, BANCO, AGORA));
+  void sinalParaLugarOcupadoERecusado() {
+    Estado estado = colocar(colocar(montando(), LANTERNA, R2), MANTA, L2);
 
-    Estado movido = aceito(Regras.colocar(CENARIO, sinalizado, B, BANCO, Optional.empty(), 2));
+    assertThat(Regras.sinalizar(CENARIO, estado, A, LANTERNA, L2, AGORA))
+        .isEqualTo(recusa(Recusa.LUGAR_OCUPADO));
+  }
+
+  @Test
+  void sinalParaOutraZonaERecusado() {
+    Estado estado = colocar(montando(), LANTERNA, R2);
+
+    assertThat(Regras.sinalizar(CENARIO, estado, A, LANTERNA, C1, AGORA))
+        .isEqualTo(recusa(Recusa.LUGAR_INVALIDO));
+  }
+
+  @Test
+  void sinalParaOLugarAtualERecusado() {
+    Estado estado = colocar(montando(), LANTERNA, R2);
+
+    assertThat(Regras.sinalizar(CENARIO, estado, A, LANTERNA, R2, AGORA))
+        .isEqualTo(recusa(Recusa.LUGAR_INVALIDO));
+  }
+
+  @Test
+  void sinalSomeQuandoODonoMoveAPeca() {
+    Estado estado = colocar(colocar(montando(), LANTERNA, R2), TELESCOPIO, C1);
+    Estado sinalizado = aceito(Regras.sinalizar(CENARIO, estado, A, LANTERNA, R1, AGORA));
+
+    Estado movido = aceito(Regras.colocar(CENARIO, sinalizado, B, LANTERNA, Optional.empty(), 2));
 
     assertThat(movido.sinal()).isEmpty();
   }
 
   @Test
   void sinalContinuaQuandoOutraPecaSeMove() {
-    Estado estado = colocar(colocar(montando(), BANCO, C2), TELESCOPIO, C1);
-    Estado sinalizado = aceito(Regras.sinalizar(CENARIO, estado, A, BANCO, AGORA));
+    Estado estado = colocar(colocar(montando(), LANTERNA, R2), TELESCOPIO, C1);
+    Estado sinalizado = aceito(Regras.sinalizar(CENARIO, estado, A, LANTERNA, R1, AGORA));
 
-    Estado movido = aceito(Regras.colocar(CENARIO, sinalizado, B, LANTERNA, Optional.of(R1), 2));
+    Estado movido = aceito(Regras.colocar(CENARIO, sinalizado, B, BANCO, Optional.of(C2), 2));
 
     assertThat(movido.sinal()).isEqualTo(sinalizado.sinal());
+  }
+
+  @Test
+  void sinalCaiQuandoODestinoEOcupado() {
+    Estado estado = colocar(colocar(montando(), LANTERNA, R2), TELESCOPIO, C1);
+    Estado sinalizado = aceito(Regras.sinalizar(CENARIO, estado, A, LANTERNA, L2, AGORA));
+
+    Estado ocupado = aceito(Regras.colocar(CENARIO, sinalizado, A, MANTA, Optional.of(L2), 2));
+
+    assertThat(ocupado.sinal()).isEmpty();
+  }
+
+  @Test
+  void destinosSugeriveisSaoOsLivresDaZonaSemOAtual() {
+    Estado estado = completa();
+
+    assertThat(Regras.destinosSugeriveis(CENARIO, estado, LANTERNA)).containsExactly(L2, R2);
+    assertThat(Regras.destinosSugeriveis(CENARIO, estado, MANTA)).containsExactly(L2, R2);
+    assertThat(Regras.destinosSugeriveis(CENARIO, estado, BANCO)).isEmpty();
+  }
+
+  @Test
+  void destinosSugeriveisVaziosParaPecaForaDaCena() {
+    assertThat(Regras.destinosSugeriveis(CENARIO, completa(), GARRAFA)).isEmpty();
+  }
+
+  @Test
+  void destinosSugeriveisVaziosForaDaMontagem() {
+    assertThat(Regras.destinosSugeriveis(CENARIO, revelado(), LANTERNA)).isEmpty();
   }
 
   @Test

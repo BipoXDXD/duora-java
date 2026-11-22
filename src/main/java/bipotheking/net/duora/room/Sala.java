@@ -136,8 +136,9 @@ final class Sala {
         (estado, agora) -> Regras.colocar(cenario, estado, quem, peca, destino, versaoEsperada));
   }
 
-  Visao sinalizar(Assento quem, Peca peca) {
-    return agir(quem, (estado, agora) -> Regras.sinalizar(cenario, estado, quem, peca, agora));
+  Visao sinalizar(Assento quem, Peca peca, Lugar destino) {
+    return agir(
+        quem, (estado, agora) -> Regras.sinalizar(cenario, estado, quem, peca, destino, agora));
   }
 
   Visao confirmar(Assento quem, boolean pronto, long versao) {

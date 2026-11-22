@@ -1,12 +1,13 @@
 import { describe, expect, expectTypeOf, it, vi } from "vitest";
 import { type Api, ErroApi, type Resposta } from "../api/cliente";
 import type { GanchosDoPolling, Polling } from "../api/polling";
-import type { Visao } from "../dominio/visao";
+import type { Visao, VisaoPeca } from "../dominio/visao";
 import { cenarioDoTerraco } from "../teste/cenarioDoTerraco";
 import type { Aviso } from "./aviso";
 import { criarSessao, type EstadoDaTela } from "./sessao";
 
 const BRUNO = { assento: "B", nome: "Bruno", conectado: true } as const;
+const BANCO_EM_C2: VisaoPeca = { peca: "banco", assento: "B", lugar: "C2", destinosSugeriveis: ["C1"] };
 
 function visao(mudancas: Partial<Visao> = {}): Visao {
   return {
@@ -216,14 +217,34 @@ describe("criarSessao", () => {
   });
 
   it("peça do parceiro envia um sinal", async () => {
-    const { sessao, api, aviso } = naSala(visao(), {
+    const { sessao, api, aviso } = naSala(visao({ pecas: [BANCO_EM_C2] }), {
       api: { sinalizar: vi.fn(() => Promise.resolve(resposta(visao({ versao: 4 })))) },
     });
 
     await sessao.escolherPeca("banco", false);
 
-    expect(api.sinalizar).toHaveBeenCalledWith("banco");
+    expect(api.sinalizar).toHaveBeenCalledWith("banco", "C1");
     expect(aviso.avisar).toHaveBeenLastCalledWith("Você sugeriu que Bruno mova o banco.");
+  });
+
+  it("sinalEnviaOPrimeiroDestinoSugerivel", async () => {
+    const lanterna: VisaoPeca = { peca: "lanterna", assento: "B", lugar: "R2", destinosSugeriveis: ["L1", "L2", "R1"] };
+    const { sessao, api } = naSala(visao({ pecas: [lanterna] }), {
+      api: { sinalizar: vi.fn(() => Promise.resolve(resposta(visao({ versao: 4 })))) },
+    });
+
+    await sessao.escolherPeca("lanterna", false);
+
+    expect(api.sinalizar).toHaveBeenCalledExactlyOnceWith("lanterna", "L1");
+  });
+
+  it("sinalSemDestinoSugerivelEIgnorado", async () => {
+    const { sessao, api, aviso } = naSala(visao({ pecas: [{ ...BANCO_EM_C2, destinosSugeriveis: [] }] }));
+
+    await sessao.escolherPeca("banco", false);
+
+    expect(api.sinalizar).not.toHaveBeenCalled();
+    expect(aviso.avisar).not.toHaveBeenCalled();
   });
 
   it("segundaAcaoDuranteEnvioEIgnorada", () => {
