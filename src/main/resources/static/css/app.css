@@ -306,12 +306,20 @@ button {
 }
 
 .cidade-crepusculo {
-  background-image: url("/assets/ceu/ceu-crepusculo.webp");
+  background-image: url("/assets/ceu/ceu-crepusculo-1280.webp");
+  background-image: image-set(
+    url("/assets/ceu/ceu-crepusculo-1280.webp") 1x,
+    url("/assets/ceu/ceu-crepusculo-2560.webp") 2x
+  );
   background-color: #0d2237;
 }
 
 .cidade-noite {
-  background-image: url("/assets/ceu/ceu-noite.webp");
+  background-image: url("/assets/ceu/ceu-noite-1280.webp");
+  background-image: image-set(
+    url("/assets/ceu/ceu-noite-1280.webp") 1x,
+    url("/assets/ceu/ceu-noite-2560.webp") 2x
+  );
   background-color: #061726;
   opacity: 0;
   transition: opacity 2.4s ease-in-out;

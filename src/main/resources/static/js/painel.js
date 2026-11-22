@@ -1,6 +1,6 @@
 // Painel de ações: quem está na sala, instrução, o que falta, peças e confirmação.
 
-import { LUGARES, PECAS, sprite, urlSprite } from "./dados.js";
+import { LARGURA_MINIATURA, LUGARES, PECAS, sprite, urlSprite } from "./dados.js";
 import { textoBloqueio, textoMotivoConfirmacao, textoResultado } from "./mensagens.js";
 
 const ICONE_FEITO =
@@ -94,7 +94,7 @@ export function criarPainel(el, { aoEscolherPeca, aoRetirar, aoConfirmar, aoAjus
       const img = new Image();
       img.className = "miniatura";
       img.alt = "";
-      img.src = urlSprite(sprite(p.peca, p.lugar ?? "C2"), "crepusculo");
+      img.src = urlSprite(sprite(p.peca, p.lugar ?? "C2"), "crepusculo", LARGURA_MINIATURA);
       const texto = document.createElement("span");
       const nome = document.createElement("span");
       nome.className = "nome-item";
