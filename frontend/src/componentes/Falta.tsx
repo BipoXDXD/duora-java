@@ -54,20 +54,22 @@ function IconePendente() {
   );
 }
 
-/** "O que falta": some quando a noite é revelada. */
+/** "O que falta": some quando nada falta e quando a noite é revelada. */
 export function Falta({ visao }: { visao: Visao }) {
   const c = useCenario();
+  const linhas = linhasDaFalta(c, visao);
+  const nadaFalta = linhas.every(([, feito]) => feito);
   return (
     <section
       className="falta celular:order-4 celular-deitado:order-4"
       aria-labelledby="falta-titulo"
-      hidden={visao.fase === "REVELADO"}
+      hidden={nadaFalta || visao.fase === "REVELADO"}
     >
       <h2 id="falta-titulo" className={SUBTITULO}>
         O que falta
       </h2>
       <ul id="falta" className="grid gap-(--e-1) m-0 p-0 list-none text-texto-2">
-        {linhasDaFalta(c, visao).map(([texto, feito], posicao) => (
+        {linhas.map(([texto, feito], posicao) => (
           // As quatro linhas são fixas e posicionais: a posição é a identidade.
           <li key={posicao} className="flex items-center gap-(--e-2) data-[feito=true]:text-texto-3" data-feito={feito}>
             {feito ? <IconeFeito /> : <IconePendente />}

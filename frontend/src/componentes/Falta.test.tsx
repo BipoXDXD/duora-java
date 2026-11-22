@@ -55,6 +55,17 @@ describe("Falta", () => {
     ]);
   });
 
+  it("some quando nada falta", () => {
+    renderComCenario(
+      <Falta
+        visao={visao([minha("telescopio", "C1"), minha("manta", "L1"), dele("banco", "C2"), dele("lanterna", "R1")])}
+      />,
+    );
+
+    expect(screen.queryByRole("region", { name: "O que falta" })).not.toBeInTheDocument();
+    expect(screen.getByText("O que falta").closest("section")).toHaveAttribute("hidden");
+  });
+
   it("checklist vem da zona do cenário", () => {
     renderComCenario(<Falta visao={visao([minha("pedra", "P1"), dele("folha", null)])} />, CENARIO_MINIMO);
 

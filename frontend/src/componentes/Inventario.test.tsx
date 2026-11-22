@@ -39,7 +39,18 @@ describe("Inventario", () => {
   it("a segunda peça lateral mostra a troca", () => {
     renderizar(MONTANDO);
 
-    expect(within(item(/^Rádio/)).getByText("Troca a manta por o rádio")).toBeInTheDocument();
+    expect(within(item(/^Rádio/)).getByText("Troca a manta pelo rádio")).toBeInTheDocument();
+  });
+
+  it("a troca contrai o artigo feminino em pela", () => {
+    const pecaB = (p: string, lugar: string | null): VisaoPeca => ({ ...peca(p, lugar), assento: "B" });
+    renderizar({
+      ...MONTANDO,
+      voce: { assento: "B", nome: "Bruno" },
+      pecas: [pecaB("banco", "C2"), pecaB("lanterna", "R1"), pecaB("garrafa", null)],
+    });
+
+    expect(within(item(/^Garrafa/)).getByText("Troca a lanterna pela garrafa térmica")).toBeInTheDocument();
   });
 
   it("item bloqueado tem aria-disabled, diz o motivo e ignora o clique", async () => {

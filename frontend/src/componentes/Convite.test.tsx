@@ -13,9 +13,9 @@ function prepararCopia({ clipboard, execCommand }: { clipboard: boolean; execCom
   return { writeText };
 }
 
-async function copiar() {
+async function copiar(ehToque = false) {
   const aoCopiar = vi.fn();
-  render(<Convite link={LINK} aoCopiar={aoCopiar} />);
+  render(<Convite link={LINK} aoCopiar={aoCopiar} ehToque={ehToque} />);
   await userEvent.click(screen.getByRole("button", { name: "Copiar convite" }));
   await vi.waitFor(() => {
     expect(aoCopiar).toHaveBeenCalledOnce();
@@ -54,5 +54,24 @@ describe("Convite", () => {
 
     expect(aoCopiar).toHaveBeenCalledWith("O link está selecionado. Copie com Ctrl+C (ou ⌘+C).");
     expect(screen.getByLabelText("Link para a outra pessoa")).toHaveFocus();
+  });
+
+  it("fora do toque, a dica ensina a testar em outra janela", () => {
+    render(<Convite link={LINK} aoCopiar={vi.fn()} ehToque={false} />);
+
+    expect(screen.getByLabelText("Link para a outra pessoa")).toHaveAccessibleDescription(
+      "Para testar sozinho, abra o link em uma janela anônima ou em outro navegador: cada janela é uma pessoa. O convite vale para uma entrada.",
+    );
+  });
+
+  it("no toque, a dica e o aviso de cópia não falam de janela", async () => {
+    prepararCopia({ clipboard: true, execCommand: false });
+
+    const aoCopiar = await copiar(true);
+
+    expect(aoCopiar).toHaveBeenCalledWith("Convite copiado.");
+    expect(screen.getByLabelText("Link para a outra pessoa")).toHaveAccessibleDescription(
+      "O convite vale para uma entrada.",
+    );
   });
 });

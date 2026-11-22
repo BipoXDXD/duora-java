@@ -1,5 +1,6 @@
 import { useCenario } from "../cenario/contexto";
 import type { CenarioFront } from "../cenario/tipos";
+import { porArtigo } from "../dominio/artigos";
 import { LARGURA_MINIATURA } from "../dominio/dados";
 import { textoBloqueio } from "../dominio/mensagens";
 import type { Visao, VisaoPeca } from "../dominio/visao";
@@ -36,7 +37,7 @@ function estadoDoItem(c: CenarioFront, p: VisaoPeca, minhas: VisaoPeca[], visao:
   }
   const outraSecundaria = minhas.find((o) => o !== p && !c.peca(o.peca).obrigatoria && o.lugar);
   if (!info.obrigatoria && outraSecundaria) {
-    return `Troca ${c.peca(outraSecundaria.peca).artigo} por ${info.artigo}`;
+    return `Troca ${c.peca(outraSecundaria.peca).artigo} ${porArtigo(info.artigo)}`;
   }
   return c.zona(info.zona).descricao;
 }
