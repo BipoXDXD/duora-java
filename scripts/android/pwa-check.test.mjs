@@ -61,3 +61,12 @@ test('android13FalhaSeAPermissaoDeNotificacaoFalhar', () => {
 
   assert.throws(() => prepararChrome(adb, false), /POST_NOTIFICATIONS/);
 });
+
+test('chromeSemOfertaDeTraducao', () => {
+  const adb = adbFalso({ sdk: 35 });
+
+  prepararChrome(adb, false);
+
+  const linha = adb.comandos.find((c) => c.includes('/data/local/tmp/chrome-command-line'));
+  assert.match(linha ?? '', /--disable-features=Translate\b/, adb.comandos.join('\n'));
+});

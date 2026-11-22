@@ -101,8 +101,10 @@ function exigirEmuladorPronto(adb) {
 
 export function prepararChrome(adb, limpar) {
   if (limpar) adb.shell(`pm clear ${CHROME}`);
-  // Chrome lê este arquivo só quando é o "debug app"; pula o first run e o aviso de navegador padrão.
-  adb.shell('echo "_ --disable-fre --no-default-browser-check --no-first-run" > /data/local/tmp/chrome-command-line');
+  // Chrome lê este arquivo só quando é o "debug app"; pula o first run e o aviso de navegador padrão,
+  // e desliga a tradução, cujo pop-up "Translate page?" entrava na captura standalone.
+  adb.shell('echo "_ --disable-fre --no-default-browser-check --no-first-run --disable-features=Translate"'
+    + ' > /data/local/tmp/chrome-command-line');
   adb.shell(`am set-debug-app --persistent ${CHROME}`);
   // Sem a permissão, o Chrome recém-limpo abre o aviso "Chrome notifications" e descarta a URL.
   // Ela só existe a partir do Android 13; antes disso, o pm grant falharia por permissão desconhecida.
