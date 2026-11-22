@@ -9,6 +9,8 @@ interface PropsEntrada {
   /** Erro do servidor para o apelido; "" quando não há. */
   erro: string;
   aoEnviar: (apelido: string) => void;
+  /** Digitou um apelido válido: o erro do servidor (se houver) deixa de valer. */
+  aoCorrigir: () => void;
 }
 
 /**
@@ -28,7 +30,7 @@ function useErroDoApelido(erro: string, enviando: boolean) {
   return [doCampo ?? erro, setDoCampo] as const;
 }
 
-export function Entrada({ comConvite, enviando, erro, aoEnviar }: PropsEntrada) {
+export function Entrada({ comConvite, enviando, erro, aoEnviar, aoCorrigir }: PropsEntrada) {
   const refApelido = useRef<HTMLInputElement>(null);
   const [erroMostrado, mostrarErro] = useErroDoApelido(erro, enviando);
   const acao = comConvite ? "Entrar no terraço" : "Criar terraço";
@@ -53,6 +55,7 @@ export function Entrada({ comConvite, enviando, erro, aoEnviar }: PropsEntrada) 
     const campo = refApelido.current;
     if (erroMostrado && campo !== null && !validarApelido(campo.value.trim())) {
       mostrarErro("");
+      aoCorrigir();
     }
   }
 

@@ -41,8 +41,9 @@ class PollingIT {
 
   /**
    * Sonda na página: registra cada GET /api/sala (hora falsa, If-None-Match, status, ETag), conta
-   * consultas em voo e cada agendamento de setTimeout feito pelo laço de polling ({@code api.js},
-   * identificado pela pilha; os meteoros também usam setTimeout e ficam de fora).
+   * consultas em voo e cada agendamento de setTimeout feito pelo laço de polling ({@code
+   * app/polling-*.js}, identificado pela pilha; os meteoros também usam setTimeout e ficam de
+   * fora).
    */
   private static final String SONDA =
       """
@@ -68,7 +69,7 @@ class PollingIT {
         };
         const agendarOriginal = window.setTimeout;
         window.setTimeout = function (fn, ms, ...args) {
-          if (String(new Error().stack).includes("/js/api.js")) {
+          if (/\\/app\\/polling-[^/]+\\.js/.test(String(new Error().stack))) {
             r.agendas.push(ms ?? 0);
             marcar("data-agendas", r.agendas.length);
           }

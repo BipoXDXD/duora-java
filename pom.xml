@@ -73,6 +73,31 @@
     </dependencies>
 
     <build>
+        <!-- Os dois primeiros repetem os do spring-boot-starter-parent, que esta lista substitui. O
+             terceiro serve o build do Vite (target/vite) em static/, junto dos binários de /assets/. -->
+        <resources>
+            <resource>
+                <directory>${basedir}/src/main/resources</directory>
+                <filtering>true</filtering>
+                <includes>
+                    <include>**/application*.yml</include>
+                    <include>**/application*.yaml</include>
+                    <include>**/application*.properties</include>
+                </includes>
+            </resource>
+            <resource>
+                <directory>${basedir}/src/main/resources</directory>
+                <excludes>
+                    <exclude>**/application*.yml</exclude>
+                    <exclude>**/application*.yaml</exclude>
+                    <exclude>**/application*.properties</exclude>
+                </excludes>
+            </resource>
+            <resource>
+                <directory>${project.build.directory}/vite</directory>
+                <targetPath>static</targetPath>
+            </resource>
+        </resources>
         <pluginManagement>
             <plugins>
                 <!-- Usado na CI para instalar o navegador do Playwright (exec:java) -->
@@ -84,6 +109,30 @@
             </plugins>
         </pluginManagement>
         <plugins>
+            <!-- Cada build recompõe target/classes/static do zero: sobras de um build anterior (o app
+                 antigo, bundles com hash velho) entrariam na impressão do ServiceWorkerVersaoTest e
+                 não na do sw.js gerado. -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-clean-plugin</artifactId>
+                <executions>
+                    <execution>
+                        <id>limpar-static</id>
+                        <phase>initialize</phase>
+                        <goals>
+                            <goal>clean</goal>
+                        </goals>
+                        <configuration>
+                            <excludeDefaultDirectories>true</excludeDefaultDirectories>
+                            <filesets>
+                                <fileset>
+                                    <directory>${project.build.outputDirectory}/static</directory>
+                                </fileset>
+                            </filesets>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-compiler-plugin</artifactId>
@@ -126,8 +175,7 @@
                 <groupId>org.springframework.boot</groupId>
                 <artifactId>spring-boot-maven-plugin</artifactId>
             </plugin>
-            <!-- Front (frontend/): lint, build do Vite em target/vite e Vitest.
-                 target/vite ainda não é recurso: o app servido segue o de src/main/resources/static.
+            <!-- Front (frontend/): lint, build do Vite em target/vite (servido em static/) e Vitest.
                  O plugin registra o stderr do pnpm como [ERROR]; o silent tira o eco "$ comando" que o
                  pnpm escreve lá, e a saída dos scripts (e as falhas, pelo código de saída) continua. -->
             <plugin>

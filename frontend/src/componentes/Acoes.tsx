@@ -37,18 +37,33 @@ export function Acoes({ visao, enviando, somLigado, aoConfirmar, aoAlternarSom }
       <p className="motivo m-0 text-texto-2 text-[0.875rem] min-h-[1.3em]" id="motivo" hidden={revelado}>
         {textoMotivoConfirmacao(visao)}
       </p>
-      <button
-        type="button"
-        className={`botao-som ${BOTAO_TEXTO}`}
-        id="som"
-        aria-pressed={somLigado}
-        onClick={aoAlternarSom}
-      >
-        Som{" "}
-        <span className="estado-som" id="estado-som" aria-hidden="true">
-          {somLigado ? "ligado" : "desligado"}
-        </span>
-      </button>
+      <BotaoSom somLigado={somLigado} aoAlternarSom={aoAlternarSom} />
     </div>
+  );
+}
+
+interface PropsBotaoSom {
+  somLigado: boolean;
+  aoAlternarSom: () => void;
+  /** Fora da montagem o botão continua na página, oculto, como no HTML antigo: o estado do som não some com a tela. */
+  oculto?: boolean;
+}
+
+/** Estado do som: aria-pressed para leitores de tela; o texto visível fica fora do nome. */
+export function BotaoSom({ somLigado, aoAlternarSom, oculto = false }: PropsBotaoSom) {
+  return (
+    <button
+      type="button"
+      className={`botao-som ${BOTAO_TEXTO}`}
+      id="som"
+      aria-pressed={somLigado}
+      hidden={oculto}
+      onClick={aoAlternarSom}
+    >
+      Som{" "}
+      <span className="estado-som" id="estado-som" aria-hidden="true">
+        {somLigado ? "ligado" : "desligado"}
+      </span>
+    </button>
   );
 }

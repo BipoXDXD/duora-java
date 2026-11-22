@@ -7,19 +7,24 @@ import java.nio.file.Files;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 import java.util.TreeSet;
+import java.util.stream.Stream;
 import org.junit.jupiter.api.Test;
 
 /**
- * A lista SHELL do sw.js e os sprites do cena.json conferem com os arquivos de {@code static/}: um
- * item faltando quebra o install do worker inteiro, e um módulo fora do shell deixa o app sem abrir
- * offline.
+ * A lista SHELL do sw.js e os sprites do cena.json conferem com os arquivos servidos: um item
+ * faltando quebra o install do worker inteiro, e um arquivo do index fora do shell deixa o app sem
+ * abrir offline.
  */
 class ShellDoServiceWorkerTest {
 
   /** O terraço não está em "props" do cena.json, mas a cena pede as mesmas larguras dele. */
   private static final String TERRACO = "terraco";
+
+  /** Os {@code rel} de {@code <link>} que o app precisa para abrir (os ícones ficam de fora). */
+  private static final Set<String> CARREGADOS_PELO_INDEX = Set.of("modulepreload", "stylesheet");
 
   @Test
   void todaEntradaDoShellExisteEmStatic() {
@@ -32,15 +37,19 @@ class ShellDoServiceWorkerTest {
   }
 
   @Test
-  void todoModuloJsEstaNoShell() {
-    List<String> modulos =
-        Estaticos.arquivos().stream()
-            .filter(caminho -> caminho.startsWith("js/") && caminho.endsWith(".js"))
-            .map(caminho -> "/" + caminho)
-            .toList();
+  void todoArquivoCitadoNoIndexEstaNoShell() {
+    Stream<String> scripts =
+        Estaticos.tagsDoIndex("script").stream()
+            .map(tag -> tag.get("src"))
+            .filter(Objects::nonNull);
+    Stream<String> links =
+        Estaticos.tagsDoIndex("link").stream()
+            .filter(tag -> CARREGADOS_PELO_INDEX.contains(tag.get("rel")))
+            .map(tag -> tag.get("href"));
+    List<String> citados = Stream.concat(scripts, links).toList();
 
-    assertThat(modulos).isNotEmpty();
-    assertThat(Estaticos.shell()).containsAll(modulos);
+    assertThat(citados).isNotEmpty();
+    assertThat(Estaticos.shell()).containsAll(citados);
   }
 
   @Test

@@ -1,6 +1,6 @@
 import { existsSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { join, relative, resolve, sep } from "node:path";
+import { join, posix, relative, resolve, sep } from "node:path";
 import { build, type Manifest, type Plugin, type ResolvedConfig } from "vite";
 import { impressao } from "./impressao.ts";
 
@@ -69,7 +69,8 @@ export function pluginServiceWorker(opcoes: OpcoesDoServiceWorker): Plugin {
  * que não devem ser públicos. Um item do SHELL sem arquivo falha o build antes de gravar qualquer coisa.
  */
 export async function gerarServiceWorker(opcoes: OpcoesDaGeracao): Promise<void> {
-  const caminhoDoManifest = (opcoes.manifest ?? MANIFEST_PADRAO).split(sep).join("/");
+  // Normalizado como os caminhos servidos ("./m.json" é "m.json"), para sair da impressão.
+  const caminhoDoManifest = posix.normalize((opcoes.manifest ?? MANIFEST_PADRAO).split(sep).join("/"));
   const arquivoDoManifest = join(opcoes.outDir, caminhoDoManifest);
   const manifest = JSON.parse(readFileSync(arquivoDoManifest, "utf-8")) as Manifest;
   const servidos = arquivosServidos(opcoes.outDir, opcoes.raizEstatica);
@@ -127,16 +128,22 @@ function arquivoDaUrl(url: string): string {
 }
 
 /**
- * Caminho servido → arquivo no disco: a raiz estática e, por cima, a saída do Vite, sem o sw.js
- * (que guarda o resultado), sem .vite/ e sem ocultos como .DS_Store, como o ServiceWorkerVersaoTest.
+ * Caminho servido → arquivo no disco: a raiz estática e a saída do Vite, sem o sw.js (que guarda o
+ * resultado), sem .vite/ e sem ocultos como .DS_Store, como o ServiceWorkerVersaoTest. Um caminho
+ * nas duas pastas é erro: o Maven copiaria uma sobre a outra, e a impressão não diria qual vale.
  */
 function arquivosServidos(outDir: string, raizEstatica: string): Map<string, string> {
   const servidos = new Map<string, string>();
   for (const raiz of [raizEstatica, outDir]) {
     for (const caminho of arquivosEm(raiz)) {
-      if (caminho !== SW && !caminho.startsWith(`${PASTA_DO_VITE}/`)) {
-        servidos.set(caminho, join(raiz, caminho));
+      if (caminho === SW || caminho.startsWith(`${PASTA_DO_VITE}/`)) {
+        continue;
       }
+      const outro = servidos.get(caminho);
+      if (outro !== undefined) {
+        throw new Error(`Service worker: ${caminho} existe em ${outro} e em ${join(raiz, caminho)}`);
+      }
+      servidos.set(caminho, join(raiz, caminho));
     }
   }
   return servidos;

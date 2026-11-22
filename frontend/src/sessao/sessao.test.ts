@@ -427,4 +427,14 @@ describe("criarSessao", () => {
       "erro",
     );
   });
+
+  it("depois de um erro fora da API, a tela mostrada continua a mesma nas mudanças seguintes", () => {
+    const { sessao, doPolling } = naSala();
+    doPolling().aoFalhar(new TypeError("quebrou"), null);
+
+    sessao.alternarSom();
+    sessao.abrirSaida();
+
+    expect(sessao.obter()).toMatchObject({ tela: "montagem", somLigado: true, confirmandoSaida: true });
+  });
 });

@@ -52,6 +52,12 @@ export interface Sessao {
 /** Telas sem sala; com visão, a tela sai da fase dela. */
 type TelaSemSala = Extract<EstadoDaTela, { tela: "carregando" | "entrada" | "encerrado" }>;
 
+/**
+ * A tela mostrada sem visão: uma tela sem sala ou, depois de um erro fora da API, a última tela
+ * da sala, que fica parada como estava.
+ */
+type TelaSemVisao = TelaSemSala | Extract<EstadoDaTela, { tela: "convite" | "montagem" }>;
+
 const CODIGOS_SEM_SALA = new Set(["SEM_ASSENTO", "SALA_INEXISTENTE", "SALA_ENCERRADA"]);
 
 const semSala = (erro: unknown): boolean => erro instanceof ErroApi && CODIGOS_SEM_SALA.has(erro.codigo);
@@ -85,7 +91,7 @@ export function criarSessao({ api, aviso, convite, criarPolling = criarPollingPa
     enviando: null as Acao | null,
     // Para dizer quem saiu depois que a visão já foi descartada.
     ultimoParceiro: null as string | null,
-    semSala: { tela: "carregando" } as TelaSemSala,
+    semVisao: { tela: "carregando" } as TelaSemVisao,
     confirmandoSaida: false,
     somLigado: false,
   };
@@ -124,7 +130,7 @@ export function criarSessao({ api, aviso, convite, criarPolling = criarPollingPa
   function telaAtual(): EstadoDaTela {
     const { visao, selecionada, enviando } = estado;
     if (visao === null) {
-      return estado.semSala;
+      return estado.semVisao;
     }
     if (visao.fase === "AGUARDANDO_PAR") {
       return { tela: "convite", visao };
@@ -156,14 +162,6 @@ export function criarSessao({ api, aviso, convite, criarPolling = criarPollingPa
     }
   }
 
-  /** Atualiza só o que vale fora da tela (envio, saída, som, céu), mantendo a tela publicada. */
-  function publicarSemTrocarTela(): void {
-    retrato = { ...retrato, ...camposForaDaTela() };
-    for (const ouvinte of ouvintes) {
-      ouvinte();
-    }
-  }
-
   /** Pedido feito antes da publicação que o acompanha: a tela o lê no commit seguinte. */
   function pedirFoco(pedido: PedidoDeFoco): void {
     foco = pedido;
@@ -172,7 +170,7 @@ export function criarSessao({ api, aviso, convite, criarPolling = criarPollingPa
   // ------------------------------------------------------------ telas sem sala
 
   function mostrarSemSala(tela: TelaSemSala, pedido: PedidoDeFoco | null): void {
-    estado.semSala = tela;
+    estado.semVisao = tela;
     // O botão de sair some fora do convite e da montagem; a confirmação vai junto.
     estado.confirmandoSaida = false;
     if (pedido) {
@@ -183,7 +181,7 @@ export function criarSessao({ api, aviso, convite, criarPolling = criarPollingPa
 
   /** comConvite: a página trouxe #convite= (a ação vira "Entrar no terraço"). */
   function mostrarEntrada(comConvite: boolean, focar = true): void {
-    mostrarSemSala({ tela: "entrada", comConvite, erroApelido: "", aviso: null }, focar ? { alvo: "apelido" } : null);
+    mostrarSemSala({ tela: "entrada", comConvite, erroApelido: "" }, focar ? { alvo: "apelido" } : null);
   }
 
   function mostrarEncerrado(texto: string): void {
@@ -379,10 +377,10 @@ export function criarSessao({ api, aviso, convite, criarPolling = criarPollingPa
 
   /** Devolve se o erro mudou. */
   function definirErroApelido(texto: string): boolean {
-    if (estado.semSala.tela !== "entrada" || estado.semSala.erroApelido === texto) {
+    if (estado.semVisao.tela !== "entrada" || estado.semVisao.erroApelido === texto) {
       return false;
     }
-    estado.semSala = { ...estado.semSala, erroApelido: texto };
+    estado.semVisao = { ...estado.semVisao, erroApelido: texto };
     return true;
   }
 
@@ -439,10 +437,13 @@ export function criarSessao({ api, aviso, convite, criarPolling = criarPollingPa
   function encerrarSessao(erro: unknown): void {
     const estavaNaSala = estado.visao !== null;
     const parceiro = estado.visao?.parceiro?.nome ?? estado.ultimoParceiro;
+    const telaDaVez = telaAtual();
     limparSessao();
     if (!(erro instanceof ErroApi)) {
-      // Como antes: a tela da vez fica, só a cena, o céu, o som e a confirmação de saída voltam ao início.
-      publicarSemTrocarTela();
+      // Como antes: a tela da vez fica parada, só a cena, o céu, o som e a confirmação de saída
+      // voltam ao início.
+      estado.semVisao = telaDaVez;
+      publicar();
       aviso.avisar("Algo deu errado ao falar com o servidor. Recarregue a página.", "erro");
       return;
     }

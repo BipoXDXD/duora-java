@@ -2,7 +2,7 @@ import type { ReactNode, Ref } from "react";
 import type { Visao } from "../dominio/visao";
 import { naoAlcancavel } from "../sessao/naoAlcancavel";
 import type { EstadoDaSessao } from "../sessao/tipos";
-import { Acoes } from "./Acoes";
+import { Acoes, BotaoSom } from "./Acoes";
 import { Convite } from "./Convite";
 import { Encerrado } from "./Encerrado";
 import { Entrada } from "./Entrada";
@@ -16,6 +16,8 @@ export interface PropsPainel {
   /** O #aviso fica vazio no JSX: quem escreve nele é o criarAviso, por esta ref (uma mutação por aviso). */
   refAviso: Ref<HTMLParagraphElement>;
   aoEnviarApelido: (apelido: string) => void;
+  /** O campo voltou a ter um apelido válido: o erro do servidor pode sumir. */
+  aoCorrigirApelido: () => void;
   /** Depois de cada tentativa de copiar o convite, com o aviso a anunciar. */
   aoCopiarConvite: (aviso: string) => void;
   aoCriarOutro: () => void;
@@ -54,6 +56,7 @@ function telaDaVez(props: Omit<PropsPainel, "refAviso">): TelaDoPainel {
             enviando={estado.enviando === "entrada"}
             erro={estado.erroApelido}
             aoEnviar={props.aoEnviarApelido}
+            aoCorrigir={props.aoCorrigirApelido}
           />
         ),
       };
@@ -119,6 +122,9 @@ export function Painel({ refAviso, ...props }: PropsPainel) {
         </p>
       )}
       {conteudo}
+      {props.estado.tela !== "montagem" && (
+        <BotaoSom somLigado={props.estado.somLigado} aoAlternarSom={props.aoAlternarSom} oculto />
+      )}
       <p
         ref={refAviso}
         className="aviso m-0 min-h-[1.5em] text-verde-agua data-[tipo=erro]:text-coral celular:order-0"
