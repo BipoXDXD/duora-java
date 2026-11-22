@@ -31,5 +31,6 @@ FF=(ffmpeg -hide_banner -loglevel error -y)
 # Efeitos: loudness -20 LUFS e fade curto no fim.
 "${FF[@]}" -i "$AQUI/brutos/met-2.mp3" -af "loudnorm=I=-20:TP=-2:LRA=11,afade=t=out:st=1.25:d=0.35,aresample=${SR}" -ac 2 -c:a libmp3lame -b:a 192k "$SAIDA/meteoro.mp3"
 "${FF[@]}" -i "$AQUI/brutos/rev-2.mp3" -af "loudnorm=I=-20:TP=-2:LRA=11,afade=t=out:st=3.2:d=0.8,aresample=${SR}" -ac 2 -c:a libmp3lame -b:a 192k "$SAIDA/revelacao.mp3"
+"${FF[@]}" -i "$AQUI/brutos/radio-1.mp3" -af "loudnorm=I=-20:TP=-2:LRA=11,afade=t=out:st=3.6:d=0.4,aresample=${SR}" -ac 2 -c:a libmp3lame -b:a 192k "$SAIDA/radio-notas.mp3"
 
 echo "ok: $SAIDA"
