@@ -216,9 +216,8 @@ export function criarCena({
     botao.type = "button";
     botao.className = "botao-lanterna";
     botao.dataset.abertura = "";
-    if (tocou) {
-      botao.dataset.tocou = "true";
-    }
+    // O toque fica pressionado até a janela expirar: o leitor de tela ouve o mesmo que o anel sólido mostra.
+    botao.setAttribute("aria-pressed", String(tocou));
     botao.setAttribute("aria-label", "Acender sua lanterna");
     botao.style.left = pct(caixa.x + caixa.largura / 2, largura);
     botao.style.top = pct(caixa.y + caixa.altura / 2, altura);

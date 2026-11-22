@@ -314,12 +314,12 @@
 
 .botao-lanterna:hover,
 .botao-lanterna:focus-visible,
-.botao-lanterna[data-tocou="true"] {
+.botao-lanterna[aria-pressed="true"] {
   border-style: solid;
   background: rgb(242 189 112 / 0.3);
 }
 
-.botao-lanterna[data-tocou="true"]::before {
+.botao-lanterna[aria-pressed="true"]::before {
   animation: none;
 }
 

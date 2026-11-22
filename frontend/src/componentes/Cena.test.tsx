@@ -223,6 +223,21 @@ describe("Cena", () => {
     expect(aoTocarAbertura).toHaveBeenCalledOnce();
   });
 
+  it("lanternaTocadaFicaPressionada", () => {
+    const { rerender } = render(
+      desenhar({ ...visaoDeAna([]), abertura: ABERTURA_ATIVA }, null, { cenario: COM_ABERTURA }),
+    );
+    expect(screen.getByRole("button", { name: "Acender sua lanterna", pressed: false })).toBeInTheDocument();
+
+    rerender(
+      desenhar({ ...visaoDeAna([]), abertura: { ...ABERTURA_ATIVA, voceTocou: true } }, null, {
+        cenario: COM_ABERTURA,
+      }),
+    );
+
+    expect(screen.getByRole("button", { name: "Acender sua lanterna", pressed: true })).toBeInTheDocument();
+  });
+
   it("lanternaDoOutroTremulaQuandoEleToca", () => {
     // Ana está no assento B: a lanterna de Bruno é a do lado A.
     const { container, rerender } = render(
