@@ -1,4 +1,6 @@
-import { LARGURA_MINIATURA, dadosDaPeca, dadosDoLugar, sprite, urlSprite, type DadosPeca } from "../dominio/dados";
+import { useCenario } from "../cenario/contexto";
+import type { CenarioFront } from "../cenario/tipos";
+import { LARGURA_MINIATURA, sprite, urlSprite } from "../dominio/dados";
 import { textoBloqueio } from "../dominio/mensagens";
 import type { Visao, VisaoPeca } from "../dominio/visao";
 import type { Acao } from "../sessao/tipos";
@@ -23,24 +25,20 @@ const CLASSES_DO_ITEM = [
   INDISPONIVEL_EM_ALTO_CONTRASTE,
 ].join(" ");
 
-function descreverZona(info: DadosPeca): string {
-  return info.zona === "centro" ? "Vai na área de observação, no centro" : "Vai em um dos lugares laterais";
-}
-
 /** O que o item diz embaixo do nome: o bloqueio, onde está, a troca que fará ou para onde vai. */
-function estadoDoItem(p: VisaoPeca, minhas: VisaoPeca[], visao: Visao): string {
-  const info = dadosDaPeca(p.peca);
+function estadoDoItem(c: CenarioFront, p: VisaoPeca, minhas: VisaoPeca[], visao: Visao): string {
+  const info = c.peca(p.peca);
   if (p.bloqueio) {
     return textoBloqueio(p.bloqueio, visao);
   }
   if (p.lugar) {
-    return `No terraço: ${dadosDoLugar(p.lugar).nome}`;
+    return `No terraço: ${c.lugar(p.lugar).nome}`;
   }
-  const outraSecundaria = minhas.find((o) => o !== p && !dadosDaPeca(o.peca).obrigatoria && o.lugar);
+  const outraSecundaria = minhas.find((o) => o !== p && !c.peca(o.peca).obrigatoria && o.lugar);
   if (!info.obrigatoria && outraSecundaria) {
-    return `Troca ${dadosDaPeca(outraSecundaria.peca).artigo} por ${info.artigo}`;
+    return `Troca ${c.peca(outraSecundaria.peca).artigo} por ${info.artigo}`;
   }
-  return descreverZona(info);
+  return c.zona(info.zona).descricao;
 }
 
 interface PropsItem {
@@ -52,6 +50,7 @@ interface PropsItem {
 }
 
 function Item({ peca, estado, pressionado, indisponivel, aoEscolher }: PropsItem) {
+  const c = useCenario();
   return (
     <li>
       <button
@@ -70,7 +69,7 @@ function Item({ peca, estado, pressionado, indisponivel, aoEscolher }: PropsItem
           src={urlSprite(sprite(peca.peca, peca.lugar ?? "C2"), "crepusculo", LARGURA_MINIATURA)}
         />
         <span>
-          <span className="nome-item block font-semibold">{dadosDaPeca(peca.peca).nome}</span>
+          <span className="nome-item block font-semibold">{c.peca(peca.peca).nome}</span>
           <span className="estado-item block text-texto-2 text-[0.875rem] leading-[1.35]">{estado}</span>
         </span>
       </button>
@@ -80,10 +79,11 @@ function Item({ peca, estado, pressionado, indisponivel, aoEscolher }: PropsItem
 
 /** "Suas peças": as centrais primeiro e, depois de um aviso, as laterais para escolher. Some na noite revelada. */
 export function Inventario({ visao, selecionada, enviando, aoEscolher, aoRetirar }: PropsInventario) {
+  const c = useCenario();
   const minhas = visao.pecas.filter((p) => p.assento === visao.voce.assento);
-  const primeiraLateral = minhas.find((p) => !dadosDaPeca(p.peca).obrigatoria);
+  const primeiraLateral = minhas.find((p) => !c.peca(p.peca).obrigatoria);
   const selecionadaColocada = minhas.find((p) => p.peca === selecionada && p.lugar);
-  const podeRetirar = selecionadaColocada !== undefined && !dadosDaPeca(selecionadaColocada.peca).obrigatoria;
+  const podeRetirar = selecionadaColocada !== undefined && !c.peca(selecionadaColocada.peca).obrigatoria;
 
   return (
     <section
@@ -100,7 +100,7 @@ export function Inventario({ visao, selecionada, enviando, aoEscolher, aoRetirar
             <Item
               key={p.peca}
               peca={p}
-              estado={estadoDoItem(p, minhas, visao)}
+              estado={estadoDoItem(c, p, minhas, visao)}
               pressionado={selecionada === p.peca}
               indisponivel={Boolean(p.bloqueio) || enviando !== null}
               aoEscolher={aoEscolher}

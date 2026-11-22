@@ -136,6 +136,12 @@ describe("criarSessao", () => {
     expect(sessao.obter()).toMatchObject({ momento: "noite", ladoTelescopio: "esquerda" });
   });
 
+  it("resultado sem ladoTelescopio não mostra meteoros", () => {
+    const { sessao } = naSala(visao({ fase: "REVELADO", resultado: { juntos: "sim" } }));
+
+    expect(sessao.obter()).toMatchObject({ momento: "noite", ladoTelescopio: null });
+  });
+
   it("assinar avisa a cada mudança e obter devolve o mesmo objeto enquanto nada muda", () => {
     const { sessao, doPolling } = montar();
     const ouvinte = vi.fn();

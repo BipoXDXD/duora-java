@@ -1,3 +1,4 @@
+import { useCenario } from "../cenario/contexto";
 import { textoResultado } from "../dominio/mensagens";
 import type { Visao } from "../dominio/visao";
 import type { Acao } from "../sessao/tipos";
@@ -11,8 +12,9 @@ interface PropsResultado {
 
 /** A noite revelada. Fica no DOM, escondida, durante a montagem, como os outros blocos da montagem. */
 export function Resultado({ visao, enviando, aoAjustar }: PropsResultado) {
+  const c = useCenario();
   const revelado = visao.fase === "REVELADO" && visao.resultado !== null;
-  const { titulo, texto } = revelado ? textoResultado(visao) : { titulo: "", texto: "" };
+  const { titulo, texto } = revelado ? textoResultado(c, visao) : { titulo: "", texto: "" };
   return (
     <section className="resultado celular:order-3 celular-deitado:order-3" id="resultado" hidden={!revelado}>
       <h2 className={TITULO_DE_RESULTADO} id="resultado-titulo" tabIndex={-1}>

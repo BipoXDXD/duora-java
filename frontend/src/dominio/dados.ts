@@ -105,11 +105,3 @@ export interface Geometria {
   lugares: Record<string, Ponto>;
   props: Record<string, Record<Momento, MedidasSprite>>;
 }
-
-export async function carregarCena(): Promise<Geometria> {
-  const resposta = await fetch("/assets/cenarios/terraco/cena/cena.json");
-  if (!resposta.ok) {
-    throw new Error(`cena.json indisponível (${String(resposta.status)})`);
-  }
-  return (await resposta.json()) as Geometria;
-}

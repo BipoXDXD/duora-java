@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { cenarioDoTerraco } from "../teste/cenarioDoTerraco";
 import {
   mensagemDeErro,
   textoBloqueio,
@@ -10,6 +11,8 @@ import {
   textoResultado,
 } from "./mensagens";
 import type { Visao, VisaoPeca } from "./visao";
+
+const CENARIO = cenarioDoTerraco();
 
 function visao(mudancas: Partial<Visao> = {}): Visao {
   return {
@@ -116,7 +119,7 @@ describe("textoResultado", () => {
       resultado: { secundariaA: "manta", secundariaB: "lanterna", ladoTelescopio: "leste" },
     });
 
-    expect(textoResultado(revelada)).toEqual({
+    expect(textoResultado(CENARIO, revelada)).toEqual({
       titulo: "Uma noite de manta e lanterna",
       texto:
         "O telescópio de Ana aponta para o lado leste do céu, e é por ali que os meteoros passam. " +
@@ -132,7 +135,7 @@ describe("textoResultado", () => {
       resultado: { secundariaA: "radio", secundariaB: "garrafa", ladoTelescopio: "oeste" },
     });
 
-    expect(textoResultado(deB).texto).toBe(
+    expect(textoResultado(CENARIO, deB).texto).toBe(
       "O telescópio de Ana aponta para o lado oeste do céu, e é por ali que os meteoros passam. " +
         "Ana trouxe o rádio; Bruno, o banco e a garrafa térmica.",
     );
@@ -145,7 +148,7 @@ describe("textoResultado", () => {
       resultado: { secundariaA: "manta", secundariaB: "lanterna", ladoTelescopio: "leste" },
     });
 
-    expect(() => textoResultado(semParceiro)).toThrow("Visão revelada sem quem está no assento B");
+    expect(() => textoResultado(CENARIO, semParceiro)).toThrow("Visão revelada sem quem está no assento B");
   });
 });
 
@@ -163,11 +166,11 @@ describe("textoPecasDoParceiro", () => {
     ["moveu", "L1", "R2", "Bruno moveu a lanterna: frente, à direita."],
     ["tirou", "R2", null, "Bruno tirou a lanterna do terraço."],
   ])("%s", (_caso, antes, agora, texto) => {
-    expect(textoPecasDoParceiro(comLanterna(antes), comLanterna(agora))).toBe(texto);
+    expect(textoPecasDoParceiro(CENARIO, comLanterna(antes), comLanterna(agora))).toBe(texto);
   });
 
   it("sem mudança devolve null", () => {
-    expect(textoPecasDoParceiro(comLanterna("L1"), comLanterna("L1"))).toBeNull();
+    expect(textoPecasDoParceiro(CENARIO, comLanterna("L1"), comLanterna("L1"))).toBeNull();
   });
 });
 
