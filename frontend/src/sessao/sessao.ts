@@ -5,6 +5,7 @@
 
 import { type Api, ErroApi, type Resposta } from "../api/cliente";
 import { criarPolling as criarPollingPadrao, type GanchosDoPolling, type Polling } from "../api/polling";
+import type { CenarioFront } from "../cenario/tipos";
 import { dadosDaPeca } from "../dominio/dados";
 import { type ErroComCodigo, mensagemDeErro, textoEncerrado } from "../dominio/mensagens";
 import type { Visao } from "../dominio/visao";
@@ -19,6 +20,8 @@ export interface OpcoesDaSessao {
   aviso: Aviso;
   /** O token de #convite= que a página trouxe, já tirado da barra de endereço. */
   convite: string | null;
+  /** O cenário em jogo, já carregado antes de o app montar. */
+  cenario: CenarioFront;
   criarPolling?: (api: Api, ganchos: GanchosDoPolling) => Polling;
 }
 
