@@ -49,6 +49,11 @@ record Retrato(
     return new Retrato(estado, participantes, convite, ultimaAcao, contatos, encerramento);
   }
 
+  /** Troca o estado sem contar como ação: a expiração continua da última ação. */
+  Retrato comEstado(Estado novo) {
+    return new Retrato(novo, participantes, convite, ultimaAcao, ultimoContato, encerramento);
+  }
+
   Retrato comAcao(Estado novo, Instant agora) {
     return new Retrato(novo, participantes, convite, agora, ultimoContato, encerramento);
   }

@@ -3,31 +3,46 @@ package bipotheking.net.duora.room;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.hamcrest.Matchers.contains;
 import static org.hamcrest.Matchers.hasSize;
+import static org.hamcrest.Matchers.not;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import bipotheking.net.duora.game.Cenario;
 import bipotheking.net.duora.game.CenarioMinimo;
+import bipotheking.net.duora.game.DefinicaoDeAbertura;
+import bipotheking.net.duora.game.Resultado;
 import com.jayway.jsonpath.JsonPath;
 import jakarta.servlet.http.Cookie;
 import java.nio.charset.StandardCharsets;
+import java.time.Duration;
+import java.time.Instant;
+import java.util.List;
+import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import org.jspecify.annotations.Nullable;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Primary;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
 import org.springframework.test.web.servlet.ResultActions;
 
-/** Sala com cenário: o pedido escolhe o cenário e os ids seguem o cenário da sala. */
+/**
+ * Sala com cenário: o pedido escolhe o cenário e os ids seguem o cenário da sala. A sala {@code
+ * minimo-abertura} cobre a abertura (janela de 5 s, máximo de 90 s).
+ */
 @SpringBootTest
 @AutoConfigureMockMvc
 class CenarioApiTest {
@@ -40,10 +55,44 @@ class CenarioApiTest {
     Cenario minimo() {
       return CenarioMinimo.CENARIO;
     }
+
+    @Bean
+    Cenario minimoComAbertura() {
+      return CenarioMinimo.COM_ABERTURA;
+    }
+
+    /** Como o perfil e2e: máximo zero, a abertura conclui apagada já na entrada. */
+    @Bean
+    Cenario minimoComAberturaInstantanea() {
+      return new Cenario(
+          "minimo-abertura-zero",
+          "Mínimo com abertura instantânea",
+          List.of(CenarioMinimo.P1, CenarioMinimo.P2),
+          List.of(CenarioMinimo.PEDRA, CenarioMinimo.FOLHA),
+          1,
+          Duration.ofSeconds(20),
+          1,
+          (composicao, cenario) -> new Resultado(Map.of("juntos", "sim")),
+          Optional.of(
+              new DefinicaoDeAbertura("acender-junto", Duration.ofSeconds(5), Duration.ZERO)));
+    }
+
+    @Bean
+    @Primary
+    RelogioDeTeste relogioDeTeste() {
+      return new RelogioDeTeste(Instant.parse("2026-11-20T21:00:00Z"));
+    }
   }
 
   @Autowired private MockMvc mvc;
   @Autowired private Salas salas;
+  @Autowired private RelogioDeTeste relogio;
+
+  /** Salas de outros testes expiram e deixam de contar no limite. */
+  @BeforeEach
+  void esgotarSalasAnteriores() {
+    relogio.avancar(Duration.ofHours(1));
+  }
 
   @Test
   void criarSemCenarioUsaOTerraco() throws Exception {
@@ -172,6 +221,94 @@ class CenarioApiTest {
     assertThat(secundariaB).isLessThan(ladoTelescopio);
   }
 
+  // Abertura
+
+  @Test
+  void aberturaPorHttpAcende() throws Exception {
+    Pessoa ana = criar("Ana", "minimo-abertura");
+    Pessoa bruno = entrar(ana.convite(), "Bruno");
+    acao(ana, "/api/sala/abertura", "").andExpect(status().isOk());
+
+    acao(bruno, "/api/sala/abertura", "")
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.abertura.acesa").value(true))
+        .andExpect(jsonPath("$.abertura.ativa").value(false));
+  }
+
+  @Test
+  void colocarDuranteAberturaResponde409ComVisao() throws Exception {
+    Pessoa ana = criar("Ana", "minimo-abertura");
+    entrar(ana.convite(), "Bruno");
+
+    colocar(ana, "pedra", "P1", 0)
+        .andExpect(status().isConflict())
+        .andExpect(jsonPath("$.codigo").value("ABERTURA_EM_ANDAMENTO"))
+        .andExpect(jsonPath("$.visao.abertura.ativa").value(true));
+  }
+
+  @Test
+  void visaoDaAberturaPorLado() throws Exception {
+    Pessoa ana = criar("Ana", "minimo-abertura");
+    Pessoa bruno = entrar(ana.convite(), "Bruno");
+
+    acao(ana, "/api/sala/abertura", "")
+        .andExpect(jsonPath("$.abertura.voceTocou").value(true))
+        .andExpect(jsonPath("$.abertura.outroTocou").value(false));
+    consultar(bruno)
+        .andExpect(jsonPath("$.abertura.ativa").value(true))
+        .andExpect(jsonPath("$.abertura.voceTocou").value(false))
+        .andExpect(jsonPath("$.abertura.outroTocou").value(true));
+  }
+
+  @Test
+  void aberturaConcluiPeloTempoNaConsulta() throws Exception {
+    Pessoa ana = criar("Ana", "minimo-abertura");
+    Pessoa bruno = entrar(ana.convite(), "Bruno");
+    String etag = etag(consultar(ana).andExpect(jsonPath("$.abertura.ativa").value(true)));
+    relogio.avancar(Duration.ofSeconds(89));
+    consultar(bruno).andExpect(jsonPath("$.abertura.ativa").value(true));
+    relogio.avancar(Duration.ofSeconds(1));
+
+    consultar(ana, etag)
+        .andExpect(status().isOk())
+        .andExpect(header().string(HttpHeaders.ETAG, not(etag)))
+        .andExpect(jsonPath("$.abertura.ativa").value(false))
+        .andExpect(jsonPath("$.abertura.acesa").value(false));
+  }
+
+  @Test
+  void colocarDepoisDoMaximoSemConsultaEAceito() throws Exception {
+    Pessoa ana = criar("Ana", "minimo-abertura");
+    entrar(ana.convite(), "Bruno");
+    relogio.avancar(Duration.ofSeconds(90));
+
+    colocar(ana, "pedra", "P1", 0)
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.abertura.ativa").value(false))
+        .andExpect(jsonPath("$.pecas[0].lugar").value("P1"));
+  }
+
+  @Test
+  void avancarAberturaNaoRenovaExpiracao() throws Exception {
+    Pessoa ana = criar("Ana", "minimo-abertura");
+    entrar(ana.convite(), "Bruno");
+    relogio.avancar(Duration.ofMinutes(29));
+    consultar(ana).andExpect(status().isOk()).andExpect(jsonPath("$.abertura.ativa").value(false));
+    relogio.avancar(Duration.ofMinutes(1));
+
+    consultar(ana).andExpect(status().isGone()).andExpect(jsonPath("$.motivo").value("EXPIROU"));
+  }
+
+  @Test
+  void aberturaComMaximoZeroConcluiNaRespostaDaEntrada() throws Exception {
+    Pessoa ana = criar("Ana", "minimo-abertura-zero");
+
+    entrarRequisicao(ana.convite(), "Bruno")
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.abertura.ativa").value(false))
+        .andExpect(jsonPath("$.abertura.acesa").value(false));
+  }
+
   // Apoio: copiado de SalaApiTest, com o cenário opcional na criação. Dívida aceita: extrair um
   // apoio comum quando um terceiro teste de API precisar destes passos.
 
@@ -223,6 +360,21 @@ class CenarioApiTest {
       requisicao.contentType(MediaType.APPLICATION_JSON).content(corpo);
     }
     return mvc.perform(requisicao);
+  }
+
+  private ResultActions consultar(Pessoa pessoa) throws Exception {
+    return mvc.perform(get("/api/sala").cookie(new Cookie(CookieAssento.NOME, pessoa.token())));
+  }
+
+  private ResultActions consultar(Pessoa pessoa, String etag) throws Exception {
+    return mvc.perform(
+        get("/api/sala")
+            .cookie(new Cookie(CookieAssento.NOME, pessoa.token()))
+            .header(HttpHeaders.IF_NONE_MATCH, etag));
+  }
+
+  private static String etag(ResultActions resposta) {
+    return resposta.andReturn().getResponse().getHeader(HttpHeaders.ETAG);
   }
 
   private static Pessoa pessoa(MvcResult resultado) throws Exception {

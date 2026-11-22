@@ -120,6 +120,13 @@ class SalaController {
     return eu.sala().recusarAjuste(eu.assento());
   }
 
+  /** Toque na abertura do encontro; sem corpo. */
+  @PostMapping("/sala/abertura")
+  Visao tocarAbertura(@CookieValue(name = CookieAssento.NOME) Optional<String> token) {
+    Salas.Assentado eu = salas.localizar(token);
+    return eu.sala().tocarAbertura(eu.assento());
+  }
+
   @PostMapping("/sala/sair")
   ResponseEntity<Void> sair(@CookieValue(name = CookieAssento.NOME) Optional<String> token) {
     salas.localizar(token).sala().sair();

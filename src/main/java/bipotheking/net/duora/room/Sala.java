@@ -94,14 +94,14 @@ final class Sala {
         .orElse(false);
   }
 
-  /** Consulta: registra presença, não renova a expiração. */
+  /** Consulta: registra presença e avança a abertura pelo tempo; não renova a expiração. */
   Visao consultar(Assento quem) {
     Instant agora;
     Retrato atual;
     trava.lock();
     try {
       agora = relogio.instant();
-      atual = exigirAberta(agora).comContato(quem, agora);
+      atual = comAberturaAvancada(exigirAberta(agora), agora).comContato(quem, agora);
       retrato = atual;
     } finally {
       trava.unlock();
@@ -120,8 +120,9 @@ final class Sala {
       if (atual.encerramento().isPresent() || atual.participante(parceiro.assento()).isPresent()) {
         throw new ErroApi(Codigo.CONVITE_INVALIDO, "Este convite não vale mais.");
       }
+      atual = comAberturaAvancada(atual, agora);
       Estado estado = aceitoOuFalha(Regras.parceiroEntrou(cenario, atual.estado(), agora));
-      atual = atual.comParceiro(parceiro, estado, agora);
+      atual = comAberturaAvancada(atual.comParceiro(parceiro, estado, agora), agora);
       retrato = atual;
     } finally {
       trava.unlock();
@@ -153,6 +154,10 @@ final class Sala {
     return agir(quem, (estado, agora) -> Regras.recusarAjuste(cenario, estado, quem));
   }
 
+  Visao tocarAbertura(Assento quem) {
+    return agir(quem, (estado, agora) -> Regras.tocarAbertura(cenario, estado, quem, agora));
+  }
+
   /** Encerra a sala para as duas pessoas. Sair de sala já encerrada não muda nada. */
   void sair() {
     trava.lock();
@@ -178,18 +183,21 @@ final class Sala {
     }
   }
 
-  /** Aplica a regra sob o lock; o instante é lido já com o lock, para nunca voltar no tempo. */
+  /**
+   * Aplica a regra sob o lock; o instante é lido já com o lock, para nunca voltar no tempo. A
+   * abertura avança antes da regra (que vê a abertura vigente) e depois dela.
+   */
   private Visao agir(Assento quem, BiFunction<Estado, Instant, Decisao> regra) {
     Instant agora;
     Retrato atual;
     trava.lock();
     try {
       agora = relogio.instant();
-      atual = exigirAberta(agora).comContato(quem, agora);
+      atual = comAberturaAvancada(exigirAberta(agora), agora).comContato(quem, agora);
       retrato = atual;
       switch (regra.apply(atual.estado(), agora)) {
         case Decisao.Aceita(Estado novo) -> {
-          atual = atual.comAcao(novo, agora);
+          atual = comAberturaAvancada(atual.comAcao(novo, agora), agora);
           retrato = atual;
         }
         case Decisao.Recusada(Recusa recusa) -> throw recusar(recusa, atual, quem, agora);
@@ -222,6 +230,15 @@ final class Sala {
       case INCOMPLETA -> "A composição ainda não está completa.";
       case ABERTURA_EM_ANDAMENTO -> "Espere as lanternas acenderem.";
     };
+  }
+
+  /**
+   * Retrato com a abertura concluída pelo tempo, se chegou ao máximo. Avançar não é ação: não
+   * renova a expiração. Chamar com o lock.
+   */
+  private Retrato comAberturaAvancada(Retrato atual, Instant agora) {
+    Estado avancado = Regras.avancarAbertura(cenario, atual.estado(), agora);
+    return avancado == atual.estado() ? atual : atual.comEstado(avancado);
   }
 
   /** Retrato com a expiração por inatividade aplicada. Chamar com o lock. */
