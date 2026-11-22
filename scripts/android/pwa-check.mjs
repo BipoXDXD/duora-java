@@ -102,6 +102,8 @@ function prepararChrome(adb, limpar) {
   // Chrome lê este arquivo só quando é o "debug app"; pula o first run e o aviso de navegador padrão.
   adb.shell('echo "_ --disable-fre --no-default-browser-check --no-first-run" > /data/local/tmp/chrome-command-line');
   adb.shell(`am set-debug-app --persistent ${CHROME}`);
+  // Sem a permissão, o Chrome recém-limpo abre o aviso "Chrome notifications" e descarta a URL.
+  try { adb.shell(`pm grant ${CHROME} android.permission.POST_NOTIFICATIONS`); } catch { /* Android < 13 */ }
   adb.shell(`am force-stop ${CHROME}`);
 }
 
@@ -153,8 +155,8 @@ async function listarPaginas(adb) {
 }
 
 /** Conecta na primeira página em `url` cujo id não esteja em `ignorar` (abas já conhecidas). */
-async function conectarCdp(adb, url, ignorar = new Set()) {
-  const limite = Date.now() + 30000;
+async function conectarCdp(adb, url, ignorar = new Set(), timeoutMs = 30000) {
+  const limite = Date.now() + timeoutMs;
   while (Date.now() < limite) {
     try {
       const pagina = (await listarPaginas(adb)).find((a) => a.url.startsWith(url) && !ignorar.has(a.id));
@@ -162,7 +164,24 @@ async function conectarCdp(adb, url, ignorar = new Set()) {
     } catch { /* DevTools ainda subindo */ }
     await esperar(1000);
   }
-  throw new Falha(`página ${url} não apareceu no DevTools do Chrome em 30s`);
+  throw new Falha(`página ${url} não apareceu no DevTools do Chrome em ${timeoutMs / 1000}s`);
+}
+
+/**
+ * Abre a URL no Chrome e conecta o CDP na aba. Um aviso de primeira execução às vezes engole o
+ * intent e o Chrome fica na página inicial; aí fecha os avisos e manda o intent de novo.
+ */
+async function abrirNoChrome(adb, url, base) {
+  for (let tentativa = 1; ; tentativa++) {
+    log(`abrindo ${url} no Chrome${tentativa > 1 ? ` (tentativa ${tentativa})` : ''}`);
+    adb.shell(`am start -a android.intent.action.VIEW -d '${url}' ${CHROME}`);
+    await fecharPromosDoChrome(adb);
+    try {
+      return await conectarCdp(adb, base, new Set(), 15000);
+    } catch (e) {
+      if (tentativa === 3) throw e;
+    }
+  }
 }
 
 function abrirSessao(wsUrl) {
@@ -497,11 +516,7 @@ async function main() {
     prepararChrome(adb, !args['manter-chrome']);
     adb.executar(['reverse', `tcp:${args.porta}`, `tcp:${args.porta}`]);
     adb.executar(['logcat', '-c']);
-    log(`abrindo ${url} no Chrome`);
-    adb.shell(`am start -a android.intent.action.VIEW -d '${url}' ${CHROME}`);
-    await fecharPromosDoChrome(adb);
-
-    contexto.cdp = await conectarCdp(adb, base);
+    contexto.cdp = await abrirNoChrome(adb, url, base);
     resultado.chrome = (await contexto.cdp.enviar('Browser.getVersion').catch(() => ({}))).product;
     for (const passo of PASSOS) await EXECUTORES[passo](contexto);
     resultado.ok = true;
