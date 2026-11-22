@@ -39,6 +39,7 @@ const SEM_DESTAQUES: readonly string[] = [];
 const MANTA_DE_BRUNO: VisaoPeca = { peca: "manta", assento: "A", lugar: "L2" };
 
 interface Extras {
+  destaques?: readonly string[];
   enviando?: boolean;
   momento?: Momento;
   ladoTelescopio?: string | null;
@@ -47,12 +48,12 @@ interface Extras {
 function desenhar(
   visao: Visao,
   selecionada: string | null = null,
-  { enviando = false, momento = "crepusculo", ladoTelescopio = null }: Extras = {},
+  { destaques = SEM_DESTAQUES, enviando = false, momento = "crepusculo", ladoTelescopio = null }: Extras = {},
 ) {
   return (
     <Cena
       visao={visao}
-      marcas={{ selecionada, sugerindo: null, destaques: SEM_DESTAQUES }}
+      marcas={{ selecionada, sugerindo: null, destaques }}
       enviando={enviando}
       momento={momento}
       ladoTelescopio={ladoTelescopio}
@@ -84,6 +85,26 @@ describe("Cena", () => {
     expect(
       screen.getByRole("button", { name: "Manta de Bruno, frente, à esquerda. Ative para sugerir que mova" }),
     ).toBeInTheDocument();
+  });
+
+  it("pecaEmDestaqueTemSeloENome", () => {
+    render(desenhar(visaoDeAna([MANTA_DE_BRUNO]), null, { destaques: ["manta"] }));
+
+    const peca = screen.getByRole("button", { name: /^Manta de Bruno, frente, à esquerda\..*\. Mudou agora$/ });
+    expect(peca).toHaveAttribute("data-destaque", "true");
+    const selo = peca.querySelector(".selo-mudou");
+    expect(selo).toHaveTextContent("Mudou");
+    expect(selo).toHaveAttribute("aria-hidden", "true");
+  });
+
+  it("anelDoDestaqueSoPulsaNoPrimeiroDesenho", () => {
+    const destaques = ["manta"];
+    const { container, rerender } = render(desenhar(visaoDeAna([MANTA_DE_BRUNO]), null, { destaques }));
+    expect(container.querySelector(".anel-destaque")).toHaveAttribute("data-pulsar", "true");
+
+    rerender(desenhar(visaoDeAna([MANTA_DE_BRUNO], 2), null, { destaques }));
+
+    expect(container.querySelector(".anel-destaque")).not.toHaveAttribute("data-pulsar");
   });
 
   it("selecionadaMostraLugaresPermitidos", () => {
