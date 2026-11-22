@@ -22,15 +22,10 @@ import com.microsoft.playwright.Locator;
 import com.microsoft.playwright.Page;
 import com.microsoft.playwright.Route;
 import com.microsoft.playwright.options.AriaRole;
-import java.time.Clock;
 import java.time.Duration;
-import java.time.Instant;
-import java.time.ZoneId;
-import java.time.ZoneOffset;
 import java.util.List;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.atomic.AtomicInteger;
-import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -103,30 +98,6 @@ class AcessibilidadeFocoIT {
     @Primary
     RelogioAdiantavel relogioAdiantavel() {
       return new RelogioAdiantavel();
-    }
-  }
-
-  /** Relógio do sistema mais um adiantamento acumulado. */
-  static final class RelogioAdiantavel extends Clock {
-    private final AtomicReference<Duration> adiantamento = new AtomicReference<>(Duration.ZERO);
-
-    void avancar(Duration duracao) {
-      adiantamento.updateAndGet(atual -> atual.plus(duracao));
-    }
-
-    @Override
-    public Instant instant() {
-      return Instant.now().plus(adiantamento.get());
-    }
-
-    @Override
-    public ZoneId getZone() {
-      return ZoneOffset.UTC;
-    }
-
-    @Override
-    public Clock withZone(ZoneId zone) {
-      return this;
     }
   }
 
@@ -385,7 +356,7 @@ class AcessibilidadeFocoIT {
     BrowserContext contextoDeBruno = bruno.page().context();
 
     bruno.page().close();
-    relogio.avancar(Duration.ofSeconds(16));
+    relogio.adiantar(Duration.ofSeconds(16));
     assertThat(ana.aviso()).hasText("Bruno ficou sem sinal.");
 
     new TerracoPagina(contextoDeBruno.newPage()).abrir(raiz(porta));
