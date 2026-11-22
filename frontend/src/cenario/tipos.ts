@@ -75,7 +75,7 @@ export interface CenarioFront {
   urlSprite(nome: string, momento: Momento, largura: number): string;
   urlCeu(momento: Momento, largura: number): string;
   som(nome: NomeSom): { readonly url: string; readonly volume: number };
-  /** URL de um som de efeito pelo nome-base (ex.: "radio-notas"), na mesma pasta do som(). */
+  /** URL de um som de efeito pelo nome-base (ex.: "radio-notas"), na mesma pasta do som(); outro nome lança Error. */
   audio(nome: string): string;
   /** Até duas frases dos pares de peças colocadas perto, na ordem do cenario.json. */
   frasesDeRelacao(colocadas: readonly PecaNoLugar[]): readonly string[];

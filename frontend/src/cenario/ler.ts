@@ -22,6 +22,9 @@ const Volume = v.pipe(v.number(), v.minValue(0), v.maxValue(1));
 
 const Som = v.strictObject({ volume: Volume });
 
+/** Nome-base de um arquivo de áudio do cenário: sem barra, ponto nem extensão (ex.: "radio-notas"). */
+const NOME_BASE = /^[a-z0-9-]+$/;
+
 const Efeito = v.variant("tipo", [
   v.strictObject({ tipo: v.literal("brilho-piso"), largura: v.number() }),
   v.strictObject({ tipo: v.literal("halo"), alturaProjetada: v.number(), largura: v.number() }),
@@ -34,7 +37,7 @@ const Efeito = v.variant("tipo", [
   v.strictObject({ tipo: v.literal("vapor") }),
   v.strictObject({ tipo: v.literal("tremular") }),
   // Nome-base, sem barra nem extensão: a URL sai do audio(nome), nunca de um caminho no JSON.
-  v.strictObject({ tipo: v.literal("notas"), som: v.pipe(v.string(), v.regex(/^[a-z0-9-]+$/)), volume: Volume }),
+  v.strictObject({ tipo: v.literal("notas"), som: v.pipe(v.string(), v.regex(NOME_BASE)), volume: Volume }),
 ]);
 
 const EsquemaCenario = v.strictObject({
@@ -129,6 +132,10 @@ export function lerCenario(cenario: unknown, geometria: unknown, id: string): Ce
       return { url: `/assets/cenarios/${c.id}/audio/${nome}.mp3`, volume: c.sons[nome].volume };
     },
     audio(nome: string) {
+      // Contrato quebrado como um id desconhecido: o nome nunca vira caminho fora da pasta de áudio.
+      if (!NOME_BASE.test(nome)) {
+        throw new Error(`Som "${nome}" não é um nome-base`);
+      }
       return `/assets/cenarios/${c.id}/audio/${nome}.mp3`;
     },
     frasesDeRelacao(colocadas) {

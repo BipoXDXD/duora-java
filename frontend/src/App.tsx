@@ -4,6 +4,7 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { api } from "./api/cliente";
 import { prepararCeuPintado } from "./cena/ceu";
+import { ladoDosMeteoros } from "./cena/meteoros";
 import { criarSom, type Som } from "./cena/som";
 import { ProvedorDeCenario } from "./cenario/contexto";
 import type { CenarioFront } from "./cenario/tipos";
@@ -13,8 +14,9 @@ import { Painel } from "./componentes/Painel";
 import { Topo } from "./componentes/Topo";
 import { type Aviso, criarAviso } from "./sessao/aviso";
 import { criarSessao, type EstadoDaSessao, type Sessao } from "./sessao/sessao";
-import { usePassagemAoVivo } from "./usePassagemAoVivo";
 import { marcasDaCena, useSessao, visaoDaCena, visaoDaTela } from "./useSessao";
+import { useSomDaRevelacao } from "./useSomDaRevelacao";
+import { useTelaCheia } from "./useTelaCheia";
 
 interface AvisoAdiado extends Aviso {
   /** Liga o aviso ao #aviso; antes disso não há onde anunciar (e a sessão ainda não começou). */
@@ -66,10 +68,11 @@ function useCeuPintado(cenario: CenarioFront): boolean {
 
 /**
  * O som desliga junto com o estado (a sessão terminou e o botão sumiu); ligar fica no clique, que é
- * onde o navegador deixa criar o áudio. O acorde só toca na passagem para a noite vista ao vivo, não
- * ao recarregar já revelado.
+ * onde o navegador deixa criar o áudio. O primeiro toque ou tecla em qualquer lugar já destrava o
+ * áudio, para as notas do rádio tocarem quando a noite chega pelo polling, sem gesto. O acorde e as
+ * notas só tocam na passagem para a noite vista ao vivo, não ao recarregar já revelado.
  */
-function useSomDaSessao(som: Som, estado: EstadoDaSessao): void {
+function useSomDaSessao(som: Som, cenario: CenarioFront, estado: EstadoDaSessao): void {
   const { somLigado } = estado;
   useEffect(() => {
     if (!somLigado) {
@@ -77,12 +80,21 @@ function useSomDaSessao(som: Som, estado: EstadoDaSessao): void {
     }
   }, [som, somLigado]);
 
-  const passagemAoVivo = usePassagemAoVivo(estado);
   useEffect(() => {
-    if (passagemAoVivo) {
-      som.revelacao();
-    }
-  }, [som, passagemAoVivo]);
+    const destravar = () => {
+      som.desbloquear();
+      document.removeEventListener("pointerdown", destravar);
+      document.removeEventListener("keydown", destravar);
+    };
+    document.addEventListener("pointerdown", destravar);
+    document.addEventListener("keydown", destravar);
+    return () => {
+      document.removeEventListener("pointerdown", destravar);
+      document.removeEventListener("keydown", destravar);
+    };
+  }, [som]);
+
+  useSomDaRevelacao(som, cenario, estado);
 }
 
 /** Esc em qualquer lugar desfaz a seleção da peça (o Topo segura o Esc da confirmação de saída). */
@@ -98,6 +110,18 @@ function useEscCancelaSelecao(sessao: Sessao): void {
       document.removeEventListener("keydown", aoTeclar);
     };
   }, [sessao]);
+}
+
+/**
+ * Ao entrar na tela cheia, o foco que ficou num controle do painel ou do topo (agora escondidos) vai
+ * para o título do resultado. Foco já no resultado ou na cena fica onde está.
+ */
+function useFocoDaTelaCheia(telaCheia: boolean): void {
+  useLayoutEffect(() => {
+    if (telaCheia && !document.activeElement?.closest("#resultado, .cena")) {
+      document.querySelector<HTMLElement>("#resultado-titulo")?.focus();
+    }
+  }, [telaCheia]);
 }
 
 export function App({ convite, cenario }: { convite: string | null; cenario: CenarioFront }) {
@@ -116,13 +140,21 @@ export function App({ convite, cenario }: { convite: string | null; cenario: Cen
   const estado = useSessao(sessao, refCena);
   useSessaoIniciada(sessao);
   const ceuPintado = useCeuPintado(cenario);
-  useSomDaSessao(som, estado);
+  useSomDaSessao(som, cenario, estado);
   useEscCancelaSelecao(sessao);
+  const telaCheia = useTelaCheia(estado);
+  useFocoDaTelaCheia(telaCheia.telaCheia);
 
   const visao = visaoDaTela(estado);
+  const visaoDaCenaAtual = visaoDaCena(estado);
   return (
     <ProvedorDeCenario value={cenario}>
-      <Moldura momento={estado.momento} confirmandoSaida={estado.confirmandoSaida} ceuPintado={ceuPintado}>
+      <Moldura
+        momento={estado.momento}
+        confirmandoSaida={estado.confirmandoSaida}
+        ceuPintado={ceuPintado}
+        telaCheia={telaCheia.telaCheia}
+      >
         <Topo
           mostrarSair={visao !== null}
           nomeParceiro={visao?.parceiro?.nome ?? null}
@@ -134,11 +166,11 @@ export function App({ convite, cenario }: { convite: string | null; cenario: Cen
         />
         <Cena
           ref={refCena}
-          visao={visaoDaCena(estado)}
+          visao={visaoDaCenaAtual}
           marcas={marcasDaCena(estado)}
           enviando={estado.enviando !== null}
           momento={estado.momento}
-          ladoTelescopio={estado.ladoTelescopio}
+          ladoTelescopio={ladoDosMeteoros(cenario, visaoDaCenaAtual?.pecas ?? [], estado.ladoTelescopio)}
           cenario={cenario}
           aoEscolherPeca={(peca, minha) => void sessao.escolherPeca(peca, minha)}
           aoEscolherLugar={(lugar, bloqueio) => void sessao.escolherLugar(lugar, bloqueio)}
@@ -157,6 +189,7 @@ export function App({ convite, cenario }: { convite: string | null; cenario: Cen
             sessao.alternarSom();
             som.definir(sessao.obter().somLigado);
           }}
+          telaCheia={telaCheia}
         />
       </Moldura>
     </ProvedorDeCenario>

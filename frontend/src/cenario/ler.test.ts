@@ -250,6 +250,10 @@ describe("lerCenario: consultas", () => {
     expect(c.audio("radio-notas")).toBe("/assets/cenarios/terraco/audio/radio-notas.mp3");
   });
 
+  it.each(["../cena/x", "radio-notas.mp3", "Radio", "", "a/b"])("audio recusa %j, que não é nome-base", (nome) => {
+    expect(() => c.audio(nome)).toThrow(`Som "${nome}" não é um nome-base`);
+  });
+
   it("revelação da lanterna traz os três efeitos", () => {
     expect(c.revelacao("lanterna")).toEqual([
       { tipo: "brilho-piso", largura: 2.4 },

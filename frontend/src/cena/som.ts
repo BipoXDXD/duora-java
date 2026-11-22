@@ -1,7 +1,8 @@
 // Som opcional: ambiente em loop baixo, um acorde quando o céu escurece e um toque a cada
 // meteoro. Usa Web Audio (o loop de <audio> com MP3 deixa um silêncio a cada volta). Só
 // baixa os arquivos quando a pessoa liga o som e falha em silêncio. Nada depende dele.
-// Exceção: as notas do rádio tocam mesmo com o som desligado (o chamador decide quando).
+// Exceção: as notas do rádio tocam mesmo com o som desligado (o chamador decide quando); depois
+// delas, com o som ainda desligado, o contexto volta a ficar suspenso.
 
 import type { CenarioFront, NomeSom } from "../cenario/tipos";
 
@@ -20,7 +21,7 @@ export interface Som {
   definir(ligado: boolean): void;
   meteoro(): void;
   revelacao(): void;
-  /** Toca uma vez o som da URL, mesmo com o som desligado; falha em silêncio. */
+  /** Toca uma vez o som da URL, mesmo com o som desligado; falha em silêncio. Com o som desligado, suspende o contexto ao terminar. */
   notas(url: string, volume: number): void;
   /** Cria e retoma o contexto (dentro de um gesto), sem baixar nada. */
   desbloquear(): void;
@@ -78,7 +79,7 @@ export function criarSom(c: CenarioFront): Som {
     return carregamento;
   }
 
-  function tocar(meu: AudioContext, buffer: AudioBuffer, volume: number): void {
+  function tocar(meu: AudioContext, buffer: AudioBuffer, volume: number, aoTerminar = () => {}): void {
     const ganho = meu.createGain();
     ganho.gain.value = volume;
     ganho.connect(meu.destination);
@@ -87,8 +88,16 @@ export function criarSom(c: CenarioFront): Som {
     fonte.connect(ganho);
     fonte.addEventListener("ended", () => {
       ganho.disconnect();
+      aoTerminar();
     });
     fonte.start();
+  }
+
+  /** Som desligado: o contexto não fica rodando em silêncio depois das notas. */
+  function suspenderSeDesligado(meu: AudioContext): void {
+    if (!ligado) {
+      meu.suspend().catch(() => {});
+    }
   }
 
   function iniciarAmbiente(): void {
@@ -165,7 +174,11 @@ export function criarSom(c: CenarioFront): Som {
       void carregar(meu, url)
         .then((buffer) => {
           if (buffer) {
-            tocar(meu, buffer, volume);
+            tocar(meu, buffer, volume, () => {
+              suspenderSeDesligado(meu);
+            });
+          } else {
+            suspenderSeDesligado(meu);
           }
         })
         .catch(() => {});

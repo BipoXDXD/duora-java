@@ -1,5 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { criarMeteoros } from "./meteoros";
+import type { VisaoPeca } from "../dominio/visao";
+import { cenarioDoTerraco } from "../teste/cenarioDoTerraco";
+import { criarMeteoros, ladoDosMeteoros } from "./meteoros";
 
 describe("criarMeteoros", () => {
   beforeEach(() => {
@@ -33,5 +35,22 @@ describe("criarMeteoros", () => {
 
     expect(camada.querySelectorAll(".meteoro")).toHaveLength(0);
     expect(camada.hasAttribute("data-lado")).toBe(false);
+  });
+});
+
+describe("ladoDosMeteoros", () => {
+  const CENARIO = cenarioDoTerraco();
+  const banco: VisaoPeca = { peca: "banco", assento: "B", lugar: "C2" };
+
+  it("com o telescópio colocado, os meteoros passam do lado dele", () => {
+    const pecas: VisaoPeca[] = [{ peca: "telescopio", assento: "A", lugar: "C1" }, banco];
+
+    expect(ladoDosMeteoros(CENARIO, pecas, "esquerdo")).toBe("esquerdo");
+  });
+
+  it("sem peça colocada que traga meteoros, não há lado", () => {
+    const pecas: VisaoPeca[] = [{ peca: "telescopio", assento: "A", lugar: null }, banco];
+
+    expect(ladoDosMeteoros(CENARIO, pecas, "esquerdo")).toBeNull();
   });
 });

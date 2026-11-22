@@ -3,15 +3,14 @@ package bipotheking.net.duora.e2e;
 import static bipotheking.net.duora.e2e.Cenarios.comporTerraco;
 import static bipotheking.net.duora.e2e.Cenarios.entrarEmPar;
 import static bipotheking.net.duora.e2e.Cenarios.raiz;
+import static bipotheking.net.duora.e2e.SondaDeAudio.COM_SONDA;
 import static com.microsoft.playwright.assertions.PlaywrightAssertions.assertThat;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import bipotheking.net.duora.e2e.NavegadorExtension.Participantes;
 import com.microsoft.playwright.Locator;
-import com.microsoft.playwright.Page;
 import com.microsoft.playwright.options.ReducedMotion;
-import java.util.function.Consumer;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.springframework.beans.factory.annotation.Value;
@@ -29,43 +28,6 @@ import org.springframework.test.annotation.DirtiesContext;
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 @ExtendWith(NavegadorExtension.class)
 class RevelacaoIT {
-
-  /**
-   * Sonda na página: conta meteoros animados lançados (nós {@code .meteoro} acrescentados) e
-   * registra cada fonte de áudio (loop, iniciada, parada) por trás do AudioContext real.
-   */
-  private static final String SONDA =
-      """
-      (() => {
-        const r = { lancados: 0, fontes: [] };
-        window.__sonda = r;
-        new MutationObserver((mudancas) => {
-          for (const m of mudancas) {
-            for (const n of m.addedNodes) {
-              if (n.classList?.contains("meteoro") && !n.classList.contains("meteoro-parado")) {
-                r.lancados += 1;
-              }
-            }
-          }
-        }).observe(document, { childList: true, subtree: true });
-        const Original = window.AudioContext;
-        window.AudioContext = class extends Original {
-          createBufferSource() {
-            const fonte = super.createBufferSource();
-            const registro = { iniciada: false, parada: false };
-            Object.defineProperty(registro, "loop", { get: () => fonte.loop });
-            r.fontes.push(registro);
-            const iniciar = fonte.start.bind(fonte);
-            const parar = fonte.stop.bind(fonte);
-            fonte.start = (...a) => { registro.iniciada = true; return iniciar(...a); };
-            fonte.stop = (...a) => { registro.parada = true; return parar(...a); };
-            return fonte;
-          }
-        };
-      })();
-      """;
-
-  private static final Consumer<Page> COM_SONDA = page -> page.addInitScript(SONDA);
 
   @Value("${local.server.port}")
   private int porta;
@@ -148,6 +110,6 @@ class RevelacaoIT {
   }
 
   private static int lancados(TerracoPagina pagina) {
-    return ((Number) pagina.page().evaluate("() => window.__sonda.lancados")).intValue();
+    return SondaDeAudio.lancados(pagina.page());
   }
 }
