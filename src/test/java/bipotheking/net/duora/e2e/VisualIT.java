@@ -58,11 +58,26 @@ class VisualIT {
   /** O sinal dura 20 s no servidor; a folga cobre o recuo do polling até a visão sem ele. */
   private static final double ESPERA_FIM_DO_SINAL_MS = 45_000;
 
-  /** Pronto para a captura: fontes, imagens e o céu pintado carregados. */
+  /**
+   * Carrega as três faces dos {@code @font-face} do app, mesmo as que o estado ainda não usa, e
+   * devolve as que o navegador não encontrou. Um arquivo que não baixa rejeita a promessa.
+   */
+  private static final String CARREGAR_FONTES =
+      """
+      () => Promise.all([
+          '400 1em "Atkinson Hyperlegible Next"',
+          '600 1em "Atkinson Hyperlegible Next"',
+          '600 1em "Fraunces"',
+        ].map((fonte) => document.fonts.load(fonte).then((faces) => (faces.length ? null : fonte))))
+        .then((faltando) => faltando.filter(Boolean))
+      """;
+
+  /**
+   * Pronto para a captura: imagens e o céu pintado carregados (as fontes vêm de CARREGAR_FONTES).
+   */
   private static final String PRONTO =
       """
-      () => document.fonts.status === "loaded"
-        && Array.from(document.images).every((img) => img.complete)
+      () => Array.from(document.images).every((img) => img.complete)
         && document.querySelector(".app.ceu-pintado") !== null
       """;
 
@@ -147,7 +162,10 @@ class VisualIT {
 
     void gravar(TerracoPagina pagina, String estado) {
       Page page = pagina.page();
-      page.evaluate("() => document.fonts.ready.then(() => true)");
+      Object faltando = page.evaluate(CARREGAR_FONTES);
+      if (!(faltando instanceof List<?> lista) || !lista.isEmpty()) {
+        throw new IllegalStateException("faces sem @font-face na página: " + faltando);
+      }
       page.waitForFunction(PRONTO);
       page.screenshot(
           new Page.ScreenshotOptions()
