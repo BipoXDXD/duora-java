@@ -3,6 +3,7 @@
 
 import * as v from "valibot";
 import type { Geometria } from "../dominio/dados";
+import { legenda } from "./legenda";
 import { ErroCenario, type CenarioFront } from "./tipos";
 
 const Medidas = v.strictObject({ largura: v.number(), altura: v.number(), ancoraX: v.number(), ancoraY: v.number() });
@@ -67,7 +68,7 @@ export function lerCenario(cenario: unknown, geometria: unknown, id: string): Ce
   const g: Geometria = validar(EsquemaGeometria, geometria, "cena.json");
   conferir(c, g, id);
 
-  return Object.freeze({
+  const front: CenarioFront = Object.freeze({
     id: c.id,
     nome: c.nome,
     geometria: g,
@@ -115,10 +116,11 @@ export function lerCenario(cenario: unknown, geometria: unknown, id: string): Ce
     revelacao(peca: string) {
       return entrada(c.revelacao, peca) ?? [];
     },
-    legenda() {
-      throw new Error("legenda: Task F3");
+    legenda(resultado, nomes) {
+      return legenda(c.legenda, resultado, nomes, front);
     },
   } satisfies CenarioFront);
+  return front;
 }
 
 function validar<E extends v.GenericSchema>(esquema: E, valor: unknown, arquivo: string): v.InferOutput<E> {
