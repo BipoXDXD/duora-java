@@ -2,6 +2,8 @@
 
 > **Para agentes:** sub-skill obrigatória: superpowers:subagent-driven-development (recomendado) ou superpowers:executing-plans. Passos com checkbox (`- [ ]`).
 
+> **Emenda 2026-11-22 (paridade com o mercado):** papéis que se alternam no "Dois faróis" (D-FL e Tasks 17–19: quem vigia vê os barcos em perigo e avisa quem guia, trocando a cada 60 s); criação em turnos com revelação no fim como modo do motor, aplicado ao jantar (Task 23 nova); todo cenário de composição traz quebra-gelos (Etapa 5 Task 16).
+
 **Objetivo:** cinco cenários novos sorteáveis no pareamento. Os quatro de composição (aquário, piquenique, cachoeira, jantar) rodam no motor da 1b/1c, cada um com seus assets, dados, testes e playtest por agente. O fliperama é um jogo cooperativo original em Godot 4, embutido por iframe e sincronizado por WebSocket no Spring.
 
 **Arquitetura:**
@@ -40,6 +42,7 @@
   - cada pessoa tem 1 peça obrigatória (zona de 2 lugares) e 2 opcionais (zona de 4 lugares), das quais vai 1;
   - `limiteAntesDoParceiro` 1, `duracaoSinal` 20 s, `pecasPorPessoaCompleta` 2.
   - Destaque, sinal com destino e acordo para ajustar vêm do motor (1c) e não precisam de código por cenário.
+- **Quebra-gelos (paridade):** cada cenário de composição traz `quebraGelos` no `cenario.json` (3 objetos, 3 perguntas por tom, 3 opções cada; regras de texto da Etapa 5 Task 16) e passa no `CatalogoTemQuebraGelosTest`. Os objetos escolhidos ficam na task de dados de cada cenário. A abertura sem palavras (1c Task 8) é opcional por cenário e fica desligada nos quatro, salvo pedido do playtest.
 - **Momentos:** os ids técnicos continuam `crepusculo` (montagem) e `noite` (revelação), porque o motor (1a/1b) e os testes dependem deles. Cada cenário dá a sua arte a cada momento.
 - **Texto:** pt-BR, voz ativa, gênero neutro para pessoas. Os textos fixados neste plano são usados exatamente como escritos.
 - **Liberação:** um cenário só entra em `duora.cenarios.sorteaveis` depois do "sim" do dono (decisão D4). Antes disso, ele fica no catálogo e só é alcançável em teste, playtest ou pelo convite privado com a propriedade de teste.
@@ -264,6 +267,7 @@ Coordenadas em metros, no piso da cena (x lateral, y profundidade, z altura, com
   - Um barco coberto **pelas duas luzes** por 1 s acumulado acha o caminho e vai ao porto (+1).
   - Com uma luz só, o progresso fica parado; sem luz, ele zera.
   - Um barco à deriva que passa da linha das pedras "volta ao mar aberto": conta como perdido, sem punição dita na tela.
+  - **Papéis que se alternam (paridade):** a cada 60 s, uma pessoa é **vigia** e a outra **guia** (A vigia em 0–60 s e 120–180 s; B em 60–120 s). Um barco em cada três nasce **em perigo** e deriva 1,5× mais rápido; só quem vigia vê o perigo (contorno #E06C5A com um ícone de alerta, nunca só a cor) e pode tocar no barco para marcá-lo, e a marca aparece para os dois por 2 s. A informação dividida pede conversa, mas a marca funciona em silêncio.
 - **Rodada:** 180 s; começa quando as duas tocam "Começar".
   - O intervalo entre barcos cai de 6 s para 2,5 s, com no máximo 6 barcos ao mesmo tempo.
   - Recorde conjunto: o maior número de barcos guiados numa rodada do encontro. Sem competição entre as duas pessoas.
@@ -273,7 +277,8 @@ Coordenadas em metros, no piso da cena (x lateral, y profundidade, z altura, com
   - botões "Começar" e "Jogar de novo";
   - espera "Esperando {parceiro} começar.";
   - parceiro fora "{parceiro} perdeu a conexão. A rodada espera um pouco.";
-  - fim "Vocês guiaram {n} barcos." / "Recorde de vocês: {r}." / "Recorde novo!".
+  - fim "Vocês guiaram {n} barcos." / "Recorde de vocês: {r}." / "Recorde novo!";
+  - papéis "Você vigia: só você vê os barcos em perigo. Toque num barco para avisar." / "Você guia: siga as marcas de quem vigia." / troca "Os papéis trocaram."
   - Para a região viva do app (pai do iframe): "A rodada começou." e "Vocês guiaram {n} barcos. Recorde de vocês: {r}."
 
 ---
@@ -840,6 +845,7 @@ Pergunta que o spike responde: **o export web single-thread do Godot 4, sem `uns
   - O intervalo de nascimento cai linearmente do inicial ao final ao longo da rodada.
   - Com `restante` em 0: `Fim(salvos)`, `recorde = max`, `rodadas + 1` e barcos limpos.
   - O farol gira em direção ao alvo em qualquer fase.
+  - (paridade) `enum Papel { VIGIA, GUIA }`; `static Papel papelEm(Assento a, Duration decorrido)` (A vigia em [0, 60 s) e [120, 180 s)); `Barco` ganha `boolean emPerigo` (sorteio 1 em 3 pelo `RandomGenerator`) e `Optional<Instant> marcadoAte`; barco em perigo desce a 67,5 u/s; `Entrada` ganha `record Marcar(Assento quem, long barco)`, aceita só de quem vigia e só em `Jogando`, com a marca valendo 2 s.
 
 - [ ] **Passo 1:** `SimulacaoDosFaroisTest`:
   - `farolGiraNoMaximoAVelocidadeAngular` (1 tick → 6°);
@@ -852,7 +858,8 @@ Pergunta que o spike responde: **o export web single-thread do Godot 4, sem `uns
   - `rodadaTerminaEmCentoEOitentaSegundosEGuardaORecorde`; `recordeNuncaDiminui`;
   - `mesmaSementeMesmosBarcos`;
   - `nuncaPassaDoMaximoDeBarcos`;
-  - `luzEmUsaOCone` (um barco a 300 u acima do farol A, com o ângulo 0, é `A`; a 30° fora do cone é `NENHUMA`).
+  - `luzEmUsaOCone` (um barco a 300 u acima do farol A, com o ângulo 0, é `A`; a 30° fora do cone é `NENHUMA`);
+  - (paridade) `papeisTrocamACada60s` (59,95 s A vigia; 60 s B; 120 s A); `soQuemVigiaMarca` (`Marcar` do guia não muda nada); `marcaDura2s`; `barcoEmPerigoDesceMaisRapido`; `umEmTresEmPerigoComASemente`.
 - [ ] **Passo 2:** RED; implementar; verde. Commit `feat(fliperama): simulação pura dos dois faróis`.
 
 ### Task 18: Servidor do fliperama — WebSocket autoritativo
@@ -891,6 +898,7 @@ Pergunta que o spike responde: **o export web single-thread do Godot 4, sem `uns
   - Protocolo (JSON em frames de texto, `v` 1):
     - **Cliente → servidor:**
       - `{"t":"mirar","seq":<long ≥ 1>,"alvo":<double rad>}`;
+      - (paridade) `{"t":"marcar","seq":<long ≥ 1>,"barco":<long>}`;
       - `{"t":"pronto","seq":<long ≥ 1>}`.
     - **Servidor → cliente:**
       - ao conectar: `{"t":"ola","v":1,"assento":"A","parceiro":"<apelido>","ultimoSeq":<long>,"estado":{...}}`;
@@ -922,6 +930,7 @@ Pergunta que o spike responde: **o export web single-thread do Godot 4, sem `uns
     - `estadoTemExatamenteAsChavesDoContrato`;
     - `numerosArredondados`;
     - `mensagemSemSeqViraErro`;
+    - (paridade) `estadoDoGuiaNaoTrazPerigo` (o retrato de quem guia não tem a chave `perigo` em nenhum barco; o de quem vigia tem; o servidor esconde, não o cliente); `estadoTrazPapelDeCadaUm` (`"papel":"VIGIA"|"GUIA"`) e `marcadoParaOsDois`;
     - `tipoDesconhecidoViraErro`.
   - `PartidaDeFliperamaTest` (sem rede, com sessões falsas):
     - `seqRepetidoOuAntigoEIgnorado`;
@@ -985,6 +994,7 @@ Pergunta que o spike responde: **o export web single-thread do Godot 4, sem `uns
     - barcos e faróis em `Polygon2D` (vetor, licença `Própria`);
     - o anel do barco mostra a cor de cada luz que o toca e o progresso.
   - Textos: os de D-FL. Respeita `prefers-reduced-motion` (sem ondas animadas no fundo).
+  - (paridade) Papéis: faixa com o texto do papel, anunciada a cada troca pela ponte (`{tipo:"duora.jogo.papel", papel}` → região viva do pai); quem vigia toca no barco (ou Tab até ele e Enter) para mandar `marcar`; a marca é um anel pulsante (estático com movimento reduzido).
   - Assets:
     - Tripo, 1 imagem: "calm night sea seen from above, dark blue with gentle waves, a rocky harbor entrance at the bottom center, painterly illustration, portrait 2:3, no lighthouses, no boats, no text". Master em `assets/source/fundos/fliperama/`; `cwebp -q 88` para 1200×1800 em `arte/fundo.webp`; import no Godot com `compress/mode` Lossy e `lossy_quality` 0,88.
     - ElevenLabs: `som/trilha.mp3` (60 s em laço, "calm night synthwave, soft arpeggios, 80 bpm, instrumental"), `som/guiado.mp3` (cerca de 1 s, "soft rising chime"), `som/inicio.mp3` (cerca de 1 s, "gentle start bell") e `som/fim.mp3` (cerca de 3 s, "warm resolving chord"), todos MP3 192 kbps / 48 kHz.
@@ -998,7 +1008,8 @@ Pergunta que o spike responde: **o export web single-thread do Godot 4, sem `uns
   - `estadoAntigoEDescartado`;
   - `interpolaEntreDoisRetratos`;
   - `reconectaComEsperaCrescente` (0,5 → 1 → 2 → … ≤ 8 s, dentro de ±20 %);
-  - `mensagemDeOutraOrigemEIgnorada`.
+  - `mensagemDeOutraOrigemEIgnorada`;
+  - (paridade) `papelMostraOTextoCerto`; `marcaApareceNoBarco`; `guiaNaoMandaMarcar`.
 - [ ] **Passo 2:** RED; implementar pelo MCP Godot-AI (`scene_manage`, `node_create`, `script_create`/`script_patch`, `input_map_manage` para as setas e Enter, `ui_manage` para as telas); verde. Conferir as telas com `project_run` + `editor_screenshot`.
 - [ ] **Passo 3:** assets (saldo e D1 antes; manifesto completo).
 - [ ] **Passo 4:**
@@ -1092,6 +1103,28 @@ Pergunta que o spike responde: **o export web single-thread do Godot 4, sem `uns
   - `pareamentoPublicoSorteiaUmInedito`: duas contas que já jogaram o terraço são pareadas em outro cenário.
 - [ ] **Passo 3:** a suíte inteira: unidade, Vitest e e2e nos 3 navegadores, um por vez. Depois, a revisão final (`superpowers:requesting-code-review` + `mattpocock-skills:code-review`) e `duora-etapa`. Commit `feat(sala): cenários da 9b liberados no sorteio`.
 
+### Task 23: Criação em turnos com revelação no fim (motor), aplicada ao jantar (paridade)
+
+Precedente: o álbum do Gartic Phone. Cada pessoa põe uma peça por vez sem ver o que o outro escolheu como secundária; tudo aparece junto na revelação. Roda **antes do Passo 3 da Task 13** (dados do jantar) e depois da Task 2.
+
+**Arquivos:**
+- Modificar: `game/{Cenario,Regras,Estado}.java`, `room/Visao.java` (ou `encontro/Visao.java`, conforme a etapa em que a 9b estiver), o esquema valibot e o leitor do `cenario.json`, a cena (`cena.ts`: peça coberta), `game/Jantar.java` (`TURNOS_OCULTOS`)
+- Criar: `game/TurnosOcultosTest.java`; Modificar: `game/JantarTest.java`, `e2e/JornadaJantarIT.java`, `AxeIT`
+
+**Interfaces:**
+- Produz:
+  - `enum ModoDeMontagem { LIVRE, TURNOS_OCULTOS }` em `Cenario` (padrão `LIVRE`; nada muda nos outros cenários).
+  - Em `TURNOS_OCULTOS`, na primeira montagem: as jogadas (colocar, mover, tirar) alternam, começando por A; fora da vez → recusa `NAO_E_SUA_VEZ` (409). `Visao.vez` = `"VOCE"|"OUTRO"|null`.
+  - A peça **opcional** do outro aparece como coberta: a `Visao` traz o lugar ocupado com `"peca": null, "coberta": true` (o servidor esconde; o id nunca chega ao cliente). As obrigatórias aparecem como hoje. Sinal com destino vale só para peças visíveis.
+  - Na revelação, tudo aparece. Depois de um ajuste aceito (1c), a montagem volta em `LIVRE`, porque já não há surpresa.
+  - Cena: a peça coberta é um pano sobre o lugar (`data-efeito="coberta"`), com `aria-label="Peça coberta"`; a faixa de status diz `Sua vez` / `Vez de {nome}`.
+  - Jantar: `Jantar.CENARIO` passa a `TURNOS_OCULTOS`. A trilha (vitrola/vela × caixinha/flores) e o centro da mesa só aparecem na revelação.
+- [ ] **Passo 1:** testes.
+  - `TurnosOcultosTest` (cenário de teste mínimo da 1b com o modo ligado): `primeiraJogadaEDeA`; `foraDaVezRecusada`; `moverContaComoJogada`; `opcionalDoOutroVemCobertaNaVisao` (o JSON de B não contém o id da peça opcional de A); `obrigatoriaDoOutroVisivel`; `revelacaoMostraTudo`; `ajusteVoltaEmLivre`; `cenarioLivreNaoMuda` (o terraço segue idêntico).
+  - `JantarTest.turnosAlternamNoJantar`; `JornadaJantarIT.trilhaSoApareceNaRevelacao`; `AxeIT`: `pecaCobertaSemViolacoes`.
+- [ ] **Passo 2:** RED; implementar; verde nos três navegadores. Commit `feat(game): montagem em turnos com peças cobertas até a revelação`.
+- [ ] **Passo 3:** o playtest do jantar (Task 14) ganha no roteiro "uma montagem em turnos" e a pergunta extra "a surpresa na revelação valeu?". Se a pergunta 3 (negociação) der "não" por causa dos turnos, o jantar volta a `LIVRE` (uma linha) e o dono só recebe a escolha.
+
 ## Ordem e paralelismo
 - **Pré-requisitos:**
   - Task 1: depois da 1b Task 3, quando os assets já estão em `assets/cenarios/terraco`.
@@ -1115,6 +1148,7 @@ Pergunta que o spike responde: **o export web single-thread do Godot 4, sem `uns
   6. Task 20, depois da 18, da 19 e da Etapa 5;
   7. Task 21.
   - A D3, se aberta, bloqueia as Tasks 17–21 até a resposta, e só elas.
+- **Paridade:** a Task 23 entra depois da Task 2 e antes do Passo 3 da Task 13; as mudanças de papéis vão dentro das Tasks 17–19, na ordem delas.
 - **Fim:** a Task 22 vem depois das respostas da D4 e com a Etapa 4 integrada. Os cenários aprovados podem ser liberados aos poucos, numa Task 22 por lote.
 
 ## Decisões do dono
