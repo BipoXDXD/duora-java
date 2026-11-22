@@ -96,6 +96,29 @@ class PwaIT {
             "192x192 any", "512x512 any", "192x192 maskable", "512x512 maskable");
   }
 
+  /**
+   * O install baixa o shell inteiro; registrado antes do {@code load}, ele disputa a rede com as
+   * imagens da primeira tela. A sonda anota o {@code readyState} no momento do registro.
+   */
+  @Test
+  void serviceWorkerSoRegistraDepoisDoLoad(Participantes participantes) {
+    TerracoPagina ana = participantes.novoComServiceWorker();
+    ana.page()
+        .addInitScript(
+            """
+            const registrar = ServiceWorkerContainer.prototype.register;
+            ServiceWorkerContainer.prototype.register = function (...argumentos) {
+              window.estadoNoRegistroDoSw = document.readyState;
+              return registrar.apply(this, argumentos);
+            };
+            """);
+    Page page = ana.abrir(raiz(porta)).page();
+
+    page.waitForFunction("() => window.estadoNoRegistroDoSw !== undefined");
+
+    assertThat(page.evaluate("() => window.estadoNoRegistroDoSw")).isEqualTo("complete");
+  }
+
   @Test
   void serviceWorkerAssumeAPaginaDepoisDeRecarregar(Participantes participantes) {
     Page page = participantes.novoComServiceWorker().abrir(raiz(porta)).page();
