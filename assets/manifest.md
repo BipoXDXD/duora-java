@@ -48,7 +48,7 @@ Gerado no ElevenLabs (flow `1v6oSiEKugInq7KOaP0r`, "Duora — Antes da primeira 
 | `cenarios/terraco/audio/ambiente.mp3` (60 s, loop, 192 kbps) | `brutos/trilha-1.mp3` + `brutos/amb-4.mp3` | `eleven_music_v2_5` (75 s, instrumental) + `eleven_text_to_sound_v3` (30 s, loop) | `fKL1ZLtQgXCJrs8Wozxw` + `NsfI9LaOcHiABvoptabd` | trilha recortada com crossfade de 4 s no laço; ambiência ~12 dB abaixo |
 | `cenarios/terraco/audio/meteoro.mp3` (1,6 s, 192 kbps) | `brutos/met-2.mp3` | `eleven_text_to_sound_v3` | `aSb0KGD3NtHW5csUciBX` | −20 LUFS, fade de 0,35 s |
 | `cenarios/terraco/audio/revelacao.mp3` (4 s, 192 kbps) | `brutos/rev-2.mp3` | `eleven_text_to_sound_v3` | `8JgqRj9O0Str52ENxIdK` | −20 LUFS, fade de 0,8 s |
-| `cenarios/terraco/audio/radio-notas.mp3` (4 s, 192 kbps; 2026-11-22; fora do `assetsDoShell`: offline, falha em silêncio) | `brutos/radio-1.mp3` | `eleven_text_to_sound_v3` (4 s, prompt_influence 0,3; nó `qcXAVnGLeonKZqecO2wq`) | `BVbJgKOPqtoVSAGxa6ep` | −20 LUFS, fade de 0,4 s; licença CC BY 4.0 (gerado pelo autor no ElevenLabs); Candidato a FINAL |
+| `cenarios/terraco/audio/radio-notas.mp3` (2,9 s, 192 kbps; 2026-11-22, cortado de 4 s para ficar abaixo de 3 s, WCAG 1.4.2, com aval do dono; fora do `assetsDoShell`: offline, falha em silêncio) | `brutos/radio-1.mp3` | `eleven_text_to_sound_v3` (4 s, prompt_influence 0,3; nó `qcXAVnGLeonKZqecO2wq`) | `BVbJgKOPqtoVSAGxa6ep` | −20 LUFS, corte em 2,9 s com fade de 0,6 s (`montar.sh`); licença CC BY 4.0 (gerado pelo autor no ElevenLabs); Candidato a FINAL |
 
 Custo: 20 gerações = ~5.025 créditos ElevenLabs (trilhas 4 × 1.125; ambiência 4 × 100; meteoro 4 × 5; revelação 4 × 13; notas do rádio 4 × 13,3 = 53, em 2026-11-22). Os brutos não escolhidos ficam fora do Git.
 
