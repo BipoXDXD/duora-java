@@ -30,12 +30,12 @@ function escrever(raiz: string, caminho: string, conteudo: string): void {
   writeFileSync(destino, conteudo);
 }
 
-function montarBuild(): { outDir: string; raizEstatica: string } {
+function montarBuild(manifest: object = MANIFEST): { outDir: string; raizEstatica: string } {
   const pasta = mkdtempSync(join(tmpdir(), "duora-sw-"));
   pastas.push(pasta);
   const outDir = join(pasta, "saida");
   const raizEstatica = join(pasta, "estatica");
-  escrever(outDir, ".vite/manifest.json", JSON.stringify(MANIFEST));
+  escrever(outDir, ".vite/manifest.json", JSON.stringify(manifest));
   escrever(outDir, "index.html", "<!doctype html>");
   for (const arquivo of [
     "app/index-abc.js",
@@ -132,5 +132,16 @@ it("um item do shell sem arquivo falha o build", async () => {
   await expect(
     gerarServiceWorker({ ...build, raizDoFront, assetsDoShell: ["/assets/icones/sumido.png"] }),
   ).rejects.toThrow("/assets/icones/sumido.png");
+  expect(existsSync(join(build.outDir, "sw.js"))).toBe(false);
+});
+
+it("um import que falta no manifest falha o build", async () => {
+  const build = montarBuild({
+    "index.html": { file: "app/index-abc.js", src: "index.html", isEntry: true, imports: ["_sumido-xyz.js"] },
+  });
+
+  await expect(gerarServiceWorker({ ...build, raizDoFront, assetsDoShell: [] })).rejects.toThrow(
+    '"_sumido-xyz.js" não está no manifest',
+  );
   expect(existsSync(join(build.outDir, "sw.js"))).toBe(false);
 });

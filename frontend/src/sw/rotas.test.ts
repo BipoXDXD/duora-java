@@ -17,7 +17,11 @@ function rota({ caminho, metodo = "GET", modo = "cors", temRange = false, origem
 
 describe("rotaDoPedido", () => {
   it("POST é ignorado", () => {
-    expect(rota({ caminho: "/api/salas", metodo: "POST" })).toBe("ignorar");
+    expect(rota({ caminho: "/app/index-abc.js", metodo: "POST" })).toBe("ignorar");
+  });
+
+  it("POST de navegação é ignorado", () => {
+    expect(rota({ caminho: "/", metodo: "POST", modo: "navigate" })).toBe("ignorar");
   });
 
   it("a API é ignorada", () => {
