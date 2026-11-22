@@ -16,6 +16,7 @@ Hipótese herdada (`duora-java-mvp.md` §1): uma pequena criação compartilhada
 | LGPD | **Versão leve**: termos e política curtos, consentimento simples, exclusão de conta. Sem mapa de dados, relatório de impacto ou revisão jurídica obrigatória no piloto |
 | Distância | **Raio opcional por pessoa**: cada um escolhe se o raio é obrigatório (filtro) ou só preferência (ordena, mais perto primeiro) |
 | Duração | **Encontros de ~30 min; limite só de simultaneidade: até 10 encontros ao mesmo tempo** (20 pessoas). Não há teto por pessoa nem total por janela |
+| Cenários no piloto | **Terraço + 4 novos: aquário, piquenique, cachoeira e jantar** (decisão do dono em 2026-11-22: "todos antes do piloto, ao menos 4"; escolha dos 4 delegada). Planetário, parque e fliperama ficam no backlog |
 | Reencontro | **Só se ninguém disse "não"**. Um "não", uma saída ou uma denúncia bloqueiam o par para sempre; conectados não voltam a ser pareados; encontro interrompido sem decisão conta como "não" |
 
 ## Escolhas minhas (podem ser corrigidas)
@@ -34,7 +35,7 @@ Hipótese herdada (`duora-java-mvp.md` §1): uma pequena criação compartilhada
 - **Excedente da capacidade**: com 10 encontros simultâneos já em andamento, quem chega espera na fila, vendo a posição e o tempo estimado.
 
 ## Não-objetivos do piloto
-Verificação documental ou por selfie, matching por questionário ou score, salas em grupo, voz ou vídeo dentro do encontro, app nativo, monetização, novos cenários além do terraço, telemetria remota (lições do C#).
+Verificação documental ou por selfie, matching por questionário ou score, salas em grupo, voz ou vídeo dentro do encontro, app nativo, monetização, cenários além dos 5 escolhidos, telemetria remota (lições do C#).
 
 ## Arquitetura alvo (monólito modular)
 Pacotes em `bipotheking.net.duora`:
@@ -72,6 +73,13 @@ Cada etapa termina com uma prova demonstrável, testes verdes (`./mvnw -q verify
 - Teste e2e com emulação de dispositivo móvel e checagem de instalabilidade (manifest + SW registrados).
 
 **Prova**: instalado num Android real e terraço nítido no celular.
+
+### Etapa 1b: Motor de cenários
+- `game/` deixa de ter o terraço fixo no código: um `Cenario` descreve lugares, zonas, peças por participante, regras de colocação e como a composição vira o final. O terraço vira o primeiro cenário, descrito como dados, sem mudar nenhum comportamento: a suíte atual tem de continuar verde.
+- O front lê a descrição do cenário (`cena.json` por cenário) em vez de constantes; os assets ficam em `assets/cena/<cenario>/`.
+- A sala/encontro guarda qual cenário está em jogo. O pareamento (Etapa 4) sorteia um cenário que nenhum dos dois jogou ainda.
+
+**Prova**: a suíte inteira segue verde com o terraço vindo de dados, e um cenário de teste mínimo (2 lugares, 2 peças) roda de ponta a ponta.
 
 ### Etapa 2: Persistência e contas
 - PostgreSQL + Flyway + Testcontainers. Compose de desenvolvimento.
@@ -135,6 +143,14 @@ Cada etapa termina com uma prova demonstrável, testes verdes (`./mvnw -q verify
 
 **Prova**: as duas páginas estão publicadas e linkadas no cadastro, e o job de expiração do chat é testado.
 
+### Etapa 9b: Quatro cenários novos
+- Um design curto por cenário (lugares, peças, o que cada composição muda na revelação), feito com brainstorming próprio antes dos assets.
+- Assets pela skill `duora-assets`: props no Hi3D → Blender → WebP q88 em 900/1800/2700; fundo/céu no Tripo; som no ElevenLabs (MP3 192 kbps/48 kHz). Confirmar saldo antes de gerar em lote.
+- Cada cenário entra com seus testes (regras + jornada e2e + axe) e passa por playtest do dono antes de valer no pareamento.
+- Ordem: aquário, piquenique, cachoeira, jantar. Cada um é independente e pode rodar em paralelo.
+
+**Prova**: os 5 cenários sorteáveis no pareamento, cada um aprovado no playtest do dono.
+
 ### Etapa 10: Infra e entrega
 - VPS Ubuntu 24.04. Compose com `app`, `postgres`, `caddy` (TLS, cabeçalhos) e `coturn`. Firewall nas portas 443 e 3478/5349, mais a faixa de relay.
 - Backup `pg_dump`/pgBackRest para armazenamento externo, com drill de restauração testado.
@@ -156,7 +172,7 @@ Cada etapa termina com uma prova demonstrável, testes verdes (`./mvnw -q verify
 - Decisão ao final: ajustar, ampliar o piloto ou criar novos cenários.
 
 ## Dependências e paralelismo
-0 → 1 → 2 → 3 → 4 → 5 → 6 → 7. A 8 começa junto com a 5 (denúncia e bloqueio básicos já entram na 5). A 9 é curta e fecha antes da 10. A 10 pode ser preparada em paralelo a partir da 6. A 11 depende de todas.
+0 → 1 → 1b → 2 → 3 → 4 → 5 → 6 → 7. A 9b começa depois da 1b e roda em paralelo às etapas 2–8 (assets e dados não dependem de contas). A 8 começa junto com a 5 (denúncia e bloqueio básicos já entram na 5). A 9 é curta e fecha antes da 10. A 10 pode ser preparada em paralelo a partir da 6. A 11 depende de todas.
 
 ## Verificação (por etapa e final)
 - Unitários e API: `./mvnw -q verify`.
@@ -167,7 +183,7 @@ Cada etapa termina com uma prova demonstrável, testes verdes (`./mvnw -q verify
 - Final: smoke e2e contra homologação e uma janela de teste com o dono e mais uma pessoa antes do piloto.
 
 ## Backlog de cenários (ideias do dono, 2026-11-22)
-Fora do piloto (não-objetivo "novos cenários além do terraço"); a decisão de qual entra vem da Etapa 11. Cada cenário segue o formato do terraço: criação a dois, ~30 min, sem placar, revelação no fim. As atividades abaixo são propostas iniciais, a validar em brainstorming próprio.
+Escolhidos para o piloto (Etapa 9b): aquário, piquenique, cachoeira e jantar. Ficam no backlog: planetário (repete as estrelas do terraço), parque (se sobrepõe ao piquenique) e fliperama (exige motor de jogo em tempo real). Cada cenário segue o formato do terraço: criação a dois, ~30 min, sem placar, revelação no fim. As atividades abaixo são propostas iniciais, a validar em brainstorming próprio.
 
 | Cenário | Atividade compartilhada proposta |
 |---|---|
