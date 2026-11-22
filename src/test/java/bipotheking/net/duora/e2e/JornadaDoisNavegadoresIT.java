@@ -18,8 +18,10 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import bipotheking.net.duora.e2e.NavegadorExtension.Participantes;
 import com.microsoft.playwright.Locator;
+import com.microsoft.playwright.Route;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicReference;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -196,9 +198,16 @@ class JornadaDoisNavegadoresIT {
   void confirmarEncerraParaOsDois() {
     entrarEmPar();
     AtomicInteger saidas = contarSaidas(ana);
+    // A resposta da saída fica retida até o duplo clique terminar: os dois cliques caem no botão
+    // em envio. Solta, ela pode chegar entre um clique e outro; aí o segundo cai no painel da tela
+    // de encerrado, que não é focável, e o foco vai ao body (no Firefox da CI, sempre).
+    AtomicReference<Route> saidaRetida = new AtomicReference<>();
+    ana.page().route("**/api/sala/sair", saidaRetida::set);
     ana.botaoSair().click();
 
     ana.botao("Encerrar para os dois").dblclick();
+    ana.page().waitForCondition(() -> saidaRetida.get() != null);
+    saidaRetida.get().resume();
 
     assertThat(ana.tituloEncerrado()).isFocused();
     assertThat(bruno.tituloEncerrado()).isVisible();
