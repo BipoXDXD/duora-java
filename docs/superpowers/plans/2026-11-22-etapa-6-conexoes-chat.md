@@ -18,7 +18,8 @@
 
 ## Restrições globais
 - Valem os contratos entre etapas (inclusive "Princípios de engenharia") e as restrições globais da Etapa 4.
-- Migrações: **V100–V119**. Usadas: V100 `mensagem_conexao`, V101 `leitura_conexao`.
+- Migrações: **V100–V119**. Usadas: V100 `mensagem_conexao`, V101 `leitura_conexao`, V102 `preferencia_conversa` e convite na conversa (Task 8). V103–V119 reservadas.
+- **Paridade (2026-11-22):** próximo passo depois do sim, lembrete gentil contra o sumiço, ocultar conversa e avisos por conversa (Tasks 8 e 9). Nada punitivo: sem limite de conversas, sem rebaixar ninguém, sem contagem de dias seguidos.
 - Erros por `ErroDeNegocio` com `CodigoConexao`; limites por `LimiteDeTaxa`.
 - Chat 1:1: texto de **1 a 1000** code points por `TextoDeUsuario`; links pelas regras da Etapa 5 (`Links.segmentar`, aviso de saída, `rel="noopener noreferrer nofollow ugc"`, sem prévia). Sem imagens no chat entre conexões.
 - Regra `chat-conexao`: 10 por `PT10S`, chave conta. `Idempotency-Key` aceito em `POST /api/conexoes/{id}/mensagens`.
@@ -179,15 +180,66 @@
   - `BloqueioCortaNaHoraIT.bloqueioCortaOAcessoNaHora` (prova, Foco 2): Bia na conversa; Ana bloqueia; em até 3 s Bia vê "Esta conexão não está mais disponível."; um `POST` de Bia pelo `APIRequestContext` do mesmo contexto recebe 404; a lista de Bia fica vazia.
   - `BloqueioCortaNaHoraIT.desfazerMostraOMesmoTextoAoOutro`.
   - `VozEntreConexoesIT.ligarAceitarEFalar`: Ana liga; Bia vê "Ana está chamando." e aceita; microfones começam desligados; Ana liga o dela e a energia recebida por Bia cresce; Bia encerra e os painéis somem.
-  - `AxeIT`: `conexoesSemViolacoes`, `conversaSemViolacoes`, `perfilDaConexaoSemViolacoes`, `chamadaRecebidaSemViolacoes`.
+  - `ProximoPassoIT.convidarParaSegundoEncontro` (paridade): Ana convida pelo cartão; Bia vê `Ana convidou você para um encontro no ...` e entra; as duas chegam ao cenário sugerido.
+  - `AxeIT`: `conexoesSemViolacoes`, `conversaSemViolacoes`, `perfilDaConexaoSemViolacoes`, `chamadaRecebidaSemViolacoes`. E (paridade) `conversasOcultasSemViolacoes`.
 - [ ] **Passo 2:** rodar em chromium, firefox e webkit (no webkit sem captura, o `VozEntreConexoesIT` afirma o aviso de microfone, como na Etapa 7). Verde, sem skip.
 - [ ] **Passo 3:** `_mapa.md`. Commit `test(e2e): conversa sobrevive a reinício e bloqueio corta na hora`.
+
+### Task 8: Próximo passo depois do sim e lembrete gentil contra o sumiço (paridade)
+
+**Arquivos:**
+- Criar: `src/main/resources/db/migration/V102__preferencia_e_convite_na_conversa.sql`
+- Criar: `conexao/dominio/{LembreteDeConversa,Lembrete}.java`, `conexao/{ProximoPasso,ConviteNaConversa,LembretesDeConversa,ManipuladorDeLembrete}.java`
+- Modificar: `conexao/{ChatDaConexao,MensagemDaConexaoVisao,ConexoesController,ConexaoResumo}.java`; `encontro/Encontros.java` (`entrarPrivadoPorId`); `frontend/src/conexao/{ConversaTela,ConexoesTela}.tsx`
+- Criar: `frontend/src/conexao/{ProximoPassoCartao,CartaoDeConvite,LembreteGentil}.tsx` + testes
+- Teste: `conexao/dominio/LembreteDeConversaTest.java`, `conexao/{ProximoPassoApiTest,LembretesDeConversaTest}.java`
+
+**Esquema (V102):**
+- `preferencia_conversa(conexao_id uuid not null references conexao(id) on delete cascade, conta_id uuid not null references conta(id) on delete cascade, oculta_em timestamptz, avisos boolean not null default true, lembrete_em timestamptz, primary key (conexao_id, conta_id))` (a Task 9 usa `oculta_em` e `avisos`).
+- `alter table mensagem_conexao add column tipo text not null default 'TEXTO' check (tipo in ('TEXTO','CONVITE'))`, `add column encontro_id uuid references encontro(id) on delete set null`, `alter column texto drop not null`, `add check ((tipo = 'TEXTO') = (texto is not null))`.
+
+**Interfaces:**
+- Consome: `sala.HistoricoDeCenarios` e `CatalogoDeCenarios.sorteaveis()` (Etapa 4), `Encontros.abrirPrivado` (Etapa 5), `AvisoDeConversa`/outbox (Task 5), `Perfis.pausada` (Etapa 3).
+- Produz:
+  - `enum Lembrete { PRIMEIRA_MENSAGEM, SUA_VEZ }`; `LembreteDeConversa.pendencia(Instant conexaoCriadaEm, Optional<UltimaMensagem> ultima, ContaId eu, Instant agora) -> Optional<Lembrete>` (pura): sem mensagens e conexão com 24 h ou mais → `PRIMEIRA_MENSAGEM`; última do outro há 48 h ou mais → `SUA_VEZ`; resto → vazio. `record UltimaMensagem(ContaId autor, Instant em)`.
+  - `GET /api/conexoes/{id}/proximo-passo` → `{ "cenarioSugerido": "<id>" | null, "lembrete": "PRIMEIRA_MENSAGEM" | "SUA_VEZ" | null }`; `cenarioSugerido` = o sorteável que nenhum dos dois jogou (empate pela ordem de `sorteaveis()`), ou `null`.
+  - `POST /api/conexoes/{id}/convites` `{ "cenario" }` → 201: abre um encontro privado do criador e grava, na mesma transação, uma mensagem `CONVITE` com o `encontroId` (evento `chat.conexao.mensagem` de sempre). `POST /api/conexoes/{id}/convites/{encontroId}/aceitar` → 200 com a `Visao`: só o outro da conexão ativa, só com o encontro aberto e sem convidado; usa `Encontros.entrarPrivadoPorId(String encontroId, ContaId convidado)` (novo, na Etapa 5: mesmo efeito de `entrarPrivado`, sem token, exigindo conexão ativa). Encontro vencido ou usado → 404 `CONVITE_INVALIDO`.
+  - `ConexaoResumo` ganha `lembrete` (`PRIMEIRA_MENSAGEM` | `SUA_VEZ` | `null`).
+  - `LembretesDeConversa` (`@Scheduled(cron = "0 0 19 * * *", zone = "America/Sao_Paulo")`): para cada conta com inscrição de push, não pausada, com alguma conversa pendente não oculta, com `avisos` ligados e cujo `lembrete_em` é anterior ao início da pendência, registra **um** push por conta por dia pela outbox (`tipo` `lembrete-de-conversa`, corpo fixo `Uma conversa está esperando você no Duora.`, `url` `/conexoes`) e grava `lembrete_em` nas conversas cobertas. Uma pendência gera no máximo um lembrete.
+  - Front:
+    - `ProximoPassoCartao` no topo da conversa enquanto não houver convite nem chamada: `Que tal um segundo encontro no {cenario}?` com `Convidar` e `Agora não` (esconde por 7 dias, só neste aparelho);
+    - `CartaoDeConvite` para a mensagem `CONVITE`: para quem recebeu, `{apelido} convidou você para um encontro no {cenario}.` com `Entrar`; para quem enviou, `Convite enviado.`;
+    - `LembreteGentil`: `SUA_VEZ` → `{apelido} respondeu há {n} dias. Quer continuar? Se não quiser, tudo bem: você pode desfazer a conexão.`; `PRIMEIRA_MENSAGEM` → `Vocês se conectaram. Que tal dizer oi?`; na `ConexoesTela`, os selos `Sua vez` e `Diga oi`.
+- [ ] **Passo 1:** testes.
+  - `LembreteDeConversaTest`: 23 h 59 sem mensagens → vazio; 24 h → `PRIMEIRA_MENSAGEM`; última minha há 5 dias → vazio; última do outro há 47 h 59 → vazio; 48 h → `SUA_VEZ`.
+  - `ProximoPassoApiTest`: `sugereCenarioQueNenhumJogou`; `semCenarioNovoSugereNull`; `convidarCriaEncontroEMensagemNaMesmaTransacao`; `outroAceitaEOsDoisEntram`; `quemConvidouNaoAceitaOProprio` (404); `conviteDeConexaoDesfeitaRecebe404`; `terceiroRecebe404`.
+  - `LembretesDeConversaTest` (`EnvioDePush` falso): `umPushPorContaPorDia` (3 conversas pendentes → 1 push); `mesmaPendenciaNaoRelembra`; `conversaOcultaOuSemAvisosNaoConta`; `contaPausadaNaoRecebe`; `corpoNaoTemApelido`.
+  - Vitest: `cartaoDeConviteEntra`; `agoraNaoEscondeOProximoPasso`; `lembreteOfereceDesfazerSemCulpa` (texto exato).
+- [ ] **Passo 2:** RED; implementar; verde. Commit `feat(conexao): próximo encontro sugerido e lembrete gentil contra o sumiço`.
+
+### Task 9: Ocultar conversa e avisos por conversa (paridade)
+
+**Arquivos:**
+- Criar: `conexao/{PreferenciasDeConversa,PreferenciasDeConversaController}.java`
+- Modificar: `conexao/ConexoesController.java` (`?ocultas=true`; total de não lidas sem as ocultas), `notificacao/ManipuladorDeAvisoDeConversa.java` (respeita `avisos`), `frontend/src/conexao/{ConexoesTela,ConversaTela}.tsx`, a navegação principal (total sem as ocultas)
+- Teste: `conexao/PreferenciasDeConversaApiTest.java`, `notificacao/AvisoDeConversaTest.java` (casos novos), `frontend/src/conexao/{ConexoesTela,ConversaTela}.test.tsx` (casos novos)
+
+**Interfaces:**
+- Consome: `preferencia_conversa` (V102, Task 8).
+- Produz:
+  - `POST /api/conexoes/{id}/ocultar` e `DELETE /api/conexoes/{id}/ocultar` → 204 (idempotentes; conexão alheia → 404). Ocultar é só para quem oculta: o outro não fica sabendo, a conexão e a conversa seguem, e mensagem nova **não** desoculta (aparece em "Ocultas" com o contador).
+  - `PUT /api/conexoes/{id}/avisos` `{ "ativos": bool }` → 204. Com `false`, nem push de mensagem, nem de chamada, nem lembrete dessa conversa; a chamada continua tocando dentro do app aberto.
+  - `GET /api/conexoes` exclui as ocultas; `GET /api/conexoes?ocultas=true` lista só elas. `ConexaoResumo` ganha `oculta` e `avisos`.
+  - Front: no menu da conversa, `Ocultar conversa` / `Mostrar conversa` e o interruptor `Avisos desta conversa`; na `ConexoesTela`, o link `Conversas ocultas ({n})` quando houver.
+- [ ] **Passo 1:** testes. `PreferenciasDeConversaApiTest`: `ocultarTiraDaListaSoParaQuemOcultou`; `mensagemNovaNaoDesoculta`; `totalDeNaoLidasIgnoraOcultas`; `outroNaoVeDiferencaNenhuma` (o `GET` do outro é igual antes e depois, byte a byte); `conexaoAlheiaRecebe404`. `AvisoDeConversaTest`: `avisosDesligadosNaoMandaPushDeMensagemNemDeChamada`. Vitest: `ocultasEmSecaoPropria`; `interruptorDeAvisosChamaAApi`.
+- [ ] **Passo 2:** RED; implementar; verde. Commit `feat(conexao): ocultar conversa e avisos por conversa`.
 
 ## Ordem e paralelismo
 - **Leva 1 (paralela):** Task 1 (lista e perfil), Task 4 (voz; só depende de `Conexoes` e da Etapa 7) e Task 5 (push; o manipulador e o teste, com os pontos de registro ligados depois).
 - **Leva 2:** Task 2 (depois da 1, mesmo controller); a Task 6 começa junto, contra as Interfaces das Tasks 1–4, com `fetch` e `canal` falsos.
 - **Leva 3:** Task 3 (depois da 2), o fim da Task 5 (registrar na outbox no chat e na chamada) e o fim da Task 6.
-- **Por último:** Task 7, revisão final (`superpowers:requesting-code-review`), merge, push e CI.
+- **Leva 4 (paridade):** Task 8 (depois da 2, 3 e 5; V102), depois Task 9 (mesmas telas e a tabela da 8).
+- **Por último:** Task 7 (com os ITs das Tasks 8 e 9), revisão final (`superpowers:requesting-code-review`), merge, push e CI.
 
 ## Decisões do dono
 Nenhuma bloqueia a etapa. P1–P4 acima são escolhas de planejamento reversíveis.
