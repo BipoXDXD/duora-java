@@ -16,7 +16,7 @@
 
 ## Restrições globais (Global Constraints)
 - Tudo do contrato vale aqui.
-- **Flyway:** faixa proposta **V140–V159** (adição ao contrato). Usadas: V140 `configuracao_piloto`, V141 `feedback_encontro`, V142 `metrica_diaria`.
+- **Flyway:** faixa proposta **V140–V159** (adição ao contrato). Usadas: V140 `configuracao_piloto`, V142 `metrica_diaria`. V141 fica livre: o `feedback_encontro` nasce na Etapa 5 como `V89` (emenda de 2026-11-22).
 - **Dia das métricas:** dia civil em `America/Sao_Paulo` (00:00 a 00:00), convertido em intervalo de `Instant` meio-aberto `[início, fim)`.
 - **Contas de teste fora de tudo:** toda porta de estatística recebe `Set<ContaId> excluir` (as contas de teste) e ignora encontros, decisões, conexões, denúncias e feedback em que alguma delas participe.
 - **Capacidade:** inteiro de **1 a 50**; padrão `duora.encontros.maximo-simultaneos` (10, Etapa 4); valor inicial do piloto **3** (ver D2). Baixar a capacidade nunca encerra encontro em andamento: só impede novos até a ocupação cair.
@@ -99,7 +99,9 @@ Nenhuma bloqueia o código: limiares, capacidade e prazos vêm de propriedades c
 - [ ] **Passo 3:** implementar.
 - [ ] **Passo 4:** `./mvnw -q verify` verde (os testes de capacidade da Etapa 4 continuam verdes com o padrão 10). Commit `feat(piloto): cadastro e capacidade ajustáveis pelo admin com auditoria`.
 
-### Task 2: Feedback depois do encontro
+### Task 2: Feedback depois do encontro (movida para a Etapa 5 Task 18)
+
+> **Emenda 2026-11-22:** a spec pôs o feedback pós-encontro na Etapa 5. A Etapa 5 Task 18 implementa esta especificação com a migração `V89`, o pacote `encontro/` e o front em `frontend/src/encontro/`. Aqui ela fica como referência; nesta etapa nada é implementado, e a T4 consome `encontro.Feedbacks`. Onde abaixo se lê `piloto/` e `V141`, vale o que a Etapa 5 Task 18 diz.
 
 **Arquivos:**
 - Criar: `src/main/resources/db/migration/V141__feedback_encontro.sql`

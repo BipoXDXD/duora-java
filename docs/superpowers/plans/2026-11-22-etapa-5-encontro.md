@@ -4,6 +4,8 @@
 
 **Objetivo:** o encontro vira um lugar completo: nasce do pareamento ou do convite com o assento ligado à conta, dura 30 min, tem chat com links, imagens com consentimento, voz, sair, denunciar e bloquear sempre à mão, sobrevive a reinício e termina numa decisão privada em que só o sim mútuo aparece.
 
+> **Emenda 2026-11-22 (paridade com o mercado, spec "Etapa 5"):** Tasks 11–18 novas: ações rápidas dentro da cena; "Tem certeza?" e "Isso te incomodou?"; alertas de troca de contato, link e golpe via PIX; triagem automática das imagens (Falconsai via ONNX Runtime Java); fluxo de abuso infantil com remoção, preservação e reporte; clipe de voz de 60 s só no aparelho; quebra-gelos nos objetos da cena; cartão-postal; feedback pós-encontro (trazido da Etapa 11). As Tasks 5, 6 e 7 ganham ajustes pequenos marcados como "(paridade)".
+
 **Arquitetura:**
 - `room/` vira `encontro/`. O **domínio puro** fica em `encontro/dominio/` (sem Spring, JDBC nem Jackson): `Retrato`, `Participante`, a fase do encontro como **State** (`sealed interface FaseDoEncontro` com `switch` exaustivo) e `RegrasDoEncontro`. A aplicação (`Encontro` com o lock, `Encontros`, controllers) e a persistência (`encontro/persistencia/`) ficam em volta.
 - O `Retrato` continua imutável e trocado sob o lock do encontro, agora com **write-through**: cada mudança aceita grava `encontro.estado` (`jsonb`) com `UPDATE ... SET versao = versao + 1 ... WHERE id = ? AND versao = ?` antes de ser publicada; 0 linhas ⇒ 409 `VERSAO_OBSOLETA` e releitura. No boot, os encontros abertos voltam do banco.
@@ -19,7 +21,10 @@
 
 ## Restrições globais
 - Valem os contratos entre etapas (inclusive "Princípios de engenharia") e as restrições globais da Etapa 4.
-- Migrações: **V80–V99**. Usadas: V80 `encontro` + `participante_encontro`, V81 `mensagem_encontro`, V82 `imagem_encontro` + `imagem_oculta`, V83 `decisao_encontro`, V84 `conexao`, V85 `bloqueio`, V86 `denuncia`.
+- Migrações: **V80–V99**. Usadas: V80 `encontro` + `participante_encontro`, V81 `mensagem_encontro`, V82 `imagem_encontro` + `imagem_oculta`, V83 `decisao_encontro`, V84 `conexao`, V85 `bloqueio`, V86 `denuncia`, V87 `caso_abuso_infantil` (Task 14), V88 `clipe_de_voz` (Task 15), V89 `feedback_encontro` (Task 18). V90–V99 reservadas.
+- **Contas novas (paridade):** mensagem e imagem do encontro consomem `LimitesDeContaNova` (Etapa 2 Task 15) na transação do envio.
+- **Triagem de imagem (paridade):** toda imagem do encontro passa pelo classificador antes de ser entregue; pontuação NSFW ≥ `duora.moderacao.nsfw.bloqueio` (0,90) → recusada e explicada; de `duora.moderacao.nsfw.fila` (0,50) até o bloqueio → entregue borrada com aviso reforçado e denúncia automática P1; classificador indisponível → 503, nunca entrega sem triagem.
+- **Clipe de voz (spec, "Prova de denúncia de voz"):** só no aparelho, só o áudio **recebido**, só os últimos 60 s, em memória; sai só com denúncia **e** confirmação explícita; aviso no início de todo encontro; descartado ao fim.
 - `encontro.dominio` e `conexao.dominio` sem Spring, JDBC nem Jackson (regra na suíte ArchUnit).
 - Erros por `ErroDeNegocio` com `CodigoEncontro`, `CodigoModeracao` e `CodigoConexao` (cada um `implements CodigoDeErro`); limites por `LimiteDeTaxa` com `duora.limites.<regra>.capacidade|periodo`.
 - Duração: **30 min** contados de quando as duas pessoas entram; aviso aos **5 min finais**; ao fim, os dois vão à decisão privada.
@@ -39,7 +44,8 @@
 ## Dependências assumidas
 - **Etapa 4:** `CanalDeEventos.publicar(List<Envio>)`/`publicarEfemero`, `Evento`, `Envio`, `EstadoInicial`, `useEvento`, `aoReconectar`; `Idempotencia.executar(...)`; `sala.{AberturaDeEncontro,OcupacaoDeEncontros,EncontroAberto,ConvitePrivado,CodigoSala}`; `pareamento.dominio.{ParDeContas,ParPareado}`; `pareamento.{VetosDePar,MotivoVeto}`; `sala.HistoricoDeCenarios`; `room/PonteDeEncontros` e `room/AssentoController` (substituídos aqui); `Visao.encontroId`; fixture `sala/EncontrosDeTeste.parear(ContaDeTeste, ContaDeTeste)`; `EncontrarPagina`.
 - **Etapa 7:** `voz.AutorizacaoDeVoz`, `voz.dominio.{ContextoDeVoz,TipoDeContexto}`, `Chamadas.encerrarDoContexto(ContextoDeVoz)`; `room/VozNaSala` (substituída aqui); `PainelDeVoz`, `VozPagina`.
-- **Etapa 2:** `ContaId`, `@ContaAtual`, `ConsultaDeContas`, `Sessoes.revogarTodas`, `AoExcluirConta`, `ErroDeNegocio`/`CodigoDeErro`, `LimiteDeTaxa`, `GeradorDeIds`, `BancoDeTeste`, `RelogioDeTeste`, `ContasDeTeste`, `Participantes.novoComConta`. **Suspensão:** a Etapa 2 não publica um jeito de suspender. Esta etapa usa `public interface SuspensaoDeContas { void suspender(ContaId conta, String motivo); }` em `conta/`; se não existir na `main`, a Task 7 cria a interface e a implementação mínima em `conta/` (`UPDATE conta SET estado = 'SUSPENSA' WHERE id = ? AND estado = 'ATIVA'` + `Sessoes.revogarTodas`), avisando o orquestrador (a Etapa 8 a reaproveita no banimento).
+- **Etapa 2:** `ContaId`, `@ContaAtual`, `ConsultaDeContas`, `Sessoes.revogarTodas`, `AoExcluirConta`, `ErroDeNegocio`/`CodigoDeErro`, `LimiteDeTaxa`, `GeradorDeIds`, `BancoDeTeste`, `RelogioDeTeste`, `ContasDeTeste`, `Participantes.novoComConta`; `LimitesDeContaNova.consumir(ContaId, TipoDeLimiteNovo)` e `RegistroDeAcessos` (Task 15 da Etapa 2, lido pelo pacote de reporte da Task 14).
+- **Etapa 7 (paridade):** `useChamadaDeVoz` expõe `fluxoRemoto: MediaStream | null` e `silenciarOutro(boolean)`; se não expuser, a Task 15 acrescenta os dois ao hook num commit de refatoração. **Suspensão:** a Etapa 2 não publica um jeito de suspender. Esta etapa usa `public interface SuspensaoDeContas { void suspender(ContaId conta, String motivo); }` em `conta/`; se não existir na `main`, a Task 7 cria a interface e a implementação mínima em `conta/` (`UPDATE conta SET estado = 'SUSPENSA' WHERE id = ? AND estado = 'ATIVA'` + `Sessoes.revogarTodas`), avisando o orquestrador (a Etapa 8 a reaproveita no banimento).
 - **Etapa 3:** `Perfis.publico(ContaId)`; `web.ProcessadorDeImagens.processar(InputStream) -> ImagemProcessada` (já recusa formato com 415, tamanho com 413 e arquivo inválido com 422); `web.ArmazemDeImagens.guardar(String categoria, UUID id, ImagemProcessada)`, `caminho(categoria, id, Variante)`, `apagar(categoria, id)` com a categoria `encontro`; `web.Variante { NITIDA, BORRADA }`; `perfil.AcessoAFotoPadrao` (esta etapa edita: encontro → borrada; bloqueio → nenhum).
 - **Etapa 9:** `retencao.PoliticaDeRetencao { String nome(); Duration prazo(); int expirar(Instant limite); }`. O `ExpiracaoDoEncontroIT` da Etapa 9 usa as tabelas `encontro`, `mensagem_encontro` e `imagem_encontro` desta etapa.
 - **Etapa 1c:** "Sair" e "Ajustar com aceite" já existem no motor; esta etapa os mantém.
@@ -56,6 +62,8 @@
 3. **Duas abas agindo ao mesmo tempo:** a gravação com versão antiga recebe 409 `VERSAO_OBSOLETA` e nada se perde. Teste na Task 3.
 4. **Texto com `javascript:`, `data:`, `https://banco.com@golpe.example`, domínio em cirílico ou URL de 3000 caracteres:** só URL `http(s)` válida vira link; o domínio mostrado é o host real. Teste na Task 5.
 5. **Mensagem reenviada pelo cliente depois de timeout** (mesma `Idempotency-Key`): uma mensagem só para os dois. Teste na Task 5.
+6. **Clipe de voz saindo do aparelho sem a pessoa marcar a opção** (ou depois do fim do encontro): nenhum `POST` de clipe sem a caixa marcada, e o buffer zerado ao encerrar. Teste na Task 15.
+7. **Modelo de triagem ausente, lento ou corrompido no servidor:** a imagem não é entregue sem triagem (503) e o resto do encontro segue. Teste na Task 13.
 
 ---
 
@@ -161,7 +169,8 @@
 
 **Interfaces:**
 - Produz:
-  - `V81`: `mensagem_encontro(id uuid primary key, seq bigint generated always as identity unique, encontro_id uuid not null references encontro(id) on delete cascade, autor uuid not null references conta(id), tipo text not null check (tipo in ('TEXTO','IMAGEM')), texto text check (char_length(texto) between 1 and 500), imagem_id uuid, criada_em timestamptz not null, check ((tipo = 'TEXTO') = (texto is not null)), check ((tipo = 'IMAGEM') = (imagem_id is not null)))`; índice `(encontro_id, seq)`. A FK de `imagem_id` entra na V82.
+  - `V81`: `mensagem_encontro(id uuid primary key, seq bigint generated always as identity unique, encontro_id uuid not null references encontro(id) on delete cascade, autor uuid not null references conta(id), tipo text not null check (tipo in ('TEXTO','IMAGEM')), texto text check (char_length(texto) between 1 and 500), imagem_id uuid, sinalizada boolean not null default false, criada_em timestamptz not null, check ((tipo = 'TEXTO') = (texto is not null)), check ((tipo = 'IMAGEM') = (imagem_id is not null)))`; índice `(encontro_id, seq)`. A FK de `imagem_id` entra na V82. `sinalizada` é usada pela Task 12.
+  - (paridade) O envio consome `LimitesDeContaNova.consumir(autor, MENSAGEM)` na transação da mensagem.
   - `TextoDeUsuario.validar(String bruto, int maximo) -> String`: `strip()`, 1..máximo code points, recusa `U+0000`–`U+001F` (exceto `\n`), `U+007F`–`U+009F`, `U+202A`–`U+202E`, `U+2066`–`U+2069` ⇒ 422 `TEXTO_INVALIDO`.
   - `Links.segmentar(String texto) -> List<Segmento>`; `sealed interface Segmento` com `record Texto(String texto)` e `record Link(String url, String dominio)`. Candidatos `(?i)https?://\S+` sem `.,;:!?` final e sem `)` final desbalanceado; vira `Link` só se `URI` válida, esquema `http`/`https`, host presente, sem userinfo, até 2048 caracteres e `IDN.toASCII` do host sem erro (`dominio` em minúsculas). O resto é `Texto`.
   - `record MensagemVisao(UUID id, long seq, boolean minha, String tipo, List<SegmentoVisao> segmentos, @Nullable ImagemVisao imagem, Instant criadaEm)`; `record SegmentoVisao(String tipo, String texto, @Nullable String url, @Nullable String dominio)`.
@@ -173,7 +182,7 @@
 - [ ] **Passo 1:** testes.
   - `LinksTest` (Foco 4, valores literais): `"veja https://exemplo.com/a."` ⇒ texto, link (`exemplo.com`), `"."`; `"HTTP://EXEMPLO.COM"` ⇒ `dominio` `exemplo.com`; `"javascript:alert(1)"`, `"data:text/html,<b>"`, `"www.exemplo.com"`, `"ftp://x.com"` ⇒ só texto; `"https://banco.com@golpe.example/"` ⇒ só texto; `"https://пример.рф/a"` ⇒ `dominio` `xn--e1afmkfd.xn--p1ai`; URL de 3000 caracteres ⇒ texto; `"(https://exemplo.com)"` ⇒ `"("`, link, `")"`; dois links.
   - `TextoDeUsuarioTest`: vazio e só espaços ⇒ 422; 500 passa, 501 não; emoji conta 1; `\u0000` e `‮` ⇒ 422; `\n` passa.
-  - `ChatDoEncontroApiTest`: `mensagemChegaAoOutroPeloSse`; `minhaSoParaQuemEnviou`; `terceiroRecebe404`; `antesDoInicioRecebe409`; `depoisDoFimRecebe409` (P1); `sextaEm10sRecebe429`; `depoisPaginaPeloSeq`; `mesmaChaveUmaMensagemSo` (Foco 5: duas chamadas com a mesma chave ⇒ uma linha e um evento por destinatário); `corpoComCampoExtraRecebe400`; `chavesDoJsonExatas` (sem `autor` nem `ContaId`).
+  - `ChatDoEncontroApiTest`: `mensagemChegaAoOutroPeloSse`; `minhaSoParaQuemEnviou`; `terceiroRecebe404`; `antesDoInicioRecebe409`; `depoisDoFimRecebe409` (P1); `sextaEm10sRecebe429`; `depoisPaginaPeloSeq`; `mesmaChaveUmaMensagemSo` (Foco 5: duas chamadas com a mesma chave ⇒ uma linha e um evento por destinatário); `corpoComCampoExtraRecebe400`; `chavesDoJsonExatas` (sem `autor` nem `ContaId`); `contaNovaNaDuzentesimaPrimeiraRecebe429` (paridade).
   - `RetencaoDoChatDoEncontroTest`: 30 dias + 1 s sai; 29 dias e 23 h fica; encontro aberto fica; 2500 mensagens saem inteiras.
   - Vitest: `linkMostraDominioEmDestaque`; `cliqueAbreAvisoENaoNavega`; `linkDoAvisoTemRelETarget`; `textoComHtmlApareceComoTexto`; `reconexaoDeduplicaPorId`.
 - [ ] **Passo 2:** RED; implementar; verde. Commit `feat(encontro): chat com texto e links seguros`.
@@ -192,14 +201,14 @@
   - `V82`: `imagem_encontro(id uuid primary key, encontro_id uuid not null references encontro(id) on delete cascade, autor uuid not null references conta(id), largura int not null, altura int not null, criada_em timestamptz not null)`; `imagem_oculta(imagem_id uuid not null references imagem_encontro(id) on delete cascade, conta_id uuid not null references conta(id), primary key (imagem_id, conta_id))`; FK `mensagem_encontro.imagem_id → imagem_encontro(id) on delete cascade`.
   - `Retrato` ganha `Map<Assento, Boolean> imagensAceitas`; `Visao.imagens` = `{ "voce", "parceiro", "habilitadas" }`.
   - Rotas: `POST /api/encontro/imagens/consentimento` `{ "aceito": bool }` ⇒ 200 `Visao`; `POST /api/encontro/imagens` multipart `imagem` ⇒ 201 `MensagemVisao` tipo `IMAGEM`; `GET /api/encontro/imagens/{id}/{variante}` com `borrada|nitida` (`image/webp`, `Cache-Control: private, no-store`, `X-Content-Type-Options: nosniff`, `Content-Disposition: inline`).
-  - Envio: exige `habilitadas` (senão 409 `IMAGENS_DESLIGADAS`), consome `imagem-encontro`, chama `ProcessadorDeImagens.processar` (os 413/415/422 vêm dele), grava a linha e a mensagem numa transação e chama `ArmazemDeImagens.guardar("encontro", id, imagem)` antes do commit (falha no commit ⇒ `apagar` no `afterCompletion`).
+  - Envio: exige `habilitadas` (senão 409 `IMAGENS_DESLIGADAS`), consome `imagem-encontro`, chama `ProcessadorDeImagens.processar` (os 413/415/422 vêm dele), grava a linha e a mensagem numa transação e chama `ArmazemDeImagens.guardar("encontro", id, imagem)` antes do commit (falha no commit ⇒ `apagar` no `afterCompletion`). (paridade) Consome `LimitesDeContaNova.consumir(autor, IMAGEM)` na mesma transação; a triagem da Task 13 entra entre o processamento e a gravação.
   - Leitura: só participante, só em `EmAndamento` (P1), nunca imagem oculta para quem pede ⇒ senão 404 `IMAGEM_INEXISTENTE`.
   - `record ImagemVisao(UUID id, String urlBorrada, String urlNitida, int largura, int altura)`.
   - `RetencaoDasImagensDoEncontro implements PoliticaDeRetencao`: `imagens-do-encontro`, `P30D`, referência `encontro.encerrado_em`; apaga as linhas em lotes de até 1000 e os arquivos com `ArmazemDeImagens.apagar("encontro", id)` depois do commit de cada lote.
   - Front: "Permitir imagens" abre `AvisoDeImagens` (texto fixo, caixa "Entendi as regras", "Permitir"); "Desligar imagens" sempre visível quando ligadas; `ImagemBorrada` com "Ver imagem" (troca para a nítida) e "Denunciar imagem".
 
 - [ ] **Passo 1:** testes.
-  - `ImagensDoEncontroApiTest`: `semOsDoisAceitaremRecebe409`; `osDoisAceitamEAImagemChegaComoMensagem`; `qualquerUmDesligaNaHora`; `jpegComGpsSaiSemMetadados` (o arquivo gravado não contém `Exif` nem `GPS`); `htmlComoPngRecebe415ENadaNoDisco`; `cincoMbMaisUmByteRecebe413`; `sextaImagemEm10MinRecebe429`; `terceiroRecebe404`; `depoisDoFimRecebe404`; `cabecalhosDaImagem`; `falhaNoCommitApagaOsArquivos`.
+  - `ImagensDoEncontroApiTest`: `semOsDoisAceitaremRecebe409`; `osDoisAceitamEAImagemChegaComoMensagem`; `qualquerUmDesligaNaHora`; `jpegComGpsSaiSemMetadados` (o arquivo gravado não contém `Exif` nem `GPS`); `htmlComoPngRecebe415ENadaNoDisco`; `cincoMbMaisUmByteRecebe413`; `sextaImagemEm10MinRecebe429`; `terceiroRecebe404`; `depoisDoFimRecebe404`; `cabecalhosDaImagem`; `falhaNoCommitApagaOsArquivos`; `contaNovaNaDecimaPrimeiraImagemDoDiaRecebe429` (paridade).
   - `RetencaoDasImagensDoEncontroTest`: 30 dias + 1 s ⇒ linhas e arquivos somem; 29 dias e 23 h ficam; encontro aberto fica.
   - Vitest: `permitirExigeMarcarEntendi`; `imagemChegaBorradaEToqueMostraNitida`; `desligarSempreVisivelComImagensLigadas`.
 - [ ] **Passo 2:** RED; implementar; verde. Commit `feat(encontro): imagens com consentimento dos dois, borradas, com retenção de 30 dias`.
@@ -215,13 +224,13 @@
 **Interfaces:**
 - Produz:
   - `V85`: `bloqueio(quem uuid not null references conta(id), alvo uuid not null references conta(id), criado_em timestamptz not null, primary key (quem, alvo), check (quem <> alvo))`; índice em `alvo`.
-  - `V86`: `denuncia(id uuid primary key, denunciante uuid not null references conta(id), denunciado uuid not null references conta(id), motivo text not null check (motivo in ('PARECE_MENOR','IMAGEM_SENSIVEL','ASSEDIO','SPAM_OU_GOLPE','OUTRO')), detalhe text check (char_length(detalhe) <= 500), contexto_tipo text not null check (contexto_tipo in ('ENCONTRO','MENSAGEM_ENCONTRO','IMAGEM_ENCONTRO','CONEXAO','MENSAGEM_CONEXAO')), contexto_ref text not null, situacao text not null default 'PENDENTE' check (situacao in ('PENDENTE','CONFIRMADA','DESCARTADA')), criada_em timestamptz not null, unique (denunciante, contexto_tipo, contexto_ref))`; índices em `denunciado` e `situacao`.
+  - `V86`: `denuncia(id uuid primary key, origem text not null default 'PESSOA' check (origem in ('PESSOA','TRIAGEM')), denunciante uuid references conta(id), denunciado uuid not null references conta(id), motivo text not null check (motivo in ('PARECE_MENOR','IMAGEM_SENSIVEL','ASSEDIO','SPAM_OU_GOLPE','OUTRO')), detalhe text check (char_length(detalhe) <= 500), contexto_tipo text not null check (contexto_tipo in ('ENCONTRO','MENSAGEM_ENCONTRO','IMAGEM_ENCONTRO','CONEXAO','MENSAGEM_CONEXAO')), contexto_ref text not null, situacao text not null default 'PENDENTE' check (situacao in ('PENDENTE','CONFIRMADA','DESCARTADA')), criada_em timestamptz not null, check ((origem = 'PESSOA') = (denunciante is not null)), unique (denunciante, contexto_tipo, contexto_ref))`; índices em `denunciado` e `situacao`; índice único parcial `(contexto_tipo, contexto_ref) where origem = 'TRIAGEM'`. `origem = 'TRIAGEM'` é a denúncia automática da Task 13 (sem denunciante).
   - `Bloqueios`: `void bloquear(ContaId quem, ContaId alvo)` (idempotente); `boolean bloqueado(ContaId a, ContaId b)` (qualquer sentido).
   - `Denuncias.registrar(NovaDenuncia) -> UUID` (idempotente pela `unique`).
   - `record NovaDenuncia(ContaId denunciante, ContaId denunciado, MotivoDenuncia motivo, Optional<String> detalhe, ContextoDenuncia contexto)`; `record ContextoDenuncia(TipoDeContextoDenuncia tipo, String referencia)`.
   - `public interface ResolvedorDeContexto { TipoDeContextoDenuncia tipo(); Optional<ContextoResolvido> resolver(ContaId quem, String referencia); }` com `record ContextoResolvido(ContaId outro, Optional<String> encontroId)`: o denunciado sai **do servidor**, e quem denuncia precisa participar (senão 404 `CONTEXTO_INEXISTENTE`). Esta task registra `ENCONTRO`, `MENSAGEM_ENCONTRO` (autor ≠ quem denuncia) e `IMAGEM_ENCONTRO`; a Etapa 6 registra `CONEXAO` e `MENSAGEM_CONEXAO`.
   - `public interface RegistroDeDecisaoAutomatica { void registrarAutomatica(String encontroId, ContaId quem); }` em `conexao/`, implementada pela Task 8 (até lá, falso nos testes).
-  - Rotas: `POST /api/denuncias` `{ "motivo", "detalhe"?, "contexto": { "tipo", "id" } }` ⇒ 201 `{ "registrada": true }`; `POST /api/bloqueios` `{ "contexto": { "tipo": "ENCONTRO"|"CONEXAO", "id" } }` ⇒ 204. Regra `denuncia`: 10 por `PT1H`.
+  - Rotas: `POST /api/denuncias` `{ "motivo", "detalhe"?, "contexto": { "tipo", "id" } }` ⇒ 201 `{ "registrada": true, "id": "<uuid>" }` (o `id` só serve para o clipe da Task 15); `POST /api/bloqueios` `{ "contexto": { "tipo": "ENCONTRO"|"CONEXAO", "id" } }` ⇒ 204. Regra `denuncia`: 10 por `PT1H`.
   - Na mesma transação: grava; `VetosDePar.vetar(par, DENUNCIA|BLOQUEIO)`; `registrarAutomatica` de quem agiu, se houver encontro (P2); `imagem_oculta` para quem denunciou imagem; `SuspensaoDeContas.suspender(denunciado, "parece menor de idade")` para `PARECE_MENOR`; publica `BloqueioRegistrado(ContaId quem, ContaId alvo)` ou `DenunciaRegistrada(UUID id, ContaId denunciante, ContaId denunciado, MotivoDenuncia motivo, ContextoDenuncia contexto)`.
   - `EfeitosDaModeracaoNoEncontro` (ouvinte na transação): encerra o encontro ativo do par com `DENUNCIA` ou `BLOQUEIO`, e o do suspenso com `SUSPENSAO` (mais a saída da fila).
   - `AcessoAFotoPadrao`: bloqueio ⇒ `NENHUM` (P3).
@@ -295,15 +304,191 @@
   - `AxeIT`: `encontroComChatSemViolacoes`, `avisoDeSaidaSemViolacoes`, `avisoDeImagensSemViolacoes`, `decisaoSemViolacoes`.
 - [ ] **Passo 2:** rodar em chromium, firefox e webkit: verde, sem skip. `_mapa.md` atualizado. Commit `test(e2e): jornada do pareamento à decisão mútua com recusa invisível`.
 
+### Task 11: Ações rápidas dentro da cena (paridade)
+
+**Arquivos:**
+- Criar: `frontend/src/encontro/AcoesRapidasNaCena.tsx` + teste
+- Modificar: a tela do cenário (o componente da cena da 1a/1c recebe a barra como filho sobreposto, inclusive no modo tela cheia da revelação da 1c), `frontend/src/moderacao/AcoesDeSeguranca.tsx` (extrai os diálogos para reuso, num commit de refatoração)
+- Criar: `src/test/java/bipotheking/net/duora/e2e/AcoesRapidasIT.java`; Modificar: `AxeIT`
+
+**Interfaces:**
+- Consome: `DenunciarDialogo`, `BloquearDialogo` (Task 7), `SairDoEncontro` (Task 4), `useChamadaDeVoz().silenciarOutro` (Etapa 7).
+- Produz: `AcoesRapidasNaCena` (`role="toolbar"`, `aria-label="Ações rápidas"`), quatro botões dentro da área da cena, sempre visíveis em montagem e revelação:
+  - `Sair`: o primeiro toque troca o rótulo para `Confirmar saída` por 3 s no mesmo lugar (dois toques no mesmo ponto, sem diálogo); o segundo chama `POST /api/encontro/sair`;
+  - `Silenciar` / `Ouvir de novo` (`aria-pressed`), só com voz ativa; silencia o áudio recebido na hora, sem avisar o outro;
+  - `Denunciar` e `Bloquear`: um toque abre o diálogo da Task 7 já com o contexto do encontro.
+  - Alvos de no mínimo 44 × 44 px; no celular, a barra fica no canto inferior da cena, acima da área segura (`env(safe-area-inset-bottom)`); com movimento reduzido, sem animação.
+- [ ] **Passo 1:** testes. Vitest: `sairPedeSegundoToqueNoMesmoLugar` (3 s sem o segundo toque → volta a `Sair`, nada enviado); `silenciarSoComVoz`; `denunciarAbreDialogoComContextoDoEncontro`. `AcoesRapidasIT` (360 × 640 e 1280 × 800): `quatroAcoesVisiveisSemRolar` (caixas dentro da janela, ≥ 44 × 44); `acoesNaRevelacaoEmTelaCheia`; `silenciarCortaOAudioRecebido` (energia do áudio recebido cai a zero com o fake media do Chromium). `AxeIT`: `acoesRapidasSemViolacoes`.
+- [ ] **Passo 2:** RED; implementar; verde nos três navegadores (no WebKit, `silenciarCortaOAudioRecebido` afirma só o `aria-pressed`, como a Etapa 7). Commit `feat(encontro): sair, silenciar, denunciar e bloquear a um toque dentro da cena`.
+
+### Task 12: "Tem certeza?", "Isso te incomodou?" e alertas de contato, link e PIX (paridade)
+
+**Arquivos:**
+- Criar: `src/main/java/bipotheking/net/duora/web/texto/{AnaliseDeMensagem,Analise,SinalDeRisco,TermosOfensivos,Normalizacao}.java`, `src/main/resources/moderacao/termos-ofensivos-pt-br.txt`
+- Modificar: `encontro/{ChatDoEncontro,MensagemVisao,ChatDoEncontroController}.java`, `frontend/src/encontro/ChatDoEncontro.tsx`
+- Criar: `frontend/src/encontro/{TemCerteza,IssoTeIncomodou,AlertaDeRisco}.tsx` + testes
+- Teste: `web/texto/{AnaliseDeMensagemTest,NormalizacaoTest,TermosOfensivosTest}.java`, `encontro/ChatDoEncontroApiTest.java` (casos novos)
+
+**Interfaces:**
+- Produz:
+  - `Normalizacao.normalizar(String) -> String`: minúsculas; NFD sem marcas (`ç` → `c`); `0→o 1→i 3→e 4→a 5→s 7→t @→a $→s`; letra repetida 3+ vezes vira uma; pontuação vira espaço.
+  - `TermosOfensivos` (bean; carrega o arquivo na construção, uma entrada por linha, `#` comenta, termos com mais de uma palavra aceitos; arquivo ausente ou vazio → falha no boot): `boolean contem(String textoNormalizado)` por palavra inteira. O arquivo começa com pelo menos 80 entradas em três blocos comentados (`# xingamentos`, `# assédio sexual`, `# ódio e discriminação`), escritas pelo implementador e revisáveis no playtest; é dado, não código.
+  - `enum SinalDeRisco { CONTATO, LINK, DINHEIRO }`; `record Analise(boolean ofensiva, Set<SinalDeRisco> sinais)`; `AnaliseDeMensagem.analisar(String texto) -> Analise`:
+    - `CONTATO`: telefone brasileiro (10 a 13 dígitos com DDD/+55, separadores opcionais), e-mail, `@usuario` (3+ caracteres) ou as palavras `whatsapp`, `zap`, `wpp`, `telegram`, `insta`, `instagram`, `snap`, `discord`;
+    - `LINK`: algum `Segmento.Link` de `Links.segmentar`;
+    - `DINHEIRO`: `pix`, `chave pix`, `transferir`, `transferência`, `empréstimo`, `emprestar`, `deposita`, `boleto`, `cripto`, `bitcoin`, `investimento`, `R$` seguido de número, ou um CPF (`000.000.000-00` ou 11 dígitos).
+  - Envio: `POST /api/encontro/mensagens` aceita `"confirmarEnvio": true`. Texto ofensivo sem a confirmação → 422 `CONFIRMAR_ENVIO` (`Tem certeza? Essa mensagem pode magoar quem recebe.`), nada gravado e a `Idempotency-Key` não é consumida (o reenvio confirmado usa uma chave nova). Com a confirmação, grava com `sinalizada = true`.
+  - `MensagemVisao` ganha `List<String> alertas` (só para quem recebe; vazia em `minha`) e `boolean perguntarSeIncomodou` (= `sinalizada` e não `minha`). Nenhum dos dois revela o termo encontrado.
+  - Front:
+    - `TemCerteza` (`role="alertdialog"`): título `Tem certeza?`, o texto do servidor, botões `Editar` (foco inicial) e `Enviar mesmo assim`;
+    - `IssoTeIncomodou` abaixo da mensagem sinalizada: `Isso te incomodou?` com `Sim, denunciar` (abre o `DenunciarDialogo` com "Assédio ou ofensa" e o contexto `MENSAGEM_ENCONTRO`) e `Não` (esconde só nesta tela);
+    - `AlertaDeRisco` abaixo da mensagem recebida: `CONTATO` → `Compartilhar contato cedo expõe você. Passe o seu só quando se sentir à vontade.`; `DINHEIRO` → `Atenção: pedido de PIX ou dinheiro é o golpe mais comum em apps de encontro. Nunca envie dinheiro para quem você conheceu aqui.` com `Denunciar golpe` (motivo "Spam ou golpe"); `LINK` → selo `Link externo` (o aviso de saída da Task 5 continua).
+- [ ] **Passo 1:** testes.
+  - `NormalizacaoTest`: `"Ç@F4JJJESTE"` → `"cafajeste"`; acentos somem; pontuação vira espaço.
+  - `TermosOfensivosTest` (arquivo de teste com 3 termos): palavra inteira casa; termo dentro de outra palavra não casa (`"computador"` não casa `"puta"`); termo de duas palavras casa; arquivo vazio falha no boot.
+  - `AnaliseDeMensagemTest` `@ParameterizedTest`: `"me chama no zap"` → `CONTATO`; `"(11) 98765-4321"` → `CONTATO`; `"+55 11 987654321"` → `CONTATO`; `"ana@exemplo.com"` → `CONTATO`; `"vi 12 filmes"` → nenhum; `"me empresta 50 reais no pix?"` → `DINHEIRO`; `"R$ 200"` → `DINHEIRO`; `"123.456.789-09"` → `DINHEIRO`; `"https://exemplo.com"` → `LINK`; texto limpo → `Analise(false, [])`.
+  - `ChatDoEncontroApiTest`: `ofensivaSemConfirmacaoRecebe422ENadaGrava`; `ofensivaConfirmadaChegaSinalizada` (o outro recebe `perguntarSeIncomodou: true`; quem enviou recebe `false`); `alertasSoParaQuemRecebe`; `alertaNaoRevelaOTermo` (o corpo não contém o termo canário).
+  - Vitest: `temCertezaFocaEditar`; `issoTeIncomodouAbreDenunciaComAssedio`; `alertaDeDinheiroOfereceDenunciarGolpe`.
+- [ ] **Passo 2:** RED; implementar; verde. Commit `feat(encontro): avisos antes e depois de mensagem ofensiva e alertas de contato, link e PIX`.
+
+### Task 13: Triagem automática das imagens (Falconsai via ONNX Runtime Java) (paridade)
+
+**Arquivos:**
+- Modificar: `pom.xml` (`com.microsoft.onnxruntime:onnxruntime`, versão estável atual conferida no Maven Central/Context7, só CPU)
+- Criar: `src/main/java/bipotheking/net/duora/web/imagens/{ClassificadorDeImagem,Classificacao,TriagemDeImagem,Triagem,LimiaresDeTriagem,ClassificadorOnnx,ClassificadorIndisponivel}.java`, `encontro/TriagemDasImagensDoEncontro.java`, `docs/adr/<próximo número livre>-triagem-de-imagens-com-onnx.md`, `docs/modelos/nsfw.md` (origem, licença Apache-2.0, comando de export, SHA-256)
+- Modificar: `web/ProcessadorDeImagens.java` (variante temporária `MINIATURA_TRIAGEM`: 224 × 224 sRGB PNG sem metadados, `vips thumbnail ... 224 --height 224 --size force`, nunca guardada), `encontro/ImagensDoEncontro.java`, `moderacao/Denuncias.java` (`registrarAutomatica`), `frontend/src/encontro/ImagemBorrada.tsx`, `application.properties` (`duora.moderacao.nsfw.*`)
+- Teste: `web/imagens/{TriagemDeImagemTest,ClassificadorOnnxTest}.java`, `encontro/TriagemDasImagensDoEncontroApiTest.java`, `frontend/src/encontro/ImagemBorrada.test.tsx` (casos novos); fixtures seguras em `src/test/resources/imagens/seguras/` (renders do projeto e rostos gerados por IA pela skill `duora-assets`)
+
+**Interfaces:**
+- Produz:
+  - Porta `public interface ClassificadorDeImagem { Classificacao classificar(Path miniaturaPng); }` com `record Classificacao(double nsfw)` (0..1).
+  - `record LimiaresDeTriagem(double fila, double bloqueio)` (`PADRAO = (0.50, 0.90)`, de `duora.moderacao.nsfw.fila|bloqueio`); `enum Triagem { LIBERADA, ZONA_CINZENTA, BLOQUEADA }`; `TriagemDeImagem.decidir(Classificacao, LimiaresDeTriagem) -> Triagem` (pura; `fila` e `bloqueio` inclusivos).
+  - `ClassificadorOnnx` (bean com `duora.moderacao.nsfw.modelo` apontando para o `.onnx` fora do Git; confere o SHA-256 de `duora.moderacao.nsfw.sha256` no boot): um `OrtSession` só (2 threads intra-op), entrada `float[1][3][224][224]` com `(pixel/255 − 0,5)/0,5` por canal, saída por softmax; o índice da classe `nsfw` vem de `duora.moderacao.nsfw.indice` (conferido no `config.json` do modelo no export). Execução num executor limitado (2 threads, fila de 16) com timeout de 5 s.
+  - `ClassificadorIndisponivel` (sem modelo configurado, padrão em `dev`/`test`): lança → o envio de imagem responde 503 `TRIAGEM_INDISPONIVEL` (`Não foi possível enviar imagens agora. Tente de novo em alguns minutos.`). Os testes de API usam um classificador falso com pontuação controlada.
+  - Export (uma vez, documentado em `docs/modelos/nsfw.md`): `optimum-cli export onnx --model Falconsai/nsfw_image_detection` e quantização dinâmica int8 (`onnxruntime.quantization.quantize_dynamic`); o arquivo vai para o volume `duora.imagens.dir/../modelos/` na VPS (Etapa 10) e para o cache da CI só no job que roda o `ClassificadorOnnxTest`.
+  - `TriagemDasImagensDoEncontro` (no envio da Task 6, depois de `processar` e antes de gravar):
+    - `BLOQUEADA` → 422 `IMAGEM_RECUSADA` (`Esta imagem parece violar as regras e não foi enviada.`), nada gravado, contador `duora.moderacao.triagem{resultado=bloqueada}`;
+    - `ZONA_CINZENTA` → grava, entrega com `ImagemVisao.sensivelProvavel = true` e chama `Denuncias.registrarAutomatica(denunciado = autor, IMAGEM_SENSIVEL, contexto IMAGEM_ENCONTRO)` (origem `TRIAGEM`, sem denunciante; a Etapa 8 a põe como P1);
+    - `LIBERADA` → segue a Task 6.
+  - `ImagemVisao` ganha `boolean sensivelProvavel`; `ImagemBorrada` com ele mostra `Esta imagem pode ter conteúdo sensível. Ver mesmo assim?` antes de `Ver imagem`.
+- [ ] **Passo 1:** testes.
+  - `TriagemDeImagemTest`: 0,4999 → `LIBERADA`; 0,50 → `ZONA_CINZENTA`; 0,8999 → `ZONA_CINZENTA`; 0,90 → `BLOQUEADA`.
+  - `TriagemDasImagensDoEncontroApiTest` (classificador falso): `bloqueadaRecebe422ENadaNoDiscoNemNoBanco`; `zonaCinzentaChegaBorradaComAvisoEDenunciaAutomatica` (uma `denuncia` com `origem = 'TRIAGEM'` e `denunciante` nulo); `liberadaSegueNormal`; `classificadorQueLancaRecebe503ENadaEntregue` (Foco 7); `classificadorLentoRecebe503EmMenosDe6s` (Foco 7); `segundaZonaCinzentaDaMesmaImagemNaoDuplicaDenuncia`.
+  - `ClassificadorOnnxTest` (`@EnabledIfSystemProperty(named = "duora.moderacao.nsfw.modelo", matches = ".+")`, roda no job da CI com o modelo em cache e localmente pelo agente): `modeloComHashErradoNaoSobe`; `imagensSegurasFicamAbaixoDaFila` (≥ 98 % das fixtures seguras abaixo de 0,50; a lista das pontuações vai para o relatório da task e calibra os limiares; se falhar, o agente propõe novos valores ao controlador, sem mudar o teste).
+  - Vitest: `sensivelProvavelPedeConfirmacaoAntesDeVer`.
+- [ ] **Passo 2:** RED; exportar e conferir o modelo; implementar; verde. ADR (Falconsai Apache-2.0 + ONNX Runtime Java; alternativas Bumble Private Detector, NSFWJS só no cliente, Sightengine pago como reserva da Etapa 8). Commit `feat(encontro): triagem automática das imagens antes da entrega`.
+
+### Task 14: Fluxo de abuso infantil — remoção, preservação e reporte (paridade, ECA Digital art. 27)
+
+**Arquivos:**
+- Criar: `src/main/resources/db/migration/V87__caso_abuso_infantil.sql`
+- Criar: `src/main/java/bipotheking/net/duora/moderacao/{CasosDeAbusoInfantil,CasoDeAbusoInfantil,OrigemDoSinal,PacoteDeReporte,RetencaoDeCasos}.java`, `encontro/{RemocaoDeImagem,MetadadosDaImagem}.java`
+- Modificar: `encontro/ImagensDoEncontro.java` (imagem removida some para todos), `web/ArmazemDeImagens.java` (categoria `preservacao` com permissão `rw-------` e método `copiar(String origem, String destino, UUID id)`, se a Etapa 8 ainda não o criou)
+- Teste: `moderacao/CasosDeAbusoInfantilTest.java`, `moderacao/RetencaoDeCasosTest.java`
+
+**Esquema (V87):** `alter table imagem_encontro add column removida_em timestamptz`; `caso_abuso_infantil(id uuid primary key, imagem_id uuid not null unique, encontro_id uuid not null, conta_suspeita uuid references conta(id), origem text not null check (origem in ('CLOUDFLARE','ADMIN','DENUNCIA')), metadados jsonb not null, aberto_em timestamptz not null, aberto_por uuid references conta(id), reportado_em timestamptz, protocolo text check (char_length(protocolo) <= 100), material_apagado_em timestamptz, check (material_apagado_em is null or reportado_em is not null))`. Sem FK para `imagem_encontro`: a retenção do encontro não pode apagar o caso.
+
+**Interfaces:**
+- Consome: `SuspensaoDeContas.suspender` (Task 7), `EfeitosDaModeracaoNoEncontro` (Task 7, encerra o encontro do suspenso), `ArmazemDeImagens`, `RegistroDeAcessos` (Etapa 2, só leitura dos registros da conta suspeita nas 24 h em volta do envio).
+- Produz:
+  - `enum OrigemDoSinal { CLOUDFLARE, ADMIN, DENUNCIA }`.
+  - `CasosDeAbusoInfantil` (a Etapa 8 liga as rotas e o painel; esta task entrega a API Java e os testes):
+    - `UUID abrir(UUID imagemId, OrigemDoSinal origem, Optional<ContaId> admin)`, numa transação: `removida_em` na imagem (some para os dois na hora, com o evento `encontro.estado`); copia nítida e borrada para `preservacao/` (cópia síncrona antes do commit; rollback apaga a cópia no `afterCompletion`); grava o caso com `metadados` = conta do autor, encontro, cenário, instante do envio, largura, altura, SHA-256 do arquivo e os registros de acesso da conta nas 24 h em volta; suspende a conta (`"suspeita de abuso infantil"`). Idempotente pela `unique (imagem_id)`.
+    - `void registrarReporte(UUID caso, String protocolo, ContaId admin)` (reporte manual à Polícia Federal pela Denúncia Online/SaferNet até haver canal automatizado; grava `reportado_em` e o protocolo).
+    - `void apagarMaterial(UUID caso, ContaId admin)`: só depois do reporte (senão 409 `REPORTE_PENDENTE`); apaga os arquivos de `preservacao/` depois do commit e grava `material_apagado_em` (Decreto 12.880/2026 art. 39 §2º: apagar após a confirmação da autoridade).
+    - `PacoteDeReporte pacote(UUID caso)`: os metadados e os caminhos internos dos arquivos, para o admin montar o reporte; nunca sai por log.
+  - `RetencaoDeCasos implements PoliticaDeRetencao`: `casos-de-abuso-infantil`, apaga a linha 183 dias depois de `material_apagado_em`; caso sem material apagado nunca expira.
+  - A cópia em `preservacao/` é independente: o original do encontro pode expirar pela retenção da Task 6 sem afetar o caso.
+- [ ] **Passo 1:** testes `CasosDeAbusoInfantilTest` (`BancoDeTeste`): `abrirRemoveParaOsDoisNaHora` (o `GET` da imagem dá 404 para os dois); `abrirPreservaCopiaRestrita` (arquivo em `preservacao/` com permissão `rw-------` e SHA-256 igual ao dos metadados); `abrirSuspendeEEncerraOEncontro`; `abrirDuasVezesNaoDuplica`; `falhaNaSuspensaoNaoDeixaCopia`; `apagarAntesDoReporteRecebe409`; `apagarDepoisDoReporteRemoveSoOsArquivos` (a linha fica); `expiracaoDoChatNaoApagaAPreservacao` (rodar a retenção de imagens 31 dias depois: a cópia continua); `logNaoTrazCaminhoNemHash`. `RetencaoDeCasosTest`: 183 dias + 1 s depois do apagamento sai; sem apagamento fica.
+- [ ] **Passo 2:** RED; implementar; verde. Commit `feat(moderacao): abuso infantil com remoção na hora, preservação restrita e registro do reporte`.
+
+### Task 15: Clipe de voz de 60 s só no aparelho, para denúncia (paridade)
+
+**Arquivos:**
+- Criar: `frontend/src/voz/clipe/{gravadorCircular.worklet.ts,BufferCircular.ts,ClipeDeVoz.ts,wav.ts,AvisoDoClipe.tsx}` + testes
+- Modificar: `frontend/src/encontro/TelaDoEncontro.tsx` (liga o clipe ao `fluxoRemoto` e o descarta ao encerrar ou desmontar), `frontend/src/moderacao/DenunciarDialogo.tsx` (opção do clipe), o hook da Etapa 7 (só se faltar `fluxoRemoto`, em commit de refatoração)
+- Criar: `src/main/resources/db/migration/V88__clipe_de_voz.sql`, `src/main/java/bipotheking/net/duora/moderacao/{ClipesDeVoz,ClipeDeVozController}.java`
+- Teste: `frontend/src/voz/clipe/{BufferCircular,wav,ClipeDeVoz}.test.ts`, `frontend/src/moderacao/DenunciarDialogo.test.tsx` (casos novos), `moderacao/ClipeDeVozApiTest.java`, `e2e/ClipeDeVozIT.java`
+
+**Esquema (V88):** `clipe_de_voz(denuncia_id uuid primary key references denuncia(id) on delete cascade, duracao_ms int not null check (duracao_ms between 1000 and 61000), bytes int not null check (bytes between 1 and 2000000), recebido_em timestamptz not null)`. O arquivo fica em `moderacao/clipes/<denuncia_id>.wav` (`ArmazemDeImagens` ou um `ArmazemDeArquivos` irmão com a mesma regra de permissão), servido só ao admin (Etapa 8).
+
+**Interfaces:**
+- Produz:
+  - `BufferCircular(int capacidadeAmostras)` com `escrever(Int16Array)`, `ler(): Int16Array` (em ordem cronológica), `duracaoMs(taxa)`, `zerar()`; capacidade = 60 s × 16 000 Hz = 960 000 amostras (≈ 1,9 MB).
+  - `gravadorCircular.worklet.ts` (`AudioWorkletProcessor`, carregado de `/app/` pela CSP atual): mixa para mono, reamostra para 16 kHz e manda blocos `Int16Array` ao `BufferCircular`. Fonte: **só** o `fluxoRemoto` (nunca o microfone próprio).
+  - `ClipeDeVoz`: `ligar(fluxoRemoto: MediaStream)`, `temAudio(): boolean` (≥ 1 s gravado), `exportarWav(): Blob` (PCM 16 bits, 16 kHz, mono, cabeçalho RIFF), `descartar()` (zera o buffer, fecha o `AudioContext`). Nada é persistido no navegador (nem IndexedDB, nem `localStorage`).
+  - `AvisoDoClipe` (`role="note"`) no início de todo encontro, fechável: `Para sua segurança, seu aparelho guarda só os últimos 60 segundos do áudio que você recebe. Nada sai dele, a não ser que você denuncie e escolha enviar.`
+  - `DenunciarDialogo`: com `temAudio()`, caixa desmarcada `Enviar os últimos 60 segundos do áudio que recebi` com a ajuda `O áudio sai do seu aparelho só se você marcar esta opção, e vai só para a moderação.`; marcada, depois do `201` da denúncia, envia o clipe.
+  - `POST /api/denuncias/{id}/clipe` (multipart `audio`, `audio/wav`): só quem denunciou, só denúncia de contexto `ENCONTRO` ou `MENSAGEM_ENCONTRO`, só até 10 min depois da denúncia, uma vez (PK) → 201; bytes mágicos `RIFF....WAVE`, formato 16 kHz mono 16 bits, até 2 MB e 61 s, senão 422 `CLIPE_INVALIDO`; outra conta → 404. O clipe é evidência da denúncia (retenção da Etapa 8: 30 dias depois de resolvida), não um asset; por isso fica em WAV, fora da regra de formato dos assets.
+- [ ] **Passo 1:** testes.
+  - Vitest: `bufferGuardaSoOsUltimos60s` (escrever 70 s → `ler` tem 60 s, começando no segundo 10); `zerarLimpaTudo`; `wavTemCabecalhoCerto` (`RIFF`, `WAVE`, 16000, 1 canal, 16 bits); `descartarAoEncerrarOEncontro` (evento `encontro.encerrado` → buffer zerado e `AudioContext` fechado) (Foco 6); `semCaixaMarcadaNenhumPostDeClipe` (Foco 6); `clipeSoComAudioDeVerdade` (menos de 1 s → a caixa nem aparece); `avisoApareceNoInicioDeTodoEncontro`; `nadaNoStorage`.
+  - `ClipeDeVozApiTest`: `denuncianteEnviaUmaVez`; `segundoEnvioRecebe409`; `outraContaRecebe404`; `depoisDe10MinRecebe422`; `mp3OuEstereoRecebe422`; `maisDe2MbRecebe413`; `denunciaDeConexaoNaoAceitaClipe`.
+  - `ClipeDeVozIT` (Chromium com fake media; Firefox e WebKit afirmam só a UI): Ana e Bia falando; Ana denuncia marcando a caixa → a evidência tem um `clipe_de_voz` com 1–61 s; Bia denuncia sem marcar → nenhum.
+- [ ] **Passo 2:** RED; implementar; verde. Commit `feat(voz): clipe de 60 s só no aparelho, enviado apenas com denúncia confirmada`.
+
+### Task 16: Quebra-gelos nos objetos da cena (paridade)
+
+**Arquivos:**
+- Modificar: `game/Cenario.java` (lista `quebraGelos`), `game/Terraco.java`, `static/assets/cenarios/terraco/cenario.json` (textos), o leitor e o validador do `cenario.json` da 1b (valibot), `game/CenarioJsonTest.java`
+- Criar: `encontro/dominio/{QuebraGelo,Tom,RespostasDoQuebraGelo}.java`, `frontend/src/encontro/QuebraGelo.tsx` + teste
+- Modificar: `encontro/dominio/Retrato.java`, `encontro/persistencia/RetratoJson.java`, `encontro/{Encontro,Visao,EncontroController}.java`, a cena (objetos tocáveis)
+- Teste: `encontro/dominio/RespostasDoQuebraGeloTest.java`, `encontro/QuebraGeloApiTest.java`, `game/CatalogoTemQuebraGelosTest.java`
+
+**Interfaces:**
+- Produz:
+  - `record QuebraGelo(String objeto, int perguntasAmizade, int perguntasNamoro)` no `Cenario` (forma só; os textos vivem no `cenario.json` em `quebraGelos: [{ "objeto", "rotulo", "amizade": [{ "pergunta", "opcoes": [3 textos] }], "namoro": [...] }]`, e o `CenarioJsonTest` confere a forma).
+  - `enum Tom { AMIZADE, NAMORO }`: `NAMORO` se as intenções em comum do par (Etapa 4, `ParPareado.intencoes()`; no convite privado, `Compatibilidade.intencoesEmComum` dos dois) incluem `NAMORO`; senão `AMIZADE`. Gravado no `Retrato` ao abrir o encontro.
+  - `RespostasDoQuebraGelo` (puro, no `Retrato`): `responder(String objeto, int pergunta, Assento quem, int opcao)` — objeto desconhecido, pergunta fora do tom ou opção fora de 0..2 → recusa `QUEBRA_GELO_INVALIDO` (422); segunda resposta da mesma pessoa → recusa (409); `VisaoDaPergunta visao(String objeto, int pergunta, Assento quem)` com `minha`, `doOutro` (só quando os dois responderam) e `ambos`.
+  - `POST /api/encontro/quebra-gelo` `{ "objeto", "pergunta", "opcao" }` (só em `EmAndamento`) → 200 `Visao`; `Visao.quebraGelo` = `{ "tom", "respostas": [{ "objeto", "pergunta", "minha", "doOutro", "ambos" }] }`.
+  - Front: tocar um objeto marcado (ícone de balão, com rótulo acessível `Pergunta: {rotulo}`) abre `QuebraGelo` com a próxima pergunta ainda não respondida pelo par daquele objeto e as 3 opções; quando os dois respondem: `Vocês escolheram "{a}" e "{b}".` Sem cronômetro, sem obrigação: a cena funciona sem tocar nenhum.
+  - Conteúdo do terraço: objetos `telescopio`, `radio`, `garrafa`; 3 perguntas por tom em cada, 3 opções cada. Fixas: telescópio/amizade `Se pudesse viajar para um lugar agora, seria...` (`Praia`, `Montanha`, `Cidade grande`); telescópio/namoro `Um bom encontro começa com...` (`Um café`, `Uma caminhada`, `Um show`). As outras 16 o implementador escreve com estas regras: pt-BR, gênero neutro, nada sexual, nada que peça dado pessoal (onde mora, trabalho, contato), tom leve; vão para o playtest da 1c/9b.
+- [ ] **Passo 1:** testes.
+  - `RespostasDoQuebraGeloTest`: `respostaDoOutroSoApareceQuandoOsDoisResponderem`; `segundaRespostaRecusada`; `opcaoTresRecusada`; `perguntaDeNamoroEmEncontroDeAmizadeRecusada`.
+  - `QuebraGeloApiTest`: `tomDeNamoroSoComNamoroEmComum`; `respostaChegaAoOutroPeloSse`; `sobreviveAoReinicio` (o `RetratoJson` grava as respostas); `foraDeEmAndamentoRecebe409`.
+  - `CatalogoTemQuebraGelosTest` `@ParameterizedTest` sobre todo cenário de composição do catálogo: ≥ 3 objetos, 3 perguntas por tom, 3 opções por pergunta, objetos existentes na cena (vale para os cenários da 9b).
+  - Vitest: `perguntaAbreComTresOpcoes`; `respostaDoOutroEscondidaAteOsDoisResponderem`; `objetoTemRotuloAcessivel`.
+- [ ] **Passo 2:** RED; implementar; verde. Commit `feat(encontro): quebra-gelos nos objetos da cena com tom por intenção`.
+
+### Task 17: Cartão-postal do encontro (paridade)
+
+**Arquivos:**
+- Criar: `encontro/{CartaoPostal,CartaoPostalController}.java`, `frontend/src/conexao/GuardarCartaoPostal.tsx` + teste
+- Modificar: `frontend/src/conexao/DecisaoTela.tsx` (o botão aparece para qualquer resposta, antes e depois de responder)
+- Teste: `encontro/{CartaoPostalTest,CartaoPostalApiTest}.java`
+
+**Interfaces:**
+- Consome: `ProcessadorDeImagens`/libvips (Etapa 3), o render `noite` e os sprites do cenário (`static/assets/cenarios/<cenario>/`), `cena.json` (posições), `Retrato` (composição final).
+- Produz:
+  - `CartaoPostal.compor(Cenario cenario, Map<String, String> composicaoPorLugar, LocalDate dia) -> Path` (temporário WebP q88, 1200 × 800): fundo do momento `noite`, sprites nas posições do `cena.json`, faixa inferior com o título do cenário e a data `DD/MM/AAAA` (`vips text` + `composite`). **A assinatura não recebe apelido, foto nem conta**: o cartão não tem dado pessoal. Timeout de 10 s; no máximo 2 composições ao mesmo tempo (semáforo); o temporário cai na política `imagens-temporarias` (Etapa 3).
+  - `GET /api/encontros/{id}/cartao-postal` → `image/webp`, `Content-Disposition: attachment; filename="duora-<cenario>-<AAAA-MM-DD>.webp"`, `Cache-Control: private, no-store`; só os dois participantes de um encontro que chegou a `EmAndamento` e enquanto o encontro existir (Etapa 9); senão 404 `CARTAO_INEXISTENTE`.
+  - `GuardarCartaoPostal`: botão `Guardar cartão-postal` (download), com a ajuda `Uma lembrança do que vocês montaram, sem nomes nem fotos.`
+- [ ] **Passo 1:** testes. `CartaoPostalTest`: `cartaoTem1200Por800EmWebp`; `composicoesDiferentesGeramCartoesDiferentes`; `mesmaComposicaoMesmoCartao` (bytes iguais); `semDadoPessoal` (a assinatura é a única entrada; teste de arquitetura: `CartaoPostal` não depende de `conta`, `perfil` nem `Participante`). `CartaoPostalApiTest`: `osDoisBaixam`; `terceiroRecebe404`; `encontroCanceladoRecebe404`; `cabecalhosDeDownload`. Vitest: `botaoApareceParaQualquerResposta`.
+- [ ] **Passo 2:** RED; implementar; verde. Commit `feat(encontro): cartão-postal do encontro para guardar`.
+
+### Task 18: Feedback pós-encontro (trazido da Etapa 11)
+
+A spec de 2026-11-22 põe o feedback pós-encontro na Etapa 5. Esta task implementa **exatamente** a Etapa 11 Task 2 (`2026-11-22-etapa-11-piloto.md`: esquema, interfaces, textos, testes e o ajuste da política de privacidade), com estas trocas:
+- migração `V89__feedback_encontro.sql` em vez de `V141`;
+- pacote `encontro/` (`encontro/{Feedbacks,FeedbackController,RetencaoDeComentarios}.java`, `encontro/dominio/{RespostaDeFeedback,Comentario}.java`) em vez de `piloto/`; `ParticipacaoEmEncontros` fica em `encontro/` como lá;
+- front em `frontend/src/encontro/FeedbackTela.tsx`, aberto pela `DecisaoTela` depois da resposta (e para quem saiu antes);
+- commit `feat(encontro): feedback opcional depois do encontro com comentário que expira em 90 dias`.
+
+A Etapa 11 passa a só consumir `encontro.Feedbacks` nas métricas.
+
 ## Ordem e paralelismo
 - **Leva 1:** Task 1 sozinha (movimento de pacote).
 - **Leva 2 (paralela):** Task 2 (front e e2e), Task 3 (persistência) e Task 5 (chat: tabela e pacote próprios; só lê `Encontros.ativoDe`).
 - **Leva 3:** Task 4 (depois da 3; muda `Retrato` e `RetratoJson`).
 - **Leva 4 (paralela):** Task 6 (depois da 4 e da 5; única que mexe no `Retrato` nesta leva), Task 7 e Task 8 (as duas só dependem da 4; a ligação 7 → 8 é a interface `RegistroDeDecisaoAutomatica`, criada pela 7).
-- **Leva 5:** Task 9, depois Task 10. Revisão final (`superpowers:requesting-code-review`), merge, push e CI.
+- **Leva 5:** Task 9, depois Task 10.
+- **Leva 6 (paridade, paralela, no máximo 4):** Task 11 (front da cena, depois da 9), Task 12 (chat, depois da 5), Task 13 (triagem, depois da 6 e da 7) e Task 16 (quebra-gelo, depois da 4; mexe no `Retrato`, então não corre junto de outra task que o mude).
+- **Leva 7:** Task 14 (depois da 13; V87), Task 15 (depois da 7 e da 9; V88), Task 17 (cartão-postal, depois da 8) e Task 18 (feedback, depois da 8; V89). Merge das migrações na ordem V87 → V88 → V89.
+- Revisão final (`superpowers:requesting-code-review`), merge, push e CI.
 - A Etapa 8 pode correr em paralelo desde a Leva 4, desde que só **acrescente** colunas e tabelas sobre `bloqueio` e `denuncia` em migrações da faixa dela, e reaproveite `SuspensaoDeContas`.
 
 ## Decisões do dono
 | # | Decisão | Opções | Recomendação |
 |---|---|---|---|
 | D1 | Terceira resposta na decisão. A spec diz "reencontro só se ninguém disse não", mas com só "sim" e "não" o reencontro nunca acontece (sim mútuo vira conexão; qualquer não veta). | (a) três respostas: "Sim", "Agora não" e "Topo outro encontro antes de decidir" (sem não de ninguém e sem sim mútuo ⇒ o par pode ser pareado de novo); (b) só "Sim" e "Não", e o reencontro fica restrito a encontros cancelados antes de começar | (a): dá sentido à regra de reencontro e tira pressão da decisão; custa um botão. O plano implementa (a); reverter é tirar um valor do enum e um botão |
+| D2 | Como o Cloudflare CSAM Scanning Tool enxerga as imagens. A ferramenta varre o que passa **pelo cache** do proxy da Cloudflare; as imagens do encontro saem com `Cache-Control: private, no-store` por um subdomínio que hoje não está atrás da Cloudflare (Etapa 10: Caddy na VPS da Hostinger). Sem cache, nada é varrido. | (a) pôr o domínio atrás do proxy da Cloudflare e servir só a variante **borrada** com URL não adivinhável e cache curto, para que a varredura aconteça sem expor a nítida; (b) manter sem Cloudflare e depender da triagem (Task 13), das denúncias e da marcação manual do admin (`OrigemDoSinal.ADMIN`); (c) avaliar o ROOST Coop/hash próprio depois do piloto | (b) para abrir o piloto, com (a) avaliada na Etapa 10 (conferir na doc da Cloudflare se a varredura exige cache e se vale fora dos EUA). A Task 14 funciona igual nas três: só muda quem dispara `abrir` |
+| D3 | Peso do modelo de triagem na VPS. O ViT do Falconsai tem cerca de 86 M parâmetros (~330 MB em fp32, ~90 MB em int8) e usa CPU e memória da VPS. | (a) int8 com 2 threads; (b) fp32; (c) só Sightengine pago | (a): cabe na VPS e a precisão é conferida no `ClassificadorOnnxTest`; se a calibração reprovar, (b) |
