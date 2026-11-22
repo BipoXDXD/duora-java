@@ -3,8 +3,8 @@ import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { impressao } from "./impressao.ts";
-import { gerarServiceWorker } from "./service-worker.ts";
+import { impressao } from "./impressao";
+import { gerarServiceWorker } from "./service-worker";
 
 // Um build falso: o manifest do Vite e os arquivos que ele cita, mais uma raiz estática à parte.
 // O sw.ts compilado é o de verdade (src/sw/sw.ts).
@@ -30,12 +30,15 @@ function escrever(raiz: string, caminho: string, conteudo: string): void {
   writeFileSync(destino, conteudo);
 }
 
-function montarBuild(manifest: object = MANIFEST): { outDir: string; raizEstatica: string } {
+function montarBuild(
+  manifest: object = MANIFEST,
+  caminhoDoManifest = ".vite/manifest.json",
+): { outDir: string; raizEstatica: string } {
   const pasta = mkdtempSync(join(tmpdir(), "duora-sw-"));
   pastas.push(pasta);
   const outDir = join(pasta, "saida");
   const raizEstatica = join(pasta, "estatica");
-  escrever(outDir, ".vite/manifest.json", JSON.stringify(manifest));
+  escrever(outDir, caminhoDoManifest, JSON.stringify(manifest));
   escrever(outDir, "index.html", "<!doctype html>");
   for (const arquivo of [
     "app/index-abc.js",
@@ -133,6 +136,16 @@ it("um item do shell sem arquivo falha o build", async () => {
     gerarServiceWorker({ ...build, raizDoFront, assetsDoShell: ["/assets/icones/sumido.png"] }),
   ).rejects.toThrow("/assets/icones/sumido.png");
   expect(existsSync(join(build.outDir, "sw.js"))).toBe(false);
+});
+
+// build.manifest pode ser um caminho próprio em vez de .vite/manifest.json; ele também não é público.
+it("um manifest em caminho próprio é lido e apagado", async () => {
+  const build = montarBuild(MANIFEST, "manifesto.json");
+
+  await gerarServiceWorker({ ...build, raizDoFront, assetsDoShell: [], manifest: "manifesto.json" });
+
+  expect(readFileSync(join(build.outDir, "sw.js"), "utf-8")).toContain('"/app/index-abc.js"');
+  expect(existsSync(join(build.outDir, "manifesto.json"))).toBe(false);
 });
 
 it("um import que falta no manifest falha o build", async () => {
