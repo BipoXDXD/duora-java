@@ -109,9 +109,15 @@ class SalaController {
   }
 
   @PostMapping("/sala/ajustar")
-  Visao ajustar(@CookieValue(name = CookieAssento.NOME) Optional<String> token) {
+  Visao pedirAjuste(@CookieValue(name = CookieAssento.NOME) Optional<String> token) {
     Salas.Assentado eu = salas.localizar(token);
-    return eu.sala().ajustar(eu.assento());
+    return eu.sala().pedirAjuste(eu.assento());
+  }
+
+  @PostMapping("/sala/ajustar/recusar")
+  Visao recusarAjuste(@CookieValue(name = CookieAssento.NOME) Optional<String> token) {
+    Salas.Assentado eu = salas.localizar(token);
+    return eu.sala().recusarAjuste(eu.assento());
   }
 
   @PostMapping("/sala/sair")

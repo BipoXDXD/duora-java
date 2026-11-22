@@ -112,7 +112,8 @@ class SalaApiTest {
             "prontos",
             "confirmacao",
             "sinal",
-            "resultado");
+            "resultado",
+            "ajuste");
     assertThat(pecaPropria)
         .containsExactlyInAnyOrder("peca", "assento", "lugar", "lugaresPermitidos", "bloqueio");
     assertThat(pecaDoParceiro)
@@ -179,6 +180,7 @@ class SalaApiTest {
     "POST, /api/sala/sinal",
     "POST, /api/sala/pronto",
     "POST, /api/sala/ajustar",
+    "POST, /api/sala/ajustar/recusar",
     "POST, /api/sala/sair"
   })
   void mutacaoSemCookieContinua401(String metodo, String caminho) throws Exception {
@@ -337,12 +339,91 @@ class SalaApiTest {
         .andExpect(jsonPath("$.resultado.secundariaA").value("manta"))
         .andExpect(jsonPath("$.resultado.secundariaB").value("lanterna"))
         .andExpect(jsonPath("$.resultado.ladoTelescopio").value("esquerdo"));
-    acao(ana, "/api/sala/ajustar", "")
+    acao(ana, "/api/sala/ajustar", "").andExpect(status().isOk());
+    acao(bruno, "/api/sala/ajustar", "")
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.fase").value("MONTANDO"))
         .andExpect(jsonPath("$.versao").value(5))
         .andExpect(jsonPath("$.prontos.voce").value(false))
         .andExpect(jsonPath("$.resultado").value(nullValue()));
+  }
+
+  @Test
+  void pedidoDeAjusteApareceNaVisaoDosDois() throws Exception {
+    Dupla dupla = revelada();
+
+    acao(dupla.ana(), "/api/sala/ajustar", "")
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.fase").value("REVELADO"))
+        .andExpect(jsonPath("$.ajuste.deAssento").value("A"))
+        .andExpect(jsonPath("$.versao").value(4));
+
+    consultar(dupla.bruno())
+        .andExpect(jsonPath("$.fase").value("REVELADO"))
+        .andExpect(jsonPath("$.ajuste.deAssento").value("A"))
+        .andExpect(jsonPath("$.versao").value(4));
+  }
+
+  @Test
+  void etagMudaComOPedidoDeAjuste() throws Exception {
+    Dupla dupla = revelada();
+    ResultActions antes = consultar(dupla.bruno());
+    acao(dupla.ana(), "/api/sala/ajustar", "").andExpect(status().isOk());
+
+    ResultActions depois = consultar(dupla.bruno());
+
+    assertThat(etag(depois)).isNotEqualTo(etag(antes));
+    assertThat(JsonPath.<Integer>read(corpo(depois), "$.versao"))
+        .isEqualTo(JsonPath.<Integer>read(corpo(antes), "$.versao"));
+  }
+
+  @Test
+  void pedidosCruzadosViramAceite() throws Exception {
+    Dupla dupla = revelada();
+
+    acao(dupla.ana(), "/api/sala/ajustar", "").andExpect(status().isOk());
+    acao(dupla.bruno(), "/api/sala/ajustar", "")
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.fase").value("MONTANDO"))
+        .andExpect(jsonPath("$.versao").value(5))
+        .andExpect(jsonPath("$.ajuste").value(nullValue()));
+  }
+
+  @Test
+  void recusarAjusteLimpaOPedido() throws Exception {
+    Dupla dupla = revelada();
+    acao(dupla.ana(), "/api/sala/ajustar", "").andExpect(status().isOk());
+
+    acao(dupla.bruno(), "/api/sala/ajustar/recusar", "")
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.fase").value("REVELADO"))
+        .andExpect(jsonPath("$.versao").value(4))
+        .andExpect(jsonPath("$.ajuste").value(nullValue()));
+    consultar(dupla.ana()).andExpect(jsonPath("$.ajuste").value(nullValue()));
+  }
+
+  @Test
+  void ajustarDuranteAMontagemResponde409() throws Exception {
+    Pessoa ana = criar("Ana");
+    entrar(ana.convite(), "Bruno");
+
+    acao(ana, "/api/sala/ajustar", "")
+        .andExpect(status().isConflict())
+        .andExpect(jsonPath("$.codigo").value("FASE_INVALIDA"))
+        .andExpect(jsonPath("$.visao.fase").value("MONTANDO"));
+  }
+
+  @Test
+  void sairComPedidoPendenteEncerra() throws Exception {
+    Dupla dupla = revelada();
+    acao(dupla.ana(), "/api/sala/ajustar", "").andExpect(status().isOk());
+
+    acao(dupla.bruno(), "/api/sala/sair", "").andExpect(status().isNoContent());
+
+    consultar(dupla.ana())
+        .andExpect(status().isGone())
+        .andExpect(jsonPath("$.codigo").value("SALA_ENCERRADA"))
+        .andExpect(jsonPath("$.motivo").value("SAIU"));
   }
 
   @Test
@@ -466,6 +547,7 @@ class SalaApiTest {
         "/api/sala/sinal",
         "/api/sala/pronto",
         "/api/sala/ajustar",
+        "/api/sala/ajustar/recusar",
         "/api/sala/sair"
       })
   void mutacaoSemXDuoraEhRecusada(String caminho) throws Exception {
@@ -789,6 +871,22 @@ class SalaApiTest {
     String convite() {
       return JsonPath.read(corpo, "$.convite");
     }
+  }
+
+  private record Dupla(Pessoa ana, Pessoa bruno) {}
+
+  /** Telescópio C1, banco C2, manta L1, lanterna R1 confirmados pelos dois: versão 4. */
+  private Dupla revelada() throws Exception {
+    Pessoa ana = criar("Ana");
+    Pessoa bruno = entrar(ana.convite(), "Bruno");
+    colocar(ana, "telescopio", "C1", 0).andExpect(status().isOk());
+    colocar(bruno, "banco", "C2", 1).andExpect(status().isOk());
+    colocar(ana, "manta", "L1", 2).andExpect(status().isOk());
+    colocar(bruno, "lanterna", "R1", 3).andExpect(status().isOk());
+    acao(ana, "/api/sala/pronto", "{\"versao\":4,\"pronto\":true}").andExpect(status().isOk());
+    acao(bruno, "/api/sala/pronto", "{\"versao\":4,\"pronto\":true}")
+        .andExpect(jsonPath("$.fase").value("REVELADO"));
+    return new Dupla(ana, bruno);
   }
 
   private Pessoa criar(String apelido) throws Exception {

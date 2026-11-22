@@ -42,6 +42,11 @@ export interface VisaoSinal {
   lugar: string;
 }
 
+/** Pedido de ajuste pendente na revelação: quem pediu espera o aceite do outro. */
+export interface VisaoAjuste {
+  deAssento: Assento;
+}
+
 /** Desfecho do cenário: chave → valor, na ordem que o servidor manda (terraço: secundariaA, secundariaB, ladoTelescopio). */
 export type VisaoResultado = Readonly<Record<string, string>>;
 
@@ -56,4 +61,5 @@ export interface Visao {
   confirmacao: Confirmacao;
   sinal: VisaoSinal | null;
   resultado: VisaoResultado | null;
+  ajuste: VisaoAjuste | null;
 }

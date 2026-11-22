@@ -130,10 +130,21 @@ public final class Regras {
     return aceitar(new Estado(fase, estado.versao(), estado.composicao(), prontos, estado.sinal()));
   }
 
-  /** Volta da revelação para a montagem, zerando as confirmações. */
-  public static Decisao ajustar(Cenario cenario, Estado estado) {
-    if (!(estado.fase() instanceof Fase.Revelado)) {
+  /**
+   * Pede para voltar da revelação à montagem. Sem pedido pendente, o de quem pede fica gravado; com
+   * o pedido do outro pendente, pedir é aceitar (pedidos cruzados viram aceite): volta à montagem
+   * numa versão nova, sem confirmações nem sinal. Repetir o próprio pedido não muda nada.
+   */
+  public static Decisao pedirAjuste(Cenario cenario, Estado estado, Assento quem) {
+    if (!(estado.fase() instanceof Fase.Revelado revelado)) {
       return recusar(Recusa.FASE_INVALIDA);
+    }
+    Optional<Assento> pedido = revelado.pedidoDeAjuste();
+    if (pedido.isEmpty()) {
+      return aceitar(naRevelacao(estado, Optional.of(quem)));
+    }
+    if (pedido.get() == quem) {
+      return aceitar(estado);
     }
     return aceitar(
         new Estado(
@@ -141,7 +152,21 @@ public final class Regras {
             estado.versao() + 1,
             estado.composicao(),
             Set.of(),
-            estado.sinal()));
+            Optional.empty()));
+  }
+
+  /**
+   * Limpa o pedido de ajuste pendente, venha de quem vier: recusa o do outro ou cancela o próprio.
+   * Sem pedido, não muda nada.
+   */
+  public static Decisao recusarAjuste(Cenario cenario, Estado estado, Assento quem) {
+    if (!(estado.fase() instanceof Fase.Revelado revelado)) {
+      return recusar(Recusa.FASE_INVALIDA);
+    }
+    if (revelado.pedidoDeAjuste().isEmpty()) {
+      return aceitar(estado);
+    }
+    return aceitar(naRevelacao(estado, Optional.empty()));
   }
 
   /**
@@ -190,6 +215,15 @@ public final class Regras {
       return Optional.empty();
     }
     return Optional.of(cenario.desfecho().de(estado.composicao(), cenario));
+  }
+
+  private static Estado naRevelacao(Estado estado, Optional<Assento> pedidoDeAjuste) {
+    return new Estado(
+        new Fase.Revelado(pedidoDeAjuste),
+        estado.versao(),
+        estado.composicao(),
+        estado.prontos(),
+        estado.sinal());
   }
 
   /** Tira a própria peça e, se ela é secundária, a outra secundária do mesmo dono (troca). */

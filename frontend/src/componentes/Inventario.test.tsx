@@ -22,6 +22,7 @@ function visao(pecas: VisaoPeca[]): Visao {
     confirmacao: { podeConfirmar: false, faltam: 2 },
     sinal: null,
     resultado: null,
+    ajuste: null,
   };
 }
 

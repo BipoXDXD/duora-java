@@ -8,8 +8,8 @@ import java.util.Set;
 /**
  * Estado do terraço. Imutável: toda mudança aceita pelas {@link Regras} produz um novo estado.
  *
- * @param versao incrementa a cada mudança de composição e em “ajustar”; confirmações valem para uma
- *     versão
+ * @param versao incrementa a cada mudança de composição e no aceite do ajuste; confirmações valem
+ *     para uma versão
  */
 public record Estado(
     Fase fase, long versao, Composicao composicao, Set<Assento> prontos, Optional<Sinal> sinal) {

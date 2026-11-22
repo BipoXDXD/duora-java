@@ -191,6 +191,7 @@ class AcessibilidadeFocoIT {
     assertThat(ana.tituloDoResultado()).isFocused();
 
     ana.botao("Ajustar de novo").click();
+    bruno.botao("Ajustar de novo").click();
 
     assertThat(ana.itemDoInventario(TELESCOPIO)).isFocused();
   }
