@@ -3,7 +3,7 @@ import { mkdtempSync, readdirSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { build, createLogger } from "vite";
-import { afterAll, beforeAll, expect, it } from "vitest";
+import { afterAll, beforeAll, expect, it, vi } from "vitest";
 
 // O Maven registra como [ERROR] tudo o que o build escreve no stderr; um build verde não deve avisar nada.
 // Os binários de /assets/ (fontes, sprites) são servidos pelo Spring, não pelo Vite.
@@ -13,6 +13,9 @@ const avisos: string[] = [];
 let css = "";
 
 beforeAll(async () => {
+  // O Vitest roda com NODE_ENV=test, e o Vite respeita o NODE_ENV do processo: sem isto, o build
+  // levaria o React de desenvolvimento (sem minificar), e não o que o Maven gera.
+  vi.stubEnv("NODE_ENV", "production");
   const logger = createLogger("warn");
   logger.info = () => undefined;
   logger.warn = (mensagem) => avisos.push(mensagem);
@@ -29,6 +32,7 @@ beforeAll(async () => {
 }, 60_000);
 
 afterAll(() => {
+  vi.unstubAllEnvs();
   rmSync(saida, { recursive: true, force: true });
 });
 
