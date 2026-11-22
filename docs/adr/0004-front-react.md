@@ -24,7 +24,8 @@ A migração não pode mudar o que a pessoa vê nem o que os testes medem: texto
 
 - O front ganha tipos, lint tipado (`strictTypeChecked`, `switch-exhaustiveness-check`) e testes de unidade com Vitest e Testing Library, todos rodando no mesmo `./mvnw verify` da CI.
 - O build fica mais longo e passa a depender do registro do npm e do download do Node na primeira execução; a CI guarda `frontend/node` e o store do pnpm em cache.
-- React e ReactDOM sozinhos já ocupam a maior parte da meta de 80 KB (cerca de 69 KB gzip no esqueleto). Sobra pouco para o código do terraço, e a medida da Task 7 decide se a meta fecha.
+- React e ReactDOM sozinhos já ocupam a maior parte da meta de 80 KB (cerca de 69 KB gzip no esqueleto). Medido na Task 7, o JS inicial (o `index` e o chunk de polling pré-carregado) ficou em 81,5 KB gzip nível 9: acima da meta de 80 KB e abaixo do teto de 90 KB, que o `TamanhoDoJsInicialTest` guarda. O número foi aceito; o próximo corte seria o `preact/compat`.
+- O build usa `modulePreload: { polyfill: false }`: os navegadores-alvo já têm `<link rel="modulepreload">`, e o polyfill só somava bytes ao JS inicial.
 - A cena e o aviso imperativos dentro de componentes React pedem cuidado: o React não pode controlar os nós que esse código altera.
 - Quem desenvolve o front usa o Node e o pnpm baixados pelo plugin (`frontend/node`), não os globais da máquina.
 

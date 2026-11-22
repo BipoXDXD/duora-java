@@ -71,7 +71,9 @@ export function Entrada({ comConvite, enviando, erro, aoEnviar, aoCorrigir }: Pr
           id="apelido"
           name="apelido"
           type="text"
-          maxLength={20}
+          // maxLength conta unidades UTF-16: 20 caracteres (pontos de código, como validarApelido e o
+          // servidor contam) cabem em até 40. O limite de verdade fica na validação.
+          maxLength={40}
           autoComplete="nickname"
           spellCheck={false}
           required

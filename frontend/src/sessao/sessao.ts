@@ -58,6 +58,9 @@ type TelaSemSala = Extract<EstadoDaTela, { tela: "carregando" | "entrada" | "enc
  */
 type TelaSemVisao = TelaSemSala | Extract<EstadoDaTela, { tela: "convite" | "montagem" }>;
 
+/** O aviso de um erro fora da API (um defeito, não uma resposta do servidor). */
+const MENSAGEM_DE_DEFEITO = "Algo deu errado ao falar com o servidor. Recarregue a página.";
+
 const CODIGOS_SEM_SALA = new Set(["SEM_ASSENTO", "SALA_INEXISTENTE", "SALA_ENCERRADA"]);
 
 const semSala = (erro: unknown): boolean => erro instanceof ErroApi && CODIGOS_SEM_SALA.has(erro.codigo);
@@ -95,6 +98,9 @@ export function criarSessao({ api, aviso, convite, criarPolling = criarPollingPa
     confirmandoSaida: false,
     somLigado: false,
   };
+  // Muda a cada sessão encerrada: respostas de mutações enviadas antes disso são descartadas, como
+  // as consultas velhas do polling.
+  let epoca = 0;
   let foco: PedidoDeFoco | null = null;
   const ouvintes = new Set<() => void>();
   let retrato = montarRetrato();
@@ -143,6 +149,7 @@ export function criarSessao({ api, aviso, convite, criarPolling = criarPollingPa
     const noite = estado.visao?.fase === "REVELADO";
     return {
       enviando: estado.enviando,
+      cenaVazia: estado.visao === null,
       confirmandoSaida: estado.confirmandoSaida,
       somLigado: estado.somLigado,
       momento: noite ? "noite" : "crepusculo",
@@ -275,15 +282,14 @@ export function criarSessao({ api, aviso, convite, criarPolling = criarPollingPa
     if (estado.enviando || !visao) {
       return;
     }
+    const minhaEpoca = epoca;
     estado.enviando = acao;
     aviso.avisar("");
     publicar();
     try {
       const resposta = await chamada(visao);
-      if (!estado.visao) {
-        // A sessão terminou durante o envio; o retrato não pode ficar preso em "enviando".
-        estado.enviando = null;
-        publicar();
+      if (minhaEpoca !== epoca) {
+        // A sessão terminou durante o envio (e já soltou o "enviando"): a resposta é de outra sala.
         return;
       }
       polling.aceitar(resposta.etag);
@@ -295,15 +301,22 @@ export function criarSessao({ api, aviso, convite, criarPolling = criarPollingPa
         aviso.avisar(mensagem);
       }
     } catch (erro) {
+      if (minhaEpoca !== epoca) {
+        if (!(erro instanceof ErroApi)) {
+          throw erro;
+        }
+        return;
+      }
       estado.enviando = null;
       tratarErroDeAcao(erro, peca);
-    } finally {
-      estado.enviando = null;
     }
   }
 
   function tratarErroDeAcao(erro: unknown, peca: string | null): void {
     if (!(erro instanceof ErroApi)) {
+      // Um defeito, não uma resposta: a tela sai do "enviando" e avisa antes de o erro seguir.
+      publicar();
+      aviso.avisar(MENSAGEM_DE_DEFEITO, "erro");
       throw erro;
     }
     if (CODIGOS_SEM_SALA.has(erro.codigo)) {
@@ -418,14 +431,18 @@ export function criarSessao({ api, aviso, convite, criarPolling = criarPollingPa
         return;
       }
     }
-    estado.enviando = null;
     limparSessao();
     aviso.avisar("");
     mostrarEncerrado(textoEncerrado("VOCE_SAIU"));
   }
 
-  /** Sem visão, o momento volta ao crepúsculo e a cena fica vazia. */
+  /**
+   * Sem visão, o momento volta ao crepúsculo e a cena fica vazia. A ação em voo deixa de valer: o
+   * envio é solto e a resposta dela, quando chegar, é descartada (a época mudou).
+   */
   function limparSessao(): void {
+    epoca += 1;
+    estado.enviando = null;
     estado.visao = null;
     estado.selecionada = null;
     estado.confirmandoSaida = false;
@@ -444,7 +461,7 @@ export function criarSessao({ api, aviso, convite, criarPolling = criarPollingPa
       // voltam ao início.
       estado.semVisao = telaDaVez;
       publicar();
-      aviso.avisar("Algo deu errado ao falar com o servidor. Recarregue a página.", "erro");
+      aviso.avisar(MENSAGEM_DE_DEFEITO, "erro");
       return;
     }
     const semAssento = erro.status === 401 || (erro.status === 404 && !estavaNaSala);

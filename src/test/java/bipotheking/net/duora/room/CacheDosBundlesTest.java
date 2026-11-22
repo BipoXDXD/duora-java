@@ -10,6 +10,8 @@ import java.net.http.HttpResponse;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.test.context.SpringBootTest;
 
@@ -40,6 +42,24 @@ class CacheDosBundlesTest {
     assertThat(bundle.headers().firstValue("Cache-Control"))
         .hasValueSatisfying(cache -> assertThat(cache).contains("immutable"));
     assertThat(index.headers().firstValue("Cache-Control").orElse("")).doesNotContain("immutable");
+  }
+
+  @ParameterizedTest
+  @ValueSource(strings = {"/", "/index.html"})
+  void indexERevalidadoACadaBusca(String caminho) throws Exception {
+    HttpResponse<String> index = buscar(caminho);
+
+    assertThat(index.statusCode()).isEqualTo(200);
+    assertThat(index.headers().firstValue("Cache-Control")).hasValue("no-cache");
+  }
+
+  @Test
+  void arquivoInexistenteEmAppNaoFicaEmCache() throws Exception {
+    HttpResponse<String> resposta = buscar("/app/inexistente.js");
+
+    assertThat(resposta.statusCode()).isEqualTo(404);
+    assertThat(resposta.headers().firstValue("Cache-Control").orElse(""))
+        .doesNotContain("immutable");
   }
 
   private HttpResponse<String> buscar(String caminho) throws IOException, InterruptedException {

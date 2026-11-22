@@ -30,6 +30,19 @@ function visao(mudancas: Partial<Visao> = {}): Visao {
 const resposta = (v: Visao | null, etag: string | null = '"v"'): Resposta => ({ naoMudou: false, visao: v, etag });
 const pendente = () => new Promise<Resposta>(() => undefined);
 
+/** Uma resposta que o teste resolve ou rejeita quando quiser. */
+function adiada() {
+  let resolver: (r: Resposta) => void = () => undefined;
+  let rejeitar: (erro: unknown) => void = () => undefined;
+  const promessa = new Promise<Resposta>((res, rej) => {
+    resolver = res;
+    rejeitar = rej;
+  });
+  return { promessa, resolver, rejeitar };
+}
+
+const ENCERRADA_PELO_PARCEIRO = new ErroApi({ status: 410, codigo: "SALA_ENCERRADA", motivo: "SAIU" });
+
 /** Monta a sessão com api, aviso e polling falsos; o polling devolve os ganchos para o teste agir por ele. */
 function montar({ api = {}, convite = null }: { api?: Partial<Api>; convite?: string | null } = {}) {
   const apiFalsa: Api = {
@@ -407,6 +420,71 @@ describe("criarSessao", () => {
     expect(sessao.obter()).toMatchObject({ tela: "montagem", enviando: null });
     expect(polling.iniciar).toHaveBeenCalledTimes(2);
     expect(aviso.avisar).toHaveBeenLastCalledWith("O servidor não aceitou o pedido (0). Tente de novo.", "erro");
+  });
+
+  it("ação aceita sem a visão na resposta solta o envio, avisa e propaga o defeito", async () => {
+    const { sessao, aviso } = naSala(visao({ confirmacao: { podeConfirmar: true, faltam: 0 } }), {
+      api: { marcarPronto: vi.fn(() => Promise.resolve(resposta(null))) },
+    });
+    const ouvinte = vi.fn();
+    sessao.assinar(ouvinte);
+
+    await expect(sessao.confirmar()).rejects.toThrow("Resposta da API sem a visão da sala");
+
+    expect(sessao.obter()).toMatchObject({ tela: "montagem", enviando: null });
+    expect(ouvinte).toHaveBeenCalledTimes(2);
+    expect(aviso.avisar).toHaveBeenLastCalledWith(
+      "Algo deu errado ao falar com o servidor. Recarregue a página.",
+      "erro",
+    );
+  });
+
+  it("ação em voo que responde depois de a sessão encerrar é descartada e não trava o próximo clique", async () => {
+    const pronto = adiada();
+    const criada = visao({ fase: "AGUARDANDO_PAR", parceiro: null, convite: "abc" });
+    const { sessao, doPolling, polling, api } = naSala(visao({ confirmacao: { podeConfirmar: true, faltam: 0 } }), {
+      api: {
+        marcarPronto: vi.fn(() => pronto.promessa),
+        criarSala: vi.fn(() => Promise.resolve(resposta(criada, '"v1"'))),
+      },
+    });
+    const envio = sessao.confirmar();
+    doPolling().aoFalhar(ENCERRADA_PELO_PARCEIRO, null);
+    expect(sessao.obter()).toMatchObject({ tela: "encerrado", enviando: null });
+    const encerrado = sessao.obter();
+
+    pronto.resolver(resposta(visao({ versao: 9, prontos: { voce: true, parceiro: false } }), '"velho"'));
+    await envio;
+
+    expect(sessao.obter()).toBe(encerrado);
+    expect(polling.aceitar).not.toHaveBeenCalledWith('"velho"');
+    sessao.criarOutro();
+    await sessao.enviarApelido("Ana");
+    expect(api.criarSala).toHaveBeenCalledExactlyOnceWith("Ana");
+    expect(sessao.obter()).toMatchObject({ tela: "convite", enviando: null });
+  });
+
+  it("recusa com visão de uma ação da sessão encerrada não entra na sessão nova", async () => {
+    const pronto = adiada();
+    const criada = visao({ fase: "AGUARDANDO_PAR", parceiro: null, convite: "abc" });
+    const { sessao, doPolling, aviso } = naSala(visao({ confirmacao: { podeConfirmar: true, faltam: 0 } }), {
+      api: {
+        marcarPronto: vi.fn(() => pronto.promessa),
+        criarSala: vi.fn(() => Promise.resolve(resposta(criada, '"v1"'))),
+      },
+    });
+    const envio = sessao.confirmar();
+    doPolling().aoFalhar(ENCERRADA_PELO_PARCEIRO, null);
+    sessao.criarOutro();
+    await sessao.enviarApelido("Ana");
+    const novaSessao = sessao.obter();
+    aviso.avisar.mockClear();
+
+    pronto.rejeitar(new ErroApi({ status: 409, codigo: "VERSAO_OBSOLETA", visao: visao({ versao: 9 }) }));
+    await envio;
+
+    expect(sessao.obter()).toBe(novaSessao);
+    expect(aviso.avisar).not.toHaveBeenCalled();
   });
 
   it("erro fora da API no polling mantém a tela, apaga a noite e o som e avisa", () => {

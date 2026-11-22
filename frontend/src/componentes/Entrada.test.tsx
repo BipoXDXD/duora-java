@@ -32,6 +32,17 @@ describe("Entrada", () => {
     expect(aoEnviar).toHaveBeenCalledExactlyOnceWith("Ana");
   });
 
+  it("o campo aceita 11 emojis simples (22 unidades UTF-16), que o servidor conta como 11", async () => {
+    const aoEnviar = vi.fn();
+    render(<Entrada comConvite={false} enviando={false} erro="" aoEnviar={aoEnviar} aoCorrigir={vi.fn()} />);
+    const onze = "😀".repeat(11);
+
+    await userEvent.type(screen.getByLabelText("Seu apelido"), `${onze}{Enter}`);
+
+    expect(screen.getByLabelText("Seu apelido")).toHaveValue(onze);
+    expect(aoEnviar).toHaveBeenCalledExactlyOnceWith(onze);
+  });
+
   it("durante o envio, o botão diz Enviando… e não envia de novo", async () => {
     const aoEnviar = vi.fn();
     render(<Entrada comConvite={false} enviando erro="" aoEnviar={aoEnviar} aoCorrigir={vi.fn()} />);
