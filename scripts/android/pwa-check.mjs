@@ -7,11 +7,13 @@
 // Pré-requisito: emulador ligado (scripts/android/emulador.sh subir) e a aplicação
 // servindo em localhost:<porta> nesta máquina.
 //
-// Passos: adb reverse da porta; abre a URL no Chrome; consulta pelo CDP o manifest e
-// Page.getInstallabilityErrors; instala pelo menu "Install app"/"Add to home screen";
-// confere que o terraço em pé usa a largura 1800 (currentSrc + escolherVariante do app);
-// captura a tela deitada (<nome>-deitado.png) e devolve a rotação de antes; confirma WebAPK
-// (pacote org.chromium.webapk.*) ou atalho fixado no launcher; tira screenshots em
+// Passos (PASSOS): adb reverse da porta e abre a URL no Chrome; consulta pelo CDP o manifest e
+// Page.getInstallabilityErrors; confere que o terraço em pé usa a largura 1800 (currentSrc +
+// escolherVariante do app) e só então captura a tela em pé (<nome>-em-pe.png); captura a tela
+// deitada (<nome>-deitado.png) e devolve a rotação de antes; instala pelo menu "Install app" e
+// confirma WebAPK (pacote org.chromium.webapk.*) ou atalho fixado no launcher; abre o app
+// instalado, exige display-mode standalone sem a barra do navegador e captura
+// (<nome>-standalone.png); captura a tela inicial (<nome>-home.png). Resultado e capturas em
 // target/android/. Sai com código 1 em qualquer falha.
 //
 // Sem conta Google no emulador, a Play Store recusa instalar o WebAPK e o Chrome cai
@@ -21,7 +23,7 @@
 // DUORA_CDP_PORTA (porta local do DevTools, padrão 9333).
 
 import { execFileSync } from 'node:child_process';
-import { mkdirSync, writeFileSync } from 'node:fs';
+import { mkdirSync, realpathSync, writeFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { parseArgs } from 'node:util';
@@ -100,6 +102,8 @@ function prepararChrome(adb, limpar) {
   // Chrome lê este arquivo só quando é o "debug app"; pula o first run e o aviso de navegador padrão.
   adb.shell('echo "_ --disable-fre --no-default-browser-check --no-first-run" > /data/local/tmp/chrome-command-line');
   adb.shell(`am set-debug-app --persistent ${CHROME}`);
+  // Sem a permissão, o Chrome recém-limpo abre o aviso "Chrome notifications" e descarta a URL.
+  try { adb.shell(`pm grant ${CHROME} android.permission.POST_NOTIFICATIONS`); } catch { /* Android < 13 */ }
   adb.shell(`am force-stop ${CHROME}`);
 }
 
@@ -144,18 +148,40 @@ async function fecharPromosDoChrome(adb) {
 
 // ---- Chrome DevTools Protocol ----------------------------------------------
 
-async function conectarCdp(adb, url) {
+async function listarPaginas(adb) {
   adb.executar(['forward', `tcp:${PORTA_CDP}`, 'localabstract:chrome_devtools_remote']);
-  const limite = Date.now() + 30000;
+  const alvos = await (await fetch(`http://127.0.0.1:${PORTA_CDP}/json/list`)).json();
+  return alvos.filter((a) => a.type === 'page');
+}
+
+/** Conecta na primeira página em `url` cujo id não esteja em `ignorar` (abas já conhecidas). */
+async function conectarCdp(adb, url, ignorar = new Set(), timeoutMs = 30000) {
+  const limite = Date.now() + timeoutMs;
   while (Date.now() < limite) {
     try {
-      const alvos = await (await fetch(`http://127.0.0.1:${PORTA_CDP}/json/list`)).json();
-      const pagina = alvos.find((a) => a.type === 'page' && a.url.startsWith(url));
+      const pagina = (await listarPaginas(adb)).find((a) => a.url.startsWith(url) && !ignorar.has(a.id));
       if (pagina) return abrirSessao(pagina.webSocketDebuggerUrl.replace('localhost', '127.0.0.1'));
     } catch { /* DevTools ainda subindo */ }
     await esperar(1000);
   }
-  throw new Falha(`página ${url} não apareceu no DevTools do Chrome em 30s`);
+  throw new Falha(`página ${url} não apareceu no DevTools do Chrome em ${timeoutMs / 1000}s`);
+}
+
+/**
+ * Abre a URL no Chrome e conecta o CDP na aba. Um aviso de primeira execução às vezes engole o
+ * intent e o Chrome fica na página inicial; aí fecha os avisos e manda o intent de novo.
+ */
+async function abrirNoChrome(adb, url, base) {
+  for (let tentativa = 1; ; tentativa++) {
+    log(`abrindo ${url} no Chrome${tentativa > 1 ? ` (tentativa ${tentativa})` : ''}`);
+    adb.shell(`am start -a android.intent.action.VIEW -d '${url}' ${CHROME}`);
+    await fecharPromosDoChrome(adb);
+    try {
+      return await conectarCdp(adb, base, new Set(), 15000);
+    } catch (e) {
+      if (tentativa === 3) throw e;
+    }
+  }
 }
 
 function abrirSessao(wsUrl) {
@@ -231,16 +257,21 @@ function pacotesWebApk(adb) {
     .map((l) => l.replace('package:', '').trim()).filter(Boolean));
 }
 
-function atalhosDoEscopo(adb, escopo) {
+/** Atalhos fixados e ativos do escopo, por id, com o rótulo que o launcher mostra. */
+function atalhosFixados(adb, escopo) {
   const texto = adb.shell('dumpsys shortcut');
-  const ids = new Set();
+  const atalhos = new Map();
   for (const bloco of texto.split('ShortcutInfo {').slice(1)) {
     const cabecalho = bloco.match(/^id=([^,]+), flags=0x[0-9a-f]+ \[([^\]]*)\]/);
     if (cabecalho && cabecalho[2].includes('Pin') && !cabecalho[2].includes('Dis')
-      && bloco.includes(`webapp_scope=${escopo}`)) ids.add(cabecalho[1]);
+      && bloco.includes(`webapp_scope=${escopo}`)) {
+      atalhos.set(cabecalho[1], bloco.match(/shortLabel=([^,\n]+)/)?.[1]?.trim());
+    }
   }
-  return ids;
+  return atalhos;
 }
+
+const atalhosDoEscopo = (adb, escopo) => new Set(atalhosFixados(adb, escopo).keys());
 
 async function instalar(adb, escopo) {
   const webApksAntes = pacotesWebApk(adb);
@@ -281,6 +312,47 @@ async function instalar(adb, escopo) {
   const motivo = adb.shell('logcat -d -t 400').split('\n')
     .filter((l) => /webapk/i.test(l) && /(not allowed|unknown_account|fail|error)/i.test(l)).slice(-3);
   throw new Falha(`nem WebAPK nem atalho apareceram em 90s${motivo.length ? `; logcat:\n${motivo.join('\n')}` : ''}`);
+}
+
+/** Pacote do WebAPK que atende a URL do escopo, se houver. */
+function webApkDoEscopo(adb, escopo) {
+  const atividades = adb.shell(`cmd package query-activities --brief -a android.intent.action.VIEW -d '${escopo}'`);
+  return atividades.match(/^\s*(org\.chromium\.webapk\.[\w.]+)\//m)?.[1];
+}
+
+/**
+ * Abre o app instalado como o usuário abriria: o WebAPK pelo pacote, com a URL do escopo; sem
+ * WebAPK, toca no ícone do atalho fixado na tela inicial.
+ */
+export async function abrirInstalado(adb, escopo) {
+  const pacote = webApkDoEscopo(adb, escopo);
+  if (pacote) {
+    adb.shell(`am start -a android.intent.action.VIEW -d '${escopo}' ${pacote}`);
+    return { tipo: 'webapk', pacote };
+  }
+  const rotulo = [...atalhosFixados(adb, escopo).values()].find(Boolean);
+  if (!rotulo) throw new Falha(`nenhum WebAPK nem atalho fixado para ${escopo}`);
+  adb.shell('input keyevent KEYCODE_HOME');
+  await esperar(1500);
+  const icone = await esperarNo(adb, (n) => n.package !== CHROME
+    && (n.texto === rotulo || n['content-desc'] === rotulo), 10000);
+  if (!icone) throw new Falha(`ícone "${rotulo}" não encontrado na tela inicial`);
+  log(`tocando no atalho "${rotulo}" da tela inicial`);
+  tocar(adb, icone);
+  return { tipo: 'atalho', rotulo };
+}
+
+/** O documento da aba conectada está em display-mode standalone? */
+export async function ehStandalone(cdp) {
+  const { result } = await cdp.enviar('Runtime.evaluate', {
+    expression: "matchMedia('(display-mode: standalone)').matches", returnByValue: true,
+  });
+  return result?.value === true;
+}
+
+/** A barra de endereço do Chrome está na tela? */
+async function barraDoNavegadorVisivel(adb) {
+  return (await lerTela(adb)).some((n) => n['resource-id'] === `${CHROME}:id/url_bar`);
 }
 
 function capturarTela(adb, arquivo) {
@@ -337,10 +409,19 @@ function lerRotacao(adb) {
   };
 }
 
-function aplicarRotacao(adb, { automatica, usuario }) {
-  // "null" é o valor de settings get para chave nunca gravada; aí vale o padrão do sistema.
-  if (usuario !== 'null') adb.shell(`settings put system user_rotation ${usuario}`);
-  if (automatica !== 'null') adb.shell(`settings put system accelerometer_rotation ${automatica}`);
+/**
+ * Comandos que devolvem a rotação lida por lerRotacao. "null" é o que settings get responde para
+ * chave nunca gravada: a volta apaga a chave, para o sistema seguir no padrão dele.
+ */
+export function comandosParaRestaurar({ automatica, usuario }) {
+  return Object.entries({ user_rotation: usuario, accelerometer_rotation: automatica })
+    .map(([chave, valor]) => (valor === 'null'
+      ? `settings delete system ${chave}`
+      : `settings put system ${chave} ${valor}`));
+}
+
+function aplicarRotacao(adb, rotacao) {
+  for (const comando of comandosParaRestaurar(rotacao)) adb.shell(comando);
 }
 
 /** Trava a tela deitada (rotação 1 = 90°), captura e devolve a rotação de antes. */
@@ -358,6 +439,66 @@ async function capturarDeitado(adb, arquivo) {
 
 // ---- Fluxo -----------------------------------------------------------------
 
+/** Ordem em que o main() roda os passos de EXECUTORES. */
+export const PASSOS = Object.freeze([
+  'instalabilidade', 'verificarTerraco', 'capturarEmPe', 'capturarDeitado',
+  'instalar', 'abrirInstalado', 'capturarStandalone', 'capturarHome',
+]);
+
+const EXECUTORES = {
+  async instalabilidade({ cdp, resultado }) {
+    resultado.instalabilidade = await verificarInstalabilidade(cdp);
+    const inst = resultado.instalabilidade;
+    log(`Chrome ${resultado.chrome ?? '?'}; service worker: ${inst.serviceWorker}; manifest: ${inst.manifestUrl || '(nenhum)'}`);
+    log(`instalabilidade (CDP + manifest + SW): ${inst.erros.length ? inst.erros.join('; ') : '[] (instalável)'}`);
+    if (inst.erros.length || inst.manifestErros.length) {
+      throw new Falha(`PWA não instalável: ${[...inst.erros, ...inst.manifestErros].join('; ')}`);
+    }
+  },
+  async verificarTerraco({ cdp, resultado }) {
+    resultado.terraco = await verificarTerraco(cdp);
+  },
+  // Depois do verificarTerraco: a captura mostra o terraço já carregado na variante conferida.
+  async capturarEmPe({ adb, args, resultado }) {
+    resultado.screenshotEmPe = capturarTela(adb, join(SAIDA, `${args.nome}-em-pe.png`));
+  },
+  async capturarDeitado({ adb, args, resultado }) {
+    resultado.screenshotDeitado = await capturarDeitado(adb, join(SAIDA, `${args.nome}-deitado.png`));
+  },
+  async instalar({ adb, args, base, resultado }) {
+    if (args['sem-instalar']) return;
+    resultado.instalacao = await instalar(adb, `${base}/`);
+    log(`instalado como ${resultado.instalacao.tipo}: ${resultado.instalacao.evidencia}`);
+    if (args['exigir-webapk'] && resultado.instalacao.tipo !== 'webapk') {
+      throw new Falha('--exigir-webapk: o Chrome instalou atalho, não WebAPK');
+    }
+  },
+  async abrirInstalado(contexto) {
+    const { adb, args, base, resultado } = contexto;
+    if (args['sem-instalar']) return;
+    const conhecidas = new Set((await listarPaginas(adb)).map((p) => p.id));
+    resultado.aberturaInstalado = await abrirInstalado(adb, `${base}/`);
+    contexto.cdpInstalado = await conectarCdp(adb, base, conhecidas);
+  },
+  async capturarStandalone({ adb, args, cdpInstalado, resultado }) {
+    if (args['sem-instalar']) return;
+    await esperar(2500);
+    const standalone = await ehStandalone(cdpInstalado);
+    const barra = await barraDoNavegadorVisivel(adb);
+    resultado.standalone = { displayModeStandalone: standalone, barraDoNavegador: barra };
+    resultado.screenshotStandalone = capturarTela(adb, join(SAIDA, `${args.nome}-standalone.png`));
+    log(`app instalado: display-mode standalone = ${standalone}; barra do navegador = ${barra}`);
+    if (!standalone) throw new Falha('o app instalado não abriu em display-mode standalone');
+    if (barra) throw new Falha('o app instalado abriu com a barra de endereço do Chrome');
+  },
+  async capturarHome({ adb, args, resultado }) {
+    if (args['sem-instalar']) return;
+    adb.shell('input keyevent KEYCODE_HOME');
+    await esperar(1500);
+    resultado.screenshotHome = capturarTela(adb, join(SAIDA, `${args.nome}-home.png`));
+  },
+};
+
 async function main() {
   const args = lerArgumentos();
   const adb = criarAdb(resolverAdb());
@@ -365,42 +506,19 @@ async function main() {
   const url = `${base}${args.caminho.startsWith('/') ? '' : '/'}${args.caminho}`;
   mkdirSync(SAIDA, { recursive: true });
   const resultado = { url, serial: SERIAL };
-  let cdp;
+  const contexto = { args, adb, base, url, resultado, cdp: undefined, cdpInstalado: undefined };
 
   exigirEmuladorPronto(adb);
+  // Lida antes de abrir o Chrome: na primeira abertura, o sistema grava user_rotation=0 sozinho,
+  // e a leitura do capturarDeitado já não vê o "null" de antes da rodada.
+  const rotacaoInicial = lerRotacao(adb);
   try {
     prepararChrome(adb, !args['manter-chrome']);
     adb.executar(['reverse', `tcp:${args.porta}`, `tcp:${args.porta}`]);
     adb.executar(['logcat', '-c']);
-    log(`abrindo ${url} no Chrome`);
-    adb.shell(`am start -a android.intent.action.VIEW -d '${url}' ${CHROME}`);
-    await fecharPromosDoChrome(adb);
-
-    cdp = await conectarCdp(adb, base);
-    const versao = (await cdp.enviar('Browser.getVersion').catch(() => ({}))).product;
-    resultado.chrome = versao;
-    resultado.instalabilidade = await verificarInstalabilidade(cdp);
-    const inst = resultado.instalabilidade;
-    log(`Chrome ${versao ?? '?'}; service worker: ${inst.serviceWorker}; manifest: ${inst.manifestUrl || '(nenhum)'}`);
-    log(`instalabilidade (CDP + manifest + SW): ${inst.erros.length ? inst.erros.join('; ') : '[] (instalável)'}`);
-    resultado.screenshotPagina = capturarTela(adb, join(SAIDA, `${args.nome}.png`));
-    if (inst.erros.length || inst.manifestErros.length) {
-      throw new Falha(`PWA não instalável: ${[...inst.erros, ...inst.manifestErros].join('; ')}`);
-    }
-
-    resultado.terraco = await verificarTerraco(cdp);
-    resultado.screenshotDeitado = await capturarDeitado(adb, join(SAIDA, `${args.nome}-deitado.png`));
-
-    if (!args['sem-instalar']) {
-      resultado.instalacao = await instalar(adb, `${base}/`);
-      log(`instalado como ${resultado.instalacao.tipo}: ${resultado.instalacao.evidencia}`);
-      adb.shell('input keyevent KEYCODE_HOME');
-      await esperar(1500);
-      resultado.screenshotHome = capturarTela(adb, join(SAIDA, `${args.nome}-home.png`));
-      if (args['exigir-webapk'] && resultado.instalacao.tipo !== 'webapk') {
-        throw new Falha('--exigir-webapk: o Chrome instalou atalho, não WebAPK');
-      }
-    }
+    contexto.cdp = await abrirNoChrome(adb, url, base);
+    resultado.chrome = (await contexto.cdp.enviar('Browser.getVersion').catch(() => ({}))).product;
+    for (const passo of PASSOS) await EXECUTORES[passo](contexto);
     resultado.ok = true;
   } catch (e) {
     resultado.ok = false;
@@ -408,7 +526,9 @@ async function main() {
     try { resultado.screenshotFalha = capturarTela(adb, join(SAIDA, `${args.nome}-falha.png`)); } catch { /* sem tela */ }
     throw e;
   } finally {
-    cdp?.fechar();
+    contexto.cdp?.fechar();
+    contexto.cdpInstalado?.fechar();
+    try { aplicarRotacao(adb, rotacaoInicial); } catch { /* emulador caiu */ }
     try { adb.executar(['forward', '--remove', `tcp:${PORTA_CDP}`]); } catch { /* já removido */ }
     try { adb.executar(['reverse', '--remove', `tcp:${args.porta}`]); } catch { /* já removido */ }
     writeFileSync(join(SAIDA, `${args.nome}.json`), `${JSON.stringify(resultado, null, 2)}\n`);
@@ -416,7 +536,10 @@ async function main() {
   }
 }
 
-main().catch((e) => {
-  console.error(`erro: ${e instanceof Falha ? e.message : e.stack}`);
-  process.exit(1);
-});
+// Importado pelos testes, o módulo só expõe as funções; o fluxo roda quando executado direto.
+if (process.argv[1] && realpathSync(process.argv[1]) === fileURLToPath(import.meta.url)) {
+  main().catch((e) => {
+    console.error(`erro: ${e instanceof Falha ? e.message : e.stack}`);
+    process.exit(1);
+  });
+}
