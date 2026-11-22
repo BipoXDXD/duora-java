@@ -12,6 +12,10 @@ concurrency:
   group: ci-${{ github.ref }}
   cancel-in-progress: true
 
+# As chaves de cache do front saem de scripts/ci/versoes-do-front.sh (versões lidas do pom.xml).
+env:
+  PNPM_STORE: ~/.local/share/pnpm/store
+
 jobs:
   verify:
     name: Build e testes
@@ -24,16 +28,19 @@ jobs:
           distribution: temurin
           java-version: "25"
           cache: maven
+      - name: Calcular as chaves de cache do front (versões do pom.xml e lockfile)
+        id: front
+        run: scripts/ci/versoes-do-front.sh
       - name: Restaurar o Node e o pnpm do front
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: frontend/node
-          key: node-v26.13.0-pnpm-12.18.0
+          key: ${{ steps.front.outputs.chave-node }}
       - name: Restaurar o store do pnpm
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
-          path: ~/.local/share/pnpm/store
-          key: pnpm-store-${{ hashFiles('frontend/pnpm-lock.yaml') }}
+          path: ${{ env.PNPM_STORE }}
+          key: ${{ steps.front.outputs.chave-store }}
       - name: Verificar (formatação, compilação, front, testes unitários e de API)
         run: ./mvnw -B -q verify
       - name: Publicar relatório de cobertura
@@ -60,16 +67,19 @@ jobs:
           distribution: temurin
           java-version: "25"
           cache: maven
+      - name: Calcular as chaves de cache do front (versões do pom.xml e lockfile)
+        id: front
+        run: scripts/ci/versoes-do-front.sh
       - name: Restaurar o Node e o pnpm do front
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: frontend/node
-          key: node-v26.13.0-pnpm-12.18.0
+          key: ${{ steps.front.outputs.chave-node }}
       - name: Restaurar o store do pnpm
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
-          path: ~/.local/share/pnpm/store
-          key: pnpm-store-${{ hashFiles('frontend/pnpm-lock.yaml') }}
+          path: ${{ env.PNPM_STORE }}
+          key: ${{ steps.front.outputs.chave-store }}
       - name: Restaurar o cache dos navegadores do Playwright
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
