@@ -55,7 +55,7 @@ class ParametrosDoCenarioTest {
     Cenario cenario = variante(1, Duration.ofSeconds(5), 2);
     Estado estado = colocar(cenario, montando(cenario), TELESCOPIO, C1);
 
-    Estado sinalizado = aceito(Regras.sinalizar(cenario, estado, B, TELESCOPIO, AGORA));
+    Estado sinalizado = aceito(Regras.sinalizar(cenario, estado, B, TELESCOPIO, C2, AGORA));
 
     assertThat(sinalizado.sinal().orElseThrow().expiraEm()).isEqualTo(AGORA.plusSeconds(5));
   }

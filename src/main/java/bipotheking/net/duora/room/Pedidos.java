@@ -18,7 +18,7 @@ final class Pedidos {
 
   record Colocar(@Nullable String peca, @Nullable String lugar, @Nullable Long versaoEsperada) {}
 
-  record Sinalizar(@Nullable String peca) {}
+  record Sinalizar(@Nullable String peca, @Nullable String lugar) {}
 
   record Pronto(@Nullable Long versao, @Nullable Boolean pronto) {}
 }

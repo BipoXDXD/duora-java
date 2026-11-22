@@ -94,7 +94,8 @@ class SalaController {
       @RequestBody Pedidos.Sinalizar pedido) {
     Salas.Assentado eu = salas.localizar(token);
     Peca peca = peca(eu.sala().cenario(), pedido.peca());
-    return eu.sala().sinalizar(eu.assento(), peca);
+    Lugar destino = lugar(eu.sala().cenario(), pedido.lugar());
+    return eu.sala().sinalizar(eu.assento(), peca, destino);
   }
 
   @PostMapping("/sala/pronto")
@@ -133,14 +134,16 @@ class SalaController {
         .orElseThrow(() -> new ErroApi(Codigo.PECA_INVALIDA, "Peça desconhecida."));
   }
 
+  /** Lugar obrigatório: nulo ou desconhecido no cenário da sala é lugar inválido. */
+  private static Lugar lugar(Cenario cenario, @Nullable String id) {
+    return Optional.ofNullable(id)
+        .flatMap(cenario::lugar)
+        .orElseThrow(() -> new ErroApi(Codigo.LUGAR_INVALIDO, "Lugar desconhecido."));
+  }
+
+  /** Lugar opcional da colocação: nulo devolve a peça ao inventário. */
   private static Optional<Lugar> destino(Cenario cenario, @Nullable String id) {
-    if (id == null) {
-      return Optional.empty();
-    }
-    return Optional.of(
-        cenario
-            .lugar(id)
-            .orElseThrow(() -> new ErroApi(Codigo.LUGAR_INVALIDO, "Lugar desconhecido.")));
+    return Optional.ofNullable(id).map(valor -> lugar(cenario, valor));
   }
 
   private static <T> T obrigatorio(@Nullable T valor) {

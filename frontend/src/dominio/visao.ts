@@ -16,13 +16,14 @@ export interface Parceiro {
   conectado: boolean;
 }
 
-/** Peças próprias trazem lugares permitidos e bloqueio; as do parceiro, não. */
+/** Peças próprias trazem lugares permitidos e bloqueio; as do parceiro, os destinos sugeríveis. */
 export interface VisaoPeca {
   peca: string;
   assento: Assento;
   lugar: string | null;
   lugaresPermitidos?: string[];
   bloqueio?: string | null;
+  destinosSugeriveis?: string[];
 }
 
 export interface Prontos {
@@ -38,6 +39,7 @@ export interface Confirmacao {
 export interface VisaoSinal {
   peca: string;
   deAssento: Assento;
+  lugar: string;
 }
 
 /** Desfecho do cenário: chave → valor, na ordem que o servidor manda (terraço: secundariaA, secundariaB, ladoTelescopio). */

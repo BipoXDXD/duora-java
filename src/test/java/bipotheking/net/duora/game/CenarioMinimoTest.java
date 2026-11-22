@@ -10,6 +10,7 @@ import static bipotheking.net.duora.game.CenarioMinimo.PEDRA;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.entry;
 
+import java.time.Instant;
 import java.util.Optional;
 import org.junit.jupiter.api.Test;
 
@@ -47,6 +48,15 @@ class CenarioMinimoTest {
 
     assertThat(Regras.resultado(CENARIO, estado).orElseThrow().valores())
         .containsExactly(entry("juntos", "sim"));
+  }
+
+  @Test
+  void sinalComDestinoNoCenarioMinimo() {
+    Estado estado = colocar(montando, FOLHA, P1);
+
+    assertThat(Regras.destinosSugeriveis(CENARIO, estado, FOLHA)).containsExactly(P2);
+    assertThat(Regras.sinalizar(CENARIO, estado, A, FOLHA, P2, Instant.EPOCH))
+        .isInstanceOf(Decisao.Aceita.class);
   }
 
   @Test

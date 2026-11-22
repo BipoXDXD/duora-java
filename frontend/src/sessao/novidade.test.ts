@@ -29,13 +29,13 @@ function visao(mudancas: Partial<Visao> = {}): Visao {
 
 describe("novidade", () => {
   it("sinal novo do parceiro", () => {
-    const agora = visao({ sinal: { peca: "manta", deAssento: "B" } });
+    const agora = visao({ sinal: { peca: "manta", deAssento: "B", lugar: "L2" } });
 
     expect(novidade(CENARIO, visao(), agora, false)).toBe("Bruno sugeriu mover a manta.");
   });
 
   it("o próprio sinal não é novidade", () => {
-    const agora = visao({ sinal: { peca: "banco", deAssento: "A" } });
+    const agora = visao({ sinal: { peca: "banco", deAssento: "A", lugar: "C1" } });
 
     expect(novidade(CENARIO, visao(), agora, false)).toBeNull();
   });

@@ -43,7 +43,7 @@ export interface Api {
   entrar: (convite: string, apelido: string) => Promise<Resposta>;
   obterSala: (etag: string | null) => Promise<Resposta>;
   moverPeca: (peca: string, lugar: string | null, versaoEsperada: number) => Promise<Resposta>;
-  sinalizar: (peca: string) => Promise<Resposta>;
+  sinalizar: (peca: string, lugar: string) => Promise<Resposta>;
   marcarPronto: (versao: number, pronto: boolean) => Promise<Resposta>;
   ajustar: () => Promise<Resposta>;
   sair: () => Promise<Resposta>;
@@ -133,7 +133,7 @@ export const api: Api = {
   },
   moverPeca: (peca, lugar, versaoEsperada) =>
     requisitar("POST", "/sala/pecas", { corpo: { peca, lugar, versaoEsperada } }),
-  sinalizar: (peca) => requisitar("POST", "/sala/sinal", { corpo: { peca } }),
+  sinalizar: (peca, lugar) => requisitar("POST", "/sala/sinal", { corpo: { peca, lugar } }),
   marcarPronto: (versao, pronto) => requisitar("POST", "/sala/pronto", { corpo: { versao, pronto } }),
   ajustar: () => requisitar("POST", "/sala/ajustar"),
   sair: () => requisitar("POST", "/sala/sair"),
