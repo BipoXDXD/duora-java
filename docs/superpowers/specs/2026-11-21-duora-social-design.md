@@ -9,13 +9,14 @@ Hipótese herdada (`duora-java-mvp.md` §1): uma pequena criação compartilhada
 |---|---|
 | Ambição | **Piloto aberto**: cadastro público, sem convite, com pessoas reais. Começa pequeno e cresce conforme validar |
 | Jornada | **Encontro primeiro**: a pessoa define filtros, é pareada e as duas fazem a atividade no cenário com apelido e foto borrada. Depois cada uma decide em privado; o perfil completo, o chat e a voz só abrem se as duas disserem sim |
-| Quando | **Janelas marcadas** (ex.: ter/qui 21h–22h); a fila de pareamento só existe durante a janela |
+| Quando | **Sem horário fixo** (dono, 2026-11-22). Quem abre o encontro escolhe: **público** (o pareamento traz alguém compatível a qualquer hora) ou **privado** (só por convite, via link). Substitui as janelas marcadas |
 | Stack | **Evoluir o Duora Java** (Spring Boot 4.1, Java 25, JS nativo) |
 | Hospedagem | **VPS + Docker Compose** (Caddy, PostgreSQL, coturn no mesmo host), no padrão do `infra/` do projeto C# |
 | Critério de namoro | **Gênero + quem quer conhecer**: compatível nos dois sentidos. Gênero em lista inclusiva mais "prefiro descrever" |
 | LGPD | **Versão leve**: termos e política curtos, consentimento simples, exclusão de conta. Sem mapa de dados, relatório de impacto ou revisão jurídica obrigatória no piloto |
 | Distância | **Raio opcional por pessoa**: cada um escolhe se o raio é obrigatório (filtro) ou só preferência (ordena, mais perto primeiro) |
-| Duração | **Encontros de ~30 min; limite só de simultaneidade: até 10 encontros ao mesmo tempo** (20 pessoas). Não há teto por pessoa nem total por janela |
+| Duração | **30 min por padrão**; os dois podem encerrar antes **se ambos concordarem**. Limite só de simultaneidade: até 10 encontros ao mesmo tempo (20 pessoas) |
+| Comunicação no encontro | (dono, 2026-11-22) **voz habilitada**, **mensagens de texto com links**, e **imagens** (só imagens, com aviso explícito e só se os dois concordarem) |
 | Cenários no piloto | **Terraço + 5 novos: aquário, piquenique, cachoeira, jantar e fliperama** (dono, 2026-11-22: "todos antes do piloto, ao menos 4", escolha delegada; depois pediu o fliperama). Planetário e parque ficam no backlog |
 | Reencontro | **Só se ninguém disse "não"**. Um "não", uma saída ou uma denúncia bloqueiam o par para sempre; conectados não voltam a ser pareados; encontro interrompido sem decisão conta como "não" |
 
@@ -27,7 +28,10 @@ Hipótese herdada (`duora-java-mvp.md` §1): uma pequena criação compartilhada
 - **Login**: link mágico por e-mail (Resend, já usado no C#), sem senha. O cadastro aberto ganha proteção contra robôs (Cloudflare Turnstile), rate limit por IP e por e-mail, e recusa de domínios de e-mail descartável.
 - **Localização**: obtida pelo Geolocation do navegador, só com consentimento. O servidor guarda apenas a célula (geohash de precisão 5, ≈5 km) e a coordenada exata é descartada. A tela mostra faixas ("até 5 km", "até 20 km", "até 50 km") e nunca a distância exata.
 - **Foto**: o servidor reprocessa a imagem (remove EXIF, converte para WebP q88) e gera a versão borrada. A original nítida só é servida a conexões mútuas, e o admin aprova cada foto antes de ela valer.
-- **Voz só entre conexões mútuas** (WebRTC 1:1, apenas áudio, sem gravação). No encontro há só texto, o que reduz o assédio e facilita a moderação.
+- **Voz** (WebRTC 1:1, só áudio, sem gravação) já no encontro, por decisão do dono. Cada um liga o próprio microfone; ninguém é ouvido sem ter ligado. Botão de silenciar o outro sempre visível.
+- **Sair é sempre unilateral** (segurança): qualquer um sai a qualquer momento e vai à decisão privada. O que exige os dois é **encerrar antes dos 30 min de comum acordo**.
+- **Links:** domínio em destaque, só `http(s)` (nada de `javascript:`/`data:`), `rel="noopener noreferrer nofollow ugc"`, aviso "você vai sair do Duora" ao clicar, sem prévia automática.
+- **Imagens:** liberadas só quando os dois aceitam após um aviso explícito (e qualquer um desliga a qualquer momento); até 5 MB; reprocessadas no servidor (WebP q88, sem metadados); chegam borradas com toque para ver; denunciáveis; expiram com o chat do encontro (30 dias).
 - **Tempo real**: SSE (servidor→cliente) mais POST, em vez de WebSocket. Assim reaproveito os filtros `MesmaOrigem`/`X-Duora` e o modelo MVC atual. O polling com ETag do terraço continua como plano B.
 - **Sair, denunciar e bloquear** ficam visíveis em todas as telas desde a primeira etapa social. O bloqueio é bilateral e o bloqueado não fica sabendo.
 - **Repo público + MIT**: mantidos, porque é só código, sem dados nem segredos. A revalidação acontece na Etapa 0.
@@ -43,7 +47,7 @@ Pacotes em `bipotheking.net.duora`:
 - `encontro/`: evolução de `room/`, com a sala vinculada a um par pareado.
 - `conta/`: cadastro, login, sessão e exclusão.
 - `perfil/`: apelido, nascimento, intenção, preferências, foto e célula de localização.
-- `janela/`: agenda e presença.
+- `sala/`: encontros públicos e privados (convite), fila contínua.
 - `pareamento/`: fila e algoritmo puro.
 - `conexao/`: decisão privada, conexões e chat 1:1.
 - `voz/`: sinalização WebRTC e credenciais TURN.
@@ -103,25 +107,31 @@ Playtest por agente (2026-11-22): primeira ação clara; contribuição do outro
 ### Etapa 3: Perfil e preferências
 - Perfil: apelido, intenção (amizade/namoro, podendo ser ambas), bio curta, foto (upload → EXIF removido → WebP → versão borrada → fila de aprovação).
 - Preferências: faixa etária e raio (5/20/50 km/sem limite), com a opção "raio obrigatório" ou "só preferência". Para namoro: o próprio gênero e os gêneros que a pessoa quer conhecer, com um aviso curto e uma caixa de consentimento. Esses dados são apagados quando a pessoa desliga o modo namoro.
-- Localização: consentimento explícito → célula geohash; atualizada a cada entrada na janela.
+- Localização: consentimento explícito → célula geohash; atualizada a cada entrada na fila.
 
 **Prova**: o perfil aparece borrado para terceiros e nítido só para o próprio titular.
 
-### Etapa 4: Janelas, notificações e pareamento
-- O admin cria janelas. O usuário confirma presença e recebe Web Push 15 min antes e quando a janela abre (pede permissão no PWA).
-- Fila ativa só na janela. O algoritmo de pareamento é uma função pura e testável:
+### Etapa 4: Encontros públicos e privados e pareamento
+- Sem horário fixo. Quem abre um encontro escolhe **público** ou **privado**:
+  - privado: gera um convite de uso único (link), como o terraço de hoje; só quem tem o link entra;
+  - público: entra na fila contínua; o pareamento traz alguém compatível.
+- O algoritmo de pareamento é uma função pura e testável:
   - compatibilidade nos dois sentidos: intenção, idade, gênero × quem quer conhecer (namoro) e raio quando obrigatório para qualquer um dos dois;
   - exclui bloqueios, banidos, pares conectados e pares em que alguém disse "não";
   - ordena por espera mais longa e, entre os empatados, por menor distância;
-  - respeita a capacidade de 10 encontros simultâneos.
-- Roda em ciclos de N segundos. A pessoa volta à fila depois de cada encontro, quantas vezes quiser. Nenhum encontro novo começa se não couber 30 min antes do fim da janela.
+  - respeita a capacidade de 10 encontros simultâneos (excedente espera com posição visível).
+- Roda em ciclos de N segundos; quem espera vê o tempo e pode desistir. Web Push opcional: "alguém compatível está esperando agora" (pede permissão no PWA).
 - Estado vazio honesto: "ninguém compatível agora; você será avisado".
+- Sorteio do cenário: um que nenhum dos dois jogou; em encontro privado, quem abre pode escolher o cenário.
 
-**Prova**: simulação com 30 perfis fictícios mostra pareamentos corretos, e o e2e com dois navegadores pareia e abre o terraço.
+**Prova**: simulação com 30 perfis fictícios mostra pareamentos corretos; e2e com dois navegadores cobre público (pareia e abre o cenário) e privado (convite).
 
 ### Etapa 5: Encontro no cenário
-- `room/` vira `encontro/`: a sala nasce do pareamento (sem convite) e o assento é ligado à conta. Dura ~30 min, com aviso aos 5 min finais. Ao expirar, os dois vão para a decisão privada.
-- Na tela do encontro: apelido, foto borrada, a atividade do terraço e um chat de texto do encontro (SSE + POST, limite de tamanho e de frequência).
+- `room/` vira `encontro/`: a sala nasce do pareamento (sem convite) e o assento é ligado à conta. Dura 30 min por padrão, com aviso aos 5 min finais. Os dois podem encerrar antes se ambos concordarem (pedido + aceite). Sair é sempre possível sozinho. Ao fim, os dois vão para a decisão privada.
+- Na tela do encontro: apelido, foto borrada, a atividade do cenário e o chat do encontro (SSE + POST, limite de tamanho e de frequência):
+  - texto com links (regras de links acima);
+  - voz (Etapa 7, que passa a ser pré-requisito desta);
+  - imagens com consentimento dos dois (regras de imagens acima), com aviso explícito antes de habilitar.
 - Sair, denunciar e bloquear ficam sempre visíveis. Uma denúncia encerra o encontro para quem denunciou.
 - Ao fim (revelação ou saída), cada pessoa responde em privado se quer continuar. O sim mútuo cria a conexão; o não nunca é revelado.
 
@@ -134,17 +144,18 @@ Playtest por agente (2026-11-22): primeira ação clara; contribuição do outro
 **Prova**: uma conversa sobrevive a reinício do servidor; o bloqueio corta o acesso na hora.
 
 ### Etapa 7: Voz
-- WebRTC 1:1, só áudio, apenas entre conexões. A sinalização (offer/answer/ICE) passa pelo canal SSE + POST.
+- WebRTC 1:1, só áudio, no encontro e entre conexões. Microfone desligado ao entrar; cada um liga o seu. A sinalização (offer/answer/ICE) passa pelo canal SSE + POST.
 - coturn com credenciais temporárias (TURN REST, HMAC, TTL curto). Ligar, aceitar, recusar e encerrar; sem gravação.
 - O e2e usa o fake media do Chromium. A prova real é uma ligação entre um Android em 4G e um desktop.
 
 **Prova**: a chamada se completa através de NAT via TURN.
 
 ### Etapa 8: Moderação e painel admin
+- Denúncia de imagem e de link do chat, com a imagem/mensagem como contexto.
 - Papel ADMIN.
 - Filas de denúncias (com contexto limitado às mensagens denunciadas) e de fotos.
 - Banimento, que derruba sessões e retira a pessoa das filas.
-- Log de auditoria das ações de admin. Gestão de janelas. Com o cadastro aberto, a moderação precisa estar pronta antes da abertura, e o SLA de análise de denúncia precisa ser definido.
+- Log de auditoria das ações de admin. Com o cadastro aberto, a moderação precisa estar pronta antes da abertura, e o SLA de análise de denúncia precisa ser definido.
 
 **Prova**: denúncia → análise → banimento ponta a ponta.
 
@@ -178,19 +189,19 @@ Playtest por agente (2026-11-22): primeira ação clara; contribuição do outro
 **Prova**: o ambiente de homologação passa no smoke e2e contra a URL real, e a restauração do backup é comprovada.
 
 ### Etapa 11: Piloto aberto
-- Abrir o cadastro e definir o calendário de janelas. A capacidade cresce aos poucos (limite de simultaneidade configurável).
+- Abrir o cadastro. A capacidade cresce aos poucos (limite de simultaneidade configurável).
 - Formulário de feedback depois de cada encontro.
 - Métricas internas, sem telemetria remota:
-  - presença por janela;
+  - encontros públicos e privados por dia;
   - encontros concluídos;
   - taxa de sim mútuo;
   - conversas iniciadas após a conexão;
   - denúncias.
-- Critério de sucesso: participantes dizem "eu gostaria de fazer isso com alguém" e voltam na janela seguinte.
+- Critério de sucesso: participantes dizem "eu gostaria de fazer isso com alguém" e voltam para outro encontro.
 - Decisão ao final: ajustar, ampliar o piloto ou criar novos cenários.
 
 ## Dependências e paralelismo
-0 → 1 → 1b → 1c → 2 → 3 → 4 → 5 → 6 → 7. A 9b começa depois da 1b e roda em paralelo às etapas 2–8 (assets e dados não dependem de contas). A 8 começa junto com a 5 (denúncia e bloqueio básicos já entram na 5). A 9 é curta e fecha antes da 10. A 10 pode ser preparada em paralelo a partir da 6. A 11 depende de todas.
+0 → 1 → 1b → 1c → 2 → 3 → 4 → 7 → 5 → 6 (a voz vem antes do encontro, que a usa). A 9b começa depois da 1b e roda em paralelo às etapas 2–8 (assets e dados não dependem de contas). A 8 começa junto com a 5 (denúncia e bloqueio básicos já entram na 5). A 9 é curta e fecha antes da 10. A 10 pode ser preparada em paralelo a partir da 6. A 11 depende de todas.
 
 ## Verificação (por etapa e final)
 - Unitários e API: `./mvnw -q verify`.
@@ -198,7 +209,7 @@ Playtest por agente (2026-11-22): primeira ação clara; contribuição do outro
 - `AxeIT` estendido a cada tela nova.
 - Testcontainers para o banco, uma suíte com Docker por vez.
 - Provas de celular num emulador Android (AVD arm64 com Chrome, `scripts/android/`), conduzidas por agentes. Playtests feitos por agentes com roteiro e capturas; ao dono chegam só escolhas (dono, 2026-11-22).
-- Final: smoke e2e contra homologação e uma janela de teste com o dono e mais uma pessoa antes do piloto.
+- Final: smoke e2e contra homologação e uma rodada de encontros de teste por agentes antes do piloto.
 
 ## Backlog de cenários (ideias do dono, 2026-11-22)
 Escolhidos para o piloto (Etapa 9b): aquário, piquenique, cachoeira, jantar e fliperama. Ficam no backlog: planetário (repete as estrelas do terraço) e parque (se sobrepõe ao piquenique). Cada cenário segue o formato do terraço: criação a dois, ~30 min, sem placar, revelação no fim. As atividades abaixo são propostas iniciais, a validar em brainstorming próprio.
