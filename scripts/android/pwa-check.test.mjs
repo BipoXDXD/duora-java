@@ -3,7 +3,9 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 
-import { PASSOS, comandosParaRestaurar, prepararChrome } from './pwa-check.mjs';
+import {
+  PASSOS, comandosParaRestaurar, passosDaRodada, prepararChrome,
+} from './pwa-check.mjs';
 
 /** adb falso: registra os comandos de shell, responde o SDK e falha nos comandos pedidos. */
 function adbFalso({ sdk, falharEm = () => false }) {
@@ -69,4 +71,13 @@ test('chromeSemOfertaDeTraducao', () => {
 
   const linha = adb.comandos.find((c) => c.includes('/data/local/tmp/chrome-command-line'));
   assert.match(linha ?? '', /--disable-features=Translate\b/, adb.comandos.join('\n'));
+});
+
+test('semInstalarParaDepoisDasCapturasNoNavegador', () => {
+  assert.deepEqual(passosDaRodada({ 'sem-instalar': true }),
+    ['instalabilidade', 'verificarTerraco', 'capturarEmPe', 'capturarDeitado']);
+});
+
+test('rodadaCompletaRodaTodosOsPassos', () => {
+  assert.deepEqual(passosDaRodada({ 'sem-instalar': false }), [...PASSOS]);
 });

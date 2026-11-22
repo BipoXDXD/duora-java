@@ -455,6 +455,17 @@ export const PASSOS = Object.freeze([
   'instalar', 'abrirInstalado', 'capturarStandalone', 'capturarHome',
 ]);
 
+/** Passos que dependem do app instalado: --sem-instalar para antes deles. */
+const PASSOS_DO_APP_INSTALADO = new Set([
+  'instalar', 'abrirInstalado', 'capturarStandalone', 'capturarHome',
+]);
+
+/** Os passos de PASSOS que a rodada pedida em `args` executa, na mesma ordem. */
+export function passosDaRodada(args) {
+  if (!args['sem-instalar']) return [...PASSOS];
+  return PASSOS.filter((passo) => !PASSOS_DO_APP_INSTALADO.has(passo));
+}
+
 const EXECUTORES = {
   async instalabilidade({ cdp, resultado }) {
     resultado.instalabilidade = await verificarInstalabilidade(cdp);
@@ -476,7 +487,6 @@ const EXECUTORES = {
     resultado.screenshotDeitado = await capturarDeitado(adb, join(SAIDA, `${args.nome}-deitado.png`));
   },
   async instalar({ adb, args, base, resultado }) {
-    if (args['sem-instalar']) return;
     resultado.instalacao = await instalar(adb, `${base}/`);
     log(`instalado como ${resultado.instalacao.tipo}: ${resultado.instalacao.evidencia}`);
     if (args['exigir-webapk'] && resultado.instalacao.tipo !== 'webapk') {
@@ -484,14 +494,12 @@ const EXECUTORES = {
     }
   },
   async abrirInstalado(contexto) {
-    const { adb, args, base, resultado } = contexto;
-    if (args['sem-instalar']) return;
+    const { adb, base, resultado } = contexto;
     const conhecidas = new Set((await listarPaginas(adb)).map((p) => p.id));
     resultado.aberturaInstalado = await abrirInstalado(adb, `${base}/`);
     contexto.cdpInstalado = await conectarCdp(adb, base, conhecidas);
   },
   async capturarStandalone({ adb, args, cdpInstalado, resultado }) {
-    if (args['sem-instalar']) return;
     await esperar(2500);
     const standalone = await ehStandalone(cdpInstalado);
     const barra = await barraDoNavegadorVisivel(adb);
@@ -502,7 +510,6 @@ const EXECUTORES = {
     if (barra) throw new Falha('o app instalado abriu com a barra de endereço do Chrome');
   },
   async capturarHome({ adb, args, resultado }) {
-    if (args['sem-instalar']) return;
     adb.shell('input keyevent KEYCODE_HOME');
     await esperar(1500);
     resultado.screenshotHome = capturarTela(adb, join(SAIDA, `${args.nome}-home.png`));
@@ -528,7 +535,7 @@ async function main() {
     adb.executar(['logcat', '-c']);
     contexto.cdp = await abrirNoChrome(adb, url, base);
     resultado.chrome = (await contexto.cdp.enviar('Browser.getVersion').catch(() => ({}))).product;
-    for (const passo of PASSOS) await EXECUTORES[passo](contexto);
+    for (const passo of passosDaRodada(args)) await EXECUTORES[passo](contexto);
     resultado.ok = true;
   } catch (e) {
     resultado.ok = false;
