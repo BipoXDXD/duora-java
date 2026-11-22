@@ -5,11 +5,13 @@ import static bipotheking.net.duora.game.CenarioMinimo.P1;
 import static bipotheking.net.duora.game.CenarioMinimo.P2;
 import static bipotheking.net.duora.game.CenarioMinimo.PEDRA;
 import static bipotheking.net.duora.game.CenarioMinimo.ZONA;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import java.time.Duration;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.stream.Stream;
 import org.assertj.core.api.ThrowableAssert.ThrowingCallable;
 import org.junit.jupiter.api.Test;
@@ -91,6 +93,70 @@ class CenarioTest {
 
     assertThatThrownBy(() -> cenario.lugares().add(new Lugar("P3", ZONA)))
         .isInstanceOf(UnsupportedOperationException.class);
+  }
+
+  @Test
+  void cenarioSemAberturaPorPadrao() {
+    Cenario cenario = cenario("minimo", List.of(P1, P2), List.of(PEDRA, FOLHA), 1);
+
+    assertThat(cenario.abertura()).isEmpty();
+  }
+
+  @Test
+  void tipoDeAberturaForaDoPadraoERecusado() {
+    assertThatThrownBy(() ->
+            new DefinicaoDeAbertura("Lanterna", Duration.ofSeconds(8), Duration.ofSeconds(90)))
+        .isInstanceOf(IllegalArgumentException.class)
+        .hasMessageContaining("Lanterna");
+  }
+
+  @Test
+  void janelaNaoPositivaERecusada() {
+    assertThatThrownBy(
+            () -> new DefinicaoDeAbertura("lanterna", Duration.ZERO, Duration.ofSeconds(90)))
+        .isInstanceOf(IllegalArgumentException.class)
+        .hasMessageContaining("PT0S");
+  }
+
+  @Test
+  void maximoNegativoERecusado() {
+    assertThatThrownBy(() ->
+            new DefinicaoDeAbertura("lanterna", Duration.ofSeconds(8), Duration.ofSeconds(-1)))
+        .isInstanceOf(IllegalArgumentException.class)
+        .hasMessageContaining("PT-1S");
+  }
+
+  @Test
+  void comMaximoTrocaSoOMaximo() {
+    DefinicaoDeAbertura abertura =
+        new DefinicaoDeAbertura("lanterna", Duration.ofSeconds(8), Duration.ofSeconds(90));
+    Cenario cenario = comAbertura(abertura);
+
+    Cenario trocado = cenario.comMaximoDeAbertura(Duration.ZERO);
+
+    assertThat(trocado.abertura())
+        .contains(new DefinicaoDeAbertura("lanterna", Duration.ofSeconds(8), Duration.ZERO));
+    assertThat(trocado).usingRecursiveComparison().ignoringFields("abertura").isEqualTo(cenario);
+  }
+
+  @Test
+  void comMaximoSemAberturaDevolveOMesmo() {
+    Cenario cenario = cenario("minimo", List.of(P1, P2), List.of(PEDRA, FOLHA), 1);
+
+    assertThat(cenario.comMaximoDeAbertura(Duration.ZERO)).isSameAs(cenario);
+  }
+
+  private static Cenario comAbertura(DefinicaoDeAbertura abertura) {
+    return new Cenario(
+        "minimo",
+        "Mínimo",
+        List.of(P1, P2),
+        List.of(PEDRA, FOLHA),
+        1,
+        Duration.ofSeconds(20),
+        1,
+        (composicao, c) -> new Resultado(Map.of()),
+        Optional.of(abertura));
   }
 
   private static Cenario cenario(
