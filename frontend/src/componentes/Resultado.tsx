@@ -12,7 +12,7 @@ const BOTAO_DA_TELA_CHEIA = `${BOTAO_SECUNDARIO} ml-(--e-2) hidden celular-alto:
 interface PropsResultado {
   visao: Visao;
   enviando: Acao | null;
-  acoes: Pick<AcoesDaSessao, "ajustar">;
+  acoes: Pick<AcoesDaSessao, "pedirAjuste">;
   /** A noite ocupa a tela do celular em pé: este bloco fica sobre ela, com "Ver o painel". */
   telaCheia: boolean;
   aoVerPainel: () => void;
@@ -52,7 +52,7 @@ export function Resultado({ visao, enviando, acoes, telaCheia, aoVerPainel, aoVe
         className={BOTAO_SECUNDARIO}
         id="ajustar"
         aria-disabled={enviando !== null ? true : undefined}
-        onClick={seDisponivel(enviando !== null, () => void acoes.ajustar())}
+        onClick={seDisponivel(enviando !== null, () => void acoes.pedirAjuste())}
       >
         {enviando === "ajustar" ? "Enviando…" : "Ajustar de novo"}
       </button>

@@ -25,7 +25,7 @@ function acoesFalsas(): AcoesDaSessao {
     moverPara: vi.fn(),
     retirar: vi.fn(),
     confirmar: vi.fn(),
-    ajustar: vi.fn(),
+    pedirAjuste: vi.fn(),
     tocarAbertura: vi.fn(),
     criarOutro: vi.fn(),
     enviarApelido: vi.fn(),

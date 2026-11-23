@@ -52,8 +52,8 @@ export interface Sessao {
   moverPara: (peca: string, lugar: string) => Promise<void>;
   retirar: () => Promise<void>;
   confirmar: () => Promise<void>;
-  /** Pede o ajuste (ou aceita o do outro): até a F5, é o que o "Ajustar de novo" faz. */
-  ajustar: () => Promise<void>;
+  /** Pede o ajuste ou, com o pedido do outro pendente, aceita-o (R4). */
+  pedirAjuste: () => Promise<void>;
   /** Toca a própria lanterna da abertura; quem acende as duas é o servidor. */
   tocarAbertura: () => Promise<void>;
   enviarApelido: (apelido: string) => Promise<void>;
@@ -86,7 +86,7 @@ export type AcoesDaSessao = Pick<
   | "moverPara"
   | "retirar"
   | "confirmar"
-  | "ajustar"
+  | "pedirAjuste"
   | "tocarAbertura"
   | "criarOutro"
   | "enviarApelido"
@@ -759,7 +759,7 @@ export function criarSessao({
           return visao.prontos.voce ? null : "Confirmação desfeita. Ajuste à vontade.";
         },
       ),
-    ajustar: () =>
+    pedirAjuste: () =>
       enviar(
         "ajustar",
         () => api.pedirAjuste(),

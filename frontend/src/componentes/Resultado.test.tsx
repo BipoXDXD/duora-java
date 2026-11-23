@@ -33,7 +33,7 @@ function ComTelaCheia() {
     <Resultado
       visao={REVELADO}
       enviando={null}
-      acoes={{ ajustar: () => Promise.resolve() }}
+      acoes={{ pedirAjuste: () => Promise.resolve() }}
       telaCheia={telaCheia}
       aoVerPainel={() => {
         setTelaCheia(false);
@@ -62,7 +62,7 @@ describe("Resultado", () => {
       <Resultado
         visao={REVELADO}
         enviando={null}
-        acoes={{ ajustar: () => Promise.resolve() }}
+        acoes={{ pedirAjuste: () => Promise.resolve() }}
         telaCheia={true}
         aoVerPainel={() => {}}
         aoVerCeu={() => {}}
@@ -73,7 +73,7 @@ describe("Resultado", () => {
       <Resultado
         visao={REVELADO}
         enviando={null}
-        acoes={{ ajustar: () => Promise.resolve() }}
+        acoes={{ pedirAjuste: () => Promise.resolve() }}
         telaCheia={false}
         aoVerPainel={() => {}}
         aoVerCeu={() => {}}
