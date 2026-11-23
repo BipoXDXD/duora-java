@@ -10,10 +10,10 @@ import { resumirConvite } from "../convite";
 import { ehToque as ehToqueDoDispositivo } from "../dispositivo";
 import { situacaoDoAjuste, textoDoPedido } from "../dominio/ajuste";
 import { type ErroComCodigo, mensagemDeErro, textoEncerrado, textoRecusaDoSinal } from "../dominio/mensagens";
-import type { Visao } from "../dominio/visao";
+import { sinalDaMontagem, type Visao } from "../dominio/visao";
 import type { Aviso } from "./aviso";
 import { type Agendar, agendarComSetTimeout, DURACAO_DESTAQUE_MS, pecasQueMudaram } from "./destaques";
-import { instrucao, novidade, SUFIXO_ESC_CANCELA, textoSinalEnviado } from "./novidade";
+import { instrucao, novidade, SUFIXO_ESC_CANCELA, textoSinalEnviado, textoSinalRecebido } from "./novidade";
 import type { Acao, EstadoDaSessao, EstadoDaTela, PedidoDeFoco } from "./tipos";
 
 export type { Acao, EstadoDaSessao, EstadoDaTela, PedidoDeFoco, Tela } from "./tipos";
@@ -180,7 +180,7 @@ function exigirVisao(resposta: Resposta): Visao {
 
 export function criarSessao({
   api,
-  aviso,
+  aviso: avisoDaTela,
   convite,
   cenario,
   criarPolling = criarPollingPadrao,
@@ -215,6 +215,18 @@ export function criarSessao({
   const fimDosDestaques = new Map<string, () => void>();
   let destaques: readonly string[] = SEM_DESTAQUES;
   let retrato = montarRetrato();
+  // O último texto escrito no #aviso: a sugestão que expira só apaga o aviso se ele ainda é o dela.
+  let ultimoAviso = "";
+  const aviso: Aviso = {
+    avisar(...args) {
+      ultimoAviso = args[0];
+      avisoDaTela.avisar(...args);
+    },
+    avisarComDetalhe(...args) {
+      ultimoAviso = args[0];
+      avisoDaTela.avisarComDetalhe(...args);
+    },
+  };
 
   let semConexao = false;
   const polling = criarPolling(api, {
@@ -431,8 +443,22 @@ export function criarSessao({
     const texto = anterior && !emTroca() ? novidade(cenario, anterior, visao, propria) : null;
     if (texto) {
       aviso.avisar(texto);
+    } else if (anterior && sinalDaMontagem(visao) === null && ultimoAviso === avisoDoSinal(anterior)) {
+      // A sugestão expirou (ou foi atendida em silêncio): o aviso não pode seguir citando-a.
+      aviso.avisar("");
     }
     publicar();
+  }
+
+  /** O aviso que a sugestão em curso deu, para quem sugeriu ou para quem recebeu; null sem sugestão. */
+  function avisoDoSinal(visao: Visao): string | null {
+    const sinal = sinalDaMontagem(visao);
+    if (sinal === null) {
+      return null;
+    }
+    return sinal.deAssento === visao.voce.assento
+      ? textoSinalEnviado(cenario, visao, sinal.peca, sinal.lugar)
+      : textoSinalRecebido(cenario, visao, sinal);
   }
 
   /** O convite da carga que a aba não conhece: decide quando o resumo chega, se nada mudou. */

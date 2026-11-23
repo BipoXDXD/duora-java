@@ -529,6 +529,48 @@ describe("criarSessao", () => {
     );
   });
 
+  describe("sugestão que expira", () => {
+    const SINAL_DE_ANA = { peca: "lanterna", deAssento: "A", lugar: "R1" } as const;
+
+    it("quemRecebeuDeixaDeOuvirASugestaoQueExpirou", () => {
+      const { doPolling, aviso } = naSala(visaoDeBrunoComSinal({ sinal: null }));
+      doPolling().aoReceber(visaoDeBrunoComSinal());
+      expect(aviso.avisar).toHaveBeenLastCalledWith("Ana sugeriu mover a lanterna: fundo, à direita.");
+
+      doPolling().aoReceber(visaoDeBrunoComSinal({ versao: 5, sinal: null }));
+
+      expect(aviso.avisar).toHaveBeenLastCalledWith("");
+    });
+
+    it("quemSugeriuDeixaDeOuvirASugestaoQueExpirou", async () => {
+      const comSinal = visao({ versao: 4, pecas: [LANTERNA_EM_R2], sinal: SINAL_DE_ANA });
+      const { sessao, doPolling, aviso } = naSala(visao({ pecas: [LANTERNA_EM_R2] }), {
+        api: { sinalizar: vi.fn(() => Promise.resolve(resposta(comSinal))) },
+      });
+      await sessao.escolherPeca("lanterna", false);
+      await sessao.escolherLugar("R1", null);
+      expect(aviso.avisar).toHaveBeenLastCalledWith("Você sugeriu que Bruno mova a lanterna: fundo, à direita.");
+
+      doPolling().aoReceber(visao({ versao: 5, pecas: [LANTERNA_EM_R2], sinal: null }));
+
+      expect(aviso.avisar).toHaveBeenLastCalledWith("");
+    });
+
+    it("avisoQueVeioDepoisDaSugestaoFicaQuandoElaExpira", async () => {
+      const comSinal = visao({ versao: 4, pecas: [LANTERNA_EM_R2], sinal: SINAL_DE_ANA });
+      const { sessao, doPolling, aviso } = naSala(visao({ pecas: [LANTERNA_EM_R2] }), {
+        api: { sinalizar: vi.fn(() => Promise.resolve(resposta(comSinal))) },
+      });
+      await sessao.escolherPeca("lanterna", false);
+      await sessao.escolherLugar("R1", null);
+      await sessao.escolherLugar("C1", "ocupado");
+
+      doPolling().aoReceber(visao({ versao: 5, pecas: [LANTERNA_EM_R2], sinal: null }));
+
+      expect(aviso.avisar).toHaveBeenLastCalledWith("Este lugar está ocupado. Escolha outro.", "erro");
+    });
+  });
+
   it("moverParaLevaAPecaAoLugarSugerido", async () => {
     const { sessao, api } = naSala(visaoDeBrunoComSinal(), {
       api: { moverPeca: vi.fn(() => Promise.resolve(resposta(visaoDeBrunoComSinal({ versao: 5, sinal: null })))) },

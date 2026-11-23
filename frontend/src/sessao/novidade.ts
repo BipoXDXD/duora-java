@@ -3,7 +3,7 @@
 import type { CenarioFront } from "../cenario/tipos";
 import { situacaoDoAjuste, textoDoPedido } from "../dominio/ajuste";
 import { textoConexaoDoParceiro, textoPecasDoParceiro } from "../dominio/mensagens";
-import { aberturaAtiva, lanternasAcenderam, sinalRecebido, type Visao } from "../dominio/visao";
+import { aberturaAtiva, lanternasAcenderam, sinalRecebido, type Visao, type VisaoSinal } from "../dominio/visao";
 import type { Acao } from "./tipos";
 
 /**
@@ -24,7 +24,7 @@ export function novidade(c: CenarioFront, anterior: Visao, visao: Visao, propria
     return "As lanternas acenderam.";
   }
   if (sinalNovo) {
-    return `${parceiro} sugeriu mover ${c.peca(sinal.peca).artigo}: ${c.lugar(sinal.lugar).nome}.`;
+    return textoSinalRecebido(c, visao, sinal);
   }
   // Só o parceiro mexe nas peças dele: vale também quando a visão veio da própria ação.
   const pecas = textoPecasDoParceiro(c, anterior, visao);
@@ -58,6 +58,11 @@ export function novidade(c: CenarioFront, anterior: Visao, visao: Visao, propria
     frases.push(`${parceiro} confirmou esta composição.`);
   }
   return frases.filter(Boolean).join(" ") || null;
+}
+
+/** O aviso de quem recebe uma sugestão do parceiro. */
+export function textoSinalRecebido(c: CenarioFront, visao: Visao, sinal: VisaoSinal): string {
+  return `${String(visao.parceiro?.nome)} sugeriu mover ${c.peca(sinal.peca).artigo}: ${c.lugar(sinal.lugar).nome}.`;
 }
 
 /** O aviso de quem sugeriu, depois que o servidor aceitou o sinal. */
