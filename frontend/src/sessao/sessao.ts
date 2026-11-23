@@ -799,6 +799,10 @@ export function criarSessao({
       ),
     enviarApelido: entrarOuCriar,
     receberConvite(token) {
+      // A entrada em voo já levou o convite dela: outro no meio piscaria a tela sem mudar o destino.
+      if (estado.enviando === "entrada") {
+        return;
+      }
       if (estado.visao === null) {
         estado.convite = token;
         // Carregando, a decisão fica para a primeira resposta da sala.

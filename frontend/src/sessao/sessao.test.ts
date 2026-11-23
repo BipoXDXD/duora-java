@@ -697,6 +697,28 @@ describe("criarSessao", () => {
     expect(sessao.obter()).toMatchObject({ tela: "montagem" });
   });
 
+  it("conviteRecebidoDuranteAEntradaDaTrocaEhIgnorado", async () => {
+    const saida = adiada();
+    const nova = visao({ versao: 1, parceiro: { assento: "A", nome: "Carla", conectado: true } });
+    const { sessao, api, aviso } = naSala(visao({ fase: "AGUARDANDO_PAR", parceiro: null, convite: "abc" }), {
+      api: {
+        sair: vi.fn(() => saida.promessa),
+        entrar: vi.fn(() => Promise.resolve(resposta(nova))),
+      },
+    });
+    sessao.receberConvite("outra");
+    const envio = sessao.enviarApelido("Ana");
+
+    sessao.receberConvite("abc");
+
+    expect(sessao.obter()).toMatchObject({ tela: "entrada", trocaDeSala: true, enviando: "entrada" });
+    expect(aviso.avisar).not.toHaveBeenCalledWith(CONVITE_PROPRIO);
+    saida.resolver(resposta(null, null));
+    await envio;
+    expect(api.entrar).toHaveBeenCalledWith("outra", "Ana");
+    expect(sessao.obter()).toMatchObject({ tela: "montagem", enviando: null });
+  });
+
   it("continuarNoTerracoDesisteDaTroca", async () => {
     const { sessao, api } = naSala();
     sessao.receberConvite("outra");
