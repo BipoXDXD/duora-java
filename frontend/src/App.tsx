@@ -16,6 +16,7 @@ import { lerConvite } from "./convite";
 import { type Aviso, criarAviso } from "./sessao/aviso";
 import { criarSessao, type EstadoDaSessao, type Sessao } from "./sessao/sessao";
 import { useAlturaDoParEAviso } from "./useAlturaDoParEAviso";
+import { useFocoDaTelaCheia } from "./useFocoDaTelaCheia";
 import { marcasDaCena, useSessao, visaoDaCena, visaoDaTela } from "./useSessao";
 import { useSomDaRevelacao } from "./useSomDaRevelacao";
 import { useTelaCheia } from "./useTelaCheia";
@@ -128,18 +129,6 @@ function useEscCancelaSelecao(sessao: Sessao): void {
       document.removeEventListener("keydown", aoTeclar);
     };
   }, [sessao]);
-}
-
-/**
- * Ao entrar na tela cheia, o foco que ficou num controle do painel ou do topo (agora escondidos) vai
- * para o título do resultado. Foco já no resultado ou na cena fica onde está.
- */
-function useFocoDaTelaCheia(telaCheia: boolean): void {
-  useLayoutEffect(() => {
-    if (telaCheia && !document.activeElement?.closest("#resultado, .cena")) {
-      document.querySelector<HTMLElement>("#resultado-titulo")?.focus();
-    }
-  }, [telaCheia]);
 }
 
 export function App({ convite, cenario }: { convite: string | null; cenario: CenarioFront }) {
