@@ -82,14 +82,20 @@ describe("textoBloqueio", () => {
 });
 
 describe("textoEncerrado", () => {
+  // Quem fica não ouve quem saiu: a despedida é gentil e sem culpa.
   it.each([
-    ["SAIU", "Bruno", "Bruno saiu e o terraço foi encerrado."],
-    ["SAIU", null, "A outra pessoa saiu e o terraço foi encerrado."],
-    ["EXPIROU", "Bruno", "O terraço expirou depois de 30 minutos sem ações."],
-    ["VOCE_SAIU", null, "Você saiu e o terraço foi encerrado."],
-    ["SALA_INEXISTENTE", "Bruno", "Este terraço não existe mais (o servidor reiniciou ou ele expirou)."],
-  ])("%s com parceiro %s", (motivo, parceiro, texto) => {
-    expect(textoEncerrado(motivo, parceiro).texto).toBe(texto);
+    ["SAIU", "Ana", "O encontro terminou", "Que bom montar o terraço com Ana."],
+    ["SAIU", null, "O encontro terminou", "Que bom montar o terraço a dois."],
+    ["EXPIROU", "Bruno", "Terraço encerrado", "O terraço expirou depois de 30 minutos sem ações."],
+    ["VOCE_SAIU", null, "Você saiu do terraço", "O encontro terminou para os dois."],
+    [
+      "SALA_INEXISTENTE",
+      "Bruno",
+      "Terraço encerrado",
+      "Este terraço não existe mais (o servidor reiniciou ou ele expirou).",
+    ],
+  ])("%s com parceiro %s", (motivo, parceiro, titulo, texto) => {
+    expect(textoEncerrado(motivo, parceiro)).toEqual({ titulo, texto });
   });
 });
 

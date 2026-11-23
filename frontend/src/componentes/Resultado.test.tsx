@@ -1,7 +1,7 @@
 import { screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { useState } from "react";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import type { Visao } from "../dominio/visao";
 import { renderComCenario } from "../teste/comCenario";
 import { Resultado } from "./Resultado";
@@ -26,6 +26,8 @@ const REVELADO: Visao = {
   abertura: null,
 };
 
+const SEM_ACAO = { pedirAjuste: () => Promise.resolve(), recusarAjuste: () => Promise.resolve() };
+
 /** A tela cheia de verdade mora no App (useTelaCheia); aqui basta o liga-desliga. */
 function ComTelaCheia() {
   const [telaCheia, setTelaCheia] = useState(true);
@@ -33,7 +35,7 @@ function ComTelaCheia() {
     <Resultado
       visao={REVELADO}
       enviando={null}
-      acoes={{ ajustar: () => Promise.resolve() }}
+      acoes={SEM_ACAO}
       telaCheia={telaCheia}
       aoVerPainel={() => {
         setTelaCheia(false);
@@ -44,6 +46,54 @@ function ComTelaCheia() {
     />
   );
 }
+
+function renderComAjuste(ajuste: Visao["ajuste"]) {
+  const acoes = { pedirAjuste: vi.fn(() => Promise.resolve()), recusarAjuste: vi.fn(() => Promise.resolve()) };
+  renderComCenario(
+    <Resultado
+      visao={{ ...REVELADO, ajuste }}
+      enviando={null}
+      acoes={acoes}
+      telaCheia={false}
+      aoVerPainel={() => {}}
+      aoVerCeu={() => {}}
+    />,
+  );
+  return acoes;
+}
+
+describe("Resultado: ajuste combinado", () => {
+  it("semPedidoOferecePedirParaAjustar", async () => {
+    const acoes = renderComAjuste(null);
+
+    await userEvent.click(screen.getByRole("button", { name: "Pedir para ajustar" }));
+
+    expect(acoes.pedirAjuste).toHaveBeenCalledOnce();
+  });
+
+  it("resultadoMostraAceitarERecusarParaQuemRecebe", async () => {
+    const acoes = renderComAjuste({ deAssento: "B" });
+
+    expect(screen.getByText("Bruno quer ajustar a composição.")).toBeVisible();
+    await userEvent.click(screen.getByRole("button", { name: "Aceitar o ajuste" }));
+    await userEvent.click(screen.getByRole("button", { name: "Agora não" }));
+
+    expect(acoes.pedirAjuste).toHaveBeenCalledOnce();
+    expect(acoes.recusarAjuste).toHaveBeenCalledOnce();
+    expect(screen.queryByRole("button", { name: "Pedir para ajustar" })).toBeNull();
+  });
+
+  it("resultadoMostraCancelarParaQuemPediu", async () => {
+    const acoes = renderComAjuste({ deAssento: "A" });
+
+    expect(screen.getByText("Esperando Bruno aceitar.")).toBeVisible();
+    await userEvent.click(screen.getByRole("button", { name: "Cancelar pedido" }));
+
+    expect(acoes.recusarAjuste).toHaveBeenCalledOnce();
+    expect(acoes.pedirAjuste).not.toHaveBeenCalled();
+    expect(screen.queryByRole("button", { name: "Aceitar o ajuste" })).toBeNull();
+  });
+});
 
 describe("Resultado", () => {
   it("ver o painel e ver o céu trocam de lugar levando o foco junto", async () => {
@@ -62,7 +112,7 @@ describe("Resultado", () => {
       <Resultado
         visao={REVELADO}
         enviando={null}
-        acoes={{ ajustar: () => Promise.resolve() }}
+        acoes={SEM_ACAO}
         telaCheia={true}
         aoVerPainel={() => {}}
         aoVerCeu={() => {}}
@@ -73,7 +123,7 @@ describe("Resultado", () => {
       <Resultado
         visao={REVELADO}
         enviando={null}
-        acoes={{ ajustar: () => Promise.resolve() }}
+        acoes={SEM_ACAO}
         telaCheia={false}
         aoVerPainel={() => {}}
         aoVerCeu={() => {}}

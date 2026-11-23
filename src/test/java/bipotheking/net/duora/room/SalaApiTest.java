@@ -407,6 +407,21 @@ class SalaApiTest {
   }
 
   @Test
+  void repetirOPedidoDeAjusteRenovaAExpiracao() throws Exception {
+    Dupla dupla = revelada();
+    acao(dupla.ana(), "/api/sala/ajustar", "").andExpect(status().isOk());
+    relogio.avancar(Duration.ofMinutes(29));
+
+    acao(dupla.ana(), "/api/sala/ajustar", "")
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.fase").value("REVELADO"))
+        .andExpect(jsonPath("$.ajuste.deAssento").value("A"));
+    relogio.avancar(Duration.ofMinutes(29));
+
+    consultar(dupla.ana()).andExpect(status().isOk());
+  }
+
+  @Test
   void ajustarDuranteAMontagemResponde409() throws Exception {
     Pessoa ana = criar("Ana");
     entrar(ana.convite(), "Bruno");

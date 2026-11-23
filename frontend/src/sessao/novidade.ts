@@ -1,6 +1,7 @@
 // Textos que a sessão deriva da visão: o que mudou do lado do parceiro e a instrução da vez.
 
 import type { CenarioFront } from "../cenario/tipos";
+import { situacaoDoAjuste, textoDoPedido } from "../dominio/ajuste";
 import { type ErroComCodigo, mensagemDeErro, textoConexaoDoParceiro, textoPecasDoParceiro } from "../dominio/mensagens";
 import { aberturaAtiva, lanternasAcenderam, type Visao } from "../dominio/visao";
 import type { Acao } from "./tipos";
@@ -40,8 +41,16 @@ export function novidade(c: CenarioFront, anterior: Visao, visao: Visao, propria
   if (anterior.fase === "MONTANDO" && visao.fase === "REVELADO") {
     return "Os dois confirmaram. Olhem o céu.";
   }
+  // Só o aceite volta à montagem; vindo do polling, quem aceitou foi o parceiro.
   if (anterior.fase === "REVELADO" && visao.fase === "MONTANDO") {
-    return `${parceiro} voltou a ajustar o terraço.`;
+    return `${parceiro} aceitou. De volta à montagem.`;
+  }
+  const ajusteAntes = situacaoDoAjuste(anterior);
+  if (visao.fase === "REVELADO" && ajusteAntes !== situacaoDoAjuste(visao)) {
+    if (ajusteAntes === "meu") {
+      return `${parceiro} prefere manter esta noite.`;
+    }
+    return ajusteAntes === "do-outro" ? "Pedido cancelado." : textoDoPedido(visao);
   }
   const frases = [pecas, textoConexaoDoParceiro(anterior, visao)];
   if (anterior.prontos.voce && !visao.prontos.voce) {

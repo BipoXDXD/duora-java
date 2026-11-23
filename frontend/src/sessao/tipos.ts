@@ -7,7 +7,8 @@ import type { Visao } from "../dominio/visao";
 export type Tela = EstadoDaTela["tela"];
 
 /** Ação em envio; enquanto uma está em voo, as outras são ignoradas. */
-export type Acao = "entrada" | "pecas" | "retirar" | "sinal" | "pronto" | "ajustar" | "abertura" | "sair";
+export type Acao =
+  "entrada" | "pecas" | "retirar" | "sinal" | "pronto" | "ajustar" | "recusar-ajuste" | "abertura" | "sair";
 
 /** Cada .focus() do main.js antigo vira um pedido, aplicado depois do render. */
 export type PedidoDeFoco =

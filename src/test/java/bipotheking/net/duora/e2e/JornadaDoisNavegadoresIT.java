@@ -144,7 +144,7 @@ class JornadaDoisNavegadoresIT {
     assertThat(ana.tituloEncerrado()).isVisible();
     assertThat(bruno.tituloEncerrado()).isVisible();
     assertThat(bruno.page().locator("#encerrado-texto"))
-        .hasText("Ana saiu e o terraço foi encerrado.");
+        .hasText("Que bom montar o terraço com Ana.");
   }
 
   @Test
@@ -225,7 +225,7 @@ class JornadaDoisNavegadoresIT {
     assertThat(ana.tituloEncerrado()).isVisible();
     assertThat(ana.page().locator("#confirmar-saida")).isHidden();
     assertThat(ana.page().locator("#encerrado-texto"))
-        .hasText("Bruno saiu e o terraço foi encerrado.");
+        .hasText("Que bom montar o terraço com Bruno.");
   }
 
   @Test

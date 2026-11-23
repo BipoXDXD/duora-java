@@ -7,6 +7,7 @@ import { type Api, ErroApi, type Resposta } from "../api/cliente";
 import { criarPolling as criarPollingPadrao, type GanchosDoPolling, type Polling } from "../api/polling";
 import type { CenarioFront } from "../cenario/tipos";
 import { ehToque as ehToqueDoDispositivo } from "../dispositivo";
+import { situacaoDoAjuste, textoDoPedido } from "../dominio/ajuste";
 import { type ErroComCodigo, mensagemDeErro, textoEncerrado } from "../dominio/mensagens";
 import type { Visao } from "../dominio/visao";
 import type { Aviso } from "./aviso";
@@ -52,8 +53,10 @@ export interface Sessao {
   moverPara: (peca: string, lugar: string) => Promise<void>;
   retirar: () => Promise<void>;
   confirmar: () => Promise<void>;
-  /** Pede o ajuste (ou aceita o do outro): até a F5, é o que o "Ajustar de novo" faz. */
-  ajustar: () => Promise<void>;
+  /** Pede o ajuste ou, com o pedido do outro pendente, aceita-o (R4). */
+  pedirAjuste: () => Promise<void>;
+  /** Recusa o pedido do outro ou cancela o próprio; a noite continua. */
+  recusarAjuste: () => Promise<void>;
   /** Toca a própria lanterna da abertura; quem acende as duas é o servidor. */
   tocarAbertura: () => Promise<void>;
   enviarApelido: (apelido: string) => Promise<void>;
@@ -86,7 +89,8 @@ export type AcoesDaSessao = Pick<
   | "moverPara"
   | "retirar"
   | "confirmar"
-  | "ajustar"
+  | "pedirAjuste"
+  | "recusarAjuste"
   | "tocarAbertura"
   | "criarOutro"
   | "enviarApelido"
@@ -759,12 +763,25 @@ export function criarSessao({
           return visao.prontos.voce ? null : "Confirmação desfeita. Ajuste à vontade.";
         },
       ),
-    ajustar: () =>
+    pedirAjuste: () =>
       enviar(
         "ajustar",
         () => api.pedirAjuste(),
-        (visao) => (visao.fase === "MONTANDO" ? "De volta à montagem. As confirmações foram zeradas." : null),
+        // Com o pedido do outro pendente, pedir é aceitar (R4): a resposta já vem na montagem.
+        (visao) =>
+          visao.fase === "MONTANDO"
+            ? "De volta à montagem. As confirmações foram zeradas."
+            : `Pedido enviado. ${textoDoPedido(visao)}`,
       ),
+    // A mesma rota recusa o pedido do outro ou cancela o próprio; o texto diz qual dos dois foi.
+    recusarAjuste() {
+      const cancelando = estado.visao !== null && situacaoDoAjuste(estado.visao) === "meu";
+      return enviar(
+        "recusar-ajuste",
+        () => api.recusarAjuste(),
+        () => (cancelando ? "Pedido cancelado." : "Tudo bem, a noite fica como está."),
+      );
+    },
     // O foco fica na lanterna (a cena o devolve no redesenho) ou, se ela sumiu, vai às peças.
     tocarAbertura: () =>
       enviar(

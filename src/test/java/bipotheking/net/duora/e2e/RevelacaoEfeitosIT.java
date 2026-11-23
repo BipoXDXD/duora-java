@@ -131,8 +131,8 @@ class RevelacaoEfeitosIT {
     assertThat(texto).containsText("A lanterna ilumina o telescópio de perto.");
     String comALanternaPertoDoTelescopio = texto.textContent();
 
-    ana.botao("Ajustar de novo").click();
-    bruno.botao("Ajustar de novo").click();
+    ana.pedirAjuste();
+    bruno.aceitarAjuste();
     assertThat(ana.app()).hasAttribute("data-momento", "crepusculo");
     bruno.colocar(LANTERNA, R2, BRUNO);
     assertThat(ana.pecaNoTerraco(LANTERNA, BRUNO, R2)).isVisible();
