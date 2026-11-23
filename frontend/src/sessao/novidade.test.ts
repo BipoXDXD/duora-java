@@ -52,7 +52,7 @@ describe("novidade", () => {
   it("sinal que chega com a revelação não esconde o aviso da noite", () => {
     const noite = visao({ fase: "REVELADO", sinal: { peca: "manta", deAssento: "B", lugar: "L2" } });
 
-    expect(novidade(CENARIO, visao(), noite, false)).toBe("Os dois confirmaram. Olhem o céu.");
+    expect(novidade(CENARIO, visao(), noite, false)).toBe("Vocês confirmaram. Olhem o céu.");
   });
 
   it("o mesmo sinal para outro lugar é novidade", () => {
@@ -74,8 +74,8 @@ describe("novidade", () => {
     expect(novidade(CENARIO, antes, visao(), false)).toBe("Bruno entrou no terraço. Escolham as primeiras peças.");
   });
 
-  it("os dois confirmaram", () => {
-    expect(novidade(CENARIO, visao(), visao({ fase: "REVELADO" }), false)).toBe("Os dois confirmaram. Olhem o céu.");
+  it("vocês confirmaram", () => {
+    expect(novidade(CENARIO, visao(), visao({ fase: "REVELADO" }), false)).toBe("Vocês confirmaram. Olhem o céu.");
   });
 
   it("aceiteVistoPorQuemPediu", () => {
@@ -255,7 +255,7 @@ describe("instrucao", () => {
         selecionada: null,
         enviando: null,
       }),
-    ).toBe("Tudo no lugar. Quando os dois confirmarem, o céu escurece.");
+    ).toBe("Tudo no lugar. Quando vocês confirmarem, o céu escurece.");
   });
 
   it("nenhuma peça sua no terraço", () => {

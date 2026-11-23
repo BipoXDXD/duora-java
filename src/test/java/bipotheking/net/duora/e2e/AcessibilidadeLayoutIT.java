@@ -112,7 +112,7 @@ class AcessibilidadeLayoutIT {
 
     ana.botaoSair().focus();
     ana.page().keyboard().press("Enter");
-    Locator encerrar = ana.botao("Encerrar para os dois");
+    Locator encerrar = ana.botao("Encerrar para as duas pessoas");
     ana.tabularAte(encerrar);
     assertThat(encerrar).isFocused();
     ana.page().keyboard().press("Enter");

@@ -13,7 +13,14 @@ import { type ErroComCodigo, mensagemDeErro, textoEncerrado, textoRecusaDoSinal 
 import { sinalDaMontagem, type Visao } from "../dominio/visao";
 import type { Aviso } from "./aviso";
 import { type Agendar, agendarComSetTimeout, DURACAO_DESTAQUE_MS, pecasQueMudaram } from "./destaques";
-import { instrucao, novidade, SUFIXO_ESC_CANCELA, textoSinalEnviado, textoSinalRecebido } from "./novidade";
+import {
+  instrucao,
+  novidade,
+  SUFIXO_ESC_CANCELA,
+  TEXTO_NOITE_REVELADA,
+  textoSinalEnviado,
+  textoSinalRecebido,
+} from "./novidade";
 import type { Acao, EstadoDaSessao, EstadoDaTela, PedidoDeFoco } from "./tipos";
 
 export type { Acao, EstadoDaSessao, EstadoDaTela, PedidoDeFoco, Tela } from "./tipos";
@@ -861,7 +868,7 @@ export function criarSessao({
         (visao) => api.marcarPronto(visao.versao, !visao.prontos.voce),
         (visao) => {
           if (visao.fase === "REVELADO") {
-            return "Os dois confirmaram. Olhem o céu.";
+            return TEXTO_NOITE_REVELADA;
           }
           return visao.prontos.voce ? null : "Confirmação desfeita. Ajuste à vontade.";
         },

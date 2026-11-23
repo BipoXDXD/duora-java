@@ -38,7 +38,7 @@ export function novidade(c: CenarioFront, anterior: Visao, visao: Visao, propria
       : `${parceiro} entrou no terraço. Escolham as primeiras peças.`;
   }
   if (anterior.fase === "MONTANDO" && visao.fase === "REVELADO") {
-    return "Os dois confirmaram. Olhem o céu.";
+    return TEXTO_NOITE_REVELADA;
   }
   // Só o aceite volta à montagem; vindo do polling, quem aceitou foi o parceiro.
   if (anterior.fase === "REVELADO" && visao.fase === "MONTANDO") {
@@ -59,6 +59,9 @@ export function novidade(c: CenarioFront, anterior: Visao, visao: Visao, propria
   }
   return frases.filter(Boolean).join(" ") || null;
 }
+
+/** A noite se revela: o mesmo texto para quem confirmou por último e para quem soube pelo polling. */
+export const TEXTO_NOITE_REVELADA = "Vocês confirmaram. Olhem o céu.";
 
 /** O aviso de quem recebe uma sugestão do parceiro. */
 export function textoSinalRecebido(c: CenarioFront, visao: Visao, sinal: VisaoSinal): string {
@@ -110,7 +113,7 @@ export function instrucao(
     return `Esperando ${visao.parceiro?.nome ?? "a outra pessoa"} confirmar a mesma composição.`;
   }
   if (visao.confirmacao.podeConfirmar) {
-    return "Tudo no lugar. Quando os dois confirmarem, o céu escurece.";
+    return "Tudo no lugar. Quando vocês confirmarem, o céu escurece.";
   }
   const minhas = visao.pecas.filter((p) => p.assento === visao.voce.assento && p.lugar);
   if (minhas.length === 0) {

@@ -613,6 +613,16 @@ describe("criarSessao", () => {
     expect(sessao.obter()).toMatchObject({ enviando: "pronto", instrucao: "Enviando…" });
   });
 
+  it("confirmarQueRevelaANoiteFalaComAsDuasPessoas", async () => {
+    const { sessao, aviso } = naSala(visao({ confirmacao: { podeConfirmar: true, faltam: 0 } }), {
+      api: { marcarPronto: vi.fn(() => Promise.resolve(resposta(visao({ versao: 4, fase: "REVELADO" })))) },
+    });
+
+    await sessao.confirmar();
+
+    expect(aviso.avisar).toHaveBeenLastCalledWith("Vocês confirmaram. Olhem o céu.");
+  });
+
   it("sairComErroDeRedeReabreOPolling", async () => {
     const { sessao, polling, aviso } = naSala(visao(), {
       api: { sair: vi.fn(() => Promise.reject(new ErroApi({ status: 0, codigo: "REDE" }))) },

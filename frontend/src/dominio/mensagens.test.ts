@@ -109,10 +109,10 @@ describe("textoEncerrado", () => {
 });
 
 describe("textoConfirmarSaida", () => {
-  it("com parceiro, encerra para os dois", () => {
+  it("com parceiro, encerra para as duas pessoas", () => {
     expect(textoConfirmarSaida("Bruno")).toEqual({
       aviso: "Isso encerra o terraço para Bruno também.",
-      acao: "Encerrar para os dois",
+      acao: "Encerrar para as duas pessoas",
     });
   });
 

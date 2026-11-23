@@ -50,7 +50,7 @@ describe("Topo", () => {
     const sair = screen.getByRole("button", { name: "Sair" });
     expect(sair).toHaveAttribute("aria-expanded", "true");
     expect(sair).toHaveAttribute("aria-controls", grupo.id);
-    expect(screen.getByRole("button", { name: "Encerrar para os dois" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Encerrar para as duas pessoas" })).toBeInTheDocument();
   });
 
   it("fechada, a confirmação some e o Sair não aponta para nada", () => {

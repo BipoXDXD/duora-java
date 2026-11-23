@@ -162,7 +162,7 @@ class AcessibilidadeFocoIT {
     assertThat(ana.itemDoInventario(TELESCOPIO)).isVisible();
     assertThat(ana.confirmacaoDeSaida())
         .hasAccessibleName("Isso encerra o terraço para Bruno também.");
-    assertThat(ana.botao("Encerrar para os dois")).isVisible();
+    assertThat(ana.botao("Encerrar para as duas pessoas")).isVisible();
     assertThat(ana.botaoContinuarNoTerraco()).isFocused();
   }
 
@@ -263,7 +263,7 @@ class AcessibilidadeFocoIT {
     // A saída fica pendente: o servidor nunca recebe o POST.
     ana.page().route("**/api/sala/sair", rota -> {});
     ana.botaoSair().click();
-    ana.botao("Encerrar para os dois").click();
+    ana.botao("Encerrar para as duas pessoas").click();
     assertThat(ana.botao("Enviando…")).isVisible();
     assertThat(ana.botaoContinuarNoTerraco()).hasAttribute("aria-disabled", "true");
 

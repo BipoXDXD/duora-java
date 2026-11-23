@@ -85,7 +85,7 @@ export function textoBloqueio(codigo: string, visao: Visao | null | undefined): 
 /** Aviso e ação do bloco que confirma a saída; sem parceiro, só o próprio terraço acaba. */
 export function textoConfirmarSaida(nomeParceiro: string | null | undefined): { aviso: string; acao: string } {
   return nomeParceiro
-    ? { aviso: `Isso encerra o terraço para ${nomeParceiro} também.`, acao: "Encerrar para os dois" }
+    ? { aviso: `Isso encerra o terraço para ${nomeParceiro} também.`, acao: "Encerrar para as duas pessoas" }
     : { aviso: "Isso encerra o terraço.", acao: "Encerrar o terraço" };
 }
 
