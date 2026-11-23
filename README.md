@@ -51,11 +51,11 @@ O Vite serve o app e repassa `/api` para o Spring em 8080 (os binários de `/ass
 `src/main/resources/static`). Os outros scripts, com o mesmo prefixo: `lint` (ESLint e Prettier,
 sem avisos), `test` (Vitest) e `build` (`tsc -b` e build do Vite).
 
-Tamanho do JS inicial (o `index` e o chunk de polling pré-carregado): 260 KB, ou 81,5 KB em gzip
-nível 9, sem contar CSS, fontes e imagens. A meta é 80 KB: o número atual está acima da meta (o
-próximo passo seria avaliar o `preact/compat`). O `TamanhoDoJsInicialTest` mede a cada
-`./mvnw verify` (resultado em `target/tamanho-js-inicial.txt`) e só falha acima de 90 KB, o teto
-aceito.
+Tamanho do JS inicial (o `index` e o chunk de polling pré-carregado): cerca de 90 KB em gzip
+nível 9, sem contar CSS, fontes e imagens. A meta é 80 KB e fica para uma etapa de performance:
+carregar a revelação sob demanda não reduz o número, porque o helper de preload do Vite custa mais
+do que ela. O `TamanhoDoJsInicialTest` mede a cada `./mvnw verify` (resultado em
+`target/tamanho-js-inicial.txt`) e só falha acima de 100 KB, o teto aceito.
 
 ## Instalar no Android (teste local)
 

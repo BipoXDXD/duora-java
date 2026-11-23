@@ -179,7 +179,7 @@ Valem sobre as seções "Decisões do dono" dos planos.
 - **Controlador na política de privacidade:** "o responsável pelo Duora".
 - **"Sair" na 1c:** mostra uma tela neutra; a decisão privada chega na Etapa 5.
 - **Prova de voz:** no emulador, forçado a passar pelo TURN, repetida na Etapa 10 com o coturn da VPS.
-- **JS inicial (da 1a em diante):** teto 90 KB gzip, que é o limite do `TamanhoDoJsInicialTest` (`LIMITE_BYTES = 92_160`), e meta 80 KB; os planos verificam o teto. Acima do teto, avaliar preact/compat.
+- **JS inicial (da 1a em diante):** teto 100 KB gzip (revisto na 1c por decisão do dono; era 90 KB), que é o limite do `TamanhoDoJsInicialTest` (`LIMITE_BYTES = 102_400`), e meta 80 KB, perseguida numa etapa de performance; os planos verificam o teto. Lazy da revelação não reduz (o helper de preload do Vite custa ~714 bytes). Acima do teto, avaliar preact/compat.
 - **Critério do piloto e rampa de capacidade (3 → 5 → 10):** confirmar com o dono antes de abrir o cadastro na Etapa 11.
 - **Paridade com o mercado (2026-11-22), padrões configuráveis aceitos pelo dono:** idade aprovada com `AgeRange.Low ≥ 21`, recusada com `AgeRange.High < 18`, prova de vida com confiança ≥ 90; contas com menos de 7 dias: 200 mensagens, 10 imagens e 3 convites privados por dia; triagem de imagem bloqueia com pontuação NSFW ≥ 0,90 e manda à fila de 0,50 a 0,90.
 - **Feedback pós-encontro:** sai da Etapa 11 (Task 2) para a Etapa 5 (Task 18), com a migração `V89`; a Etapa 11 só o mede.

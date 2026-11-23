@@ -16,12 +16,12 @@ import org.junit.jupiter.api.Test;
 
 /**
  * O JS que a primeira tela baixa (o módulo de entrada e os modulepreload do index gerado) cabe no
- * orçamento, medido em gzip nível 9. A meta é 80 KB; os contratos aceitam até 90 KB antes de
- * avaliar o preact/compat. O valor fica em target/tamanho-js-inicial.txt para o resumo da etapa.
+ * orçamento, medido em gzip nível 9. A meta é 80 KB; os contratos aceitam até 100 KB (teto revisto
+ * na Etapa 1c). O valor fica em target/tamanho-js-inicial.txt para o resumo da etapa.
  */
 class TamanhoDoJsInicialTest {
 
-  private static final long LIMITE_BYTES = 92_160;
+  private static final long LIMITE_BYTES = 102_400;
   private static final Path RELATORIO = Path.of("target", "tamanho-js-inicial.txt");
 
   @Test
