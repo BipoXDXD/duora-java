@@ -198,6 +198,13 @@ describe("lerCenario: validação", () => {
     expect(erroAoLer(cenario, geometria)).toContain("abertura.sprite");
   });
 
+  it.each([0, -0.5])("aberturaComEscalaSemTamanhoRecusada: %d", (escala) => {
+    const { cenario, geometria } = jsonsDoTerracoComAbertura();
+    em(cenario, "abertura").escala = escala;
+
+    expect(erroAoLer(cenario, geometria)).toContain("abertura.escala");
+  });
+
   it("aberturaDeTipoDesconhecidoRecusada", () => {
     const { cenario, geometria } = jsonsDoTerracoComAbertura();
     em(cenario, "abertura").tipo = "soprar-junto";
