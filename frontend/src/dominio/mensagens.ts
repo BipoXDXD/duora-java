@@ -59,6 +59,21 @@ export function mensagemDeErro(erro: ErroComCodigo, visao: Visao | null | undefi
   }
 }
 
+/**
+ * A recusa de um sinal. Os textos gerais de PECA_ALHEIA e LUGAR_OCUPADO falam de colocar a própria
+ * peça; aqui a peça é do parceiro e o lugar pode estar ocupado por qualquer um dos dois.
+ */
+export function textoRecusaDoSinal(erro: ErroComCodigo, visao: Visao | null): string {
+  switch (erro.codigo) {
+    case "PECA_ALHEIA":
+      return "Essa peça é sua. Para mudá-la de lugar, escolha-a em Suas peças.";
+    case "LUGAR_OCUPADO":
+      return "Este lugar não está mais livre. Escolha outro.";
+    default:
+      return mensagemDeErro(erro, visao);
+  }
+}
+
 /** Texto de estado para uma peça própria que não pode ser colocada agora. */
 export function textoBloqueio(codigo: string, visao: Visao | null | undefined): string {
   if (codigo === "ESPERE_PRIMEIRA_PECA") {

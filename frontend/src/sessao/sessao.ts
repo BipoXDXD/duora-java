@@ -9,11 +9,11 @@ import type { CenarioFront } from "../cenario/tipos";
 import { resumirConvite } from "../convite";
 import { ehToque as ehToqueDoDispositivo } from "../dispositivo";
 import { situacaoDoAjuste, textoDoPedido } from "../dominio/ajuste";
-import { type ErroComCodigo, mensagemDeErro, textoEncerrado } from "../dominio/mensagens";
+import { type ErroComCodigo, mensagemDeErro, textoEncerrado, textoRecusaDoSinal } from "../dominio/mensagens";
 import type { Visao } from "../dominio/visao";
 import type { Aviso } from "./aviso";
 import { type Agendar, agendarComSetTimeout, DURACAO_DESTAQUE_MS, pecasQueMudaram } from "./destaques";
-import { instrucao, novidade, SUFIXO_ESC_CANCELA, textoRecusaDoSinal, textoSinalEnviado } from "./novidade";
+import { instrucao, novidade, SUFIXO_ESC_CANCELA, textoSinalEnviado } from "./novidade";
 import type { Acao, EstadoDaSessao, EstadoDaTela, PedidoDeFoco } from "./tipos";
 
 export type { Acao, EstadoDaSessao, EstadoDaTela, PedidoDeFoco, Tela } from "./tipos";
