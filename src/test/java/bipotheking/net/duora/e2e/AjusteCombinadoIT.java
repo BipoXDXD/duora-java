@@ -4,11 +4,15 @@ import static bipotheking.net.duora.e2e.Cenarios.comporTerraco;
 import static bipotheking.net.duora.e2e.Cenarios.entrarEmPar;
 import static bipotheking.net.duora.e2e.Cenarios.raiz;
 import static com.microsoft.playwright.assertions.PlaywrightAssertions.assertThat;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import bipotheking.net.duora.e2e.NavegadorExtension.Participantes;
 import com.microsoft.playwright.Locator;
 import com.microsoft.playwright.Page;
+import com.microsoft.playwright.Request;
 import com.microsoft.playwright.options.AriaRole;
+import java.util.ArrayList;
+import java.util.List;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.springframework.beans.factory.annotation.Value;
@@ -95,9 +99,25 @@ class AjusteCombinadoIT {
 
     assertThat(ana.tituloDoResultado()).isFocused();
     assertThat(bruno.aviso()).hasText("Ana cancelou o pedido.");
-    ana.page().keyboard().press("Enter");
+    List<String> pedidos = new ArrayList<>();
+    ana.page()
+        .onRequest(pedido -> {
+          if (pedido.method().equals("POST") && pedido.url().endsWith("/api/sala/ajustar")) {
+            pedidos.add(pedido.url());
+          }
+        });
+    // Um POST do Enter sairia no próprio evento de teclado, antes da próxima consulta do polling:
+    // esperar essa consulta terminar dá tempo de sobra para ele aparecer.
+    Request consulta =
+        ana.page()
+            .waitForRequest(
+                pedido -> pedido.method().equals("GET") && pedido.url().endsWith("/api/sala"),
+                () -> ana.page().keyboard().press("Enter"));
+    consulta.response();
+
     assertThat(ana.botao("Pedir para ajustar")).isVisible();
     assertThat(ana.page().locator("#ajuste-pedido")).not().isAttached();
+    assertEquals(List.of(), pedidos, "o Enter atrasado no título não pede ajuste");
   }
 
   @Test

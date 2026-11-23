@@ -3,6 +3,8 @@ package bipotheking.net.duora.e2e;
 import static bipotheking.net.duora.e2e.Cenarios.ANA;
 import static bipotheking.net.duora.e2e.Cenarios.entrarEmPar;
 import static bipotheking.net.duora.e2e.Cenarios.raiz;
+import static bipotheking.net.duora.e2e.TerracoPagina.Lugar.C1;
+import static bipotheking.net.duora.e2e.TerracoPagina.Peca.TELESCOPIO;
 import static com.microsoft.playwright.assertions.PlaywrightAssertions.assertThat;
 
 import bipotheking.net.duora.e2e.NavegadorExtension.Participantes;
@@ -72,6 +74,10 @@ class TrocaDeConviteIT {
 
     assertThat(ana.page().locator("#par")).containsText(Cenarios.BRUNO);
     assertThat(ana.botaoSair()).isVisible();
+    // Ancora a ausência num ciclo de polling de Bruno depois da escolha de Ana: a peça que ela
+    // coloca agora só aparece para ele numa consulta à sala ainda aberta.
+    ana.colocar(TELESCOPIO, C1, ANA);
+    assertThat(bruno.pecaNoTerraco(TELESCOPIO, ANA, C1)).isVisible();
     assertThat(bruno.tituloEncerrado()).hasCount(0);
   }
 
