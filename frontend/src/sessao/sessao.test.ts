@@ -552,6 +552,20 @@ describe("criarSessao", () => {
       expect(aviso.avisar).toHaveBeenLastCalledWith("");
     });
 
+    it("sugestaoRecebidaNaTrocaSaiDoAvisoDaVoltaQuandoExpira", async () => {
+      const { sessao, doPolling, aviso } = naSala(visaoDeBrunoComSinal({ sinal: null }));
+      await sessao.receberConvite("outra");
+      doPolling().aoReceber(visaoDeBrunoComSinal());
+      sessao.continuarNoTerraco();
+      expect(aviso.avisar).toHaveBeenLastCalledWith(
+        "De volta ao terraço com Ana. Ana sugeriu mover a lanterna: fundo, à direita.",
+      );
+
+      doPolling().aoReceber(visaoDeBrunoComSinal({ versao: 5, sinal: null }));
+
+      expect(aviso.avisar).toHaveBeenLastCalledWith("");
+    });
+
     it("avisoQueVeioDepoisDaSugestaoFicaQuandoElaExpira", async () => {
       const comSinal = visao({ versao: 4, pecas: [LANTERNA_EM_R2], sinal: SINAL_DE_ANA });
       const { sessao, doPolling, aviso } = naSala(visao({ pecas: [LANTERNA_EM_R2] }), {
@@ -905,17 +919,22 @@ describe("criarSessao", () => {
   });
 
   describe("troca de sala: o que fica para trás", () => {
-    it("trocaVindaDaNoiteMostraOCrepusculo", async () => {
+    it("aTrocaVindaDaNoiteNaoMudaOMomentoNemNaVolta", async () => {
+      // A cena atrás da entrada segue sendo a noite: se o momento oscilasse, a volta pareceria uma
+      // passagem ao vivo e as notas do rádio tocariam de novo.
       const { sessao } = naSala(
         visao({
           fase: "REVELADO",
           resultado: { secundariaA: "manta", secundariaB: "banco", ladoTelescopio: "esquerda" },
         }),
       );
+      const daNoite = { momento: "noite", ladoTelescopio: "esquerda" };
 
       await sessao.receberConvite("outra");
+      expect(sessao.obter()).toMatchObject({ tela: "entrada", ...daNoite });
 
-      expect(sessao.obter()).toMatchObject({ tela: "entrada", momento: "crepusculo", ladoTelescopio: null });
+      sessao.continuarNoTerraco();
+      expect(sessao.obter()).toMatchObject({ tela: "montagem", ...daNoite });
     });
 
     it("continuarNoTerracoNaoTrazASelecaoDeAntes", async () => {

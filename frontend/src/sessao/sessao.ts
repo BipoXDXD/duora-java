@@ -297,11 +297,11 @@ export function criarSessao({
   }
 
   /**
-   * Revelado: noite com meteoros do lado do telescópio. Qualquer outra fase, ou a troca de sala (a
-   * entrada fica na frente da noite): crepúsculo.
+   * Revelado: noite com meteoros do lado do telescópio. Qualquer outra fase: crepúsculo. A troca de
+   * sala não muda o momento: a volta dela não pode parecer uma passagem ao vivo (notas uma vez só).
    */
   function camposForaDaTela(): Omit<EstadoDaSessao, keyof EstadoDaTela> {
-    const noite = !emTroca() && estado.visao?.fase === "REVELADO";
+    const noite = estado.visao?.fase === "REVELADO";
     return {
       enviando: estado.enviando,
       cenaVazia: estado.visao === null,
@@ -491,12 +491,17 @@ export function criarSessao({
       const texto = novidade(cenario, anterior, visao, propria);
       if (texto) {
         aviso.avisar(texto);
-      } else if (sinalDaMontagem(visao) === null && ultimoAviso === avisoDoSinal(anterior)) {
+      } else if (sinalDaMontagem(visao) === null && avisoCita(avisoDoSinal(anterior))) {
         // A sugestão expirou (ou foi atendida em silêncio): o aviso não pode seguir citando-a.
         aviso.avisar("");
       }
     }
     publicar();
+  }
+
+  /** O último aviso cita este texto: sozinho, ou dentro de outro (a volta da troca o junta ao seu). */
+  function avisoCita(texto: string | null): boolean {
+    return texto !== null && ultimoAviso.includes(texto);
   }
 
   /** O aviso que a sugestão em curso deu, para quem sugeriu ou para quem recebeu; null sem sugestão. */
