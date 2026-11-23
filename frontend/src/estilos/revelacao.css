@@ -209,11 +209,13 @@ html.tela-cheia {
   visibility: hidden;
 }
 
-/* Acima da cena e da folha; com a confirmação de saída aberta, ele cresce para baixo sobre o céu. */
+/* Acima da cena e da folha; com a confirmação de saída aberta, ele cresce para baixo sobre o céu.
+   O !important vence as utilidades do Topo (celular-alto:sticky, z-5, static ao confirmar), que
+   estão numa camada acima desta. */
 .app[data-tela-cheia="true"] .topo {
-  position: fixed;
+  position: fixed !important;
   inset: 0 0 auto;
-  z-index: 7;
+  z-index: 7 !important;
 }
 
 .app[data-tela-cheia="true"] :is(#resultado, #aviso) {
