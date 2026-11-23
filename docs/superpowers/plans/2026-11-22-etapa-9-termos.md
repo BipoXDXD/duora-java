@@ -1,5 +1,7 @@
 # Etapa 9 — Termos, privacidade e expiração de dados: plano de implementação
 
+> **Substituído em parte (2026-11-23):** as Tasks 1 (documentos legais) e 2 (núcleo de retenção) foram replanejadas dentro da Etapa 2a (`2026-11-23-etapa-2a-contas.md`, tasks L1, L2 e P10).
+
 > **Para agentes:** sub-skill obrigatória: superpowers:subagent-driven-development (recomendado) ou superpowers:executing-plans. Passos com checkbox (`- [ ]`).
 
 **Objetivo:** termos de uso e política de privacidade curtos, em pt-BR, publicados, versionados e linkados no cadastro; contato por e-mail; um job de expiração em que cada módulo registra o que apaga e quando, com o chat e as imagens do encontro expirando 30 dias depois do fim do encontro.
