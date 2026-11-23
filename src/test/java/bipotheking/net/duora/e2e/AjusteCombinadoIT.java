@@ -71,8 +71,13 @@ class AjusteCombinadoIT {
     TerracoPagina bruno = participantes.novo();
     revelar(ana, bruno);
     ana.pedirAjuste();
+    Locator agoraNao = bruno.botao("Agora não");
 
-    bruno.recusarAjuste();
+    // Pelo teclado, como quem depende do foco: no WebKit do macOS o clique não foca o botão, e o
+    // foco já estaria no body antes de o botão sumir.
+    agoraNao.focus();
+    assertThat(agoraNao).isFocused();
+    bruno.page().keyboard().press("Enter");
 
     assertThat(bruno.tituloDoResultado()).isFocused();
   }
