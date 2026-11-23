@@ -66,7 +66,7 @@ export function mensagemDeErro(erro: ErroComCodigo, visao: Visao | null | undefi
 export function textoRecusaDoSinal(erro: ErroComCodigo, visao: Visao | null): string {
   switch (erro.codigo) {
     case "PECA_ALHEIA":
-      return "Essa peça é sua. Para mudá-la de lugar, escolha-a em Suas peças.";
+      return "Esta peça é sua. Para mover, escolha a peça em Suas peças.";
     case "LUGAR_OCUPADO":
       return "Este lugar não está mais livre. Escolha outro.";
     default:

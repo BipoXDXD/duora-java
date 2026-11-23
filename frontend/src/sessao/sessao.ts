@@ -127,7 +127,7 @@ const TEXTO_JA_NESTE_TERRACO = "Você já está neste terraço.";
  * troca o encerraria. Na dúvida, não há troca; a saída fica com quem decide sair.
  */
 const TEXTO_CONVITE_SEM_CONFERIR =
-  "Não deu para conferir este convite neste navegador. Para entrar nele, saia deste terraço e abra o link de novo.";
+  "Não deu para conferir este convite neste navegador. Se ele for de outro terraço, saia deste e abra o link de novo.";
 
 /** O aviso de um erro fora da API (um defeito, não uma resposta do servidor). */
 const MENSAGEM_DE_DEFEITO = "Algo deu errado ao falar com o servidor. Recarregue a página.";

@@ -68,7 +68,7 @@ function adiada() {
 const CONVITE_PROPRIO = "Este é o convite do seu terraço. Mande para a outra pessoa.";
 const JA_NESTE_TERRACO = "Você já está neste terraço.";
 const CONVITE_SEM_CONFERIR =
-  "Não deu para conferir este convite neste navegador. Para entrar nele, saia deste terraço e abra o link de novo.";
+  "Não deu para conferir este convite neste navegador. Se ele for de outro terraço, saia deste e abra o link de novo.";
 /** SHA-256 de "abc" (vetor do FIPS 180-2): o conviteDaSala de uma sala com o convite "abc". */
 const RESUMO_ABC = "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad";
 
@@ -522,10 +522,7 @@ describe("criarSessao", () => {
 
     await sessao.escolherLugar("R1", null);
 
-    expect(aviso.avisar).toHaveBeenLastCalledWith(
-      "Essa peça é sua. Para mudá-la de lugar, escolha-a em Suas peças.",
-      "erro",
-    );
+    expect(aviso.avisar).toHaveBeenLastCalledWith("Esta peça é sua. Para mover, escolha a peça em Suas peças.", "erro");
   });
 
   describe("sugestão que expira", () => {
