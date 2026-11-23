@@ -1,4 +1,4 @@
-import { describe, expect, expectTypeOf, it, vi } from "vitest";
+import { afterEach, describe, expect, expectTypeOf, it, vi } from "vitest";
 import { type Api, ErroApi, type Resposta } from "../api/cliente";
 import type { GanchosDoPolling, Polling } from "../api/polling";
 import type { Visao, VisaoPeca } from "../dominio/visao";
@@ -67,6 +67,8 @@ function adiada() {
 
 const CONVITE_PROPRIO = "Este é o convite do seu terraço. Mande para a outra pessoa.";
 const JA_NESTE_TERRACO = "Você já está neste terraço.";
+const CONVITE_SEM_CONFERIR =
+  "Não deu para conferir este convite neste navegador. Para entrar nele, saia deste terraço e abra o link de novo.";
 /** SHA-256 de "abc" (vetor do FIPS 180-2): o conviteDaSala de uma sala com o convite "abc". */
 const RESUMO_ABC = "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad";
 
@@ -637,6 +639,36 @@ describe("criarSessao", () => {
     expect(aviso.avisar).toHaveBeenLastCalledWith(JA_NESTE_TERRACO);
     expect(sessao.obter()).toMatchObject({ tela: "montagem" });
     expect(api.sair).not.toHaveBeenCalled();
+  });
+
+  describe("sem Web Crypto (HTTP fora de localhost)", () => {
+    afterEach(() => {
+      vi.unstubAllGlobals();
+    });
+
+    it("conviteQueNaoDaParaConferirNaoOfereceATrocaQueEncerraASala", async () => {
+      vi.stubGlobal("crypto", {});
+      const { sessao, api, aviso } = naSala(visao());
+
+      await sessao.receberConvite("outra");
+
+      expect(aviso.avisar).toHaveBeenLastCalledWith(CONVITE_SEM_CONFERIR);
+      expect(sessao.obter()).toMatchObject({ tela: "montagem" });
+      expect(api.sair).not.toHaveBeenCalled();
+    });
+
+    it("conviteDaCargaQueNaoDaParaConferirNaoOfereceATroca", async () => {
+      vi.stubGlobal("crypto", { subtle: { digest: () => Promise.reject(new Error("NotSupportedError")) } });
+      const { sessao, doPolling, aviso } = montar({ convite: "outra" });
+      sessao.iniciar();
+
+      doPolling().aoReceber(visao());
+
+      await vi.waitFor(() => {
+        expect(aviso.avisar).toHaveBeenCalledWith(CONVITE_SEM_CONFERIR);
+      });
+      expect(sessao.obter()).toMatchObject({ tela: "montagem" });
+    });
   });
 
   it("conviteJaVistoContinuaProprioDepoisQueOParceiroEntra", async () => {

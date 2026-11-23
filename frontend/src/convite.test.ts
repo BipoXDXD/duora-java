@@ -37,6 +37,15 @@ describe("resumirConvite", () => {
     expect(await resumirConvite("abc")).toBe("ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad");
   });
 
+  it("digest que rejeita devolve null", async () => {
+    vi.stubGlobal("crypto", { subtle: { digest: () => Promise.reject(new Error("NotSupportedError")) } });
+    try {
+      expect(await resumirConvite("abc")).toBeNull();
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
+
   it("sem Web Crypto (contexto inseguro) devolve null", async () => {
     vi.stubGlobal("crypto", {});
     try {

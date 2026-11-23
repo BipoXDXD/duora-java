@@ -115,6 +115,13 @@ const TEXTO_CONVITE_PROPRIO = "Este é o convite do seu terraço. Mande para a o
 /** Abrir de novo o convite do próprio terraço depois que a outra pessoa entrou (já foi usado). */
 const TEXTO_JA_NESTE_TERRACO = "Você já está neste terraço.";
 
+/**
+ * Convite que a aba não conhece e não consegue resumir (sem Web Crypto): pode ser o desta sala, e a
+ * troca o encerraria. Na dúvida, não há troca; a saída fica com quem decide sair.
+ */
+const TEXTO_CONVITE_SEM_CONFERIR =
+  "Não deu para conferir este convite neste navegador. Para entrar nele, saia deste terraço e abra o link de novo.";
+
 /** O aviso de um erro fora da API (um defeito, não uma resposta do servidor). */
 const MENSAGEM_DE_DEFEITO = "Algo deu errado ao falar com o servidor. Recarregue a página.";
 
@@ -331,12 +338,17 @@ export function criarSessao({
 
   /**
    * Com sala e convite em espera: o convite próprio só avisa (devolve o texto); o de outra sala
-   * mostra a troca (devolve null). resumo: o do token, quando a aba não o conhece.
+   * mostra a troca (devolve null). resumo: o do token, quando a aba não o conhece; null se ela o
+   * conhece ou se não deu para calcular.
    */
   function decidirConvite(token: string, resumo: string | null): string | null {
     if (conviteDestaSala(token, resumo)) {
       desfazerTroca();
       return estado.visao?.fase === "AGUARDANDO_PAR" ? TEXTO_CONVITE_PROPRIO : TEXTO_JA_NESTE_TERRACO;
+    }
+    if (resumo === null) {
+      desfazerTroca();
+      return TEXTO_CONVITE_SEM_CONFERIR;
     }
     estado.convite = token;
     mostrarTroca();
