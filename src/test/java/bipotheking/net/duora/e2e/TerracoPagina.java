@@ -239,10 +239,11 @@ final class TerracoPagina {
   }
 
   /**
-   * Só Tab: avança o foco até o alvo, com limite para não girar para sempre. Antes, desfaz a seleção
-   * que um clique anterior deixou: quando o Tab passa do último controle e o foco volta ao documento,
-   * o Firefox recomeça a partir dela, e não do topo. Num navegador com interface, o Tab passaria pela
-   * barra de endereço e voltaria ao topo; no headless, giraria só entre os controles depois do clique.
+   * Só Tab: avança o foco até o alvo, com limite para não girar para sempre. Antes, desfaz a
+   * seleção que um clique anterior deixou: quando o Tab passa do último controle e o foco volta ao
+   * documento, o Firefox recomeça a partir dela, e não do topo. Num navegador com interface, o Tab
+   * passaria pela barra de endereço e voltaria ao topo; no headless, giraria só entre os controles
+   * depois do clique.
    */
   void tabularAte(Locator alvo) {
     page.evaluate("() => window.getSelection()?.removeAllRanges()");
