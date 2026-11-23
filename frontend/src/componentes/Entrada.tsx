@@ -5,16 +5,21 @@ import { BOTAO_PRIMARIO, BOTAO_SECUNDARIO_SEM_MARGEM, CAMPO, DICA, ENTRADA_DE_TE
 interface PropsEntrada {
   /** A URL trouxe #convite=: a ação vira "Entrar no terraço". */
   comConvite: boolean;
-  /** O convite é de outra sala, com esta ainda aberta: entrar encerra a atual. */
-  trocaDeSala?: boolean;
+  /**
+   * O convite é de outra sala, com esta ainda aberta: entrar encerra a atual. aoContinuar desiste da
+   * troca e volta ao terraço atual. Sem troca, ausente (não há como ter troca sem a saída dela).
+   */
+  troca?: TrocaDeSala;
   enviando: boolean;
   /** Erro do servidor para o apelido; "" quando não há. */
   erro: string;
   aoEnviar: (apelido: string) => void;
   /** Digitou um apelido válido: o erro do servidor (se houver) deixa de valer. */
   aoCorrigir: () => void;
-  /** Desiste da troca e volta ao terraço atual (só na troca de sala). */
-  aoContinuar?: () => void;
+}
+
+export interface TrocaDeSala {
+  aoContinuar: () => void;
 }
 
 /**
@@ -34,15 +39,7 @@ function useErroDoApelido(erro: string, enviando: boolean) {
   return [doCampo ?? erro, setDoCampo] as const;
 }
 
-export function Entrada({
-  comConvite,
-  trocaDeSala = false,
-  enviando,
-  erro,
-  aoEnviar,
-  aoCorrigir,
-  aoContinuar,
-}: PropsEntrada) {
+export function Entrada({ comConvite, troca, enviando, erro, aoEnviar, aoCorrigir }: PropsEntrada) {
   const refApelido = useRef<HTMLInputElement>(null);
   const [erroMostrado, mostrarErro] = useErroDoApelido(erro, enviando);
   const acao = comConvite ? "Entrar no terraço" : "Criar terraço";
@@ -89,14 +86,14 @@ export function Entrada({
           autoComplete="nickname"
           spellCheck={false}
           required
-          aria-describedby={trocaDeSala ? "apelido-dica apelido-troca apelido-erro" : "apelido-dica apelido-erro"}
+          aria-describedby={troca ? "apelido-dica apelido-troca apelido-erro" : "apelido-dica apelido-erro"}
           aria-invalid={erroMostrado ? true : undefined}
           onInput={aoDigitar}
         />
         <p className={DICA} id="apelido-dica">
           De 1 a 20 caracteres. A outra pessoa vê este nome.
         </p>
-        {trocaDeSala && (
+        {troca && (
           <p className="m-0 max-w-[40ch] text-texto-2" id="apelido-troca">
             Entrar neste convite encerra o terraço atual para as duas pessoas.
           </p>
@@ -108,7 +105,7 @@ export function Entrada({
       <button type="submit" className={BOTAO_PRIMARIO} id="entrar" aria-disabled={enviando ? true : undefined}>
         {enviando ? "Enviando…" : acao}
       </button>
-      {trocaDeSala && (
+      {troca && (
         <button
           type="button"
           className={BOTAO_SECUNDARIO_SEM_MARGEM}
@@ -116,7 +113,7 @@ export function Entrada({
           aria-disabled={enviando ? true : undefined}
           onClick={() => {
             if (!enviando) {
-              aoContinuar?.();
+              troca.aoContinuar();
             }
           }}
         >

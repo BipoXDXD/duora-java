@@ -26,15 +26,7 @@ describe("Entrada", () => {
   it("na troca de sala, avisa que o terraço atual acaba e deixa continuar nele", async () => {
     const aoContinuar = vi.fn();
     render(
-      <Entrada
-        comConvite
-        trocaDeSala
-        enviando={false}
-        erro=""
-        aoEnviar={vi.fn()}
-        aoCorrigir={vi.fn()}
-        aoContinuar={aoContinuar}
-      />,
+      <Entrada comConvite troca={{ aoContinuar }} enviando={false} erro="" aoEnviar={vi.fn()} aoCorrigir={vi.fn()} />,
     );
 
     expect(screen.getByLabelText("Seu apelido")).toHaveAccessibleDescription(
