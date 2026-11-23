@@ -38,6 +38,12 @@ describe("Entrada", () => {
     expect(aoContinuar).toHaveBeenCalledOnce();
   });
 
+  it("o apelido já dado nesta sessão vem preenchido", () => {
+    render(<Entrada comConvite apelido="Ana" enviando={false} erro="" aoEnviar={vi.fn()} aoCorrigir={vi.fn()} />);
+
+    expect(screen.getByLabelText("Seu apelido")).toHaveValue("Ana");
+  });
+
   it("fora da troca, não há botão de continuar", () => {
     render(<Entrada comConvite enviando={false} erro="" aoEnviar={vi.fn()} aoCorrigir={vi.fn()} />);
 

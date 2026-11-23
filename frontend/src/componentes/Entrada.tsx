@@ -5,6 +5,8 @@ import { BOTAO_PRIMARIO, BOTAO_SECUNDARIO_SEM_MARGEM, CAMPO, DICA, ENTRADA_DE_TE
 interface PropsEntrada {
   /** A URL trouxe #convite=: a ação vira "Entrar no terraço". */
   comConvite: boolean;
+  /** O apelido já dado nesta aba, que o campo traz preenchido (WCAG 3.3.7); vazio se nenhum. */
+  apelido?: string;
   /**
    * O convite é de outra sala, com esta ainda aberta: entrar encerra a atual. aoContinuar desiste da
    * troca e volta ao terraço atual. Sem troca, ausente (não há como ter troca sem a saída dela).
@@ -39,7 +41,7 @@ function useErroDoApelido(erro: string, enviando: boolean) {
   return [doCampo ?? erro, setDoCampo] as const;
 }
 
-export function Entrada({ comConvite, troca, enviando, erro, aoEnviar, aoCorrigir }: PropsEntrada) {
+export function Entrada({ comConvite, apelido = "", troca, enviando, erro, aoEnviar, aoCorrigir }: PropsEntrada) {
   const refApelido = useRef<HTMLInputElement>(null);
   const [erroMostrado, mostrarErro] = useErroDoApelido(erro, enviando);
   const acao = comConvite ? "Entrar no terraço" : "Criar terraço";
@@ -83,6 +85,7 @@ export function Entrada({ comConvite, troca, enviando, erro, aoEnviar, aoCorrigi
           // maxLength conta unidades UTF-16: 20 caracteres (pontos de código, como validarApelido e o
           // servidor contam) cabem em até 40. O limite de verdade fica na validação.
           maxLength={40}
+          defaultValue={apelido}
           autoComplete="nickname"
           spellCheck={false}
           required

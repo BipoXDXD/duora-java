@@ -208,6 +208,8 @@ export function criarSessao({
     enviando: null as Acao | null,
     // Para dizer quem saiu depois que a visão já foi descartada.
     ultimoParceiro: null as string | null,
+    // O último apelido desta pessoa nesta aba: a próxima entrada já vem com ele.
+    apelido: "",
     semVisao: { tela: "carregando" } as TelaSemVisao,
     confirmandoSaida: false,
     somLigado: false,
@@ -342,7 +344,7 @@ export function criarSessao({
   /** comConvite: a página trouxe #convite= (a ação vira "Entrar no terraço"). */
   function mostrarEntrada(comConvite: boolean, focar = true): void {
     mostrarSemSala(
-      { tela: "entrada", comConvite, trocaDeSala: false, erroApelido: "" },
+      { tela: "entrada", comConvite, trocaDeSala: false, erroApelido: "", apelido: estado.apelido },
       focar ? { alvo: "apelido" } : null,
     );
   }
@@ -355,7 +357,13 @@ export function criarSessao({
     // A escolha em curso não sobrevive à troca: quem continua no terraço recomeça do zero.
     estado.selecionada = null;
     estado.sugerindo = null;
-    estado.semVisao = { tela: "entrada", comConvite: true, trocaDeSala: true, erroApelido: "" };
+    estado.semVisao = {
+      tela: "entrada",
+      comConvite: true,
+      trocaDeSala: true,
+      erroApelido: "",
+      apelido: estado.apelido,
+    };
     estado.confirmandoSaida = false;
     // O botão do som some com a sala atual: o som não pode seguir sem controle na tela (WCAG 1.4.2).
     estado.somLigado = false;
@@ -459,6 +467,7 @@ export function criarSessao({
     if (visao.parceiro) {
       estado.ultimoParceiro = visao.parceiro.nome;
     }
+    estado.apelido = visao.voce.nome;
     if (!selecaoContinua(visao, estado.selecionada)) {
       estado.selecionada = null;
     }
@@ -761,7 +770,13 @@ export function criarSessao({
       }
     }
     limparSessao();
-    estado.semVisao = { tela: "entrada", comConvite: true, trocaDeSala: false, erroApelido: "" };
+    estado.semVisao = {
+      tela: "entrada",
+      comConvite: true,
+      trocaDeSala: false,
+      erroApelido: "",
+      apelido: estado.apelido,
+    };
     estado.enviando = "entrada";
     publicar();
   }

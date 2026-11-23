@@ -876,6 +876,34 @@ describe("criarSessao", () => {
     expect(sessao.obter()).toMatchObject({ tela: "montagem", enviando: null });
   });
 
+  describe("apelido já dado nesta sessão (WCAG 3.3.7)", () => {
+    it("aTrocaTrazOApelidoDeQuemEstaNaSala", async () => {
+      const { sessao } = naSala();
+
+      await sessao.receberConvite("outra");
+
+      expect(sessao.obter()).toMatchObject({ tela: "entrada", trocaDeSala: true, apelido: "Ana" });
+    });
+
+    it("criarOutroDepoisDoFimTrazOApelido", () => {
+      const { sessao, doPolling } = naSala();
+      doPolling().aoFalhar(ENCERRADA_PELO_PARCEIRO, null);
+
+      sessao.criarOutro();
+
+      expect(sessao.obter()).toMatchObject({ tela: "entrada", apelido: "Ana" });
+    });
+
+    it("primeiraEntradaVemVazia", () => {
+      const { sessao, doPolling } = montar();
+      sessao.iniciar();
+
+      doPolling().aoFalhar(new ErroApi({ status: 401, codigo: "SEM_ASSENTO" }), null);
+
+      expect(sessao.obter()).toMatchObject({ tela: "entrada", apelido: "" });
+    });
+  });
+
   describe("troca de sala: o que fica para trás", () => {
     it("trocaVindaDaNoiteMostraOCrepusculo", async () => {
       const { sessao } = naSala(

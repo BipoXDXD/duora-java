@@ -84,7 +84,7 @@ describe("Painel", () => {
   it("entradaComConviteDizRecebeu", () => {
     renderComCenario(
       <Painel
-        estado={{ ...ENCERRADO, tela: "entrada", comConvite: true, trocaDeSala: false, erroApelido: "" }}
+        estado={{ ...ENCERRADO, tela: "entrada", comConvite: true, trocaDeSala: false, erroApelido: "", apelido: "" }}
         refAviso={createRef()}
         acoes={acoesFalsas()}
         aoCopiarConvite={vi.fn()}
@@ -95,6 +95,29 @@ describe("Painel", () => {
     expect(
       screen.getByText("Você recebeu um convite para montar um terraço a dois. Escolha seu apelido."),
     ).toBeInTheDocument();
+  });
+
+  it("naTrocaComUmaAcaoDaSalaEmVooOBotaoDeEntrarDizEnviando", () => {
+    renderComCenario(
+      <Painel
+        estado={{
+          ...ENCERRADO,
+          tela: "entrada",
+          comConvite: true,
+          trocaDeSala: true,
+          erroApelido: "",
+          apelido: "Ana",
+          enviando: "pronto",
+        }}
+        refAviso={createRef()}
+        acoes={acoesFalsas()}
+        aoCopiarConvite={vi.fn()}
+        aoAlternarSom={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByRole("button", { name: "Enviando…" })).toHaveAttribute("aria-disabled", "true");
+    expect(screen.getByLabelText("Seu apelido")).toHaveValue("Ana");
   });
 
   it("painelEscondeInventarioDuranteAbertura", () => {
