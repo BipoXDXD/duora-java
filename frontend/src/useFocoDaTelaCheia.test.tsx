@@ -46,6 +46,16 @@ describe("useFocoDaTelaCheia", () => {
     expect(focado()?.getAttribute("data-peca")).toBe("lanterna");
   });
 
+  it("o foco no Sair fica no Sair: o topo continua à vista na tela cheia", () => {
+    focar("#sair");
+
+    renderHook(() => {
+      useFocoDaTelaCheia(true);
+    });
+
+    expect(focado()?.id).toBe("sair");
+  });
+
   it("fora da tela cheia, o foco não se move", () => {
     focar("#som");
 
