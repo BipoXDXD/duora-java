@@ -135,16 +135,9 @@ record Visao(
       Abertura abertura, Duration janela, Assento quem, Instant agora) {
     return new VisaoAbertura(
         abertura.ativa(),
-        tocouNaJanela(abertura, quem, janela, agora),
-        tocouNaJanela(abertura, quem.parceiro(), janela, agora),
+        abertura.tocouNaJanela(quem, agora, janela),
+        abertura.tocouNaJanela(quem.parceiro(), agora, janela),
         abertura.acesa());
-  }
-
-  /** Toque há no máximo {@code janela} (inclusive), como na regra do acender junto. */
-  private static boolean tocouNaJanela(
-      Abertura abertura, Assento assento, Duration janela, Instant agora) {
-    Instant toque = abertura.toques().get(assento);
-    return toque != null && !toque.plus(janela).isBefore(agora);
   }
 
   private static @Nullable VisaoAjuste ajuste(Estado estado) {

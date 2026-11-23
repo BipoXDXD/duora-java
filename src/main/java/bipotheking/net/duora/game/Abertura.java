@@ -53,11 +53,14 @@ public record Abertura(
     Map<Assento, Instant> novos = new EnumMap<>(Assento.class);
     novos.putAll(toques);
     novos.put(quem, agora);
-    boolean juntos =
-        Optional.ofNullable(toques.get(quem.parceiro()))
-            .filter(doOutro -> !doOutro.plus(janela).isBefore(agora))
-            .isPresent();
+    boolean juntos = tocouNaJanela(quem.parceiro(), agora, janela);
     return new Abertura(iniciadaEm, novos, juntos ? Optional.of(agora) : Optional.empty(), juntos);
+  }
+
+  /** Se {@code assento} tocou há no máximo {@code janela} (inclusive) antes de {@code agora}. */
+  public boolean tocouNaJanela(Assento assento, Instant agora, Duration janela) {
+    Instant toque = toques.get(assento);
+    return toque != null && !toque.plus(janela).isBefore(agora);
   }
 
   /**
