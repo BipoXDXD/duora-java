@@ -316,7 +316,7 @@ describe("criarSessao", () => {
     expect(estado).toMatchObject({
       tela: "encerrado",
       titulo: "Você saiu do terraço",
-      texto: "O encontro terminou para os dois.",
+      texto: "O encontro terminou para as duas pessoas.",
     });
     expect(estado).not.toHaveProperty("visao");
     expect(sessao.consumirFoco()).toEqual({ alvo: "titulo-encerrado" });

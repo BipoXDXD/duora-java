@@ -86,7 +86,7 @@ export function textoEncerrado(motivo: string, nomeParceiro?: string | null): { 
         texto: `Que bom montar o terraço ${nomeParceiro ? `com ${nomeParceiro}` : "a dois"}.`,
       };
     case "VOCE_SAIU":
-      return { titulo: "Você saiu do terraço", texto: "O encontro terminou para os dois." };
+      return { titulo: "Você saiu do terraço", texto: "O encontro terminou para as duas pessoas." };
     case "EXPIROU":
       return { titulo: "Terraço encerrado", texto: "O terraço expirou depois de 30 minutos sem ações." };
     default:

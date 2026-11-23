@@ -94,7 +94,7 @@ describe("textoEncerrado", () => {
     ["SAIU", "Ana", "O encontro terminou", "Que bom montar o terraço com Ana."],
     ["SAIU", null, "O encontro terminou", "Que bom montar o terraço a dois."],
     ["EXPIROU", "Bruno", "Terraço encerrado", "O terraço expirou depois de 30 minutos sem ações."],
-    ["VOCE_SAIU", null, "Você saiu do terraço", "O encontro terminou para os dois."],
+    ["VOCE_SAIU", null, "Você saiu do terraço", "O encontro terminou para as duas pessoas."],
     [
       "SALA_INEXISTENTE",
       "Bruno",

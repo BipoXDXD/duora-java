@@ -10,7 +10,7 @@ import { Painel } from "./Painel";
 const ENCERRADO: EstadoDaSessao = {
   tela: "encerrado",
   titulo: "Você saiu do terraço",
-  texto: "O encontro terminou para os dois.",
+  texto: "O encontro terminou para as duas pessoas.",
   enviando: null,
   cenaVazia: true,
   confirmandoSaida: false,
