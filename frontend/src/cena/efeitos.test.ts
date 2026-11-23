@@ -56,6 +56,19 @@ describe("criarElementosDoEfeito", () => {
     },
   );
 
+  it.each<Efeito>([{ tipo: "halo", alturaProjetada: 0.35, largura: 0.75 }, { tipo: "vapor" }, { tipo: "tremular" }])(
+    "efeitoErguidoFicaAcimaDoPontoNaMesmaVertical: %o",
+    (efeito) => {
+      const [noPiso] = criarElementosDoEfeito({ tipo: "brilho-piso", largura: 1 }, "peca", PONTO, geometria);
+      const [erguido] = criarElementosDoEfeito(efeito, "peca", PONTO, geometria);
+
+      expect(erguido?.el.style.left).toBe(noPiso?.el.style.left);
+      expect(Number.parseFloat(erguido?.el.style.top ?? "")).toBeLessThan(
+        Number.parseFloat(noPiso?.el.style.top ?? ""),
+      );
+    },
+  );
+
   it("brilhoUsaACorPorCssom", () => {
     const [elemento] = criarElementosDoEfeito(
       { tipo: "brilho", cor: "#7a2a3c", largura: 1.2 },
