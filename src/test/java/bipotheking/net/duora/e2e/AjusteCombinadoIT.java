@@ -66,6 +66,36 @@ class AjusteCombinadoIT {
   }
 
   @Test
+  void agoraNaoLevaOFocoAoTituloDoResultado(Participantes participantes) {
+    TerracoPagina ana = participantes.novo();
+    TerracoPagina bruno = participantes.novo();
+    revelar(ana, bruno);
+    ana.pedirAjuste();
+
+    bruno.recusarAjuste();
+
+    assertThat(bruno.tituloDoResultado()).isFocused();
+  }
+
+  @Test
+  void cancelarPedidoLevaOFocoAoTituloEOEnterAtrasadoNaoPedeDeNovo(Participantes participantes) {
+    TerracoPagina ana = participantes.novo();
+    TerracoPagina bruno = participantes.novo();
+    revelar(ana, bruno);
+    ana.pedirAjuste();
+    assertThat(bruno.botao("Aceitar o ajuste")).isVisible();
+
+    ana.botao("Cancelar pedido").focus();
+    ana.page().keyboard().press("Enter");
+
+    assertThat(ana.tituloDoResultado()).isFocused();
+    assertThat(bruno.aviso()).hasText("Ana cancelou o pedido.");
+    ana.page().keyboard().press("Enter");
+    assertThat(ana.botao("Pedir para ajustar")).isVisible();
+    assertThat(ana.page().locator("#ajuste-pedido")).not().isAttached();
+  }
+
+  @Test
   void quemFicaVeOEncontroTerminouSemCulpa(Participantes participantes) {
     TerracoPagina ana = participantes.novo();
     TerracoPagina bruno = participantes.novo();
