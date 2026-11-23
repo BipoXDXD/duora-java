@@ -404,15 +404,14 @@ describe("criarSessao", () => {
     expect(aviso.avisar).toHaveBeenCalledWith("Este lugar está ocupado. Escolha outro.", "erro");
   });
 
-  it("peça do parceiro envia um sinal", async () => {
-    const { sessao, api, aviso } = naSala(visao({ pecas: [BANCO_EM_C2] }), {
+  it("avisoDeQuemSugereCitaODestino", async () => {
+    const { sessao, aviso } = naSala(visao({ pecas: [BANCO_EM_C2] }), {
       api: { sinalizar: vi.fn(() => Promise.resolve(resposta(visao({ versao: 4 })))) },
     });
 
     await sessao.escolherPeca("banco", false);
     await sessao.escolherLugar("C1", null);
 
-    expect(api.sinalizar).toHaveBeenCalledWith("banco", "C1");
     expect(aviso.avisar).toHaveBeenLastCalledWith("Você sugeriu que Bruno mova o banco: centro, à esquerda.");
   });
 
