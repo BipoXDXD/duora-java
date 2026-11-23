@@ -15,7 +15,7 @@
   transform: translate(-50%, -50%);
   border: 2px solid var(--verde-agua);
   border-radius: 50%;
-  background: rgb(168 213 197 / 0.22);
+  background: color-mix(in srgb, var(--verde-agua) 22%, transparent);
   pointer-events: none;
 }
 
@@ -25,11 +25,11 @@
 
 @keyframes pulso-destaque {
   from {
-    box-shadow: 0 0 0 0 rgb(168 213 197 / 0.75);
+    box-shadow: 0 0 0 0 color-mix(in srgb, var(--verde-agua) 75%, transparent);
   }
 
   to {
-    box-shadow: 0 0 0 14px rgb(168 213 197 / 0);
+    box-shadow: 0 0 0 14px color-mix(in srgb, var(--verde-agua) 0%, transparent);
   }
 }
 
