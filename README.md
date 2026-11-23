@@ -18,7 +18,8 @@ escolheu. Dá para voltar a ajustar e revelar de novo.
 
 ## Experimentar localmente
 
-Pré-requisitos: JDK 25. O Maven vem pelo wrapper (`./mvnw`).
+Pré-requisitos: JDK 25 e Docker (veja [Banco local](#banco-local)). O Maven vem pelo wrapper
+(`./mvnw`).
 
 ```sh
 ./mvnw spring-boot:run
@@ -28,6 +29,19 @@ Pré-requisitos: JDK 25. O Maven vem pelo wrapper (`./mvnw`).
 2. Copie o link do convite e abra-o numa janela anônima (ou em outro navegador): cada janela
    precisa do próprio cookie para ser uma pessoa diferente.
 3. Montem o terraço e confirmem as duas.
+
+## Banco local
+
+O Duora usa PostgreSQL 18 com migrações do Flyway (`src/main/resources/db/migration`). Deixe o
+Docker Desktop aberto antes de rodar `./mvnw verify`, `./mvnw -Pe2e verify` ou
+`./mvnw spring-boot:run`:
+
+- `spring-boot:run` sobe o serviço `postgres` do `compose.yaml` numa porta efêmera do loopback,
+  conecta sozinho e o derruba ao sair. Os dados ficam no volume `duora-pg`.
+- Os testes sobem um único Postgres 18 por JVM pelo Testcontainers (URL `jdbc:tc:` em
+  `src/test/resources/config/application.properties`), removido quando a JVM termina.
+- Em produção (`prod`), a conexão vem de `DUORA_DB_URL`, `DUORA_DB_USUARIO` e `DUORA_DB_SENHA`, sem
+  valor padrão, e o compose fica desligado.
 
 ## Front
 

@@ -16,6 +16,10 @@ public final class RelogioDeTeste extends Clock {
     this.agora = new AtomicReference<>(inicio);
   }
 
+  public void ajustar(Instant instante) {
+    agora.set(instante);
+  }
+
   public void avancar(Duration duracao) {
     agora.updateAndGet(instante -> instante.plus(duracao));
   }
