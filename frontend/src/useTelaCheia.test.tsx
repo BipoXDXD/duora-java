@@ -125,4 +125,21 @@ describe("useTelaCheia", () => {
 
     expect(result.current.telaCheia).toBe(false);
   });
+
+  it("na tela cheia, o documento escondido por trás não rola", () => {
+    const travado = () => document.documentElement.classList.contains("tela-cheia");
+    const { result, unmount } = montar(montagem("noite"));
+    expect(travado()).toBe(true);
+
+    act(() => {
+      result.current.verPainel();
+    });
+    expect(travado()).toBe(false);
+
+    act(() => {
+      result.current.verCeu();
+    });
+    unmount();
+    expect(travado()).toBe(false);
+  });
 });

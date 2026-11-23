@@ -200,6 +200,11 @@
   --altura-resultado: 40dvh;
 }
 
+/* O documento por trás não rola (useTelaCheia.ts liga a classe). */
+html.tela-cheia {
+  overflow: hidden;
+}
+
 .app[data-tela-cheia="true"] .painel {
   visibility: hidden;
 }
