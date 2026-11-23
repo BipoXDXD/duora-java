@@ -1,0 +1,18 @@
+# Só para desenvolvimento: o ./mvnw spring-boot:run sobe este serviço e o derruba ao sair
+# (ciclo start-and-stop do spring-boot-docker-compose). Testes usam o Testcontainers.
+services:
+  postgres:
+    image: postgres:18
+    environment:
+      POSTGRES_DB: duora
+      POSTGRES_USER: duora
+      POSTGRES_PASSWORD: duora
+    ports:
+      # Porta efêmera só no loopback: worktrees paralelos não colidem
+      - "127.0.0.1::5432"
+    volumes:
+      # A imagem 18 guarda o PGDATA num subdiretório versionado de /var/lib/postgresql
+      - duora-pg:/var/lib/postgresql
+
+volumes:
+  duora-pg:
