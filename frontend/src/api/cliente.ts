@@ -1,7 +1,8 @@
-// Transporte com a API do terraço (mesma origem). Não interpreta regras: devolve a visão
-// ou lança ErroApi com o código do contrato.
+// Cliente da API do terraço sobre o transporte de http.ts. Não interpreta regras: devolve a
+// visão ou lança ErroApi com o código do contrato.
 
 import type { Visao } from "../dominio/visao";
+import { ErroHttp, requisitarHttp, type RespostaHttp } from "./http";
 
 interface DadosDoErro {
   status: number;
@@ -54,24 +55,21 @@ export interface Api {
   sair: () => Promise<Resposta>;
 }
 
-/** Corpo application/problem+json do servidor; os campos faltam quando o erro não vem dele. */
-interface CorpoDeErro {
-  codigo?: string;
+/** Campos de erro que só a API do terraço manda, além do código. */
+interface CorpoDeErroDaSala {
   motivo?: string | null;
   visao?: Visao | null;
-  detail?: string;
 }
 
-async function lerJson(resposta: Response): Promise<unknown> {
-  const tipo = resposta.headers.get("Content-Type") ?? "";
-  if (!tipo.includes("json")) {
-    return null;
-  }
-  try {
-    return await resposta.json();
-  } catch {
-    return null;
-  }
+function erroDaApi(erro: ErroHttp): ErroApi {
+  const corpo = (erro.corpo ?? {}) as CorpoDeErroDaSala;
+  return new ErroApi({
+    status: erro.status,
+    codigo: erro.codigo,
+    motivo: corpo.motivo ?? null,
+    visao: corpo.visao ?? null,
+    detalhe: erro.message,
+  });
 }
 
 async function requisitar(
@@ -79,25 +77,11 @@ async function requisitar(
   caminho: string,
   { corpo, etag }: { corpo?: unknown; etag?: string | null } = {},
 ): Promise<Resposta> {
-  const cabecalhos: Record<string, string> = { "X-Duora": "1", Accept: "application/json, application/problem+json" };
-  if (corpo !== undefined) {
-    cabecalhos["Content-Type"] = "application/json";
-  }
-  if (etag) {
-    cabecalhos["If-None-Match"] = etag;
-  }
-
-  let resposta: Response;
+  let resposta: RespostaHttp;
   try {
-    resposta = await fetch(`/api${caminho}`, {
-      method: metodo,
-      headers: cabecalhos,
-      credentials: "same-origin",
-      cache: "no-store",
-      body: corpo === undefined ? undefined : JSON.stringify(corpo),
-    });
-  } catch (causa) {
-    throw new ErroApi({ status: 0, codigo: "REDE", detalhe: causa instanceof Error ? causa.message : String(causa) });
+    resposta = await requisitarHttp(metodo, caminho, { corpo, etag });
+  } catch (erro) {
+    throw erro instanceof ErroHttp ? erroDaApi(erro) : erro;
   }
 
   if (resposta.status === 304) {
@@ -106,23 +90,11 @@ async function requisitar(
   if (resposta.status === 204) {
     return { naoMudou: false, visao: null, etag: null };
   }
-  const dados = await lerJson(resposta);
-  if (!resposta.ok) {
-    // O servidor é o contrato: o corpo de erro tem a forma do ProblemDetail dele.
-    const erro = dados as CorpoDeErro | null;
-    throw new ErroApi({
-      status: resposta.status,
-      codigo: erro?.codigo ?? (resposta.status >= 500 ? "SERVIDOR" : "DESCONHECIDO"),
-      motivo: erro?.motivo ?? null,
-      visao: erro?.visao ?? null,
-      detalhe: erro?.detail ?? "",
-    });
-  }
-  if (!dados) {
+  if (!resposta.dados) {
     throw new ErroApi({ status: resposta.status, codigo: "RESPOSTA_INVALIDA" });
   }
-  // Idem: o 200 da sala traz a Visao serializada pelo room/Visao.java.
-  return { naoMudou: false, visao: dados as Visao, etag: resposta.headers.get("ETag") };
+  // O 200 da sala traz a Visao serializada pelo room/Visao.java.
+  return { naoMudou: false, visao: resposta.dados as Visao, etag: resposta.cabecalhos.get("ETag") };
 }
 
 export const api: Api = {
