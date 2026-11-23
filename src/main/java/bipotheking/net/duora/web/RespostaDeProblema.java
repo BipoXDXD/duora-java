@@ -24,6 +24,7 @@ public final class RespostaDeProblema {
     corpo.put("status", problema.getStatus());
     corpo.put("detail", problema.getDetail());
     corpo.put("codigo", codigo.name());
+    corpo.put("mensagem", mensagem);
     response.setStatus(problema.getStatus());
     response.setContentType(MediaType.APPLICATION_PROBLEM_JSON_VALUE);
     response.setCharacterEncoding("UTF-8");

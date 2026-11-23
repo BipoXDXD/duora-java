@@ -4,6 +4,7 @@ import bipotheking.net.duora.nucleo.CodigoDeErro;
 import bipotheking.net.duora.nucleo.ErroDeNegocio;
 import bipotheking.net.duora.nucleo.TipoDeErro;
 import java.net.URI;
+import java.time.Duration;
 import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -51,33 +52,84 @@ class TratamentoDeErros extends ResponseEntityExceptionHandler {
   ResponseEntity<ProblemDetail> recusa(ErroDeNegocio erro) {
     ProblemDetail problema = problema(erro.codigo(), erro.getMessage());
     erro.extras().forEach(problema::setProperty);
-    return ResponseEntity.status(status(erro.codigo().tipo())).body(problema);
+    ResponseEntity.BodyBuilder resposta = ResponseEntity.status(status(erro.codigo().tipo()));
+    erro.tentarDeNovoEm()
+        .ifPresent(espera ->
+            resposta.header(
+                HttpHeaders.RETRY_AFTER, String.valueOf(segundosArredondadosParaCima(espera))));
+    return resposta.body(problema);
   }
 
   @ExceptionHandler(Exception.class)
   ResponseEntity<ProblemDetail> inesperado(Exception erro) {
     LOG.error("Falha inesperada ao atender a requisição", erro);
-    CodigoDeErro codigo = CodigoWeb.ERRO_INTERNO;
+    CodigoWeb codigo = CodigoWeb.ERRO_INTERNO;
     return ResponseEntity.status(status(codigo.tipo()))
-        .body(problema(codigo, "Algo deu errado. Tente de novo."));
+        .body(problema(codigo, mensagemPadrao(codigo)));
   }
 
+  /**
+   * Exceções que o próprio Spring MVC trata (rota, método, formato, cabeçalho, corpo): mantém o
+   * status e os cabeçalhos dele e troca o corpo por um com {@code codigo} e {@code mensagem}.
+   */
   @Override
-  protected @Nullable ResponseEntity<Object> handleHttpMessageNotReadable(
-      HttpMessageNotReadableException ex,
+  protected @Nullable ResponseEntity<Object> handleExceptionInternal(
+      Exception ex,
+      @Nullable Object body,
       HttpHeaders headers,
-      HttpStatusCode status,
+      HttpStatusCode statusCode,
       WebRequest request) {
-    CodigoDeErro codigo = CodigoWeb.CORPO_INVALIDO;
-    return ResponseEntity.status(status(codigo.tipo()))
-        .body(problema(codigo, "O corpo da requisição não está no formato esperado."));
+    CodigoWeb codigo = codigoDoSpring(ex, statusCode);
+    if (statusCode.is5xxServerError()) {
+      LOG.error("Falha do Spring MVC ao atender a requisição", ex);
+    }
+    ProblemDetail problema = problema(codigo, mensagemPadrao(codigo), statusCode);
+    return super.handleExceptionInternal(ex, problema, headers, statusCode, request);
   }
 
-  static ProblemDetail problema(CodigoDeErro codigo, String detalhe) {
-    ProblemDetail problema = ProblemDetail.forStatusAndDetail(status(codigo.tipo()), detalhe);
+  static ProblemDetail problema(CodigoDeErro codigo, String mensagem) {
+    return problema(codigo, mensagem, status(codigo.tipo()));
+  }
+
+  private static ProblemDetail problema(
+      CodigoDeErro codigo, String mensagem, HttpStatusCode status) {
+    ProblemDetail problema = ProblemDetail.forStatusAndDetail(status, mensagem);
     problema.setType(SEM_TIPO);
     problema.setTitle(codigo.titulo());
     problema.setProperty("codigo", codigo.name());
+    problema.setProperty("mensagem", mensagem);
     return problema;
+  }
+
+  private static CodigoWeb codigoDoSpring(Exception ex, HttpStatusCode status) {
+    if (ex instanceof HttpMessageNotReadableException) {
+      return CodigoWeb.CORPO_INVALIDO;
+    }
+    return switch (status.value()) {
+      case 404 -> CodigoWeb.RECURSO_INEXISTENTE;
+      case 405 -> CodigoWeb.METODO_NAO_PERMITIDO;
+      case 415 -> CodigoWeb.FORMATO_NAO_SUPORTADO;
+      default -> status.is5xxServerError() ? CodigoWeb.ERRO_INTERNO : CodigoWeb.REQUISICAO_INVALIDA;
+    };
+  }
+
+  private static String mensagemPadrao(CodigoWeb codigo) {
+    return switch (codigo) {
+      case RECURSO_INEXISTENTE -> "Não encontramos este endereço.";
+      case METODO_NAO_PERMITIDO -> "Este endereço não aceita esse tipo de pedido.";
+      case FORMATO_NAO_SUPORTADO -> "Envie o conteúdo num formato aceito.";
+      case CORPO_INVALIDO -> "O corpo da requisição não está no formato esperado.";
+      case ERRO_INTERNO -> "Algo deu errado. Tente de novo.";
+      default -> "A requisição veio incompleta ou com um valor inválido.";
+    };
+  }
+
+  /**
+   * {@code Retry-After} só aceita segundos inteiros; arredondar para baixo convidaria o cliente a
+   * voltar cedo demais.
+   */
+  private static long segundosArredondadosParaCima(Duration espera) {
+    long segundos = espera.getSeconds() + (espera.getNano() > 0 ? 1 : 0);
+    return Math.max(0, segundos);
   }
 }
