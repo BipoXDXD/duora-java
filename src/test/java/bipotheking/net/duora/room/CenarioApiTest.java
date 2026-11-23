@@ -14,16 +14,11 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 import bipotheking.net.duora.game.Cenario;
 import bipotheking.net.duora.game.CenarioMinimo;
-import bipotheking.net.duora.game.DefinicaoDeAbertura;
-import bipotheking.net.duora.game.Resultado;
 import com.jayway.jsonpath.JsonPath;
 import jakarta.servlet.http.Cookie;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.time.Instant;
-import java.util.List;
-import java.util.Map;
-import java.util.Optional;
 import java.util.Set;
 import org.jspecify.annotations.Nullable;
 import org.junit.jupiter.api.BeforeEach;
@@ -63,20 +58,9 @@ class CenarioApiTest {
       return CenarioMinimo.COM_ABERTURA;
     }
 
-    /** Como o perfil e2e: máximo zero, a abertura conclui apagada já na entrada. */
     @Bean
     Cenario minimoComAberturaInstantanea() {
-      return new Cenario(
-          "minimo-abertura-zero",
-          "Mínimo com abertura instantânea",
-          List.of(CenarioMinimo.P1, CenarioMinimo.P2),
-          List.of(CenarioMinimo.PEDRA, CenarioMinimo.FOLHA),
-          1,
-          Duration.ofSeconds(20),
-          1,
-          (composicao, cenario) -> new Resultado(Map.of("juntos", "sim")),
-          Optional.of(
-              new DefinicaoDeAbertura("acender-junto", Duration.ofSeconds(5), Duration.ZERO)));
+      return CenarioMinimo.COM_ABERTURA_INSTANTANEA;
     }
 
     @Bean
