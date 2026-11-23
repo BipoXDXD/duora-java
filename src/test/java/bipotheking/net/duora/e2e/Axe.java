@@ -2,6 +2,7 @@ package bipotheking.net.duora.e2e;
 
 import static java.util.stream.Collectors.joining;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.deque.html.axecore.playwright.AxeBuilder;
 import com.deque.html.axecore.results.Rule;
@@ -12,8 +13,8 @@ import java.util.List;
  * Varredura do axe-core (WCAG 2.0, 2.1 e 2.2, níveis A e AA) compartilhada pelos ITs. O céu, os
  * meteoros e a cidade são decorativos ({@code aria-hidden}) e ficam fora da análise: cada seletor é
  * excluído à parte, porque {@code AxeBuilder.exclude(List)} trata a lista como um único caminho de
- * iframes. Quem chama usa movimento reduzido: a análise de contraste não pega elementos no meio de
- * uma transição.
+ * iframes. A página precisa estar com movimento reduzido, para a análise de contraste não pegar
+ * elementos no meio de uma transição: o helper confere isso antes de varrer.
  */
 final class Axe {
 
@@ -38,6 +39,9 @@ final class Axe {
   }
 
   private static void analisar(Page pagina, String estado, List<String> escopo) {
+    assertTrue(
+        (Boolean) pagina.evaluate("() => matchMedia('(prefers-reduced-motion: reduce)').matches"),
+        () -> "o axe em " + estado + " precisa de movimento reduzido na página");
     AxeBuilder axe = new AxeBuilder(pagina).withTags(TAGS);
     escopo.forEach(axe::include);
     DECORATIVOS.forEach(axe::exclude);
