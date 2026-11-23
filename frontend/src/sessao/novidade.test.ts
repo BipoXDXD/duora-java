@@ -49,6 +49,12 @@ describe("novidade", () => {
   });
 
   it("o mesmo sinal para outro lugar é novidade", () => {
+  it("sinal que chega com a revelação não esconde o aviso da noite", () => {
+    const noite = visao({ fase: "REVELADO", sinal: { peca: "manta", deAssento: "B", lugar: "L2" } });
+
+    expect(novidade(CENARIO, visao(), noite, false)).toBe("Os dois confirmaram. Olhem o céu.");
+  });
+
     const antes = visao({ sinal: { peca: "manta", deAssento: "B", lugar: "L2" } });
     const agora = visao({ sinal: { peca: "manta", deAssento: "B", lugar: "R1" } });
 
@@ -99,13 +105,6 @@ describe("novidade", () => {
     expect(novidade(CENARIO, { ...noite, ajuste: { deAssento: "B" } }, noite, false)).toBe("Bruno cancelou o pedido.");
   });
 
-  it("confirmação desfeita pela mudança", () => {
-    const antes = visao({ prontos: { voce: true, parceiro: false } });
-
-    expect(novidade(CENARIO, antes, visao(), false)).toBe(
-      "A composição mudou e sua confirmação foi desfeita. Confirme de novo quando quiser.",
-    );
-  });
   it("aceiteDaPropriaPessoaNaoViraNovidadeDoParceiro", () => {
     const pedidoDoBruno = visao({
       fase: "REVELADO",
@@ -123,6 +122,13 @@ describe("novidade", () => {
   });
 
 
+  it("confirmação desfeita pela mudança", () => {
+    const antes = visao({ prontos: { voce: true, parceiro: false } });
+
+    expect(novidade(CENARIO, antes, visao(), false)).toBe(
+      "A composição mudou e sua confirmação foi desfeita. Confirme de novo quando quiser.",
+    );
+  });
   it("o parceiro confirmou, junto com a peça que ele moveu", () => {
     const agora = visao({
       prontos: { voce: false, parceiro: true },

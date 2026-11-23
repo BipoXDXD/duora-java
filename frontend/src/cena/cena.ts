@@ -3,7 +3,7 @@
 
 import type { AberturaDoCenario, CenarioFront, Efeito } from "../cenario/tipos";
 import { escolherVariante, type MedidasSprite, type Momento, pct, type Ponto } from "../dominio/dados";
-import type { Assento, Visao, VisaoAbertura, VisaoPeca } from "../dominio/visao";
+import { type Assento, sinalDaMontagem, type Visao, type VisaoAbertura, type VisaoPeca } from "../dominio/visao";
 import { type CamadaDoEfeito, criarElementosDoEfeito } from "./efeitos";
 
 const MOMENTOS: readonly Momento[] = ["crepusculo", "noite"];
@@ -255,7 +255,7 @@ export function criarCena({
       botao.style.left = pct(ponto.x - medidas.ancoraX, largura);
       botao.style.top = pct(ponto.y - medidas.ancoraY, altura);
       botao.style.width = pct(medidas.largura, largura);
-      const sinalizada = visao.sinal?.peca === p.peca;
+      const sinalizada = sinalDaMontagem(visao)?.peca === p.peca;
       const emDestaque = destaques.includes(p.peca);
       // A peça do parceiro sem destino livre não aceita sugestão: fica indisponível, sem o convite.
       const sugerivel = !minha && (p.destinosSugeriveis?.length ?? 0) > 0;
@@ -361,7 +361,8 @@ export function criarCena({
 
   function desenharLugares(visao: Visao, { selecionada, sugerindo }: MarcasDaCena): void {
     camadaLugares.replaceChildren();
-    const recebido = visao.sinal !== null && visao.sinal.deAssento !== visao.voce.assento ? visao.sinal : null;
+    const sinal = sinalDaMontagem(visao);
+    const recebido = sinal !== null && sinal.deAssento !== visao.voce.assento ? sinal : null;
     if (recebido) {
       // Antes dos botões: fica por baixo de um lugar livre no mesmo ponto.
       camadaLugares.append(criarLugarSugerido(recebido.lugar));

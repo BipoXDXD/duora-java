@@ -86,3 +86,8 @@ export function aberturaAtiva(visao: Visao): boolean {
 export function lanternasAcenderam(anterior: Visao, visao: Visao): boolean {
   return aberturaAtiva(anterior) && visao.abertura?.ativa === false && visao.abertura.acesa;
 }
+
+/** O sinal só vale na montagem: na revelação, a sugestão não é acionável e não aparece. */
+export function sinalDaMontagem(visao: Visao): VisaoSinal | null {
+  return visao.fase === "MONTANDO" ? visao.sinal : null;
+}

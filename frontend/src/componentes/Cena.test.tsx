@@ -142,6 +142,23 @@ describe("Cena", () => {
   });
 
   it("quemSugeriuNaoVeOLugarSugerido", () => {
+  it("naRevelacaoQuemRecebeNaoVeOSinal", () => {
+    const lanterna: VisaoPeca = { peca: "lanterna", assento: "A", lugar: "R2" };
+    const noite: Visao = {
+      ...visaoDeBruno([lanterna]),
+      fase: "REVELADO",
+      sinal: { peca: "lanterna", deAssento: "B", lugar: "R1" },
+    };
+
+    const { container } = render(desenhar(noite, null, { momento: "noite" }));
+
+    expect(container.querySelector(".lugar-sugerido")).toBeNull();
+    expect(container.querySelector(".selo-sinal")).toBeNull();
+    expect(screen.getByRole("button", { name: /^Lanterna de Bruno/ }).getAttribute("aria-label")).not.toMatch(
+      /Sugerido mover/,
+    );
+  });
+
     const comSinal: Visao = {
       ...visaoDeAna([LANTERNA_DE_BRUNO]),
       sinal: { peca: "lanterna", deAssento: "B", lugar: "R1" },

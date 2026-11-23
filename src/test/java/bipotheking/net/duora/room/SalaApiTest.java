@@ -464,6 +464,28 @@ class SalaApiTest {
   @Test
   void visaoDoParceiroTrazDestinosSugeriveis() throws Exception {
     Pessoa ana = criar("Ana");
+  @Test
+  void sinalSomeDaVisaoNaRevelacao() throws Exception {
+    Pessoa ana = criar("Ana");
+    Pessoa bruno = entrar(ana.convite(), "Bruno");
+    colocar(ana, "telescopio", "C1", 0).andExpect(status().isOk());
+    colocar(bruno, "banco", "C2", 1).andExpect(status().isOk());
+    colocar(ana, "manta", "L1", 2).andExpect(status().isOk());
+    colocar(bruno, "lanterna", "R1", 3).andExpect(status().isOk());
+    acao(ana, "/api/sala/sinal", "{\"peca\":\"lanterna\",\"lugar\":\"R2\"}")
+        .andExpect(status().isOk());
+    consultar(bruno).andExpect(jsonPath("$.sinal.lugar").value("R2"));
+
+    acao(ana, "/api/sala/pronto", "{\"versao\":4,\"pronto\":true}").andExpect(status().isOk());
+    acao(bruno, "/api/sala/pronto", "{\"versao\":4,\"pronto\":true}")
+        .andExpect(jsonPath("$.fase").value("REVELADO"))
+        .andExpect(jsonPath("$.sinal").value(nullValue()));
+
+    consultar(bruno)
+        .andExpect(jsonPath("$.fase").value("REVELADO"))
+        .andExpect(jsonPath("$.sinal").value(nullValue()));
+  }
+
     Pessoa bruno = entrar(ana.convite(), "Bruno");
     colocar(bruno, "lanterna", "R2", 0).andExpect(status().isOk());
 

@@ -98,10 +98,13 @@ record Visao(
         cenario.pecas().stream().map(peca -> visaoDa(cenario, peca, estado, quem)).toList(),
         new Prontos(estado.pronto(quem), estado.pronto(outro)),
         new Confirmacao(Regras.podeConfirmar(cenario, estado), cenario.faltam(estado.composicao())),
-        estado
-            .sinalAtivoEm(agora)
-            .map(s -> new VisaoSinal(s.peca().id(), s.deAssento(), s.destino().id()))
-            .orElse(null),
+        // O sinal só vale na montagem: na revelação, a sugestão não é acionável.
+        estado.fase() instanceof Fase.Montando
+            ? estado
+                .sinalAtivoEm(agora)
+                .map(s -> new VisaoSinal(s.peca().id(), s.deAssento(), s.destino().id()))
+                .orElse(null)
+            : null,
         Regras.resultado(cenario, estado).map(Resultado::valores).orElse(null),
         ajuste(estado),
         abertura(cenario, estado, quem, agora));
