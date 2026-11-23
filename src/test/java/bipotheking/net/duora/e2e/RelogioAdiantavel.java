@@ -13,7 +13,7 @@ import java.util.concurrent.atomic.AtomicReference;
  * {@code @TestConfiguration} + {@code @Bean @Primary}. Não controla os timers do navegador (para
  * esses, {@code page.clock()}).
  */
-public final class RelogioAdiantavel extends Clock {
+final class RelogioAdiantavel extends Clock {
 
   private final AtomicReference<Duration> adiantamento = new AtomicReference<>(Duration.ZERO);
 
