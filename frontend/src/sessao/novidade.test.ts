@@ -25,6 +25,7 @@ function visao(mudancas: Partial<Visao> = {}): Visao {
     resultado: null,
     ajuste: null,
     abertura: null,
+    conviteDaSala: "resumo-da-sala",
     ...mudancas,
   };
 }
@@ -46,6 +47,12 @@ describe("novidade", () => {
     const agora = { ...deBruno, sinal: { peca: "lanterna", deAssento: "A", lugar: "R1" } } as const;
 
     expect(novidade(CENARIO, deBruno, agora, false)).toBe("Ana sugeriu mover a lanterna: fundo, à direita.");
+  });
+
+  it("sinal que chega com a revelação não esconde o aviso da noite", () => {
+    const noite = visao({ fase: "REVELADO", sinal: { peca: "manta", deAssento: "B", lugar: "L2" } });
+
+    expect(novidade(CENARIO, visao(), noite, false)).toBe("Os dois confirmaram. Olhem o céu.");
   });
 
   it("o mesmo sinal para outro lugar é novidade", () => {
@@ -96,7 +103,23 @@ describe("novidade", () => {
   it("pedidoCanceladoPeloParceiro", () => {
     const noite = visao({ fase: "REVELADO" });
 
-    expect(novidade(CENARIO, { ...noite, ajuste: { deAssento: "B" } }, noite, false)).toBe("Pedido cancelado.");
+    expect(novidade(CENARIO, { ...noite, ajuste: { deAssento: "B" } }, noite, false)).toBe("Bruno cancelou o pedido.");
+  });
+
+  it("aceiteDaPropriaPessoaNaoViraNovidadeDoParceiro", () => {
+    const pedidoDoBruno = visao({
+      fase: "REVELADO",
+      ajuste: { deAssento: "B" },
+      prontos: { voce: true, parceiro: true },
+    });
+
+    expect(novidade(CENARIO, pedidoDoBruno, visao(), true)).toBeNull();
+  });
+
+  it("recusaDaPropriaPessoaNaoViraNovidadeDoParceiro", () => {
+    const noite = visao({ fase: "REVELADO", prontos: { voce: true, parceiro: true } });
+
+    expect(novidade(CENARIO, { ...noite, ajuste: { deAssento: "B" } }, noite, true)).toBeNull();
   });
 
   it("confirmação desfeita pela mudança", () => {

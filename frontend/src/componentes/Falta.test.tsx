@@ -22,6 +22,7 @@ function visao(
     resultado: null,
     ajuste: null,
     abertura: null,
+    conviteDaSala: "resumo-da-sala",
   };
 }
 

@@ -3,7 +3,7 @@
 import type { CenarioFront } from "../cenario/tipos";
 import { situacaoDoAjuste, textoDoPedido } from "../dominio/ajuste";
 import { type ErroComCodigo, mensagemDeErro, textoConexaoDoParceiro, textoPecasDoParceiro } from "../dominio/mensagens";
-import { aberturaAtiva, lanternasAcenderam, type Visao } from "../dominio/visao";
+import { aberturaAtiva, lanternasAcenderam, sinalDaMontagem, type Visao } from "../dominio/visao";
 import type { Acao } from "./tipos";
 
 /**
@@ -13,7 +13,7 @@ import type { Acao } from "./tipos";
 export function novidade(c: CenarioFront, anterior: Visao, visao: Visao, propria: boolean): string | null {
   // Nos ramos que o usam, o parceiro existe; String() mantém o texto do main.js antigo se não existir.
   const parceiro = String(visao.parceiro?.nome);
-  const sinal = visao.sinal;
+  const sinal = sinalDaMontagem(visao);
   const sinalNovo =
     sinal !== null &&
     sinal.deAssento !== visao.voce.assento &&
@@ -50,7 +50,7 @@ export function novidade(c: CenarioFront, anterior: Visao, visao: Visao, propria
     if (ajusteAntes === "meu") {
       return `${parceiro} prefere manter esta noite.`;
     }
-    return ajusteAntes === "do-outro" ? "Pedido cancelado." : textoDoPedido(visao);
+    return ajusteAntes === "do-outro" ? `${parceiro} cancelou o pedido.` : textoDoPedido(visao);
   }
   const frases = [pecas, textoConexaoDoParceiro(anterior, visao)];
   if (anterior.prontos.voce && !visao.prontos.voce) {

@@ -9,6 +9,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import bipotheking.net.duora.e2e.NavegadorExtension.Participantes;
+import com.microsoft.playwright.Browser;
 import com.microsoft.playwright.Locator;
 import com.microsoft.playwright.options.BoundingBox;
 import com.microsoft.playwright.options.ReducedMotion;
@@ -56,6 +57,29 @@ class RevelacaoCelularIT {
     assertThat(ana.tituloDoResultado()).isInViewport();
     assertThat(ana.tituloDoResultado()).isFocused();
     assertThat(ana.botao("Som")).not().isVisible();
+  }
+
+  @Test
+  void tituloFocadoJaEstaVisivelComMovimento(Participantes participantes) {
+    TerracoPagina ana =
+        participantes.novo(
+            new Browser.NewContextOptions()
+                .setViewportSize(390, ALTURA_DO_CELULAR)
+                .setDeviceScaleFactor(3)
+                .setIsMobile(true)
+                .setHasTouch(true)
+                .setReducedMotion(ReducedMotion.NO_PREFERENCE));
+    TerracoPagina bruno = participantes.novo();
+    entrarEmPar(ana, bruno, raiz(porta));
+    comporTerraco(ana, bruno);
+    ana.confirmar();
+
+    bruno.botaoPronto().click();
+
+    // WCAG 2.4.7: a folha sobe só pelo deslocamento; no instante do foco, o título já se vê.
+    assertThat(ana.tituloDoResultado()).isFocused();
+    assertEquals(
+        "1", ana.page().locator("#resultado").evaluate("el => getComputedStyle(el).opacity"));
   }
 
   @Test

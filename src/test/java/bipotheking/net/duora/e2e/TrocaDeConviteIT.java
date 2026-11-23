@@ -76,6 +76,24 @@ class TrocaDeConviteIT {
   }
 
   @Test
+  void proprioConviteNumaAbaNovaNaoOfereceATroca() {
+    ana.abrir(raiz(porta)).criarTerraco(ANA);
+    String convite = ana.linkDoConvite();
+    bruno.abrir(convite).entrarNoTerraco(Cenarios.BRUNO);
+    assertThat(ana.page().locator("#par")).containsText(Cenarios.BRUNO);
+    // Aba nova de Bruno (mesmo cookie), sem a memória dos convites da primeira.
+    TerracoPagina outraAba = new TerracoPagina(bruno.page().context().newPage());
+
+    outraAba.abrir(convite);
+
+    assertThat(outraAba.aviso()).hasText("Você já está neste terraço.");
+    assertThat(outraAba.page().locator("#par")).containsText(ANA);
+    assertThat(outraAba.page().getByLabel("Seu apelido")).hasCount(0);
+    assertThat(ana.tituloEncerrado()).hasCount(0);
+    assertThat(bruno.tituloEncerrado()).hasCount(0);
+  }
+
+  @Test
   void proprioConviteNaMesmaAbaAvisa() {
     ana.abrir(raiz(porta)).criarTerraco(ANA);
     String proprio = ana.linkDoConvite();

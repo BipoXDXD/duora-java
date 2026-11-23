@@ -18,6 +18,7 @@ const VISAO: Visao = {
   resultado: { secundariaA: "manta", secundariaB: "lanterna", ladoTelescopio: "esquerdo" },
   ajuste: null,
   abertura: null,
+  conviteDaSala: "resumo-da-sala",
 };
 
 function montagem(momento: Momento): EstadoDaSessao {

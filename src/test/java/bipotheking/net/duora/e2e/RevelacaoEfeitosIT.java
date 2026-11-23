@@ -88,6 +88,19 @@ class RevelacaoEfeitosIT {
   }
 
   @Test
+  void movimentoReduzidoTiraATransicaoSemDeixarResto(Participantes participantes) {
+    TerracoPagina ana = participantes.novo();
+    TerracoPagina bruno = participantes.novo();
+    entrarEmPar(ana, bruno, raiz(porta));
+
+    // 0 s, e não 0,01 ms: com 0,01 ms e "all", a visibilidade passaria um quadro escondida e o
+    // navegador tiraria o foco do controle.
+    Locator estrelas = ana.page().locator(".estrelas");
+    assertEquals("0s", estrelas.evaluate("el => getComputedStyle(el).transitionDuration"));
+    assertEquals("0s", estrelas.evaluate("el => getComputedStyle(el).transitionDelay"));
+  }
+
+  @Test
   void radioTocaNotasComSomDesligado(Participantes participantes) {
     TerracoPagina ana = participantes.novo(COM_SONDA);
     TerracoPagina bruno = participantes.novo();

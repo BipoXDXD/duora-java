@@ -24,6 +24,7 @@ function visao(pecas: VisaoPeca[]): Visao {
     resultado: null,
     ajuste: null,
     abertura: null,
+    conviteDaSala: "resumo-da-sala",
   };
 }
 

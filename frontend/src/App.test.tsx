@@ -21,6 +21,7 @@ const VISAO: Visao = {
   resultado: null,
   ajuste: null,
   abertura: null,
+  conviteDaSala: "resumo-da-sala",
 };
 
 const obterSala = vi.fn<(etag: string | null) => Promise<Resposta>>();

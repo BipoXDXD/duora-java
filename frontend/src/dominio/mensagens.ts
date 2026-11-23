@@ -50,6 +50,10 @@ export function mensagemDeErro(erro: ErroComCodigo, visao: Visao | null | undefi
       return "Use de 1 a 20 caracteres no apelido.";
     case "LIMITE_SALAS":
       return "O servidor já tem 20 terraços abertos. Tente de novo em alguns minutos.";
+    case "SALA_ENCERRADA":
+      return "Este terraço terminou. Crie outro ou abra um convite.";
+    case "SALA_INEXISTENTE":
+      return "Este terraço não existe mais. Crie outro ou abra um convite.";
     default:
       return `O servidor não aceitou o pedido (${String(erro.status)}). Tente de novo.`;
   }
@@ -82,7 +86,7 @@ export function textoEncerrado(motivo: string, nomeParceiro?: string | null): { 
         texto: `Que bom montar o terraço ${nomeParceiro ? `com ${nomeParceiro}` : "a dois"}.`,
       };
     case "VOCE_SAIU":
-      return { titulo: "Você saiu do terraço", texto: "O encontro terminou para os dois." };
+      return { titulo: "Você saiu do terraço", texto: "O encontro terminou para as duas pessoas." };
     case "EXPIROU":
       return { titulo: "Terraço encerrado", texto: "O terraço expirou depois de 30 minutos sem ações." };
     default:

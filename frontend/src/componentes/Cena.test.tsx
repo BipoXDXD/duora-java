@@ -26,6 +26,7 @@ function visaoDeAna(pecas: VisaoPeca[], versao = 1): Visao {
     resultado: null,
     ajuste: null,
     abertura: null,
+    conviteDaSala: "resumo-da-sala",
   };
 }
 
@@ -139,6 +140,23 @@ describe("Cena", () => {
     expect(
       screen.getByRole("button", { name: /^Lanterna de Bruno, frente, à direita\..*Sugerido mover/ }),
     ).toBeVisible();
+  });
+
+  it("naRevelacaoQuemRecebeNaoVeOSinal", () => {
+    const lanterna: VisaoPeca = { peca: "lanterna", assento: "A", lugar: "R2" };
+    const noite: Visao = {
+      ...visaoDeBruno([lanterna]),
+      fase: "REVELADO",
+      sinal: { peca: "lanterna", deAssento: "B", lugar: "R1" },
+    };
+
+    const { container } = render(desenhar(noite, null, { momento: "noite" }));
+
+    expect(container.querySelector(".lugar-sugerido")).toBeNull();
+    expect(container.querySelector(".selo-sinal")).toBeNull();
+    expect(screen.getByRole("button", { name: /^Lanterna de Bruno/ }).getAttribute("aria-label")).not.toMatch(
+      /Sugerido mover/,
+    );
   });
 
   it("quemSugeriuNaoVeOLugarSugerido", () => {

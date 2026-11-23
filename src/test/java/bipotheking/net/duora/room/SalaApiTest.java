@@ -19,8 +19,10 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import com.jayway.jsonpath.JsonPath;
 import jakarta.servlet.http.Cookie;
 import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
 import java.time.Duration;
 import java.time.Instant;
+import java.util.HexFormat;
 import java.util.Set;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -116,7 +118,8 @@ class SalaApiTest {
             "sinal",
             "resultado",
             "ajuste",
-            "abertura");
+            "abertura",
+            "conviteDaSala");
     assertThat(pecaPropria)
         .containsExactlyInAnyOrder("peca", "assento", "lugar", "lugaresPermitidos", "bloqueio");
     assertThat(pecaDoParceiro)
@@ -459,6 +462,28 @@ class SalaApiTest {
         .andExpect(jsonPath("$.sinal.lugar").value("C1"))
         .andExpect(jsonPath("$.sinal.deAssento").value("A"))
         .andExpect(jsonPath("$.versao").value(1));
+  }
+
+  @Test
+  void sinalSomeDaVisaoNaRevelacao() throws Exception {
+    Pessoa ana = criar("Ana");
+    Pessoa bruno = entrar(ana.convite(), "Bruno");
+    colocar(ana, "telescopio", "C1", 0).andExpect(status().isOk());
+    colocar(bruno, "banco", "C2", 1).andExpect(status().isOk());
+    colocar(ana, "manta", "L1", 2).andExpect(status().isOk());
+    colocar(bruno, "lanterna", "R1", 3).andExpect(status().isOk());
+    acao(ana, "/api/sala/sinal", "{\"peca\":\"lanterna\",\"lugar\":\"R2\"}")
+        .andExpect(status().isOk());
+    consultar(bruno).andExpect(jsonPath("$.sinal.lugar").value("R2"));
+
+    acao(ana, "/api/sala/pronto", "{\"versao\":4,\"pronto\":true}").andExpect(status().isOk());
+    acao(bruno, "/api/sala/pronto", "{\"versao\":4,\"pronto\":true}")
+        .andExpect(jsonPath("$.fase").value("REVELADO"))
+        .andExpect(jsonPath("$.sinal").value(nullValue()));
+
+    consultar(bruno)
+        .andExpect(jsonPath("$.fase").value("REVELADO"))
+        .andExpect(jsonPath("$.sinal").value(nullValue()));
   }
 
   @Test
@@ -857,6 +882,27 @@ class SalaApiTest {
   }
 
   // Segredos
+
+  @Test
+  void osDoisVeemOResumoDoConviteDaSalaEmTodaFase() throws Exception {
+    Pessoa ana = criar("Ana");
+    String resumo = sha256Hex(ana.convite());
+    assertThat(JsonPath.<String>read(ana.corpo(), "$.conviteDaSala")).isEqualTo(resumo);
+
+    Pessoa bruno = entrar(ana.convite(), "Bruno");
+
+    assertThat(JsonPath.<String>read(bruno.corpo(), "$.conviteDaSala")).isEqualTo(resumo);
+    consultar(ana)
+        .andExpect(jsonPath("$.fase").value("MONTANDO"))
+        .andExpect(jsonPath("$.convite").value(nullValue()))
+        .andExpect(jsonPath("$.conviteDaSala").value(resumo));
+  }
+
+  private static String sha256Hex(String texto) throws Exception {
+    byte[] resumo =
+        MessageDigest.getInstance("SHA-256").digest(texto.getBytes(StandardCharsets.UTF_8));
+    return HexFormat.of().formatHex(resumo);
+  }
 
   @Test
   void nenhumTokenAparecesNasVisoes() throws Exception {

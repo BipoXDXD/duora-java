@@ -106,7 +106,7 @@ final class Sala {
     } finally {
       trava.unlock();
     }
-    return Visao.de(cenario, atual, quem, agora, limites);
+    return Visao.de(cenario, atual, resumoConvite, quem, agora, limites);
   }
 
   /** Convite já usado ou de sala encerrada não vale mais. */
@@ -128,7 +128,7 @@ final class Sala {
       trava.unlock();
     }
     LOG.info("Sala {}: parceiro entrou", id);
-    return Visao.de(cenario, atual, parceiro.assento(), agora, limites);
+    return Visao.de(cenario, atual, resumoConvite, parceiro.assento(), agora, limites);
   }
 
   Visao colocar(Assento quem, Peca peca, Optional<Lugar> destino, long versaoEsperada) {
@@ -205,14 +205,14 @@ final class Sala {
     } finally {
       trava.unlock();
     }
-    return Visao.de(cenario, atual, quem, agora, limites);
+    return Visao.de(cenario, atual, resumoConvite, quem, agora, limites);
   }
 
   private ErroApi recusar(Recusa recusa, Retrato atual, Assento quem, Instant agora) {
     return ErroApi.comVisao(
         Codigo.de(recusa),
         detalhe(recusa, atual, quem),
-        Visao.de(cenario, atual, quem, agora, limites));
+        Visao.de(cenario, atual, resumoConvite, quem, agora, limites));
   }
 
   private static String detalhe(Recusa recusa, Retrato atual, Assento quem) {
