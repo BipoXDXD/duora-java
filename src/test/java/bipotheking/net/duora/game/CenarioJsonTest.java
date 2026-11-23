@@ -138,6 +138,17 @@ class CenarioJsonTest {
         .isEqualTo(CENARIO.abertura().map(DefinicaoDeAbertura::tipo));
   }
 
+  @Test
+  void aberturaUsaUmLugarDoCenarioPorAssentoEUmSpriteDaCena() {
+    JsonNode abertura = JSON.get("abertura");
+
+    assertThat(abertura.get("lugares").propertyNames()).containsExactlyInAnyOrder("A", "B");
+    assertThat(abertura.get("lugares").values())
+        .extracting(JsonNode::stringValue)
+        .allSatisfy(lugar -> assertThat(idsDosLugares()).contains(lugar));
+    assertThat(CENA.get("props").propertyNames()).contains(abertura.get("sprite").stringValue());
+  }
+
   private static List<String> idsDosLugares() {
     return CENARIO.lugares().stream().map(Lugar::id).toList();
   }
