@@ -53,6 +53,22 @@ final class Estaticos {
   }
 
   /**
+   * O JS que a primeira tela baixa: o módulo de entrada e os modulepreload do {@code index.html}
+   * gerado, como URLs absolutas ({@code /app/...}).
+   */
+  static List<String> jsInicial() {
+    Stream<String> modulos =
+        tagsDoIndex("script").stream()
+            .filter(tag -> "module".equals(tag.get("type")) && tag.containsKey("src"))
+            .map(tag -> tag.get("src"));
+    Stream<String> preloads =
+        tagsDoIndex("link").stream()
+            .filter(tag -> "modulepreload".equals(tag.get("rel")) && tag.containsKey("href"))
+            .map(tag -> tag.get("href"));
+    return Stream.concat(modulos, preloads).toList();
+  }
+
+  /**
    * Os atributos de cada tag {@code <nome>} do {@code index.html} gerado, na ordem do HTML.
    * Atributos sem valor (como {@code crossorigin}) ficam de fora; o Vite escreve os demais entre
    * aspas duplas.

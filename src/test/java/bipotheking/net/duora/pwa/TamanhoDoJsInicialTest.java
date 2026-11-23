@@ -9,7 +9,6 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.Locale;
-import java.util.stream.Stream;
 import java.util.zip.Deflater;
 import java.util.zip.GZIPOutputStream;
 import org.junit.jupiter.api.Test;
@@ -26,7 +25,7 @@ class TamanhoDoJsInicialTest {
 
   @Test
   void jsInicialCabeNaMeta() throws IOException {
-    List<String> iniciais = jsInicial();
+    List<String> iniciais = Estaticos.jsInicial();
     long bytes = 0;
     for (String url : iniciais) {
       bytes += tamanhoGzip(Files.readAllBytes(Estaticos.RAIZ.resolve(url.substring(1))));
@@ -41,18 +40,6 @@ class TamanhoDoJsInicialTest {
     assertThat(bytes)
         .as("JS inicial em gzip (bytes): %s", iniciais)
         .isLessThanOrEqualTo(LIMITE_BYTES);
-  }
-
-  private static List<String> jsInicial() {
-    Stream<String> modulos =
-        Estaticos.tagsDoIndex("script").stream()
-            .filter(tag -> "module".equals(tag.get("type")) && tag.containsKey("src"))
-            .map(tag -> tag.get("src"));
-    Stream<String> preloads =
-        Estaticos.tagsDoIndex("link").stream()
-            .filter(tag -> "modulepreload".equals(tag.get("rel")) && tag.containsKey("href"))
-            .map(tag -> tag.get("href"));
-    return Stream.concat(modulos, preloads).toList();
   }
 
   private static long tamanhoGzip(byte[] conteudo) throws IOException {

@@ -44,7 +44,17 @@ export default defineConfig(({ command }) => ({
         codeSplitting: {
           // O laço de polling num chunk próprio (app/polling-*.js): a sonda do PollingIT reconhece
           // os setTimeout dele pela pilha, e só um arquivo com nome fixo sobrevive ao bundle.
-          groups: [{ name: "polling", test: /src\/api\/polling\.ts/ }],
+          // React Router e TanStack Query no chunk da casca de conta (app/casca-de-conta-*.js), que só
+          // o import() do despacho baixa: o terraço não paga esse JS (ChunksDoFrontTest). Sem levar as
+          // dependências: por padrão o grupo puxaria React e ReactDOM, e o chunk viraria modulepreload.
+          groups: [
+            { name: "polling", test: /src\/api\/polling\.ts/ },
+            {
+              name: "casca-de-conta",
+              test: /node_modules\/(react-router|@tanstack)\//,
+              includeDependenciesRecursively: false,
+            },
+          ],
         },
       },
     },
