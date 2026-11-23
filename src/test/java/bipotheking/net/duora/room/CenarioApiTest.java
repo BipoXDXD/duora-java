@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.hamcrest.Matchers.contains;
 import static org.hamcrest.Matchers.hasSize;
 import static org.hamcrest.Matchers.not;
+import static org.hamcrest.Matchers.nullValue;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
@@ -308,6 +309,68 @@ class CenarioApiTest {
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.abertura.ativa").value(false))
         .andExpect(jsonPath("$.abertura.acesa").value(false));
+  }
+
+  @Test
+  void toqueSaiDaVisaoDepoisDaJanela() throws Exception {
+    Pessoa ana = criar("Ana", "minimo-abertura");
+    Pessoa bruno = entrar(ana.convite(), "Bruno");
+    acao(ana, "/api/sala/abertura", "").andExpect(status().isOk());
+    relogio.avancar(Duration.ofSeconds(5));
+    consultar(bruno).andExpect(jsonPath("$.abertura.outroTocou").value(true));
+    relogio.avancar(Duration.ofMillis(1));
+
+    consultar(ana)
+        .andExpect(jsonPath("$.abertura.ativa").value(true))
+        .andExpect(jsonPath("$.abertura.voceTocou").value(false));
+    consultar(bruno).andExpect(jsonPath("$.abertura.outroTocou").value(false));
+  }
+
+  @Test
+  void cenarioSemAberturaNaoTemAberturaNaVisao() throws Exception {
+    Pessoa ana = criar("Ana", "minimo");
+    entrar(ana.convite(), "Bruno");
+
+    consultar(ana)
+        .andExpect(jsonPath("$.fase").value("MONTANDO"))
+        .andExpect(jsonPath("$.abertura").value(nullValue()));
+  }
+
+  @Test
+  void aberturaSaiDaVisaoNaRevelacao() throws Exception {
+    Pessoa ana = criar("Ana", "minimo-abertura-zero");
+    Pessoa bruno = entrar(ana.convite(), "Bruno");
+    colocar(ana, "pedra", "P1", 0).andExpect(status().isOk());
+    colocar(bruno, "folha", "P2", 1).andExpect(status().isOk());
+    acao(ana, "/api/sala/pronto", "{\"versao\":2,\"pronto\":true}").andExpect(status().isOk());
+
+    acao(bruno, "/api/sala/pronto", "{\"versao\":2,\"pronto\":true}")
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.fase").value("REVELADO"))
+        .andExpect(jsonPath("$.abertura").value(nullValue()));
+  }
+
+  @Test
+  void tocarAberturaEmCenarioSemAberturaResponde409ComVisao() throws Exception {
+    Pessoa ana = criar("Ana", "minimo");
+    entrar(ana.convite(), "Bruno");
+
+    acao(ana, "/api/sala/abertura", "")
+        .andExpect(status().isConflict())
+        .andExpect(content().contentTypeCompatibleWith(PROBLEMA))
+        .andExpect(jsonPath("$.codigo").value("FASE_INVALIDA"))
+        .andExpect(jsonPath("$.visao.fase").value("MONTANDO"));
+  }
+
+  @Test
+  void tocarAberturaEmSalaExpiradaResponde410() throws Exception {
+    Pessoa ana = criar("Ana", "minimo-abertura");
+    entrar(ana.convite(), "Bruno");
+    relogio.avancar(Duration.ofMinutes(30));
+
+    acao(ana, "/api/sala/abertura", "")
+        .andExpect(status().isGone())
+        .andExpect(jsonPath("$.motivo").value("EXPIROU"));
   }
 
   // Apoio: copiado de SalaApiTest, com o cenário opcional na criação. Dívida aceita: extrair um

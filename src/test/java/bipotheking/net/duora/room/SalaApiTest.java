@@ -177,7 +177,8 @@ class SalaApiTest {
     mvc.perform(get("/api/sala").cookie(new Cookie(CookieAssento.NOME, "")))
         .andExpect(status().isNoContent())
         .andExpect(content().string(""))
-        .andExpect(header().doesNotExist(HttpHeaders.ETAG));
+        .andExpect(header().doesNotExist(HttpHeaders.ETAG))
+        .andExpect(header().string(HttpHeaders.CACHE_CONTROL, "no-store"));
   }
 
   @ParameterizedTest
@@ -419,6 +420,22 @@ class SalaApiTest {
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.fase").value("REVELADO"))
         .andExpect(jsonPath("$.ajuste.deAssento").value("A"));
+    relogio.avancar(Duration.ofMinutes(29));
+
+    consultar(dupla.ana()).andExpect(status().isOk());
+  }
+
+  @Test
+  void recusarDeNovoRenovaAExpiracao() throws Exception {
+    Dupla dupla = revelada();
+    acao(dupla.ana(), "/api/sala/ajustar", "").andExpect(status().isOk());
+    acao(dupla.bruno(), "/api/sala/ajustar/recusar", "").andExpect(status().isOk());
+    relogio.avancar(Duration.ofMinutes(29));
+
+    acao(dupla.bruno(), "/api/sala/ajustar/recusar", "")
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.fase").value("REVELADO"))
+        .andExpect(jsonPath("$.ajuste").value(nullValue()));
     relogio.avancar(Duration.ofMinutes(29));
 
     consultar(dupla.ana()).andExpect(status().isOk());
@@ -718,6 +735,17 @@ class SalaApiTest {
   @Test
   void respostasDaApiTrazemCabecalhosDeSegurancaESemCache() throws Exception {
     mvc.perform(get("/api/sala"))
+        .andExpect(header().string("Content-Security-Policy", CabecalhosDeSeguranca.CSP))
+        .andExpect(header().string("X-Content-Type-Options", "nosniff"))
+        .andExpect(header().string("Referrer-Policy", "no-referrer"))
+        .andExpect(header().string(HttpHeaders.CACHE_CONTROL, "no-store"));
+  }
+
+  @Test
+  void respostaDeErroDaApiTrazCabecalhosDeSegurancaESemCache() throws Exception {
+    consultar(new Pessoa("desconhecido", ""))
+        .andExpect(status().isNotFound())
+        .andExpect(content().contentTypeCompatibleWith(PROBLEMA))
         .andExpect(header().string("Content-Security-Policy", CabecalhosDeSeguranca.CSP))
         .andExpect(header().string("X-Content-Type-Options", "nosniff"))
         .andExpect(header().string("Referrer-Policy", "no-referrer"))
