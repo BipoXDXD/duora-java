@@ -1,4 +1,4 @@
-package bipotheking.net.duora.room;
+package bipotheking.net.duora.web;
 
 import org.springframework.boot.web.server.MimeMappings;
 import org.springframework.boot.web.server.WebServerFactoryCustomizer;

@@ -14,6 +14,8 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 import bipotheking.net.duora.game.Cenario;
 import bipotheking.net.duora.game.CenarioMinimo;
+import bipotheking.net.duora.web.MesmaOrigem;
+import bipotheking.net.duora.web.RelogioDeTeste;
 import com.jayway.jsonpath.JsonPath;
 import jakarta.servlet.http.Cookie;
 import java.nio.charset.StandardCharsets;
