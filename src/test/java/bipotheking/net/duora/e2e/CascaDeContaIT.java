@@ -52,6 +52,15 @@ class CascaDeContaIT {
     assertThat(page.url()).isEqualTo(raiz(porta) + "entrar/confirmar#t=abc");
   }
 
+  /** O MockMvc só registra o forward; aqui o servidor de verdade o executa. */
+  @Test
+  void rotaEncaminhadaChegaSemCache(Participantes participantes) {
+    Response resposta = participantes.novo().page().navigate(raiz(porta) + "conta");
+
+    assertThat(resposta.status()).isEqualTo(200);
+    assertThat(resposta.headerValue("cache-control")).isEqualTo("no-cache");
+  }
+
   @Test
   void terracoNaoBaixaOChunkDaCasca(Participantes participantes) {
     List<String> pedidos = new ArrayList<>();
