@@ -11,11 +11,17 @@ import { BOTAO_SECUNDARIO, TEXTO_SECUNDARIO, TITULO_DE_RESULTADO, seDisponivel }
 const AO_LADO = `${BOTAO_SECUNDARIO} ml-(--e-2)`;
 const BOTAO_DA_TELA_CHEIA = `${AO_LADO} hidden celular-alto:inline-block`;
 
-/** O botão do ajuste em cada situação: id e rótulo. */
-const BOTAO_DO_AJUSTE: Record<SituacaoDoAjuste, [string, string]> = {
-  nenhum: ["ajustar", "Pedir para ajustar"],
-  meu: ["cancelar-ajuste", "Cancelar pedido"],
-  "do-outro": ["aceitar-ajuste", "Aceitar o ajuste"],
+/** O botão do ajuste em cada situação: id, rótulo e a ação da sessão (que também diz o "Enviando…"). */
+interface BotaoDoAjuste {
+  id: string;
+  rotulo: string;
+  acao: Extract<Acao, "ajustar" | "recusar-ajuste">;
+}
+
+const BOTAO_DO_AJUSTE: Record<SituacaoDoAjuste, BotaoDoAjuste> = {
+  nenhum: { id: "ajustar", rotulo: "Pedir para ajustar", acao: "ajustar" },
+  meu: { id: "cancelar-ajuste", rotulo: "Cancelar pedido", acao: "recusar-ajuste" },
+  "do-outro": { id: "aceitar-ajuste", rotulo: "Aceitar o ajuste", acao: "ajustar" },
 };
 
 interface PropsResultado {
@@ -34,8 +40,8 @@ export function Resultado({ visao, enviando, acoes, telaCheia, aoVerPainel, aoVe
   const revelado = visao.fase === "REVELADO" && visao.resultado !== null;
   const { titulo, texto } = revelado ? textoResultado(c, visao) : { titulo: "", texto: "" };
   const situacao = situacaoDoAjuste(visao);
-  const meu = situacao === "meu";
-  const [idDoAjuste, rotuloDoAjuste] = BOTAO_DO_AJUSTE[situacao];
+  const botao = BOTAO_DO_AJUSTE[situacao];
+  const enviarAjuste = botao.acao === "ajustar" ? acoes.pedirAjuste : acoes.recusarAjuste;
   const pedido = textoDoPedido(visao);
 
   // O botão do ajuste vira "Pedir para ajustar" debaixo do foco (o outro cancelou ou recusou, ou o
@@ -84,12 +90,12 @@ export function Resultado({ visao, enviando, acoes, telaCheia, aoVerPainel, aoVe
       <button
         type="button"
         className={BOTAO_SECUNDARIO}
-        id={idDoAjuste}
+        id={botao.id}
         ref={refAjuste}
         aria-disabled={enviando !== null ? true : undefined}
-        onClick={seDisponivel(enviando !== null, () => void (meu ? acoes.recusarAjuste() : acoes.pedirAjuste()))}
+        onClick={seDisponivel(enviando !== null, () => void enviarAjuste())}
       >
-        {enviando === (meu ? "recusar-ajuste" : "ajustar") ? "Enviando…" : rotuloDoAjuste}
+        {enviando === botao.acao ? "Enviando…" : botao.rotulo}
       </button>
       {situacao === "do-outro" && (
         <button
