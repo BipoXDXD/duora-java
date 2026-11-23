@@ -190,7 +190,7 @@ export function App({ convite, cenario }: { convite: string | null; cenario: Cen
           marcas={marcasDaCena(estado)}
           enviando={estado.enviando !== null}
           momento={estado.momento}
-          ladoTelescopio={ladoDosMeteoros(cenario, visaoDaCenaAtual?.pecas ?? [], estado.ladoTelescopio)}
+          ladoMeteoros={ladoDosMeteoros(cenario, visaoDaCenaAtual?.pecas ?? [], estado.ladoTelescopio)}
           cenario={cenario}
           aoEscolherPeca={(peca, minha) => void sessao.escolherPeca(peca, minha)}
           aoEscolherLugar={(lugar, bloqueio) => void sessao.escolherLugar(lugar, bloqueio)}

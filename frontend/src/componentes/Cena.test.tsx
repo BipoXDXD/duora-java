@@ -52,7 +52,7 @@ interface Extras {
   destaques?: readonly string[];
   enviando?: boolean;
   momento?: Momento;
-  ladoTelescopio?: string | null;
+  ladoMeteoros?: string | null;
   cenario?: CenarioFront;
   aoTocarAbertura?: () => void;
 }
@@ -65,7 +65,7 @@ function desenhar(
     destaques = SEM_DESTAQUES,
     enviando = false,
     momento = "crepusculo",
-    ladoTelescopio = null,
+    ladoMeteoros = null,
     cenario = CENARIO,
     aoTocarAbertura = () => {},
   }: Extras = {},
@@ -76,7 +76,7 @@ function desenhar(
       marcas={{ selecionada, sugerindo, destaques }}
       enviando={enviando}
       momento={momento}
-      ladoTelescopio={ladoTelescopio}
+      ladoMeteoros={ladoMeteoros}
       cenario={cenario}
       aoEscolherPeca={() => {}}
       aoEscolherLugar={() => {}}
@@ -335,7 +335,7 @@ describe("Cena", () => {
       },
       removeEventListener: () => {},
     }));
-    const { container } = render(desenhar(visaoDeAna([]), null, { momento: "noite", ladoTelescopio: "esquerdo" }));
+    const { container } = render(desenhar(visaoDeAna([]), null, { momento: "noite", ladoMeteoros: "esquerdo" }));
     expect(container.querySelectorAll(".meteoro-parado")).toHaveLength(0);
 
     preferencia.matches = true;
