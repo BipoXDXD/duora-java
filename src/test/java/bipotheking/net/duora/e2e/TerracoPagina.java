@@ -186,9 +186,28 @@ final class TerracoPagina {
     return page.getByRole(AriaRole.STATUS);
   }
 
+  /** Os três títulos do fim: quem saiu, quem ficou e o terraço que expirou ou sumiu. */
   Locator tituloEncerrado() {
     return page.getByRole(
-        AriaRole.HEADING, new Page.GetByRoleOptions().setName("Terraço encerrado"));
+        AriaRole.HEADING,
+        new Page.GetByRoleOptions()
+            .setName(
+                Pattern.compile("^(Terraço encerrado|Você saiu do terraço|O encontro terminou)$")));
+  }
+
+  /** Na noite revelada, pede ao outro para voltar à montagem. */
+  void pedirAjuste() {
+    botao("Pedir para ajustar").click();
+  }
+
+  /** Aceita o pedido do outro: os dois voltam à montagem. */
+  void aceitarAjuste() {
+    botao("Aceitar o ajuste").click();
+  }
+
+  /** Recusa o pedido do outro: a noite continua. */
+  void recusarAjuste() {
+    botao("Agora não").click();
   }
 
   Locator botaoSair() {

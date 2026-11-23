@@ -71,8 +71,32 @@ describe("novidade", () => {
     expect(novidade(CENARIO, visao(), visao({ fase: "REVELADO" }), false)).toBe("Os dois confirmaram. Olhem o céu.");
   });
 
-  it("REVELADO → MONTANDO: o parceiro voltou a ajustar", () => {
-    expect(novidade(CENARIO, visao({ fase: "REVELADO" }), visao(), false)).toBe("Bruno voltou a ajustar o terraço.");
+  it("aceiteVistoPorQuemPediu", () => {
+    const pedido = visao({ fase: "REVELADO", ajuste: { deAssento: "A" } });
+
+    expect(novidade(CENARIO, pedido, visao(), false)).toBe("Bruno aceitou. De volta à montagem.");
+  });
+
+  it("pedidoDoParceiroChegaComoNovidade", () => {
+    const noite = visao({ fase: "REVELADO" });
+
+    expect(novidade(CENARIO, noite, { ...noite, ajuste: { deAssento: "B" } }, false)).toBe(
+      "Bruno quer ajustar a composição.",
+    );
+  });
+
+  it("recusaVistaPorQuemPediu", () => {
+    const noite = visao({ fase: "REVELADO" });
+
+    expect(novidade(CENARIO, { ...noite, ajuste: { deAssento: "A" } }, noite, false)).toBe(
+      "Bruno prefere manter esta noite.",
+    );
+  });
+
+  it("pedidoCanceladoPeloParceiro", () => {
+    const noite = visao({ fase: "REVELADO" });
+
+    expect(novidade(CENARIO, { ...noite, ajuste: { deAssento: "B" } }, noite, false)).toBe("Pedido cancelado.");
   });
 
   it("confirmação desfeita pela mudança", () => {

@@ -7,8 +7,8 @@ import { marcasDaCena, useSessao } from "./useSessao";
 
 const ENCERRADO: EstadoDaSessao = {
   tela: "encerrado",
-  titulo: "Terraço encerrado",
-  texto: "Você saiu.",
+  titulo: "Você saiu do terraço",
+  texto: "O encontro terminou para os dois.",
   enviando: null,
   cenaVazia: true,
   confirmandoSaida: false,
@@ -53,7 +53,7 @@ function Pagina({ sessao, refCena }: { sessao: Sessao; refCena: RefObject<CenaRe
     <>
       {estado.tela === "encerrado" && (
         <h2 id="encerrado-titulo" tabIndex={-1}>
-          Terraço encerrado
+          Você saiu do terraço
         </h2>
       )}
       <div id="pecas">

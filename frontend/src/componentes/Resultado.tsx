@@ -1,5 +1,6 @@
 import { useLayoutEffect, useRef } from "react";
 import { useCenario } from "../cenario/contexto";
+import { type SituacaoDoAjuste, situacaoDoAjuste, textoDoPedido } from "../dominio/ajuste";
 import { textoResultado } from "../dominio/mensagens";
 import type { Visao } from "../dominio/visao";
 import type { AcoesDaSessao } from "../sessao/sessao";
@@ -7,12 +8,20 @@ import type { Acao } from "../sessao/tipos";
 import { BOTAO_SECUNDARIO, TEXTO_SECUNDARIO, TITULO_DE_RESULTADO, seDisponivel } from "./estilos";
 
 /** "Ver o painel" e "Ver o céu" só existem no celular em pé, onde a noite ocupa a tela. */
-const BOTAO_DA_TELA_CHEIA = `${BOTAO_SECUNDARIO} ml-(--e-2) hidden celular-alto:inline-block`;
+const AO_LADO = `${BOTAO_SECUNDARIO} ml-(--e-2)`;
+const BOTAO_DA_TELA_CHEIA = `${AO_LADO} hidden celular-alto:inline-block`;
+
+/** O botão do ajuste em cada situação: id e rótulo. */
+const BOTAO_DO_AJUSTE: Record<SituacaoDoAjuste, [string, string]> = {
+  nenhum: ["ajustar", "Pedir para ajustar"],
+  meu: ["cancelar-ajuste", "Cancelar pedido"],
+  "do-outro": ["aceitar-ajuste", "Aceitar o ajuste"],
+};
 
 interface PropsResultado {
   visao: Visao;
   enviando: Acao | null;
-  acoes: Pick<AcoesDaSessao, "pedirAjuste">;
+  acoes: Pick<AcoesDaSessao, "pedirAjuste" | "recusarAjuste">;
   /** A noite ocupa a tela do celular em pé: este bloco fica sobre ela, com "Ver o painel". */
   telaCheia: boolean;
   aoVerPainel: () => void;
@@ -24,6 +33,10 @@ export function Resultado({ visao, enviando, acoes, telaCheia, aoVerPainel, aoVe
   const c = useCenario();
   const revelado = visao.fase === "REVELADO" && visao.resultado !== null;
   const { titulo, texto } = revelado ? textoResultado(c, visao) : { titulo: "", texto: "" };
+  const situacao = situacaoDoAjuste(visao);
+  const meu = situacao === "meu";
+  const [idDoAjuste, rotuloDoAjuste] = BOTAO_DO_AJUSTE[situacao];
+  const pedido = textoDoPedido(visao);
 
   // "Ver o painel" e "Ver o céu" trocam de lugar: o foco passa de um para o outro, sem cair no body.
   const refTroca = useRef<HTMLButtonElement>(null);
@@ -47,15 +60,32 @@ export function Resultado({ visao, enviando, acoes, telaCheia, aoVerPainel, aoVe
       <p className={TEXTO_SECUNDARIO} id="resultado-texto">
         {texto}
       </p>
+      {pedido && (
+        <p className="mx-0 mb-0 mt-(--e-3) text-marfim" id="ajuste-pedido">
+          {pedido}
+        </p>
+      )}
+      {/* Um botão só em todas as situações: o foco do teclado fica nele quando o pedido muda. */}
       <button
         type="button"
         className={BOTAO_SECUNDARIO}
-        id="ajustar"
+        id={idDoAjuste}
         aria-disabled={enviando !== null ? true : undefined}
-        onClick={seDisponivel(enviando !== null, () => void acoes.pedirAjuste())}
+        onClick={seDisponivel(enviando !== null, () => void (meu ? acoes.recusarAjuste() : acoes.pedirAjuste()))}
       >
-        {enviando === "ajustar" ? "Enviando…" : "Ajustar de novo"}
+        {enviando === (meu ? "recusar-ajuste" : "ajustar") ? "Enviando…" : rotuloDoAjuste}
       </button>
+      {situacao === "do-outro" && (
+        <button
+          type="button"
+          className={AO_LADO}
+          id="recusar-ajuste"
+          aria-disabled={enviando !== null ? true : undefined}
+          onClick={seDisponivel(enviando !== null, () => void acoes.recusarAjuste())}
+        >
+          {enviando === "recusar-ajuste" ? "Enviando…" : "Agora não"}
+        </button>
+      )}
       {telaCheia ? (
         <button
           type="button"

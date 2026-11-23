@@ -204,6 +204,64 @@ describe("criarSessao", () => {
     expect(sessao.obter()).toMatchObject({ tela: "montagem", visao: tocou, instrucao: "", enviando: null });
   });
 
+  describe("ajuste combinado", () => {
+    const RESULTADO = { secundariaA: "manta", secundariaB: "lanterna", ladoTelescopio: "esquerda" };
+    const noite = (ajuste: Visao["ajuste"] = null) => visao({ fase: "REVELADO", resultado: RESULTADO, ajuste });
+
+    it("pedirAjusteChamaAApi", async () => {
+      const { sessao, api, aviso } = naSala(noite(), {
+        api: { pedirAjuste: vi.fn(() => Promise.resolve(resposta(noite({ deAssento: "A" })))) },
+      });
+
+      await sessao.pedirAjuste();
+
+      expect(api.pedirAjuste).toHaveBeenCalledOnce();
+      expect(sessao.obter()).toMatchObject({ momento: "noite", enviando: null });
+      expect(aviso.avisar).toHaveBeenLastCalledWith("Pedido enviado. Esperando Bruno aceitar.");
+    });
+
+    it("pedidoCruzadoVoltaAMontagemComTextoDeAceite", async () => {
+      const { sessao, aviso } = naSala(noite(), {
+        api: { pedirAjuste: vi.fn(() => Promise.resolve(resposta(visao({ versao: 4 })))) },
+      });
+
+      await sessao.pedirAjuste();
+
+      expect(sessao.obter()).toMatchObject({ tela: "montagem", momento: "crepusculo" });
+      expect(aviso.avisar).toHaveBeenLastCalledWith("De volta à montagem. As confirmações foram zeradas.");
+    });
+
+    it("recusarAjusteDoOutroMantemANoite", async () => {
+      const { sessao, api, aviso } = naSala(noite({ deAssento: "B" }), {
+        api: { recusarAjuste: vi.fn(() => Promise.resolve(resposta(noite()))) },
+      });
+
+      await sessao.recusarAjuste();
+
+      expect(api.recusarAjuste).toHaveBeenCalledOnce();
+      expect(sessao.obter()).toMatchObject({ momento: "noite", enviando: null });
+      expect(aviso.avisar).toHaveBeenLastCalledWith("Tudo bem, a noite fica como está.");
+    });
+
+    it("cancelarOProprioPedidoAvisaQueCancelou", async () => {
+      const { sessao, aviso } = naSala(noite({ deAssento: "A" }), {
+        api: { recusarAjuste: vi.fn(() => Promise.resolve(resposta(noite()))) },
+      });
+
+      await sessao.recusarAjuste();
+
+      expect(aviso.avisar).toHaveBeenLastCalledWith("Pedido cancelado.");
+    });
+
+    it("recusaEmEnvioMostraQualAcaoEsperaOServidor", () => {
+      const { sessao } = naSala(noite({ deAssento: "B" }));
+
+      void sessao.recusarAjuste();
+
+      expect(sessao.obter()).toMatchObject({ enviando: "recusar-ajuste" });
+    });
+  });
+
   it("toqueRecusadoPelaAberturaAvisaParaEsperar", async () => {
     const erro = new ErroApi({ status: 409, codigo: "ABERTURA_EM_ANDAMENTO" });
     const { sessao, aviso } = naSala(visao(), { api: { moverPeca: vi.fn(() => Promise.reject(erro)) } });
@@ -255,7 +313,11 @@ describe("criarSessao", () => {
     await sessao.encerrar();
 
     const estado = sessao.obter();
-    expect(estado).toMatchObject({ tela: "encerrado", texto: "Você saiu e o terraço foi encerrado." });
+    expect(estado).toMatchObject({
+      tela: "encerrado",
+      titulo: "Você saiu do terraço",
+      texto: "O encontro terminou para os dois.",
+    });
     expect(estado).not.toHaveProperty("visao");
     expect(sessao.consumirFoco()).toEqual({ alvo: "titulo-encerrado" });
     expectTypeOf<Extract<EstadoDaTela, { tela: "encerrado" }>>().not.toHaveProperty("visao");
@@ -660,12 +722,16 @@ describe("criarSessao", () => {
     expect(aviso.avisar.mock.calls).toEqual([["Conexão de volta."]]);
   });
 
-  it("sala encerrada pelo parceiro mostra o encerrado com o nome dele", () => {
+  it("sala encerrada pelo parceiro despede com o nome dele, sem dizer quem saiu", () => {
     const { sessao, doPolling } = naSala();
 
     doPolling().aoFalhar(new ErroApi({ status: 410, codigo: "SALA_ENCERRADA", motivo: "SAIU" }), null);
 
-    expect(sessao.obter()).toMatchObject({ tela: "encerrado", texto: "Bruno saiu e o terraço foi encerrado." });
+    expect(sessao.obter()).toMatchObject({
+      tela: "encerrado",
+      titulo: "O encontro terminou",
+      texto: "Que bom montar o terraço com Bruno.",
+    });
   });
 
   it("criar a sala começa a sessão com o ETag da resposta", async () => {

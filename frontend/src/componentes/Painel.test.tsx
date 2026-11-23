@@ -9,8 +9,8 @@ import { Painel } from "./Painel";
 
 const ENCERRADO: EstadoDaSessao = {
   tela: "encerrado",
-  titulo: "Terraço encerrado",
-  texto: "Você saiu e o terraço foi encerrado.",
+  titulo: "Você saiu do terraço",
+  texto: "O encontro terminou para os dois.",
   enviando: null,
   cenaVazia: true,
   confirmandoSaida: false,
@@ -26,6 +26,7 @@ function acoesFalsas(): AcoesDaSessao {
     retirar: vi.fn(),
     confirmar: vi.fn(),
     pedirAjuste: vi.fn(),
+    recusarAjuste: vi.fn(),
     tocarAbertura: vi.fn(),
     criarOutro: vi.fn(),
     enviarApelido: vi.fn(),

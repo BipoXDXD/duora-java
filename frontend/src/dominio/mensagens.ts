@@ -70,23 +70,26 @@ export function textoConfirmarSaida(nomeParceiro: string | null | undefined): { 
     : { aviso: "Isso encerra o terraço.", acao: "Encerrar o terraço" };
 }
 
-/** motivo: SAIU | EXPIROU | SALA_INEXISTENTE | VOCE_SAIU (vem do servidor; outro valor cai no último texto). */
+/**
+ * motivo: SAIU | EXPIROU | SALA_INEXISTENTE | VOCE_SAIU (vem do servidor; outro valor cai no último
+ * texto). Quem fica (SAIU) não ouve quem saiu: a despedida agradece o encontro, sem culpa.
+ */
 export function textoEncerrado(motivo: string, nomeParceiro?: string | null): { titulo: string; texto: string } {
-  return { titulo: "Terraço encerrado", texto: corpoDoEncerrado(motivo, nomeParceiro) };
-}
-
-function corpoDoEncerrado(motivo: string, nomeParceiro?: string | null): string {
   switch (motivo) {
     case "SAIU":
-      return nomeParceiro
-        ? `${nomeParceiro} saiu e o terraço foi encerrado.`
-        : "A outra pessoa saiu e o terraço foi encerrado.";
-    case "EXPIROU":
-      return "O terraço expirou depois de 30 minutos sem ações.";
+      return {
+        titulo: "O encontro terminou",
+        texto: `Que bom montar o terraço ${nomeParceiro ? `com ${nomeParceiro}` : "a dois"}.`,
+      };
     case "VOCE_SAIU":
-      return "Você saiu e o terraço foi encerrado.";
+      return { titulo: "Você saiu do terraço", texto: "O encontro terminou para os dois." };
+    case "EXPIROU":
+      return { titulo: "Terraço encerrado", texto: "O terraço expirou depois de 30 minutos sem ações." };
     default:
-      return "Este terraço não existe mais (o servidor reiniciou ou ele expirou).";
+      return {
+        titulo: "Terraço encerrado",
+        texto: "Este terraço não existe mais (o servidor reiniciou ou ele expirou).",
+      };
   }
 }
 

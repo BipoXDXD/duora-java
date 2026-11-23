@@ -71,8 +71,8 @@ class RevelacaoIT {
     assertThat(camada(ana).locator(".meteoro-parado")).hasCount(4);
     assertEquals(0, lancados(ana));
 
-    ana.botao("Ajustar de novo").click();
-    bruno.botao("Ajustar de novo").click();
+    ana.pedirAjuste();
+    bruno.aceitarAjuste();
     assertThat(camada(ana).locator(".meteoro")).hasCount(0);
     assertThat(camada(ana)).not().hasAttribute("data-lado", "esquerdo");
   }
