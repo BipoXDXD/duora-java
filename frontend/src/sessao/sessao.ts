@@ -337,22 +337,22 @@ export function criarSessao({
   }
 
   /**
-   * Com sala e convite em espera: o convite próprio só avisa (devolve o texto); o de outra sala
-   * mostra a troca (devolve null). resumo: o do token, quando a aba não o conhece; null se ela o
-   * conhece ou se não deu para calcular.
+   * Com sala e convite em espera: o convite próprio só avisa; o de outra sala mostra a troca. Publica
+   * a tela decidida. resumo: o do token, quando a aba não o conhece; null se ela o conhece ou se não
+   * deu para calcular.
    */
-  function decidirConvite(token: string, resumo: string | null): string | null {
+  function decidirConvite(token: string, resumo: string | null): void {
     if (conviteDestaSala(token, resumo)) {
       desfazerTroca();
-      return estado.visao?.fase === "AGUARDANDO_PAR" ? TEXTO_CONVITE_PROPRIO : TEXTO_JA_NESTE_TERRACO;
-    }
-    if (resumo === null) {
+      aviso.avisar(estado.visao?.fase === "AGUARDANDO_PAR" ? TEXTO_CONVITE_PROPRIO : TEXTO_JA_NESTE_TERRACO);
+    } else if (resumo === null) {
       desfazerTroca();
-      return TEXTO_CONVITE_SEM_CONFERIR;
+      aviso.avisar(TEXTO_CONVITE_SEM_CONFERIR);
+    } else {
+      estado.convite = token;
+      mostrarTroca();
     }
-    estado.convite = token;
-    mostrarTroca();
-    return null;
+    publicar();
   }
 
   function mostrarEncerrado({ titulo, texto }: { titulo: string; texto: string }): void {
@@ -412,17 +412,17 @@ export function criarSessao({
     if (anterior) {
       destacar(pecasQueMudaram(anterior, visao));
     }
-    // Na troca, a sala atual está fora da tela: as novidades dela não disputam o aviso da entrada.
-    let texto = anterior && !emTroca() ? novidade(cenario, anterior, visao, propria) : null;
     if (!anterior && estado.convite && !emTroca()) {
       // O convite chegou antes da sala (na carga): só agora dá para saber se é o próprio.
       const token = estado.convite;
       if (convitesProprios.has(token)) {
-        texto = decidirConvite(token, null);
-      } else {
-        void decidirConviteDaCarga(token);
+        decidirConvite(token, null);
+        return;
       }
+      void decidirConviteDaCarga(token);
     }
+    // Na troca, a sala atual está fora da tela: as novidades dela não disputam o aviso da entrada.
+    const texto = anterior && !emTroca() ? novidade(cenario, anterior, visao, propria) : null;
     if (texto) {
       aviso.avisar(texto);
     }
@@ -435,11 +435,7 @@ export function criarSessao({
     if (estado.convite !== token || estado.visao === null || emTroca() || estado.enviando === "entrada") {
       return;
     }
-    const texto = decidirConvite(token, resumo);
-    if (texto) {
-      aviso.avisar(texto);
-    }
-    publicar();
+    decidirConvite(token, resumo);
   }
 
   /** receberConvite com o resumo já em mãos (ou sem precisar dele). */
@@ -457,11 +453,7 @@ export function criarSessao({
       }
       return;
     }
-    const texto = decidirConvite(token, resumo);
-    if (texto) {
-      aviso.avisar(texto);
-    }
-    publicar();
+    decidirConvite(token, resumo);
   }
 
   // ------------------------------------------------------------ ações
