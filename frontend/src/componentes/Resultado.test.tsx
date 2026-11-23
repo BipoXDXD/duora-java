@@ -95,6 +95,46 @@ describe("Resultado: ajuste combinado", () => {
   });
 });
 
+describe("Resultado: botão do ajuste que muda sob o foco", () => {
+  function comAjuste(ajuste: Visao["ajuste"], acoes: typeof SEM_ACAO) {
+    return (
+      <Resultado
+        visao={{ ...REVELADO, ajuste }}
+        enviando={null}
+        acoes={acoes}
+        telaCheia={false}
+        aoVerPainel={() => {}}
+        aoVerCeu={() => {}}
+      />
+    );
+  }
+
+  it.each([
+    ["Aceitar o ajuste", { deAssento: "B" as const }],
+    ["Cancelar pedido", { deAssento: "A" as const }],
+  ])("%s que vira Pedir para ajustar leva o foco ao título e o Enter atrasado não pede", async (rotulo, ajuste) => {
+    const usuario = userEvent.setup();
+    const acoes = { pedirAjuste: vi.fn(() => Promise.resolve()), recusarAjuste: vi.fn(() => Promise.resolve()) };
+    const { rerender } = renderComCenario(comAjuste(ajuste, acoes));
+    screen.getByRole("button", { name: rotulo }).focus();
+
+    rerender(comAjuste(null, acoes));
+    await usuario.keyboard("{Enter}");
+
+    expect(screen.getByRole("heading", { level: 2 })).toHaveFocus();
+    expect(acoes.pedirAjuste).not.toHaveBeenCalled();
+  });
+
+  it("pedido que chega sem foco no botão não mexe no foco", () => {
+    const { rerender } = renderComCenario(comAjuste({ deAssento: "B" }, SEM_ACAO));
+    screen.getByRole("button", { name: "Ver o céu" }).focus();
+
+    rerender(comAjuste(null, SEM_ACAO));
+
+    expect(screen.getByRole("button", { name: "Ver o céu" })).toHaveFocus();
+  });
+});
+
 describe("Resultado", () => {
   it("ver o painel e ver o céu trocam de lugar levando o foco junto", async () => {
     const usuario = userEvent.setup();

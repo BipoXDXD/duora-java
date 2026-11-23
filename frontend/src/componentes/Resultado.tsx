@@ -38,6 +38,21 @@ export function Resultado({ visao, enviando, acoes, telaCheia, aoVerPainel, aoVe
   const [idDoAjuste, rotuloDoAjuste] = BOTAO_DO_AJUSTE[situacao];
   const pedido = textoDoPedido(visao);
 
+  // O botão do ajuste vira "Pedir para ajustar" debaixo do foco (o outro cancelou ou recusou, ou o
+  // próprio pedido foi cancelado): um Enter atrasado mandaria um pedido novo. O foco vai ao título,
+  // e o aviso conta o que mudou.
+  const refTitulo = useRef<HTMLHeadingElement>(null);
+  const refAjuste = useRef<HTMLButtonElement>(null);
+  const situacaoAntes = useRef(situacao);
+  useLayoutEffect(() => {
+    const antes = situacaoAntes.current;
+    situacaoAntes.current = situacao;
+    const focado = refAjuste.current !== null && refAjuste.current.ownerDocument.activeElement === refAjuste.current;
+    if (revelado && antes !== "nenhum" && situacao === "nenhum" && focado) {
+      refTitulo.current?.focus();
+    }
+  }, [situacao, revelado]);
+
   // "Ver o painel" e "Ver o céu" trocam de lugar: o foco passa de um para o outro, sem cair no body.
   const refTroca = useRef<HTMLButtonElement>(null);
   const trocou = useRef(false);
@@ -54,7 +69,7 @@ export function Resultado({ visao, enviando, acoes, telaCheia, aoVerPainel, aoVe
 
   return (
     <section className="resultado celular:order-3 celular-deitado:order-3" id="resultado" hidden={!revelado}>
-      <h2 className={TITULO_DE_RESULTADO} id="resultado-titulo" tabIndex={-1}>
+      <h2 className={TITULO_DE_RESULTADO} id="resultado-titulo" tabIndex={-1} ref={refTitulo}>
         {titulo}
       </h2>
       <p className={TEXTO_SECUNDARIO} id="resultado-texto">
@@ -70,6 +85,7 @@ export function Resultado({ visao, enviando, acoes, telaCheia, aoVerPainel, aoVe
         type="button"
         className={BOTAO_SECUNDARIO}
         id={idDoAjuste}
+        ref={refAjuste}
         aria-disabled={enviando !== null ? true : undefined}
         onClick={seDisponivel(enviando !== null, () => void (meu ? acoes.recusarAjuste() : acoes.pedirAjuste()))}
       >
