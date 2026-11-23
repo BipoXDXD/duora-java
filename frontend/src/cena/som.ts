@@ -2,7 +2,8 @@
 // meteoro. Usa Web Audio (o loop de <audio> com MP3 deixa um silêncio a cada volta). Só
 // baixa os arquivos quando a pessoa liga o som e falha em silêncio. Nada depende dele.
 // Exceção: as notas do rádio tocam mesmo com o som desligado (o chamador decide quando); depois
-// delas, com o som ainda desligado, o contexto volta a ficar suspenso.
+// delas, com o som ainda desligado, o contexto volta a ficar suspenso. O mesmo vale para o
+// destravar do primeiro gesto: o contexto fica destravado, mas não roda em silêncio.
 
 import type { CenarioFront, NomeSom } from "../cenario/tipos";
 
@@ -23,7 +24,7 @@ export interface Som {
   revelacao(): void;
   /** Toca uma vez o som da URL, mesmo com o som desligado; falha em silêncio. Com o som desligado, suspende o contexto ao terminar. */
   notas(url: string, volume: number): void;
-  /** Cria e retoma o contexto (dentro de um gesto), sem baixar nada. */
+  /** Cria e retoma o contexto (dentro de um gesto), sem baixar nada; com o som desligado, suspende de novo em seguida. */
   desbloquear(): void;
 }
 
@@ -47,9 +48,11 @@ export function criarSom(c: CenarioFront): Som {
   const buffers: Partial<Record<NomeSom, AudioBuffer | null>> = {};
   let ambiente: AudioBufferSourceNode | null = null;
   let ganhoAmbiente: GainNode | null = null;
+  /** Notas em andamento (baixando ou tocando): enquanto houver alguma, o contexto não suspende. */
+  let notasEmAndamento = 0;
 
-  /** Cria o contexto na primeira vez e o retoma; null se o navegador não tem Web Audio. */
-  function desbloquear(): AudioContext | null {
+  /** Cria o contexto na primeira vez; null se o navegador não tem Web Audio. */
+  function obterContexto(): AudioContext | null {
     if (!contexto) {
       const janela: JanelaComAudio = window;
       // O tipo do DOM diz que AudioContext sempre existe; navegadores antigos discordam.
@@ -61,8 +64,14 @@ export function criarSom(c: CenarioFront): Som {
       }
       contexto = new Contexto();
     }
-    contexto.resume().catch(() => {});
     return contexto;
+  }
+
+  /** Cria o contexto na primeira vez e o retoma; null se o navegador não tem Web Audio. */
+  function desbloquear(): AudioContext | null {
+    const meu = obterContexto();
+    meu?.resume().catch(() => {});
+    return meu;
   }
 
   function preparar(meu: AudioContext): Promise<void> {
@@ -93,9 +102,9 @@ export function criarSom(c: CenarioFront): Som {
     fonte.start();
   }
 
-  /** Som desligado: o contexto não fica rodando em silêncio depois das notas. */
-  function suspenderSeDesligado(meu: AudioContext): void {
-    if (!ligado) {
+  /** Som desligado e nenhuma nota em andamento: o contexto não fica rodando em silêncio. */
+  function suspenderSeOcioso(meu: AudioContext): void {
+    if (!ligado && notasEmAndamento === 0) {
       meu.suspend().catch(() => {});
     }
   }
@@ -171,20 +180,30 @@ export function criarSom(c: CenarioFront): Som {
       if (!meu) {
         return;
       }
+      notasEmAndamento += 1;
+      const terminar = () => {
+        notasEmAndamento -= 1;
+        suspenderSeOcioso(meu);
+      };
       void carregar(meu, url)
         .then((buffer) => {
           if (buffer) {
-            tocar(meu, buffer, volume, () => {
-              suspenderSeDesligado(meu);
-            });
+            tocar(meu, buffer, volume, terminar);
           } else {
-            suspenderSeDesligado(meu);
+            terminar();
           }
         })
         .catch(() => {});
     },
     desbloquear() {
-      desbloquear();
+      const meu = obterContexto();
+      // O resume dentro do gesto já destravou o áudio (as notas podem tocar depois, pelo polling).
+      meu
+        ?.resume()
+        .then(() => {
+          suspenderSeOcioso(meu);
+        })
+        .catch(() => {});
     },
   };
 }
