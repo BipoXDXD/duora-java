@@ -193,7 +193,8 @@ export function criarSom(c: CenarioFront): Som {
             terminar();
           }
         })
-        .catch(() => {});
+        // carregar já engole os erros da rede; aqui cai um tocar que lança (sem saída de áudio).
+        .catch(terminar);
     },
     desbloquear() {
       const meu = obterContexto();

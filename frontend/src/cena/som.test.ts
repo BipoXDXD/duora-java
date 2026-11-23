@@ -86,6 +86,7 @@ describe("criarSom: notas e desbloqueio", () => {
 
   afterEach(() => {
     vi.unstubAllGlobals();
+    vi.restoreAllMocks();
   });
 
   it("as notas tocam com o som desligado", async () => {
@@ -197,6 +198,20 @@ describe("criarSom: notas e desbloqueio", () => {
       terminar();
     });
     expect(ContextoFalso.ultimo?.suspends).toBe(1);
+  });
+
+  it("notas que falham ao tocar não deixam o contexto rodando", async () => {
+    fetchFalso.mockResolvedValue(new Response(new ArrayBuffer(8)));
+    vi.spyOn(ContextoFalso.prototype, "createBufferSource").mockImplementation(() => {
+      throw new DOMException("sem saída de áudio", "InvalidStateError");
+    });
+    const som = criarSom(cenarioDoTerraco());
+
+    som.notas(NOTAS, 0.5);
+
+    await vi.waitFor(() => {
+      expect(ContextoFalso.ultimo?.suspends).toBe(1);
+    });
   });
 
   it("o fim das primeiras notas não corta as segundas", async () => {
