@@ -920,6 +920,43 @@ describe("criarSessao", () => {
     });
   });
 
+  describe("terraço que acaba antes de alguém entrar", () => {
+    const ESPERA = visao({ fase: "AGUARDANDO_PAR", parceiro: null, convite: "abc" });
+    const SEM_ENCONTRO = {
+      tela: "encerrado",
+      titulo: "Terraço encerrado",
+      texto: "Ninguém chegou a entrar. Crie outro quando quiser.",
+    };
+
+    it("encerrarAPropriaEsperaNaoFalaDeEncontro", async () => {
+      const { sessao } = naSala(ESPERA, { api: { sair: vi.fn(() => Promise.resolve(resposta(null, null))) } });
+
+      await sessao.encerrar();
+
+      expect(sessao.obter()).toMatchObject(SEM_ENCONTRO);
+    });
+
+    it("esperaEncerradaEmOutraAbaNaoFalaDeEncontro", () => {
+      const { sessao, doPolling } = naSala(ESPERA);
+
+      doPolling().aoFalhar(new ErroApi({ status: 410, codigo: "SALA_ENCERRADA", motivo: "SAIU" }), null);
+
+      expect(sessao.obter()).toMatchObject(SEM_ENCONTRO);
+    });
+
+    it("recarregarDepoisQueOParceiroSaiuContinuaAgradecendoOEncontro", () => {
+      const { sessao, doPolling } = montar();
+      sessao.iniciar();
+
+      doPolling().aoFalhar(new ErroApi({ status: 410, codigo: "SALA_ENCERRADA", motivo: "SAIU" }), null);
+
+      expect(sessao.obter()).toMatchObject({
+        titulo: "O encontro terminou",
+        texto: "Que bom montar o terraço a dois.",
+      });
+    });
+  });
+
   it("criar a sala começa a sessão com o ETag da resposta", async () => {
     const criada = visao({ fase: "AGUARDANDO_PAR", parceiro: null, convite: "abc" });
     const { sessao, doPolling, polling } = montar({

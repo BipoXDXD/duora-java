@@ -769,9 +769,11 @@ export function criarSessao({
         return;
       }
     }
+    // Sem parceiro, não houve encontro para encerrar: só a espera acabou.
+    const motivo = estado.visao.parceiro === null ? "SEM_ENCONTRO" : "VOCE_SAIU";
     limparSessao();
     aviso.avisar("");
-    mostrarEncerrado(textoEncerrado("VOCE_SAIU"));
+    mostrarEncerrado(textoEncerrado(motivo));
   }
 
   /**
@@ -813,8 +815,11 @@ export function criarSessao({
       return;
     }
     if (erro.codigo === "SALA_ENCERRADA" || erro.codigo === "SALA_INEXISTENTE") {
+      const motivo = erro.motivo ?? "SALA_INEXISTENTE";
+      // A aba esteve na sala e nunca viu um parceiro: o terraço acabou na espera (outra aba saiu).
+      const semEncontro = motivo === "SAIU" && estavaNaSala && parceiro === null;
       aviso.avisar("");
-      mostrarEncerrado(textoEncerrado(erro.motivo ?? "SALA_INEXISTENTE", parceiro));
+      mostrarEncerrado(textoEncerrado(semEncontro ? "SEM_ENCONTRO" : motivo, parceiro));
       return;
     }
     mostrarEntrada(false, false);

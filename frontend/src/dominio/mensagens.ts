@@ -90,8 +90,9 @@ export function textoConfirmarSaida(nomeParceiro: string | null | undefined): { 
 }
 
 /**
- * motivo: SAIU | EXPIROU | SALA_INEXISTENTE | VOCE_SAIU (vem do servidor; outro valor cai no último
- * texto). Quem fica (SAIU) não ouve quem saiu: a despedida agradece o encontro, sem culpa.
+ * motivo: SAIU | EXPIROU | SALA_INEXISTENTE (vêm do servidor; outro valor cai no último texto), ou
+ * VOCE_SAIU e SEM_ENCONTRO, decididos no cliente. Quem fica (SAIU) não ouve quem saiu: a despedida
+ * agradece o encontro, sem culpa. SEM_ENCONTRO: o terraço acabou antes de alguém entrar.
  */
 export function textoEncerrado(motivo: string, nomeParceiro?: string | null): { titulo: string; texto: string } {
   switch (motivo) {
@@ -102,6 +103,8 @@ export function textoEncerrado(motivo: string, nomeParceiro?: string | null): { 
       };
     case "VOCE_SAIU":
       return { titulo: "Você saiu do terraço", texto: "O encontro terminou para as duas pessoas." };
+    case "SEM_ENCONTRO":
+      return { titulo: "Terraço encerrado", texto: "Ninguém chegou a entrar. Crie outro quando quiser." };
     case "EXPIROU":
       return { titulo: "Terraço encerrado", texto: "O terraço expirou depois de 30 minutos sem ações." };
     default:
