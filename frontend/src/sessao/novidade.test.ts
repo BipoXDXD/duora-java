@@ -106,6 +106,21 @@ describe("novidade", () => {
     expect(novidade(CENARIO, { ...noite, ajuste: { deAssento: "B" } }, noite, false)).toBe("Bruno cancelou o pedido.");
   });
 
+  it("pedidoFeitoEmOutraAbaChegaComoEspera", () => {
+    const noite = visao({ fase: "REVELADO" });
+
+    expect(novidade(CENARIO, noite, { ...noite, ajuste: { deAssento: "A" } }, false)).toBe("Esperando Bruno aceitar.");
+  });
+
+  it("pedidoEQuedaDoParceiroNoMesmoPollingSaemJuntos", () => {
+    const noite = visao({ fase: "REVELADO" });
+    const pedidoEQueda = { ...noite, ajuste: { deAssento: "B" }, parceiro: { ...BRUNO, conectado: false } } as const;
+
+    expect(novidade(CENARIO, noite, pedidoEQueda, false)).toBe(
+      "Bruno quer ajustar a composição. Bruno ficou sem sinal.",
+    );
+  });
+
   it("aceiteDaPropriaPessoaNaoViraNovidadeDoParceiro", () => {
     const pedidoDoBruno = visao({
       fase: "REVELADO",

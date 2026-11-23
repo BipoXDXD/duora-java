@@ -49,20 +49,30 @@ export function novidade(c: CenarioFront, anterior: Visao, visao: Visao, propria
   if (anterior.fase === "REVELADO" && visao.fase === "MONTANDO") {
     return `${parceiro} aceitou. De volta à montagem.`;
   }
-  const ajusteAntes = situacaoDoAjuste(anterior);
-  if (visao.fase === "REVELADO" && ajusteAntes !== situacaoDoAjuste(visao)) {
-    if (ajusteAntes === "meu") {
-      return `${parceiro} prefere manter esta noite.`;
-    }
-    return ajusteAntes === "do-outro" ? `${parceiro} cancelou o pedido.` : textoDoPedido(visao);
-  }
-  const frases = [pecas, textoConexaoDoParceiro(anterior, visao)];
+  // O ajuste não esconde a conexão do parceiro que mudou no mesmo polling.
+  const frases = [textoAjusteDoParceiro(anterior, visao, parceiro), pecas, textoConexaoDoParceiro(anterior, visao)];
   if (anterior.prontos.voce && !visao.prontos.voce) {
     frases.push("A composição mudou e sua confirmação foi desfeita. Confirme de novo quando quiser.");
   } else if (!anterior.prontos.parceiro && visao.prontos.parceiro) {
     frases.push(`${parceiro} confirmou esta composição.`);
   }
   return frases.filter(Boolean).join(" ") || null;
+}
+
+/** O que mudou no pedido de ajuste da noite revelada; null se nada mudou. */
+function textoAjusteDoParceiro(anterior: Visao, visao: Visao, parceiro: string): string | null {
+  const ajusteAntes = situacaoDoAjuste(anterior);
+  if (visao.fase !== "REVELADO" || ajusteAntes === situacaoDoAjuste(visao)) {
+    return null;
+  }
+  switch (ajusteAntes) {
+    case "meu":
+      return `${parceiro} prefere manter esta noite.`;
+    case "do-outro":
+      return `${parceiro} cancelou o pedido.`;
+    case "nenhum":
+      return textoDoPedido(visao);
+  }
 }
 
 /** A noite se revela: o mesmo texto para quem confirmou por último e para quem soube pelo polling. */
