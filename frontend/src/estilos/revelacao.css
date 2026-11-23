@@ -261,7 +261,8 @@
 
 /* A folha sobe quando o céu já escureceu um pouco: primeiro a noite, depois o texto. Só com
    movimento liberado; o estado base é a folha no lugar (a regra global de base.css zera a duração,
-   não o atraso, por isso a animação inteira fica aqui dentro). */
+   não o atraso, por isso a animação inteira fica aqui dentro). Anima só o deslocamento: o título
+   recebe o foco na revelação e precisa estar visível desde o primeiro quadro (WCAG 2.4.7). */
 @media (prefers-reduced-motion: no-preference) {
   .app[data-tela-cheia="true"] #resultado {
     animation: folha-subir 520ms cubic-bezier(0.2, 0.8, 0.2, 1) 900ms backwards;
@@ -270,11 +271,9 @@
 
 @keyframes folha-subir {
   from {
-    opacity: 0;
     translate: 0 24px;
   }
   to {
-    opacity: 1;
     translate: 0 0;
   }
 }
