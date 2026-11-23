@@ -207,18 +207,6 @@
   visibility: visible;
 }
 
-/* Com movimento reduzido, base.css dá 0,01 ms de transição a tudo, e transition-property é "all":
-   ao sair da tela cheia, a visibilidade passaria um quadro em hidden e o navegador tiraria o foco do
-   "Ver o céu". Aqui não há transição a perder (já é instantânea), então topo e painel ficam sem. */
-@media (prefers-reduced-motion: reduce) {
-  .app :is(.topo, .painel),
-  .app :is(.topo, .painel) *,
-  .app :is(.topo, .painel) *::before,
-  .app :is(.topo, .painel) *::after {
-    transition-property: none;
-  }
-}
-
 .app[data-tela-cheia="true"] .cena {
   position: fixed;
   inset: 0;
