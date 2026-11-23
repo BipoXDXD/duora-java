@@ -2,7 +2,12 @@
 
 import type { CenarioFront } from "../cenario/tipos";
 import { situacaoDoAjuste, textoDoPedido } from "../dominio/ajuste";
-import { textoConexaoDoParceiro, textoPecasDoParceiro } from "../dominio/mensagens";
+import {
+  nomeDoParceiro,
+  nomeDoParceiroNoMeio,
+  textoConexaoDoParceiro,
+  textoPecasDoParceiro,
+} from "../dominio/mensagens";
 import { aberturaAtiva, lanternasAcenderam, sinalRecebido, type Visao, type VisaoSinal } from "../dominio/visao";
 import type { Acao } from "./tipos";
 
@@ -11,8 +16,8 @@ import type { Acao } from "./tipos";
  * propria: a visão veio da resposta a uma ação desta pessoa.
  */
 export function novidade(c: CenarioFront, anterior: Visao, visao: Visao, propria: boolean): string | null {
-  // Nos ramos que o usam, o parceiro existe; String() mantém o texto do main.js antigo se não existir.
-  const parceiro = String(visao.parceiro?.nome);
+  // Em todos os ramos que o usam, o nome abre a frase.
+  const parceiro = nomeDoParceiro(visao);
   const sinal = sinalRecebido(visao);
   const sinalNovo =
     sinal !== null &&
@@ -65,12 +70,12 @@ export const TEXTO_NOITE_REVELADA = "Vocês confirmaram. Olhem o céu.";
 
 /** O aviso de quem recebe uma sugestão do parceiro. */
 export function textoSinalRecebido(c: CenarioFront, visao: Visao, sinal: VisaoSinal): string {
-  return `${String(visao.parceiro?.nome)} sugeriu mover ${c.peca(sinal.peca).artigo}: ${c.lugar(sinal.lugar).nome}.`;
+  return `${nomeDoParceiro(visao)} sugeriu mover ${c.peca(sinal.peca).artigo}: ${c.lugar(sinal.lugar).nome}.`;
 }
 
 /** O aviso de quem sugeriu, depois que o servidor aceitou o sinal. */
 export function textoSinalEnviado(c: CenarioFront, visao: Visao, peca: string, lugar: string): string {
-  return `Você sugeriu que ${String(visao.parceiro?.nome)} mova ${c.peca(peca).artigo}: ${c.lugar(lugar).nome}.`;
+  return `Você sugeriu que ${nomeDoParceiroNoMeio(visao)} mova ${c.peca(peca).artigo}: ${c.lugar(lugar).nome}.`;
 }
 
 /** O fim da instrução de escolher um lugar com teclado à mão: o Esc desfaz a escolha. */
@@ -103,14 +108,14 @@ export function instrucao(
     return "Olhem para cima.";
   }
   if (sugerindo) {
-    return `Escolha onde ${c.peca(sugerindo).artigo} de ${String(visao.parceiro?.nome)} ficaria melhor.${sufixoCancelar}`;
+    return `Escolha onde ${c.peca(sugerindo).artigo} de ${nomeDoParceiroNoMeio(visao)} ficaria melhor.${sufixoCancelar}`;
   }
   if (selecionada) {
     const { artigo, zona } = c.peca(selecionada);
     return `Escolha onde ${artigo} fica: ${c.zona(zona).instrucao}.${sufixoCancelar}`;
   }
   if (visao.prontos.voce) {
-    return `Esperando ${visao.parceiro?.nome ?? "a outra pessoa"} confirmar a mesma composição.`;
+    return `Esperando ${nomeDoParceiroNoMeio(visao)} confirmar a mesma composição.`;
   }
   if (visao.confirmacao.podeConfirmar) {
     return "Tudo no lugar. Quando vocês confirmarem, o céu escurece.";

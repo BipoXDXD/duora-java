@@ -128,6 +128,11 @@ describe("textoMotivoConfirmacao", () => {
     ["você confirmou", visao({ prontos: { voce: true, parceiro: false } }), "Você confirmou. Esperando Bruno."],
     ["parceiro confirmou", visao({ prontos: { voce: false, parceiro: true } }), "Bruno já confirmou esta composição."],
     ["vazio", visao(), ""],
+    [
+      "você confirmou, sem parceiro na visão",
+      visao({ parceiro: null, prontos: { voce: true, parceiro: false } }),
+      "Você confirmou. Esperando a outra pessoa.",
+    ],
   ])("%s", (_caso, v, texto) => {
     expect(textoMotivoConfirmacao(v)).toBe(texto);
   });

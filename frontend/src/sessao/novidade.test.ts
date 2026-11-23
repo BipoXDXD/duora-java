@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { Visao, VisaoAbertura } from "../dominio/visao";
 import { cenarioDoTerraco } from "../teste/cenarioDoTerraco";
-import { instrucao, novidade } from "./novidade";
+import { instrucao, novidade, textoSinalEnviado, textoSinalRecebido } from "./novidade";
 
 const CENARIO = cenarioDoTerraco();
 
@@ -270,5 +270,20 @@ describe("instrucao", () => {
     expect(instrucao(CENARIO, agora, { selecionada: null, enviando: null })).toBe(
       "Escolha sua segunda peça ou reorganize as que já colocou.",
     );
+  });
+});
+
+describe("textos do sinal sem parceiro na visão", () => {
+  // A invariante diz que há parceiro quando há sinal; se ela quebrar, o texto não diz "undefined".
+  it("quemSugeriu", () => {
+    expect(textoSinalEnviado(CENARIO, visao({ parceiro: null }), "lanterna", "R1")).toBe(
+      "Você sugeriu que a outra pessoa mova a lanterna: fundo, à direita.",
+    );
+  });
+
+  it("quemRecebeu", () => {
+    expect(
+      textoSinalRecebido(CENARIO, visao({ parceiro: null }), { peca: "lanterna", deAssento: "B", lugar: "R1" }),
+    ).toBe("A outra pessoa sugeriu mover a lanterna: fundo, à direita.");
   });
 });

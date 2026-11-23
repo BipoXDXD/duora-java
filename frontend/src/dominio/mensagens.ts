@@ -10,7 +10,15 @@ export interface ErroComCodigo {
   motivo: string | null;
 }
 
-const nomeDoParceiro = (visao: Visao | null | undefined): string => visao?.parceiro?.nome ?? "A outra pessoa";
+/**
+ * O nome do parceiro num texto, no começo da frase. Sem parceiro na visão (a invariante quebrou ou
+ * a visão é de transição), "A outra pessoa": o texto nunca diz "undefined".
+ */
+export const nomeDoParceiro = (visao: Visao | null | undefined): string => visao?.parceiro?.nome ?? "A outra pessoa";
+
+/** O mesmo nome no meio da frase: o substituto vem em minúscula. */
+export const nomeDoParceiroNoMeio = (visao: Visao | null | undefined): string =>
+  visao?.parceiro?.nome ?? "a outra pessoa";
 
 /** Mensagem curta para um ErroApi: diz o que aconteceu e o que fazer. */
 export function mensagemDeErro(erro: ErroComCodigo, visao: Visao | null | undefined): string {
@@ -26,7 +34,7 @@ export function mensagemDeErro(erro: ErroComCodigo, visao: Visao | null | undefi
     case "CONVITE_INVALIDO":
       return "Este convite não vale mais. Peça um link novo ou crie seu próprio terraço.";
     case "PECA_ALHEIA":
-      return `Essa peça é de ${parceiro}. Toque nela no terraço para sugerir que mova.`;
+      return `Essa peça é de ${nomeDoParceiroNoMeio(visao)}. Toque nela no terraço para sugerir que mova.`;
     case "ORIGEM_RECUSADA":
       return "O servidor recusou o pedido. Recarregue a página e tente de novo.";
     case "LUGAR_OCUPADO":
@@ -77,7 +85,7 @@ export function textoRecusaDoSinal(erro: ErroComCodigo, visao: Visao | null): st
 /** Texto de estado para uma peça própria que não pode ser colocada agora. */
 export function textoBloqueio(codigo: string, visao: Visao | null | undefined): string {
   if (codigo === "ESPERE_PRIMEIRA_PECA") {
-    return `Espere ${visao?.parceiro?.nome ?? "a outra pessoa"} colocar a primeira peça.`;
+    return `Espere ${nomeDoParceiroNoMeio(visao)} colocar a primeira peça.`;
   }
   return "Indisponível agora.";
 }
@@ -121,7 +129,7 @@ export function textoMotivoConfirmacao(visao: Visao): string {
     return faltam === 1 ? "Falta 1 peça no terraço." : `Faltam ${String(faltam)} peças no terraço.`;
   }
   if (visao.prontos.voce && !visao.prontos.parceiro) {
-    return `Você confirmou. Esperando ${nomeDoParceiro(visao)}.`;
+    return `Você confirmou. Esperando ${nomeDoParceiroNoMeio(visao)}.`;
   }
   if (visao.prontos.parceiro && !visao.prontos.voce) {
     return `${nomeDoParceiro(visao)} já confirmou esta composição.`;
