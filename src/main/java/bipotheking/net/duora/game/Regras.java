@@ -258,7 +258,11 @@ public final class Regras {
         .toList();
   }
 
-  /** Se colocar a peça agora seria barrado pelo portão da primeira peça. */
+  /**
+   * Se colocar a peça agora seria barrado pelo portão da primeira peça. Não considera a abertura:
+   * quem chama confere {@link #lugaresPermitidos} (vazio durante a abertura) ou o {@link #colocar}
+   * (que a recusa antes do portão).
+   */
   public static boolean bloqueadaPeloPortao(Cenario cenario, Estado estado, Peca peca) {
     Composicao atual = estado.composicao();
     if (!(estado.fase() instanceof Fase.Montando) || atual.colocada(peca)) {
