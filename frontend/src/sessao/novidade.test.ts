@@ -96,7 +96,7 @@ describe("novidade", () => {
   it("pedidoCanceladoPeloParceiro", () => {
     const noite = visao({ fase: "REVELADO" });
 
-    expect(novidade(CENARIO, { ...noite, ajuste: { deAssento: "B" } }, noite, false)).toBe("Pedido cancelado.");
+    expect(novidade(CENARIO, { ...noite, ajuste: { deAssento: "B" } }, noite, false)).toBe("Bruno cancelou o pedido.");
   });
 
   it("confirmação desfeita pela mudança", () => {

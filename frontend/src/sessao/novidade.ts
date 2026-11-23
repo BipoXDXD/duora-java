@@ -50,7 +50,7 @@ export function novidade(c: CenarioFront, anterior: Visao, visao: Visao, propria
     if (ajusteAntes === "meu") {
       return `${parceiro} prefere manter esta noite.`;
     }
-    return ajusteAntes === "do-outro" ? "Pedido cancelado." : textoDoPedido(visao);
+    return ajusteAntes === "do-outro" ? `${parceiro} cancelou o pedido.` : textoDoPedido(visao);
   }
   const frases = [pecas, textoConexaoDoParceiro(anterior, visao)];
   if (anterior.prontos.voce && !visao.prontos.voce) {
