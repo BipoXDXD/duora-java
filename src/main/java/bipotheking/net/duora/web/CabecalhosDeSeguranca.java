@@ -1,4 +1,4 @@
-package bipotheking.net.duora.room;
+package bipotheking.net.duora.web;
 
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
@@ -19,10 +19,10 @@ import org.springframework.web.filter.OncePerRequestFilter;
  * quando o arquivo existe.
  */
 @Component
-@Order(Ordered.HIGHEST_PRECEDENCE)
-class CabecalhosDeSeguranca extends OncePerRequestFilter {
+@Order(Ordered.HIGHEST_PRECEDENCE + 1)
+public final class CabecalhosDeSeguranca extends OncePerRequestFilter {
 
-  static final String CSP =
+  public static final String CSP =
       "default-src 'self'; img-src 'self' data:; object-src 'none'; base-uri 'none'; "
           + "frame-ancestors 'none'; form-action 'self'";
 

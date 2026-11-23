@@ -7,6 +7,8 @@ import bipotheking.net.duora.game.Cenario;
 import bipotheking.net.duora.game.Lugar;
 import bipotheking.net.duora.game.Peca;
 import bipotheking.net.duora.game.Terraco;
+import bipotheking.net.duora.nucleo.ErroDeNegocio;
+import bipotheking.net.duora.web.CodigoWeb;
 import java.util.HexFormat;
 import java.util.Optional;
 import org.jspecify.annotations.Nullable;
@@ -161,7 +163,7 @@ class SalaController {
 
   private static <T> T obrigatorio(@Nullable T valor) {
     if (valor == null) {
-      throw new ErroApi(Codigo.CORPO_INVALIDO, "Falta um campo obrigatório.");
+      throw new ErroDeNegocio(CodigoWeb.CORPO_INVALIDO, "Falta um campo obrigatório.");
     }
     return valor;
   }

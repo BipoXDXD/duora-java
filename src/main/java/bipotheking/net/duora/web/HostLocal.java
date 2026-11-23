@@ -1,4 +1,4 @@
-package bipotheking.net.duora.room;
+package bipotheking.net.duora.web;
 
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
@@ -15,7 +15,7 @@ import tools.jackson.databind.json.JsonMapper;
  * Toda requisição, inclusive estáticos, precisa vir com {@code Host} de loopback e a porta local.
  */
 @Component
-@Order(Ordered.HIGHEST_PRECEDENCE + 1)
+@Order(Ordered.HIGHEST_PRECEDENCE + 2)
 class HostLocal extends OncePerRequestFilter {
 
   private final JsonMapper json;
@@ -31,7 +31,7 @@ class HostLocal extends OncePerRequestFilter {
     if (!EnderecoLocal.permitido(
         request.getServerName(), request.getServerPort(), request.getLocalPort())) {
       RespostaDeProblema.escrever(
-          response, json, Codigo.HOST_RECUSADO, "Acesse pelo endereço local do servidor.");
+          response, json, CodigoWeb.HOST_RECUSADO, "Acesse pelo endereço local do servidor.");
       return;
     }
     chain.doFilter(request, response);

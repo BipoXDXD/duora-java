@@ -1,4 +1,4 @@
-package bipotheking.net.duora.room;
+package bipotheking.net.duora.web;
 
 import java.net.URI;
 import java.util.Locale;

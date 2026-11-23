@@ -1,4 +1,4 @@
-package bipotheking.net.duora.room;
+package bipotheking.net.duora.web;
 
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
@@ -18,11 +18,11 @@ import tools.jackson.databind.json.JsonMapper;
  * de ser de loopback na porta local; {@code Sec-Fetch-Site}, se veio, tem de ser same-origin.
  */
 @Component
-@Order(Ordered.HIGHEST_PRECEDENCE + 2)
-class MesmaOrigem extends OncePerRequestFilter {
+@Order(Ordered.HIGHEST_PRECEDENCE + 3)
+public class MesmaOrigem extends OncePerRequestFilter {
 
-  static final String CABECALHO = "X-Duora";
-  static final String SEC_FETCH_SITE = "Sec-Fetch-Site";
+  public static final String CABECALHO = "X-Duora";
+  public static final String SEC_FETCH_SITE = "Sec-Fetch-Site";
   private static final String VALOR_ESPERADO = "1";
   private static final String MESMA_ORIGEM = "same-origin";
   private static final String PREFIXO_API = "/api/";
@@ -44,7 +44,7 @@ class MesmaOrigem extends OncePerRequestFilter {
       throws ServletException, IOException {
     if (ehApi(request) && !METODOS_SEGUROS.contains(request.getMethod()) && !aceita(request)) {
       RespostaDeProblema.escrever(
-          response, json, Codigo.ORIGEM_RECUSADA, "Pedido recusado: origem não confirmada.");
+          response, json, CodigoWeb.ORIGEM_RECUSADA, "Pedido recusado: origem não confirmada.");
       return;
     }
     chain.doFilter(request, response);
