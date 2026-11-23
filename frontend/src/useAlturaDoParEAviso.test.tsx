@@ -7,8 +7,10 @@ class ObservadorFalso {
   static ultimo: ObservadorFalso | null = null;
   readonly observados: Element[] = [];
   desligado = false;
+  readonly avisar: () => void;
 
-  constructor(readonly avisar: () => void) {
+  constructor(avisar: () => void) {
+    this.avisar = avisar;
     ObservadorFalso.ultimo = this;
   }
 
