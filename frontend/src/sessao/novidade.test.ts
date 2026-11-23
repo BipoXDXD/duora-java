@@ -189,70 +189,86 @@ describe("novidade: abertura", () => {
 
 describe("instrucao", () => {
   it("duranteAAberturaSemInstrucao", () => {
-    expect(instrucao(CENARIO, visao({ abertura: ABERTURA_ATIVA }), null, null)).toBe("");
+    expect(instrucao(CENARIO, visao({ abertura: ABERTURA_ATIVA }), { selecionada: null, enviando: null })).toBe("");
   });
 
   it("duranteOEnvioDoToqueContinuaSemInstrucao", () => {
-    expect(instrucao(CENARIO, visao({ abertura: ABERTURA_ATIVA }), null, "abertura")).toBe("");
+    expect(instrucao(CENARIO, visao({ abertura: ABERTURA_ATIVA }), { selecionada: null, enviando: "abertura" })).toBe(
+      "",
+    );
   });
 
   it("depoisDaAberturaAInstrucaoVolta", () => {
     const concluida = visao({ abertura: { ...ABERTURA_ATIVA, ativa: false, acesa: true } });
 
-    expect(instrucao(CENARIO, concluida, null, null)).toBe("Escolha uma das suas peças e depois um lugar no terraço.");
+    expect(instrucao(CENARIO, concluida, { selecionada: null, enviando: null })).toBe(
+      "Escolha uma das suas peças e depois um lugar no terraço.",
+    );
   });
 
   it("durante um envio", () => {
-    expect(instrucao(CENARIO, visao(), null, "pecas")).toBe("Enviando…");
+    expect(instrucao(CENARIO, visao(), { selecionada: null, enviando: "pecas" })).toBe("Enviando…");
   });
 
   it("revelado", () => {
-    expect(instrucao(CENARIO, visao({ fase: "REVELADO" }), null, null)).toBe("Olhem para cima.");
+    expect(instrucao(CENARIO, visao({ fase: "REVELADO" }), { selecionada: null, enviando: null })).toBe(
+      "Olhem para cima.",
+    );
   });
 
   it("peça central selecionada", () => {
-    expect(instrucao(CENARIO, visao(), "telescopio", null)).toBe(
+    expect(instrucao(CENARIO, visao(), { selecionada: "telescopio", enviando: null })).toBe(
       "Escolha onde o telescópio fica: na área de observação, no centro. Esc cancela.",
     );
   });
 
   it("peça lateral selecionada", () => {
-    expect(instrucao(CENARIO, visao(), "manta", null)).toBe(
+    expect(instrucao(CENARIO, visao(), { selecionada: "manta", enviando: null })).toBe(
       "Escolha onde a manta fica: em um lugar lateral. Esc cancela.",
     );
   });
 
   it("sem sufixo de cancelar (toque), a instrução da seleção não cita o Esc", () => {
-    expect(instrucao(CENARIO, visao(), "manta", null, null, "")).toBe(
+    expect(instrucao(CENARIO, visao(), { selecionada: "manta", enviando: null, sufixoCancelar: "" })).toBe(
       "Escolha onde a manta fica: em um lugar lateral.",
     );
   });
 
   it("você já confirmou", () => {
-    expect(instrucao(CENARIO, visao({ prontos: { voce: true, parceiro: false } }), null, null)).toBe(
-      "Esperando Bruno confirmar a mesma composição.",
-    );
+    expect(
+      instrucao(CENARIO, visao({ prontos: { voce: true, parceiro: false } }), { selecionada: null, enviando: null }),
+    ).toBe("Esperando Bruno confirmar a mesma composição.");
   });
 
   it("você já confirmou, sem parceiro", () => {
-    expect(instrucao(CENARIO, visao({ parceiro: null, prontos: { voce: true, parceiro: false } }), null, null)).toBe(
-      "Esperando a outra pessoa confirmar a mesma composição.",
-    );
+    expect(
+      instrucao(CENARIO, visao({ parceiro: null, prontos: { voce: true, parceiro: false } }), {
+        selecionada: null,
+        enviando: null,
+      }),
+    ).toBe("Esperando a outra pessoa confirmar a mesma composição.");
   });
 
   it("tudo no lugar", () => {
-    expect(instrucao(CENARIO, visao({ confirmacao: { podeConfirmar: true, faltam: 0 } }), null, null)).toBe(
-      "Tudo no lugar. Quando os dois confirmarem, o céu escurece.",
-    );
+    expect(
+      instrucao(CENARIO, visao({ confirmacao: { podeConfirmar: true, faltam: 0 } }), {
+        selecionada: null,
+        enviando: null,
+      }),
+    ).toBe("Tudo no lugar. Quando os dois confirmarem, o céu escurece.");
   });
 
   it("nenhuma peça sua no terraço", () => {
-    expect(instrucao(CENARIO, visao(), null, null)).toBe("Escolha uma das suas peças e depois um lugar no terraço.");
+    expect(instrucao(CENARIO, visao(), { selecionada: null, enviando: null })).toBe(
+      "Escolha uma das suas peças e depois um lugar no terraço.",
+    );
   });
 
   it("alguma peça sua já no terraço", () => {
     const agora = visao({ pecas: [{ peca: "telescopio", assento: "A", lugar: "C1" }] });
 
-    expect(instrucao(CENARIO, agora, null, null)).toBe("Escolha sua segunda peça ou reorganize as que já colocou.");
+    expect(instrucao(CENARIO, agora, { selecionada: null, enviando: null })).toBe(
+      "Escolha sua segunda peça ou reorganize as que já colocou.",
+    );
   });
 });

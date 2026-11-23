@@ -261,7 +261,7 @@ export function criarSessao({
       selecionada,
       sugerindo,
       destaques,
-      instrucao: instrucao(cenario, visao, selecionada, enviando, sugerindo, sufixoCancelar),
+      instrucao: instrucao(cenario, visao, { selecionada, enviando, sugerindo, sufixoCancelar }),
     };
   }
 

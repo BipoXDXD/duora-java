@@ -69,18 +69,21 @@ export function textoSinalEnviado(c: CenarioFront, visao: Visao, peca: string, l
 /** O fim da instrução de escolher um lugar com teclado à mão: o Esc desfaz a escolha. */
 export const SUFIXO_ESC_CANCELA = " Esc cancela.";
 
-/**
- * A instrução da montagem: o próximo passo de quem está na tela. sugerindo: a peça do parceiro
- * cujo destino você está escolhendo. sufixoCancelar: como desfazer a escolha do lugar ("" no
- * toque, onde não há Esc).
- */
+/** O que a tela tem em mãos além da visão: a escolha em curso e a ação em envio. */
+export interface EscolhaDaVez {
+  selecionada: string | null;
+  enviando: Acao | null;
+  /** A peça do parceiro cujo destino você está escolhendo. */
+  sugerindo?: string | null;
+  /** Como desfazer a escolha do lugar ("" no toque, onde não há Esc). */
+  sufixoCancelar?: string;
+}
+
+/** A instrução da montagem: o próximo passo de quem está na tela. */
 export function instrucao(
   c: CenarioFront,
   visao: Visao,
-  selecionada: string | null,
-  enviando: Acao | null,
-  sugerindo: string | null = null,
-  sufixoCancelar = SUFIXO_ESC_CANCELA,
+  { selecionada, enviando, sugerindo = null, sufixoCancelar = SUFIXO_ESC_CANCELA }: EscolhaDaVez,
 ): string {
   // A abertura é sem palavras: a lanterna na cena é o único convite, também durante o toque.
   if (aberturaAtiva(visao)) {
