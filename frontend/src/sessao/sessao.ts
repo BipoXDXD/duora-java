@@ -142,9 +142,12 @@ const semSala = (erro: unknown): boolean => erro instanceof ErroApi && CODIGOS_S
 /** A sala atual acabou com a troca aberta: o convite continua de pé. */
 const TEXTO_TROCA_SEM_SALA = "O terraço anterior terminou. Você pode entrar no convite.";
 
-/** Na troca, a sala que acabou só libera o convite; fora dela, o texto do erro. */
-const avisoDaSalaPerdida = (erro: ErroApi, emTroca: boolean): string =>
-  emTroca && semSala(erro) ? TEXTO_TROCA_SEM_SALA : mensagemDeErro(erro, null);
+/**
+ * Com um convite em mãos (na troca ou ainda em conferência na carga), a sala que acabou só libera
+ * o convite; sem convite, o texto do erro.
+ */
+const avisoDaSalaPerdida = (erro: ErroApi, comConvite: boolean): string =>
+  comConvite && semSala(erro) ? TEXTO_TROCA_SEM_SALA : mensagemDeErro(erro, null);
 
 /** Como cada tipo de ação reage a uma recusa do servidor: onde fica o foco e o que se diz. */
 interface ReacaoARecusa {
@@ -194,7 +197,6 @@ export function criarSessao({
   agendar = agendarComSetTimeout,
   ehToque = ehToqueDoDispositivo,
 }: OpcoesDaSessao): Sessao {
-  const sufixoCancelar = ehToque() ? "" : SUFIXO_ESC_CANCELA;
   const estado = {
     // O convite em espera: o da carga ou um aberto depois; com sala, ele pede a troca.
     convite,
@@ -221,6 +223,8 @@ export function criarSessao({
   // Peça em destaque → cancela o fim dele. A lista muda de objeto só quando o conjunto muda.
   const fimDosDestaques = new Map<string, () => void>();
   let destaques: readonly string[] = SEM_DESTAQUES;
+  // A sala como estava quando a troca abriu: "Continuar no terraço" conta o que mudou desde então.
+  let visaoAntesDaTroca: Visao | null = null;
   let retrato = montarRetrato();
   // O último texto escrito no #aviso: a sugestão que expira só apaga o aviso se ele ainda é o dela.
   let ultimoAviso = "";
@@ -280,13 +284,22 @@ export function criarSessao({
       selecionada,
       sugerindo,
       destaques,
-      instrucao: instrucao(cenario, visao, { selecionada, enviando, sugerindo, sufixoCancelar }),
+      instrucao: instrucao(cenario, visao, {
+        selecionada,
+        enviando,
+        sugerindo,
+        // A cada retrato: num aparelho híbrido, o teclado pode chegar depois da carga.
+        sufixoCancelar: ehToque() ? "" : SUFIXO_ESC_CANCELA,
+      }),
     };
   }
 
-  /** Revelado: noite com meteoros do lado do telescópio. Qualquer outra fase: crepúsculo. */
+  /**
+   * Revelado: noite com meteoros do lado do telescópio. Qualquer outra fase, ou a troca de sala (a
+   * entrada fica na frente da noite): crepúsculo.
+   */
   function camposForaDaTela(): Omit<EstadoDaSessao, keyof EstadoDaTela> {
-    const noite = estado.visao?.fase === "REVELADO";
+    const noite = !emTroca() && estado.visao?.fase === "REVELADO";
     return {
       enviando: estado.enviando,
       cenaVazia: estado.visao === null,
@@ -336,6 +349,12 @@ export function criarSessao({
 
   /** A entrada que troca de sala: com o convite em espera, a sala atual fica por trás. */
   function mostrarTroca(): void {
+    if (!emTroca()) {
+      visaoAntesDaTroca = estado.visao;
+    }
+    // A escolha em curso não sobrevive à troca: quem continua no terraço recomeça do zero.
+    estado.selecionada = null;
+    estado.sugerindo = null;
     estado.semVisao = { tela: "entrada", comConvite: true, trocaDeSala: true, erroApelido: "" };
     estado.confirmandoSaida = false;
     // O botão do som some com a sala atual: o som não pode seguir sem controle na tela (WCAG 1.4.2).
@@ -351,6 +370,18 @@ export function criarSessao({
   function desfazerTroca(): void {
     estado.convite = null;
     estado.semVisao = { tela: "carregando" };
+    visaoAntesDaTroca = null;
+  }
+
+  /** "De volta ao terraço com Bruno.", mais o que mudou na sala enquanto a entrada estava na frente. */
+  function avisoDaVolta(antes: Visao | null): string {
+    const visao = estado.visao;
+    if (visao === null) {
+      return "";
+    }
+    const volta = visao.parceiro ? `De volta ao terraço com ${visao.parceiro.nome}.` : "De volta ao terraço.";
+    const mudou = antes ? novidade(cenario, antes, visao, false) : null;
+    return mudou ? `${volta} ${mudou}` : volta;
   }
 
   /**
@@ -447,12 +478,14 @@ export function criarSessao({
       void decidirConviteDaCarga(token);
     }
     // Na troca, a sala atual está fora da tela: as novidades dela não disputam o aviso da entrada.
-    const texto = anterior && !emTroca() ? novidade(cenario, anterior, visao, propria) : null;
-    if (texto) {
-      aviso.avisar(texto);
-    } else if (anterior && sinalDaMontagem(visao) === null && ultimoAviso === avisoDoSinal(anterior)) {
-      // A sugestão expirou (ou foi atendida em silêncio): o aviso não pode seguir citando-a.
-      aviso.avisar("");
+    if (anterior && !emTroca()) {
+      const texto = novidade(cenario, anterior, visao, propria);
+      if (texto) {
+        aviso.avisar(texto);
+      } else if (sinalDaMontagem(visao) === null && ultimoAviso === avisoDoSinal(anterior)) {
+        // A sugestão expirou (ou foi atendida em silêncio): o aviso não pode seguir citando-a.
+        aviso.avisar("");
+      }
     }
     publicar();
   }
@@ -606,7 +639,8 @@ export function criarSessao({
       const mensagem = aoAceitar(nova);
       estado.enviando = null;
       aplicarVisao(nova, true);
-      if (mensagem) {
+      // A troca abriu durante o envio: a resposta é da sala que ficou por trás da entrada.
+      if (mensagem && !emTroca()) {
         aviso.avisar(mensagem);
       }
     } catch (erro) {
@@ -804,7 +838,6 @@ export function criarSessao({
     const estavaNaSala = estado.visao !== null;
     const parceiro = estado.visao?.parceiro?.nome ?? estado.ultimoParceiro;
     const telaDaVez = telaAtual();
-    const emTrocaAntes = emTroca();
     limparSessao();
     if (!(erro instanceof ErroApi)) {
       // Como antes: a tela da vez fica parada, só a cena, o céu, o som e a confirmação de saída
@@ -818,7 +851,7 @@ export function criarSessao({
     if (semAssento || (estado.convite && erro.status !== 403)) {
       // Ao carregar sem sala (ou com convite em mãos), o caminho é entrar.
       mostrarEntrada(Boolean(estado.convite), estavaNaSala);
-      aviso.avisar(estavaNaSala ? avisoDaSalaPerdida(erro, emTrocaAntes) : "");
+      aviso.avisar(estavaNaSala ? avisoDaSalaPerdida(erro, Boolean(estado.convite)) : "");
       return;
     }
     if (erro.codigo === "SALA_ENCERRADA" || erro.codigo === "SALA_INEXISTENTE") {
@@ -912,7 +945,9 @@ export function criarSessao({
       if (estado.enviando === "entrada") {
         return;
       }
+      const antes = visaoAntesDaTroca;
       desfazerTroca();
+      aviso.avisar(avisoDaVolta(antes));
       publicar();
     },
     limparErroApelido() {

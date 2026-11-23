@@ -876,6 +876,99 @@ describe("criarSessao", () => {
     expect(sessao.obter()).toMatchObject({ tela: "montagem", enviando: null });
   });
 
+  describe("troca de sala: o que fica para trás", () => {
+    it("trocaVindaDaNoiteMostraOCrepusculo", async () => {
+      const { sessao } = naSala(
+        visao({
+          fase: "REVELADO",
+          resultado: { secundariaA: "manta", secundariaB: "banco", ladoTelescopio: "esquerda" },
+        }),
+      );
+
+      await sessao.receberConvite("outra");
+
+      expect(sessao.obter()).toMatchObject({ tela: "entrada", momento: "crepusculo", ladoTelescopio: null });
+    });
+
+    it("continuarNoTerracoNaoTrazASelecaoDeAntes", async () => {
+      const { sessao } = naSala();
+      await sessao.escolherPeca("telescopio", true);
+      await sessao.receberConvite("outra");
+
+      sessao.continuarNoTerraco();
+
+      expect(sessao.obter()).toMatchObject({ tela: "montagem", selecionada: null, sugerindo: null });
+    });
+
+    it("continuarNoTerracoAnunciaAVolta", async () => {
+      const { sessao, aviso } = naSala();
+      await sessao.receberConvite("outra");
+
+      sessao.continuarNoTerraco();
+
+      expect(aviso.avisar).toHaveBeenLastCalledWith("De volta ao terraço com Bruno.");
+    });
+
+    it("continuarNoTerracoContaOQueMudouDuranteATroca", async () => {
+      const { sessao, doPolling, aviso } = naSala();
+      await sessao.receberConvite("outra");
+      doPolling().aoReceber(visao({ versao: 4, prontos: { voce: false, parceiro: true } }));
+      expect(aviso.avisar).not.toHaveBeenCalledWith("Bruno confirmou esta composição.");
+
+      sessao.continuarNoTerraco();
+
+      expect(aviso.avisar).toHaveBeenLastCalledWith("De volta ao terraço com Bruno. Bruno confirmou esta composição.");
+    });
+
+    it("respostaDaAcaoEmVooNaoFalaSobreAEntrada", async () => {
+      const pronto = adiada();
+      const { sessao, aviso } = naSala(visao({ confirmacao: { podeConfirmar: true, faltam: 0 } }), {
+        api: { marcarPronto: vi.fn(() => pronto.promessa) },
+      });
+      const envio = sessao.confirmar();
+      await sessao.receberConvite("outra");
+
+      pronto.resolver(resposta(visao({ versao: 4, fase: "REVELADO" })));
+      await envio;
+
+      expect(aviso.avisar).not.toHaveBeenCalledWith("Vocês confirmaram. Olhem o céu.");
+    });
+
+    it("sugestaoQueExpiraNaTrocaNaoApagaOAvisoDaEntrada", async () => {
+      const { sessao, doPolling, aviso } = naSala(visaoDeBrunoComSinal({ sinal: null }));
+      doPolling().aoReceber(visaoDeBrunoComSinal());
+      await sessao.receberConvite("outra");
+      aviso.avisar.mockClear();
+
+      doPolling().aoReceber(visaoDeBrunoComSinal({ versao: 5, sinal: null }));
+
+      expect(aviso.avisar).not.toHaveBeenCalled();
+    });
+
+    it("salaQueAcabaComOConviteDaCargaEmConferenciaNaoMandaCriarOutro", () => {
+      const { sessao, doPolling, aviso } = montar({ convite: "abc" });
+      sessao.iniciar();
+      doPolling().aoReceber(visao());
+
+      doPolling().aoFalhar(ENCERRADA_PELO_PARCEIRO, null);
+
+      expect(sessao.obter()).toMatchObject({ tela: "entrada", comConvite: true });
+      expect(aviso.avisar).toHaveBeenLastCalledWith("O terraço anterior terminou. Você pode entrar no convite.");
+    });
+
+    it("oSufixoDoEscSegueOTecladoDeAgora", async () => {
+      let toque = true;
+      const { sessao } = naSala(visao(), { ehToque: () => toque });
+      toque = false;
+
+      await sessao.escolherPeca("telescopio", true);
+
+      expect(sessao.obter()).toMatchObject({
+        instrucao: "Escolha onde o telescópio fica: na área de observação, no centro. Esc cancela.",
+      });
+    });
+  });
+
   it("continuarNoTerracoDesisteDaTroca", async () => {
     const { sessao, api } = naSala();
     await sessao.receberConvite("outra");
