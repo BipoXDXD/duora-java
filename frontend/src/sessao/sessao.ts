@@ -139,6 +139,12 @@ const TEXTO_TROCA_SEM_SALA = "O terraço anterior terminou. Você pode entrar no
 const avisoDaSalaPerdida = (erro: ErroApi, emTroca: boolean): string =>
   emTroca && semSala(erro) ? TEXTO_TROCA_SEM_SALA : mensagemDeErro(erro, null);
 
+/** Como cada tipo de ação reage a uma recusa do servidor: onde fica o foco e o que se diz. */
+interface ReacaoARecusa {
+  focar: (visao: Visao, peca: string) => void;
+  texto: (erro: ErroApi, visao: Visao | null) => string;
+}
+
 /** A peça selecionada segue escolhível na visão nova: ainda na montagem e ainda sua. */
 function selecaoContinua(visao: Visao, selecionada: string | null): boolean {
   return (
@@ -594,15 +600,12 @@ export function criarSessao({
       encerrarSessao(erro);
       return;
     }
+    const recusa = acao === "sinal" ? RECUSA_DO_SINAL : RECUSA_DA_PECA;
     const visaoAntes = estado.visao;
     if (erro.visao) {
       polling.aceitar(null);
       if (erro.status === 409 && peca) {
-        if (acao === "sinal") {
-          focarAposRecusaDoSinal(erro.visao, peca);
-        } else {
-          focarAposRecusa(erro.visao, peca);
-        }
+        recusa.focar(erro.visao, peca);
       }
       aplicarVisao(erro.visao, true);
     } else {
@@ -611,12 +614,11 @@ export function criarSessao({
         polling.consultarAgora();
       }
     }
-    const visaoDoTexto = estado.visao ?? visaoAntes;
-    aviso.avisar(
-      acao === "sinal" ? textoRecusaDoSinal(erro, visaoDoTexto) : mensagemDeErro(erro, visaoDoTexto),
-      "erro",
-    );
+    aviso.avisar(recusa.texto(erro, estado.visao ?? visaoAntes), "erro");
   }
+
+  const RECUSA_DO_SINAL: ReacaoARecusa = { focar: focarAposRecusaDoSinal, texto: textoRecusaDoSinal };
+  const RECUSA_DA_PECA: ReacaoARecusa = { focar: focarAposRecusa, texto: mensagemDeErro };
 
   /** Com destinos de sobra, a sugestão continua e o foco vai ao primeiro; senão, volta à peça. */
   function focarAposRecusaDoSinal(visao: Visao, peca: string): void {
