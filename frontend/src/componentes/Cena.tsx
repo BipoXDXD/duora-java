@@ -39,6 +39,17 @@ function elemento<T>(ref: RefObject<T | null>): T {
   return ref.current;
 }
 
+/** O seletor do elemento equivalente depois do redesenho: a lanterna, o mesmo lugar ou a mesma peça. */
+function seletorEquivalente({ peca, lugar, abertura }: DOMStringMap, tag: string): string {
+  if (abertura !== undefined) {
+    return `${tag}[data-abertura]`;
+  }
+  if (lugar) {
+    return `${tag}[data-lugar="${lugar}"]`;
+  }
+  return `${tag}[data-peca="${peca ?? ""}"]`;
+}
+
 /**
  * O redesenho troca os botões das camadas; devolve o foco ao equivalente (mesma peça ou mesmo
  * lugar na mesma camada), se ele tiver caído no body. Os efeitos da peça também têm data-peca:
@@ -50,18 +61,11 @@ function lembrarFoco(camadas: readonly HTMLElement[]): () => void {
   if (!(ativo instanceof HTMLElement) || camada === undefined) {
     return () => {};
   }
-  const { peca, lugar, abertura } = ativo.dataset;
-  const tag = ativo.localName;
+  const seletor = seletorEquivalente(ativo.dataset, ativo.localName);
   return () => {
     if (document.activeElement && document.activeElement !== document.body) {
       return;
     }
-    const seletor =
-      abertura !== undefined
-        ? `${tag}[data-abertura]`
-        : lugar
-          ? `${tag}[data-lugar="${lugar}"]`
-          : `${tag}[data-peca="${peca ?? ""}"]`;
     camada.querySelector<HTMLElement>(seletor)?.focus();
   };
 }
