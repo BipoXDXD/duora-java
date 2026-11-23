@@ -23,7 +23,7 @@ public record DefinicaoDeAbertura(String tipo, Duration janela, Duration maximo)
     if (!TIPO.matcher(tipo).matches()) {
       throw new IllegalArgumentException("tipo de abertura fora do padrão: " + tipo);
     }
-    if (janela.isNegative() || janela.isZero()) {
+    if (!janela.isPositive()) {
       throw new IllegalArgumentException("janela de abertura não positiva: " + janela);
     }
     if (maximo.isNegative()) {
@@ -32,7 +32,7 @@ public record DefinicaoDeAbertura(String tipo, Duration janela, Duration maximo)
   }
 
   /** A mesma abertura com outro {@link #maximo()}. */
-  public DefinicaoDeAbertura comMaximo(Duration maximo) {
+  DefinicaoDeAbertura comMaximo(Duration maximo) {
     return new DefinicaoDeAbertura(tipo, janela, maximo);
   }
 }
