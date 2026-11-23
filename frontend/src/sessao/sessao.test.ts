@@ -34,6 +34,7 @@ function visao(mudancas: Partial<Visao> = {}): Visao {
     resultado: null,
     ajuste: null,
     abertura: null,
+    conviteDaSala: "resumo-da-sala",
     ...mudancas,
   };
 }
@@ -65,6 +66,9 @@ function adiada() {
 }
 
 const CONVITE_PROPRIO = "Este é o convite do seu terraço. Mande para a outra pessoa.";
+const JA_NESTE_TERRACO = "Você já está neste terraço.";
+/** SHA-256 de "abc" (vetor do FIPS 180-2): o conviteDaSala de uma sala com o convite "abc". */
+const RESUMO_ABC = "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad";
 
 const ENCERRADA_PELO_PARCEIRO = new ErroApi({ status: 410, codigo: "SALA_ENCERRADA", motivo: "SAIU" });
 
@@ -253,10 +257,6 @@ describe("criarSessao", () => {
       expect(aviso.avisar).toHaveBeenLastCalledWith("Pedido cancelado.");
     });
 
-    it("recusaEmEnvioMostraQualAcaoEsperaOServidor", () => {
-      const { sessao } = naSala(noite({ deAssento: "B" }));
-
-      void sessao.recusarAjuste();
     it("aceiteProprioQueOPollingTrazAntesDaRespostaNaoViraNovidadeDoParceiro", async () => {
       const resposta_ = adiada();
       const { sessao, doPolling, aviso } = naSala(noite({ deAssento: "B" }), {
@@ -287,6 +287,10 @@ describe("criarSessao", () => {
       expect(aviso.avisar).toHaveBeenLastCalledWith("Tudo bem, a noite fica como está.");
     });
 
+    it("recusaEmEnvioMostraQualAcaoEsperaOServidor", () => {
+      const { sessao } = naSala(noite({ deAssento: "B" }));
+
+      void sessao.recusarAjuste();
 
       expect(sessao.obter()).toMatchObject({ enviando: "recusar-ajuste" });
     });
@@ -602,23 +606,46 @@ describe("criarSessao", () => {
     });
   });
 
-  it("proprioConviteAvisaSemTrocar", () => {
+  it("proprioConviteAvisaSemTrocar", async () => {
     const { sessao, api, aviso } = naSala(visao({ fase: "AGUARDANDO_PAR", parceiro: null, convite: "abc" }));
 
-    sessao.receberConvite("abc");
+    await sessao.receberConvite("abc");
 
     expect(aviso.avisar).toHaveBeenCalledWith(CONVITE_PROPRIO);
     expect(sessao.obter()).toMatchObject({ tela: "convite" });
     expect(api.sair).not.toHaveBeenCalled();
   });
 
-  it("conviteJaVistoContinuaProprioDepoisQueOParceiroEntra", () => {
+  it("abaNovaComOProprioConviteNaMontagemNaoOfereceTroca", async () => {
+    const { sessao, doPolling, api, aviso } = montar({ convite: "abc" });
+    sessao.iniciar();
+
+    doPolling().aoReceber(visao({ conviteDaSala: RESUMO_ABC }));
+
+    await vi.waitFor(() => {
+      expect(aviso.avisar).toHaveBeenCalledWith(JA_NESTE_TERRACO);
+    });
+    expect(sessao.obter()).toMatchObject({ tela: "montagem" });
+    expect(api.sair).not.toHaveBeenCalled();
+  });
+
+  it("proprioConviteReabertoSemMemoriaDaAbaNaoOfereceTroca", async () => {
+    const { sessao, api, aviso } = naSala(visao({ conviteDaSala: RESUMO_ABC }));
+
+    await sessao.receberConvite("abc");
+
+    expect(aviso.avisar).toHaveBeenLastCalledWith(JA_NESTE_TERRACO);
+    expect(sessao.obter()).toMatchObject({ tela: "montagem" });
+    expect(api.sair).not.toHaveBeenCalled();
+  });
+
+  it("conviteJaVistoContinuaProprioDepoisQueOParceiroEntra", async () => {
     const { sessao, doPolling, aviso } = naSala(visao({ fase: "AGUARDANDO_PAR", parceiro: null, convite: "abc" }));
     doPolling().aoReceber(visao({ versao: 4 }));
 
-    sessao.receberConvite("abc");
+    await sessao.receberConvite("abc");
 
-    expect(aviso.avisar).toHaveBeenLastCalledWith(CONVITE_PROPRIO);
+    expect(aviso.avisar).toHaveBeenLastCalledWith(JA_NESTE_TERRACO);
     expect(sessao.obter()).toMatchObject({ tela: "montagem" });
   });
 
@@ -635,19 +662,19 @@ describe("criarSessao", () => {
     doPolling().aoFalhar(new ErroApi({ status: 401, codigo: "SEM_ASSENTO" }), null);
     await sessao.enviarApelido("Bruno");
 
-    sessao.receberConvite("xyz");
+    await sessao.receberConvite("xyz");
 
     expect(api.sair).not.toHaveBeenCalled();
     expect(api.entrar).toHaveBeenCalledOnce();
-    expect(aviso.avisar).toHaveBeenLastCalledWith(CONVITE_PROPRIO);
+    expect(aviso.avisar).toHaveBeenLastCalledWith(JA_NESTE_TERRACO);
     expect(sessao.obter()).toMatchObject({ tela: "montagem" });
   });
 
-  it("conviteDeOutraSalaMostraATrocaEOPollingNaoATira", () => {
+  it("conviteDeOutraSalaMostraATrocaEOPollingNaoATira", async () => {
     const { sessao, doPolling, polling } = naSala();
     sessao.consumirFoco();
 
-    sessao.receberConvite("outra");
+    await sessao.receberConvite("outra");
     doPolling().aoReceber(visao({ versao: 4 }));
 
     expect(sessao.obter()).toMatchObject({ tela: "entrada", comConvite: true, trocaDeSala: true, erroApelido: "" });
@@ -663,7 +690,7 @@ describe("criarSessao", () => {
         entrar: vi.fn(() => Promise.resolve(resposta(nova))),
       },
     });
-    sessao.receberConvite("outra");
+    await sessao.receberConvite("outra");
 
     await sessao.enviarApelido("Ana");
 
@@ -682,7 +709,7 @@ describe("criarSessao", () => {
         entrar: vi.fn(() => Promise.resolve(resposta(visao({ versao: 1 })))),
       },
     });
-    sessao.receberConvite("outra");
+    await sessao.receberConvite("outra");
 
     await sessao.enviarApelido("Ana");
 
@@ -692,9 +719,9 @@ describe("criarSessao", () => {
   it.each([
     ["410", ENCERRADA_PELO_PARCEIRO],
     ["404", new ErroApi({ status: 404, codigo: "SALA_INEXISTENTE" })],
-  ])("salaAtualQueAcabaDuranteATrocaAvisaSemErroGenerico (%s)", (_status, erro) => {
+  ])("salaAtualQueAcabaDuranteATrocaAvisaSemErroGenerico (%s)", async (_status, erro) => {
     const { sessao, doPolling, aviso } = naSala();
-    sessao.receberConvite("outra");
+    await sessao.receberConvite("outra");
 
     doPolling().aoFalhar(erro, null);
 
@@ -706,7 +733,7 @@ describe("criarSessao", () => {
     const { sessao, api, aviso, polling } = naSala(visao(), {
       api: { sair: vi.fn(() => Promise.reject(new ErroApi({ status: 0, codigo: "REDE" }))) },
     });
-    sessao.receberConvite("outra");
+    await sessao.receberConvite("outra");
 
     await sessao.enviarApelido("Ana");
 
@@ -716,14 +743,14 @@ describe("criarSessao", () => {
     expect(aviso.avisar).toHaveBeenLastCalledWith(expect.any(String), "erro");
   });
 
-  it("conviteProprioDuranteATrocaDesfazATroca", () => {
+  it("conviteProprioDuranteATrocaDesfazATroca", async () => {
     const { sessao, doPolling, aviso } = naSala(visao({ fase: "AGUARDANDO_PAR", parceiro: null, convite: "abc" }));
     doPolling().aoReceber(visao({ versao: 4 }));
-    sessao.receberConvite("outra");
+    await sessao.receberConvite("outra");
 
-    sessao.receberConvite("abc");
+    await sessao.receberConvite("abc");
 
-    expect(aviso.avisar).toHaveBeenLastCalledWith(CONVITE_PROPRIO);
+    expect(aviso.avisar).toHaveBeenLastCalledWith(JA_NESTE_TERRACO);
     expect(sessao.obter()).toMatchObject({ tela: "montagem" });
   });
 
@@ -736,10 +763,10 @@ describe("criarSessao", () => {
         entrar: vi.fn(() => Promise.resolve(resposta(nova))),
       },
     });
-    sessao.receberConvite("outra");
+    await sessao.receberConvite("outra");
     const envio = sessao.enviarApelido("Ana");
 
-    sessao.receberConvite("abc");
+    await sessao.receberConvite("abc");
 
     expect(sessao.obter()).toMatchObject({ tela: "entrada", trocaDeSala: true, enviando: "entrada" });
     expect(aviso.avisar).not.toHaveBeenCalledWith(CONVITE_PROPRIO);
@@ -751,7 +778,7 @@ describe("criarSessao", () => {
 
   it("continuarNoTerracoDesisteDaTroca", async () => {
     const { sessao, api } = naSala();
-    sessao.receberConvite("outra");
+    await sessao.receberConvite("outra");
 
     sessao.continuarNoTerraco();
 
@@ -761,12 +788,12 @@ describe("criarSessao", () => {
     expect(api.sair).not.toHaveBeenCalled();
   });
 
-  it("conviteSemSessaoMostraAEntradaComConvite", () => {
+  it("conviteSemSessaoMostraAEntradaComConvite", async () => {
     const { sessao, doPolling } = montar();
     sessao.iniciar();
     doPolling().aoFalhar(new ErroApi({ status: 401, codigo: "SEM_ASSENTO" }), null);
 
-    sessao.receberConvite("abc");
+    await sessao.receberConvite("abc");
 
     expect(sessao.obter()).toMatchObject({ tela: "entrada", comConvite: true, trocaDeSala: false });
   });

@@ -26,6 +26,7 @@ function visaoDeAna(pecas: VisaoPeca[], versao = 1): Visao {
     resultado: null,
     ajuste: null,
     abertura: null,
+    conviteDaSala: "resumo-da-sala",
   };
 }
 
@@ -141,7 +142,6 @@ describe("Cena", () => {
     ).toBeVisible();
   });
 
-  it("quemSugeriuNaoVeOLugarSugerido", () => {
   it("naRevelacaoQuemRecebeNaoVeOSinal", () => {
     const lanterna: VisaoPeca = { peca: "lanterna", assento: "A", lugar: "R2" };
     const noite: Visao = {
@@ -159,6 +159,7 @@ describe("Cena", () => {
     );
   });
 
+  it("quemSugeriuNaoVeOLugarSugerido", () => {
     const comSinal: Visao = {
       ...visaoDeAna([LANTERNA_DE_BRUNO]),
       sinal: { peca: "lanterna", deAssento: "B", lugar: "R1" },

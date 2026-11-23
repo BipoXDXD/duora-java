@@ -28,6 +28,7 @@ function visao(mudancas: Partial<Visao> = {}): Visao {
     resultado: null,
     ajuste: null,
     abertura: null,
+    conviteDaSala: "resumo-da-sala",
     ...mudancas,
   };
 }

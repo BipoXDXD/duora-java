@@ -6,6 +6,7 @@
 import { type Api, ErroApi, type Resposta } from "../api/cliente";
 import { criarPolling as criarPollingPadrao, type GanchosDoPolling, type Polling } from "../api/polling";
 import type { CenarioFront } from "../cenario/tipos";
+import { resumirConvite } from "../convite";
 import { ehToque as ehToqueDoDispositivo } from "../dispositivo";
 import { situacaoDoAjuste, textoDoPedido } from "../dominio/ajuste";
 import { type ErroComCodigo, mensagemDeErro, textoEncerrado } from "../dominio/mensagens";
@@ -62,9 +63,10 @@ export interface Sessao {
   enviarApelido: (apelido: string) => Promise<void>;
   /**
    * Um #convite= aberto nesta aba depois da carga. Sem sala, leva à entrada com o convite; o
-   * convite do próprio terraço só avisa; o de outra sala pede a troca (que encerra a atual).
+   * convite do próprio terraço só avisa; o de outra sala pede a troca (que encerra a atual). Resolve
+   * quando a decisão está na tela (reconhecer o próprio convite pode pedir o resumo dele).
    */
-  receberConvite: (token: string) => void;
+  receberConvite: (token: string) => Promise<void>;
   /** Desiste da troca de sala: o convite em espera cai e o terraço atual volta à tela. */
   continuarNoTerraco: () => void;
   /** O campo voltou a ter um apelido válido: o erro do servidor some (a validação fica na tela). */
@@ -107,8 +109,11 @@ type TelaSemSala = Extract<EstadoDaTela, { tela: "carregando" | "entrada" | "enc
  */
 type TelaSemVisao = TelaSemSala | Extract<EstadoDaTela, { tela: "convite" | "montagem" }>;
 
-/** Abrir de novo, nesta aba, o convite do próprio terraço. */
+/** Abrir de novo o convite do próprio terraço enquanto ele espera a outra pessoa. */
 const TEXTO_CONVITE_PROPRIO = "Este é o convite do seu terraço. Mande para a outra pessoa.";
+
+/** Abrir de novo o convite do próprio terraço depois que a outra pessoa entrou (já foi usado). */
+const TEXTO_JA_NESTE_TERRACO = "Você já está neste terraço.";
 
 /** O aviso de um erro fora da API (um defeito, não uma resposta do servidor). */
 const MENSAGEM_DE_DEFEITO = "Algo deu errado ao falar com o servidor. Recarregue a página.";
@@ -315,13 +320,21 @@ export function criarSessao({
   }
 
   /**
-   * Com sala e convite em espera: o convite próprio só avisa (devolve o texto); o de outra sala
-   * mostra a troca (devolve null).
+   * O convite é desta sala: um que a aba já viu ou, numa aba sem essa memória (nova, recarregada,
+   * de quem entrou), o que o servidor resume em conviteDaSala.
    */
-  function decidirConvite(token: string): string | null {
-    if (convitesProprios.has(token)) {
+  function conviteDestaSala(token: string, resumo: string | null): boolean {
+    return convitesProprios.has(token) || (resumo !== null && resumo === estado.visao?.conviteDaSala);
+  }
+
+  /**
+   * Com sala e convite em espera: o convite próprio só avisa (devolve o texto); o de outra sala
+   * mostra a troca (devolve null). resumo: o do token, quando a aba não o conhece.
+   */
+  function decidirConvite(token: string, resumo: string | null): string | null {
+    if (conviteDestaSala(token, resumo)) {
       desfazerTroca();
-      return TEXTO_CONVITE_PROPRIO;
+      return estado.visao?.fase === "AGUARDANDO_PAR" ? TEXTO_CONVITE_PROPRIO : TEXTO_JA_NESTE_TERRACO;
     }
     estado.convite = token;
     mostrarTroca();
@@ -388,8 +401,48 @@ export function criarSessao({
     let texto = anterior ? novidade(cenario, anterior, visao, propria) : null;
     if (!anterior && estado.convite && !emTroca()) {
       // O convite chegou antes da sala (na carga): só agora dá para saber se é o próprio.
-      texto = decidirConvite(estado.convite);
+      const token = estado.convite;
+      if (convitesProprios.has(token)) {
+        texto = decidirConvite(token, null);
+      } else {
+        void decidirConviteDaCarga(token);
+      }
     }
+    if (texto) {
+      aviso.avisar(texto);
+    }
+    publicar();
+  }
+
+  /** O convite da carga que a aba não conhece: decide quando o resumo chega, se nada mudou. */
+  async function decidirConviteDaCarga(token: string): Promise<void> {
+    const resumo = await resumirConvite(token);
+    if (estado.convite !== token || estado.visao === null || emTroca() || estado.enviando === "entrada") {
+      return;
+    }
+    const texto = decidirConvite(token, resumo);
+    if (texto) {
+      aviso.avisar(texto);
+    }
+    publicar();
+  }
+
+  /** receberConvite com o resumo já em mãos (ou sem precisar dele). */
+  function receberConviteResumido(token: string, resumo: string | null): void {
+    // A entrada em voo já levou o convite dela: outro no meio piscaria a tela sem mudar o destino.
+    if (estado.enviando === "entrada") {
+      return;
+    }
+    if (estado.visao === null) {
+      estado.convite = token;
+      // Carregando, a decisão fica para a primeira resposta da sala.
+      if (estado.semVisao.tela !== "carregando") {
+        aviso.avisar("");
+        mostrarEntrada(true);
+      }
+      return;
+    }
+    const texto = decidirConvite(token, resumo);
     if (texto) {
       aviso.avisar(texto);
     }
@@ -800,25 +853,13 @@ export function criarSessao({
         () => null,
       ),
     enviarApelido: entrarOuCriar,
-    receberConvite(token) {
-      // A entrada em voo já levou o convite dela: outro no meio piscaria a tela sem mudar o destino.
-      if (estado.enviando === "entrada") {
+    async receberConvite(token) {
+      // Sem sala, ou com um convite que a aba já viu, não precisa do resumo.
+      if (estado.visao === null || convitesProprios.has(token)) {
+        receberConviteResumido(token, null);
         return;
       }
-      if (estado.visao === null) {
-        estado.convite = token;
-        // Carregando, a decisão fica para a primeira resposta da sala.
-        if (estado.semVisao.tela !== "carregando") {
-          aviso.avisar("");
-          mostrarEntrada(true);
-        }
-        return;
-      }
-      const texto = decidirConvite(token);
-      if (texto) {
-        aviso.avisar(texto);
-      }
-      publicar();
+      receberConviteResumido(token, await resumirConvite(token));
     },
     continuarNoTerraco() {
       if (estado.enviando === "entrada") {

@@ -15,6 +15,7 @@ const REVELADO: Visao = {
   resultado: { secundariaA: "manta", secundariaB: "lanterna", ladoTelescopio: "esquerdo" },
   ajuste: null,
   abertura: null,
+  conviteDaSala: "resumo-da-sala",
 };
 
 describe("situacaoDoAjuste", () => {

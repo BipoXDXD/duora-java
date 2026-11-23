@@ -75,6 +75,8 @@ export interface Visao {
   ajuste: VisaoAjuste | null;
   /** Só na montagem de um cenário com abertura; continua (concluída) até a revelação. */
   abertura: VisaoAbertura | null;
+  /** Resumo SHA-256 (hex) do convite da sala, nos dois assentos e em toda fase: reconhece o próprio link. */
+  conviteDaSala: string;
 }
 
 /** A abertura ainda espera os dois: sem instrução, sem peças no painel, só as lanternas na cena. */

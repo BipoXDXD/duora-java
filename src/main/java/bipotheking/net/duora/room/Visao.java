@@ -21,6 +21,8 @@ import org.jspecify.annotations.Nullable;
  * A sala do ponto de vista de quem pede (JSON do contrato), com o id do cenário à frente. Campos
  * anuláveis seguem o contrato: {@code parceiro} antes de alguém entrar, {@code convite} fora de A
  * em espera, {@code sinal}, {@code resultado}, {@code ajuste} e {@code abertura} quando não há.
+ * {@code conviteDaSala} é o resumo SHA-256 (hex) do convite, nos dois assentos e em toda fase: o
+ * front reconhece o próprio link sem receber o token depois do pareamento.
  */
 record Visao(
     String cenario,
@@ -35,7 +37,8 @@ record Visao(
     @Nullable VisaoSinal sinal,
     @Nullable Map<String, String> resultado,
     @Nullable VisaoAjuste ajuste,
-    @Nullable VisaoAbertura abertura) {
+    @Nullable VisaoAbertura abertura,
+    String conviteDaSala) {
 
   private static final String BLOQUEIO_PORTAO = "ESPERE_PRIMEIRA_PECA";
 
@@ -81,7 +84,12 @@ record Visao(
   }
 
   static Visao de(
-      Cenario cenario, Retrato retrato, Assento quem, Instant agora, LimitesSala limites) {
+      Cenario cenario,
+      Retrato retrato,
+      String resumoConvite,
+      Assento quem,
+      Instant agora,
+      LimitesSala limites) {
     Estado estado = retrato.estado();
     Assento outro = quem.parceiro();
     return new Visao(
@@ -107,7 +115,8 @@ record Visao(
             : null,
         Regras.resultado(cenario, estado).map(Resultado::valores).orElse(null),
         ajuste(estado),
-        abertura(cenario, estado, quem, agora));
+        abertura(cenario, estado, quem, agora),
+        resumoConvite);
   }
 
   private static @Nullable VisaoAbertura abertura(

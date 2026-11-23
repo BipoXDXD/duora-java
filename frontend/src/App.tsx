@@ -56,7 +56,7 @@ function useConviteNaMesmaAba(sessao: Sessao): void {
     const aoMudarHash = () => {
       const convite = lerConvite(location, history);
       if (convite !== null) {
-        sessao.receberConvite(convite);
+        void sessao.receberConvite(convite);
       }
     };
     window.addEventListener("hashchange", aoMudarHash);

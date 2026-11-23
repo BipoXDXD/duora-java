@@ -25,6 +25,7 @@ function visao(mudancas: Partial<Visao> = {}): Visao {
     resultado: null,
     ajuste: null,
     abertura: null,
+    conviteDaSala: "resumo-da-sala",
     ...mudancas,
   };
 }
@@ -48,13 +49,13 @@ describe("novidade", () => {
     expect(novidade(CENARIO, deBruno, agora, false)).toBe("Ana sugeriu mover a lanterna: fundo, à direita.");
   });
 
-  it("o mesmo sinal para outro lugar é novidade", () => {
   it("sinal que chega com a revelação não esconde o aviso da noite", () => {
     const noite = visao({ fase: "REVELADO", sinal: { peca: "manta", deAssento: "B", lugar: "L2" } });
 
     expect(novidade(CENARIO, visao(), noite, false)).toBe("Os dois confirmaram. Olhem o céu.");
   });
 
+  it("o mesmo sinal para outro lugar é novidade", () => {
     const antes = visao({ sinal: { peca: "manta", deAssento: "B", lugar: "L2" } });
     const agora = visao({ sinal: { peca: "manta", deAssento: "B", lugar: "R1" } });
 
@@ -121,7 +122,6 @@ describe("novidade", () => {
     expect(novidade(CENARIO, { ...noite, ajuste: { deAssento: "B" } }, noite, true)).toBeNull();
   });
 
-
   it("confirmação desfeita pela mudança", () => {
     const antes = visao({ prontos: { voce: true, parceiro: false } });
 
@@ -129,6 +129,7 @@ describe("novidade", () => {
       "A composição mudou e sua confirmação foi desfeita. Confirme de novo quando quiser.",
     );
   });
+
   it("o parceiro confirmou, junto com a peça que ele moveu", () => {
     const agora = visao({
       prontos: { voce: false, parceiro: true },

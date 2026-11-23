@@ -54,6 +54,7 @@ function montagem(abertura: VisaoAbertura | null): EstadoDaSessao {
     resultado: null,
     ajuste: null,
     abertura,
+    conviteDaSala: "resumo-da-sala",
   };
   return {
     ...ENCERRADO,
