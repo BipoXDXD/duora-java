@@ -1071,6 +1071,19 @@ describe("criarSessao", () => {
       expect(sessao.obter()).toMatchObject(SEM_ENCONTRO);
     });
 
+    it("segundaEsperaNaMesmaAbaNaoHerdaOParceiroDaSalaAnterior", async () => {
+      const { sessao, doPolling } = naSala(visao(), {
+        api: { criarSala: vi.fn(() => Promise.resolve(resposta(ESPERA, '"v1"'))) },
+      });
+      doPolling().aoFalhar(ENCERRADA_PELO_PARCEIRO, null);
+      sessao.criarOutro();
+      await sessao.enviarApelido("Ana");
+
+      doPolling().aoFalhar(ENCERRADA_PELO_PARCEIRO, null);
+
+      expect(sessao.obter()).toMatchObject(SEM_ENCONTRO);
+    });
+
     it("recarregarDepoisQueOParceiroSaiuContinuaAgradecendoOEncontro", () => {
       const { sessao, doPolling } = montar();
       sessao.iniciar();
