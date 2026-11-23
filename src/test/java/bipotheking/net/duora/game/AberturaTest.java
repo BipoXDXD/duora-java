@@ -183,6 +183,26 @@ class AberturaTest {
   }
 
   @Test
+  void lugarDeOutraZonaERecusadoAntesDaAbertura() {
+    Lugar deOutraZona = new Lugar("X1", new Zona("outra"));
+
+    assertThat(Regras.colocar(COM_ABERTURA, emAbertura(), A, PEDRA, Optional.of(deOutraZona), 0))
+        .isEqualTo(new Decisao.Recusada(Recusa.LUGAR_INVALIDO));
+  }
+
+  @Test
+  void sinalDuranteAberturaERecusadoPelaAberturaMesmoComAPecaForaDaCena() {
+    assertThat(Regras.sinalizar(COM_ABERTURA, emAbertura(), A, FOLHA, P2, em(1_000)))
+        .isEqualTo(new Decisao.Recusada(Recusa.ABERTURA_EM_ANDAMENTO));
+  }
+
+  @Test
+  void aberturaComToquesEIgualPorValor() {
+    assertThat(abertura(acesa())).isEqualTo(abertura(acesa())).isNotSameAs(abertura(acesa()));
+    assertThat(abertura(acesa())).hasSameHashCodeAs(abertura(acesa()));
+  }
+
+  @Test
   void naoPodeConfirmarDuranteAbertura() {
     assertThat(Regras.podeConfirmar(COM_ABERTURA, ativaCompleta())).isFalse();
   }

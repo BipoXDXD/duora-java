@@ -324,7 +324,7 @@ Coordenadas em metros, no piso da cena (x lateral, y profundidade, z altura, com
 2. O controlador sobe o app numa porta livre conferida antes (`./mvnw spring-boot:run -Dspring-boot.run.arguments=--server.port=<p>`, mais `--duora.cenarios.sorteaveis=terraco,<cenario>` quando a Etapa 4 já existir).
 3. Despacha **um agente novo, que não implementou o cenário**. Pelo Playwright MCP, ele joga:
    - Ana em 1440×900;
-   - Bruno num contexto isolado de celular (390×844, toque), criado pelo passo 0 de harness da P7 da 1c (`docs/superpowers/plans/2026-11-22-etapa-1c-ajustes-playtest.md`): `page.context().browser()?.newContext(…)`; com perfil persistente (browser `null`), `chromium.launch()` e o mesmo `newContext`; em último caso, `localhost` no mesmo contexto com toque emulado por CDP. O relatório do playtest registra a variante usada.
+   - Bruno num contexto isolado de celular (390×844, toque), criado pelo passo 0 de harness da P7 da 1c (`docs/superpowers/plans/2026-11-22-etapa-1c-ajustes-playtest.md`): `page.context().browser()?.newContext(…)`; com perfil persistente (browser `null`), `chromium.launch()` e o mesmo `newContext`; em último caso, `localhost` no mesmo contexto (o host diferente separa os cookies) com toque emulado por CDP. O relatório do playtest registra a variante usada.
    - O encontro é aberto pelo caminho vigente: sala anônima com `"cenario":"<id>"` antes da Etapa 5; convite privado com o cenário depois. Nos dois casos o front carrega o cenário pela `visao.cenario` (Task 2b, pré-requisito do playtest).
 4. **Roteiro:**
    1. entrar;

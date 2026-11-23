@@ -15,6 +15,7 @@ import static bipotheking.net.duora.e2e.TerracoPagina.Peca.TELESCOPIO;
 import static com.microsoft.playwright.assertions.PlaywrightAssertions.assertThat;
 
 import bipotheking.net.duora.e2e.NavegadorExtension.Participantes;
+import com.microsoft.playwright.Locator;
 import java.time.Duration;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -109,6 +110,40 @@ class SinalComDestinoIT {
     relogio.adiantar(Duration.ofSeconds(21));
 
     assertThat(bruno.botaoMover(LANTERNA, R1)).hasCount(0);
+  }
+
+  @Test
+  void sugestaoPeloTecladoLevaOFocoAoDestinoEVoltaAPeca(Participantes participantes) {
+    TerracoPagina ana = participantes.novo();
+    TerracoPagina bruno = participantes.novo();
+    entrarEmPar(ana, bruno, raiz(porta));
+    lanternaDeBrunoEmR2(ana, bruno);
+    Locator lanterna = ana.pecaNoTerraco(LANTERNA, BRUNO, R2);
+
+    lanterna.focus();
+    ana.page().keyboard().press("Enter");
+    assertThat(ana.destinoSugerivel(LANTERNA, L1)).isFocused();
+    ana.page().keyboard().press("Enter");
+
+    assertThat(bruno.botaoMover(LANTERNA, L1)).isVisible();
+    assertThat(ana.pecaNoTerraco(LANTERNA, BRUNO, R2)).isFocused();
+  }
+
+  @Test
+  void escCancelaASugestaoEDevolveOFocoAPeca(Participantes participantes) {
+    TerracoPagina ana = participantes.novo();
+    TerracoPagina bruno = participantes.novo();
+    entrarEmPar(ana, bruno, raiz(porta));
+    lanternaDeBrunoEmR2(ana, bruno);
+    Locator lanterna = ana.pecaNoTerraco(LANTERNA, BRUNO, R2);
+    lanterna.focus();
+    ana.page().keyboard().press("Enter");
+    assertThat(ana.destinoSugerivel(LANTERNA, L1)).isFocused();
+
+    ana.page().keyboard().press("Escape");
+
+    assertThat(ana.destinoSugerivel(LANTERNA, L1)).hasCount(0);
+    assertThat(ana.pecaNoTerraco(LANTERNA, BRUNO, R2)).isFocused();
   }
 
   @Test

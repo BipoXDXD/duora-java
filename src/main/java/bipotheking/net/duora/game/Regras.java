@@ -38,17 +38,14 @@ public final class Regras {
     if (!(estado.fase() instanceof Fase.Montando montando)) {
       return recusar(Recusa.FASE_INVALIDA);
     }
-    Optional<Abertura> abertura = montando.abertura();
     Optional<DefinicaoDeAbertura> definicao = cenario.abertura();
-    if (abertura.isEmpty() || definicao.isEmpty()) {
+    if (montando.abertura().isEmpty() || definicao.isEmpty()) {
       return recusar(Recusa.FASE_INVALIDA);
     }
-    Abertura tocada =
-        abertura
-            .get()
-            .avancada(agora, definicao.get().maximo())
-            .tocada(quem, agora, definicao.get().janela());
-    if (tocada == abertura.get()) {
+    Abertura atual = montando.abertura().get();
+    DefinicaoDeAbertura regra = definicao.get();
+    Abertura tocada = atual.avancada(agora, regra.maximo()).tocada(quem, agora, regra.janela());
+    if (tocada == atual) {
       return aceitar(estado);
     }
     return aceitar(comFase(estado, new Fase.Montando(Optional.of(tocada))));
@@ -62,13 +59,13 @@ public final class Regras {
     if (!(estado.fase() instanceof Fase.Montando montando)) {
       return estado;
     }
-    Optional<Abertura> abertura = montando.abertura();
     Optional<Duration> maximo = cenario.abertura().map(DefinicaoDeAbertura::maximo);
-    if (abertura.isEmpty() || maximo.isEmpty()) {
+    if (montando.abertura().isEmpty() || maximo.isEmpty()) {
       return estado;
     }
-    Abertura avancada = abertura.get().avancada(agora, maximo.get());
-    if (avancada == abertura.get()) {
+    Abertura atual = montando.abertura().get();
+    Abertura avancada = atual.avancada(agora, maximo.get());
+    if (avancada == atual) {
       return estado;
     }
     return comFase(estado, new Fase.Montando(Optional.of(avancada)));
@@ -233,7 +230,7 @@ public final class Regras {
   public static List<Lugar> destinosSugeriveis(Cenario cenario, Estado estado, Peca peca) {
     Composicao composicao = estado.composicao();
     Optional<Lugar> atual = composicao.lugarDe(peca);
-    if (!(estado.fase() instanceof Fase.Montando) || emAbertura(estado) || atual.isEmpty()) {
+    if (!montandoSemAbertura(estado) || atual.isEmpty()) {
       return List.of();
     }
     return cenario.da(peca.zona()).stream()
@@ -247,7 +244,7 @@ public final class Regras {
    * abertura).
    */
   public static List<Lugar> lugaresPermitidos(Cenario cenario, Estado estado, Peca peca) {
-    if (!(estado.fase() instanceof Fase.Montando) || emAbertura(estado)) {
+    if (!montandoSemAbertura(estado)) {
       return List.of();
     }
     Composicao semAPeca = liberarEspacoPara(cenario, estado.composicao(), peca);
@@ -258,7 +255,11 @@ public final class Regras {
         .toList();
   }
 
-  /** Se colocar a peça agora seria barrado pelo portão da primeira peça. */
+  /**
+   * Se colocar a peça agora seria barrado pelo portão da primeira peça. Não considera a abertura:
+   * quem chama confere {@link #lugaresPermitidos} (vazio durante a abertura) ou o {@link #colocar}
+   * (que a recusa antes do portão).
+   */
   public static boolean bloqueadaPeloPortao(Cenario cenario, Estado estado, Peca peca) {
     Composicao atual = estado.composicao();
     if (!(estado.fase() instanceof Fase.Montando) || atual.colocada(peca)) {
@@ -274,9 +275,7 @@ public final class Regras {
    * com a composição completa.
    */
   public static boolean podeConfirmar(Cenario cenario, Estado estado) {
-    return estado.fase() instanceof Fase.Montando montando
-        && !montando.aberturaAtiva()
-        && cenario.completa(estado.composicao());
+    return montandoSemAbertura(estado) && cenario.completa(estado.composicao());
   }
 
   /** O {@link Desfecho} do cenário sobre a composição revelada; vazio fora da revelação. */
@@ -289,6 +288,10 @@ public final class Regras {
 
   private static boolean emAbertura(Estado estado) {
     return estado.fase() instanceof Fase.Montando montando && montando.aberturaAtiva();
+  }
+
+  private static boolean montandoSemAbertura(Estado estado) {
+    return estado.fase() instanceof Fase.Montando montando && !montando.aberturaAtiva();
   }
 
   private static Estado comFase(Estado estado, Fase fase) {

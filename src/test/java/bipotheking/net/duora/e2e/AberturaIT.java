@@ -6,9 +6,11 @@ import static bipotheking.net.duora.e2e.Cenarios.raiz;
 import static bipotheking.net.duora.e2e.TerracoPagina.Peca.BANCO;
 import static bipotheking.net.duora.e2e.TerracoPagina.Peca.TELESCOPIO;
 import static com.microsoft.playwright.assertions.PlaywrightAssertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThat;
 
 import bipotheking.net.duora.e2e.NavegadorExtension.Participantes;
 import java.time.Duration;
+import java.util.List;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -47,6 +49,21 @@ class AberturaIT {
     }
   }
 
+  /** Passa a guardar cada texto que o #aviso (role=status) mostrar a partir de agora. */
+  private static void gravarAvisos(TerracoPagina pagina) {
+    pagina
+        .aviso()
+        .evaluate(
+            "aviso => { window.avisosGravados = [];"
+                + " new MutationObserver(() => window.avisosGravados.push(aviso.textContent))"
+                + ".observe(aviso, { childList: true, characterData: true, subtree: true }); }");
+  }
+
+  @SuppressWarnings("unchecked")
+  private static List<String> avisosGravados(TerracoPagina pagina) {
+    return (List<String>) pagina.page().evaluate("() => window.avisosGravados");
+  }
+
   /** Ana cria o terraço e Bruno entra; os dois veem a própria lanterna e nenhuma peça. */
   private void entrarNaAbertura(TerracoPagina ana, TerracoPagina bruno) {
     ana.abrir(raiz(porta)).criarTerraco(ANA);
@@ -78,15 +95,19 @@ class AberturaIT {
     entrarNaAbertura(ana, bruno);
     ana.botaoDaLanterna().click();
     assertThat(ana.botaoDaLanterna()).hasAttribute("aria-pressed", "true");
+    gravarAvisos(ana);
+    gravarAvisos(bruno);
 
     relogio.adiantar(Duration.ofSeconds(90));
 
     assertThat(ana.itemDoInventario(TELESCOPIO)).isVisible();
     assertThat(bruno.itemDoInventario(BANCO)).isVisible();
-    assertThat(ana.luzDasLanternas()).hasCount(0);
-    assertThat(bruno.luzDasLanternas()).hasCount(0);
-    assertThat(ana.aviso()).not().hasText("As lanternas acenderam.");
-    assertThat(bruno.aviso()).not().hasText("As lanternas acenderam.");
+    assertThat(ana.page().locator("[data-lanterna]")).hasCount(0);
+    assertThat(bruno.page().locator("[data-lanterna]")).hasCount(0);
+    // O anúncio sairia na mesma atualização que mostra o inventário: o histórico do #aviso prova
+    // que ele nunca apareceu, e não só que não está lá agora.
+    assertThat(avisosGravados(ana)).doesNotContain("As lanternas acenderam.");
+    assertThat(avisosGravados(bruno)).doesNotContain("As lanternas acenderam.");
   }
 
   @Test
@@ -99,6 +120,9 @@ class AberturaIT {
     ana.page().keyboard().press("Enter");
 
     assertThat(ana.botaoDaLanterna()).hasAttribute("aria-pressed", "true");
+    bruno.botaoDaLanterna().click();
+    // A lanterna some quando acende: o foco passa à primeira peça, sem cair no body.
+    assertThat(ana.itemDoInventario(TELESCOPIO)).isFocused();
   }
 
   @Test
@@ -111,6 +135,9 @@ class AberturaIT {
     ana.botaoDaLanterna().click();
     assertThat(ana.botaoDaLanterna()).hasAttribute("aria-pressed", "true");
     Axe.assertSemViolacoes(ana.page(), "abertura-tocada");
+    assertThat(bruno.page().locator("[data-dono=parceiro] [data-efeito=tremular]").first())
+        .isAttached();
+    Axe.assertSemViolacoes(bruno.page(), "abertura-tocada-pelo-outro");
 
     bruno.botaoDaLanterna().click();
     assertThat(ana.luzDasLanternas()).hasCount(2);

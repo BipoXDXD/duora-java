@@ -15,8 +15,9 @@ import org.springframework.core.env.Environment;
 class CenariosConfig {
 
   /**
-   * Troca o máximo da abertura dos cenários (ex.: {@code PT0S} conclui apagada já na entrada, como
-   * na suíte e2e). Sem a propriedade, vale o máximo que o cenário declara.
+   * Troca o máximo da abertura do terraço (ex.: {@code PT0S} conclui apagada já na entrada, como na
+   * suíte e2e). Sem a propriedade, vale o máximo que o cenário declara. Só o bean {@link #terraco}
+   * a lê: um cenário novo com abertura que deva obedecê-la precisa aplicá-la também.
    */
   private static final String MAXIMO_DA_ABERTURA = "duora.cenarios.abertura.maximo";
 
