@@ -3,7 +3,7 @@
 import type { CenarioFront } from "../cenario/tipos";
 import { situacaoDoAjuste, textoDoPedido } from "../dominio/ajuste";
 import { textoConexaoDoParceiro, textoPecasDoParceiro } from "../dominio/mensagens";
-import { aberturaAtiva, lanternasAcenderam, sinalDaMontagem, type Visao } from "../dominio/visao";
+import { aberturaAtiva, lanternasAcenderam, sinalRecebido, type Visao } from "../dominio/visao";
 import type { Acao } from "./tipos";
 
 /**
@@ -13,10 +13,9 @@ import type { Acao } from "./tipos";
 export function novidade(c: CenarioFront, anterior: Visao, visao: Visao, propria: boolean): string | null {
   // Nos ramos que o usam, o parceiro existe; String() mantém o texto do main.js antigo se não existir.
   const parceiro = String(visao.parceiro?.nome);
-  const sinal = sinalDaMontagem(visao);
+  const sinal = sinalRecebido(visao);
   const sinalNovo =
     sinal !== null &&
-    sinal.deAssento !== visao.voce.assento &&
     (anterior.sinal?.peca !== sinal.peca ||
       anterior.sinal.deAssento !== sinal.deAssento ||
       anterior.sinal.lugar !== sinal.lugar);
