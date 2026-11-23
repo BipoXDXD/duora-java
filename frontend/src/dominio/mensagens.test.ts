@@ -60,6 +60,13 @@ describe("mensagemDeErro", () => {
     expect(mensagemDeErro(erro("ABERTURA_EM_ANDAMENTO", 409), visao())).toBe("Espere as lanternas acenderem.");
   });
 
+  it.each([
+    ["SALA_ENCERRADA", 410, "Este terraço terminou. Crie outro ou abra um convite."],
+    ["SALA_INEXISTENTE", 404, "Este terraço não existe mais. Crie outro ou abra um convite."],
+  ])("sala que acabou (%s) não pede para tentar de novo", (codigo, status, texto) => {
+    expect(mensagemDeErro(erro(codigo, status), null)).toBe(texto);
+  });
+
   it("código desconhecido mostra o status", () => {
     expect(mensagemDeErro(erro("TEAPOT", 418), null)).toBe("O servidor não aceitou o pedido (418). Tente de novo.");
   });

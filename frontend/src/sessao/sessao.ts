@@ -120,6 +120,13 @@ const CODIGOS_SEM_SALA = new Set(["SEM_ASSENTO", "SALA_INEXISTENTE", "SALA_ENCER
 
 const semSala = (erro: unknown): boolean => erro instanceof ErroApi && CODIGOS_SEM_SALA.has(erro.codigo);
 
+/** A sala atual acabou com a troca aberta: o convite continua de pé. */
+const TEXTO_TROCA_SEM_SALA = "O terraço anterior terminou. Você pode entrar no convite.";
+
+/** Na troca, a sala que acabou só libera o convite; fora dela, o texto do erro. */
+const avisoDaSalaPerdida = (erro: ErroApi, emTroca: boolean): string =>
+  emTroca && semSala(erro) ? TEXTO_TROCA_SEM_SALA : mensagemDeErro(erro, null);
+
 /** A peça selecionada segue escolhível na visão nova: ainda na montagem e ainda sua. */
 function selecaoContinua(visao: Visao, selecionada: string | null): boolean {
   return (
@@ -698,6 +705,7 @@ export function criarSessao({
     const estavaNaSala = estado.visao !== null;
     const parceiro = estado.visao?.parceiro?.nome ?? estado.ultimoParceiro;
     const telaDaVez = telaAtual();
+    const emTrocaAntes = emTroca();
     limparSessao();
     if (!(erro instanceof ErroApi)) {
       // Como antes: a tela da vez fica parada, só a cena, o céu, o som e a confirmação de saída
@@ -711,7 +719,7 @@ export function criarSessao({
     if (semAssento || (estado.convite && erro.status !== 403)) {
       // Ao carregar sem sala (ou com convite em mãos), o caminho é entrar.
       mostrarEntrada(Boolean(estado.convite), estavaNaSala);
-      aviso.avisar(estavaNaSala ? mensagemDeErro(erro, null) : "");
+      aviso.avisar(estavaNaSala ? avisoDaSalaPerdida(erro, emTrocaAntes) : "");
       return;
     }
     if (erro.codigo === "SALA_ENCERRADA" || erro.codigo === "SALA_INEXISTENTE") {

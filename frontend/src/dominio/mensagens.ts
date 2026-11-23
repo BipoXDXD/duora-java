@@ -50,6 +50,10 @@ export function mensagemDeErro(erro: ErroComCodigo, visao: Visao | null | undefi
       return "Use de 1 a 20 caracteres no apelido.";
     case "LIMITE_SALAS":
       return "O servidor já tem 20 terraços abertos. Tente de novo em alguns minutos.";
+    case "SALA_ENCERRADA":
+      return "Este terraço terminou. Crie outro ou abra um convite.";
+    case "SALA_INEXISTENTE":
+      return "Este terraço não existe mais. Crie outro ou abra um convite.";
     default:
       return `O servidor não aceitou o pedido (${String(erro.status)}). Tente de novo.`;
   }

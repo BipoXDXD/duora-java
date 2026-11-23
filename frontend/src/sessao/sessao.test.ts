@@ -659,6 +659,19 @@ describe("criarSessao", () => {
     expect(api.entrar).toHaveBeenCalledWith("outra", "Ana");
   });
 
+  it.each([
+    ["410", ENCERRADA_PELO_PARCEIRO],
+    ["404", new ErroApi({ status: 404, codigo: "SALA_INEXISTENTE" })],
+  ])("salaAtualQueAcabaDuranteATrocaAvisaSemErroGenerico (%s)", (_status, erro) => {
+    const { sessao, doPolling, aviso } = naSala();
+    sessao.receberConvite("outra");
+
+    doPolling().aoFalhar(erro, null);
+
+    expect(aviso.avisar).toHaveBeenLastCalledWith("O terraço anterior terminou. Você pode entrar no convite.");
+    expect(sessao.obter()).toMatchObject({ tela: "entrada", comConvite: true, trocaDeSala: false });
+  });
+
   it("trocaComSaidaRecusadaFicaNaTrocaEReabreOPolling", async () => {
     const { sessao, api, aviso, polling } = naSala(visao(), {
       api: { sair: vi.fn(() => Promise.reject(new ErroApi({ status: 0, codigo: "REDE" }))) },
