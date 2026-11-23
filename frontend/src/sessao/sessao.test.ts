@@ -743,6 +743,26 @@ describe("criarSessao", () => {
     expect(aviso.avisar).toHaveBeenLastCalledWith(expect.any(String), "erro");
   });
 
+  it("trocaDesligaOSomQueFicariaSemControleNaTela", async () => {
+    const { sessao } = naSala(visao());
+    sessao.alternarSom();
+
+    await sessao.receberConvite("outra");
+
+    expect(sessao.obter()).toMatchObject({ tela: "entrada", trocaDeSala: true, somLigado: false });
+  });
+
+  it("duranteATrocaAsNovidadesDaSalaAntigaNaoChegamAoAviso", async () => {
+    const { sessao, doPolling, aviso } = naSala(visao());
+    await sessao.receberConvite("outra");
+    aviso.avisar.mockClear();
+
+    doPolling().aoReceber(visao({ versao: 4, prontos: { voce: false, parceiro: true } }));
+
+    expect(aviso.avisar).not.toHaveBeenCalled();
+    expect(sessao.obter()).toMatchObject({ tela: "entrada", trocaDeSala: true });
+  });
+
   it("conviteProprioDuranteATrocaDesfazATroca", async () => {
     const { sessao, doPolling, aviso } = naSala(visao({ fase: "AGUARDANDO_PAR", parceiro: null, convite: "abc" }));
     doPolling().aoReceber(visao({ versao: 4 }));

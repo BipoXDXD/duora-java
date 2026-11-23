@@ -306,6 +306,8 @@ export function criarSessao({
   function mostrarTroca(): void {
     estado.semVisao = { tela: "entrada", comConvite: true, trocaDeSala: true, erroApelido: "" };
     estado.confirmandoSaida = false;
+    // O botão do som some com a sala atual: o som não pode seguir sem controle na tela (WCAG 1.4.2).
+    estado.somLigado = false;
     pedirFoco({ alvo: "apelido" });
   }
 
@@ -398,7 +400,8 @@ export function criarSessao({
     if (anterior) {
       destacar(pecasQueMudaram(anterior, visao));
     }
-    let texto = anterior ? novidade(cenario, anterior, visao, propria) : null;
+    // Na troca, a sala atual está fora da tela: as novidades dela não disputam o aviso da entrada.
+    let texto = anterior && !emTroca() ? novidade(cenario, anterior, visao, propria) : null;
     if (!anterior && estado.convite && !emTroca()) {
       // O convite chegou antes da sala (na carga): só agora dá para saber se é o próprio.
       const token = estado.convite;
