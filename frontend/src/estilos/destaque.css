@@ -57,8 +57,8 @@
 @media (max-width: 860px) and (min-height: 700px) {
   :root {
     --altura-cena: calc(96px + 112vw * 1186 / 1800 + var(--e-3));
-    /* O par numa linha e o aviso em até duas (a 390 px, "Bruno entrou no terraço. Escolham as
-       primeiras peças." já quebra), mais os respiros do bloco e uma folga para o anel de foco. */
+    /* Estimativa até a primeira medida: o par numa linha e o aviso em até duas, mais os respiros do
+       bloco e uma folga para o anel de foco. useAlturaDoParEAviso.ts troca pela altura medida. */
     --altura-par-e-aviso: calc(3 * 1.5rem + 4 * var(--e-2));
   }
 

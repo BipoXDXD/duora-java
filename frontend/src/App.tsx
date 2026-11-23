@@ -15,6 +15,7 @@ import { Topo } from "./componentes/Topo";
 import { lerConvite } from "./convite";
 import { type Aviso, criarAviso } from "./sessao/aviso";
 import { criarSessao, type EstadoDaSessao, type Sessao } from "./sessao/sessao";
+import { useAlturaDoParEAviso } from "./useAlturaDoParEAviso";
 import { marcasDaCena, useSessao, visaoDaCena, visaoDaTela } from "./useSessao";
 import { useSomDaRevelacao } from "./useSomDaRevelacao";
 import { useTelaCheia } from "./useTelaCheia";
@@ -162,6 +163,7 @@ export function App({ convite, cenario }: { convite: string | null; cenario: Cen
   useEscCancelaSelecao(sessao);
   const telaCheia = useTelaCheia(estado);
   useFocoDaTelaCheia(telaCheia.telaCheia);
+  useAlturaDoParEAviso();
 
   const visao = visaoDaTela(estado);
   const visaoDaCenaAtual = visaoDaCena(estado);
