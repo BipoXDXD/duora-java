@@ -34,6 +34,7 @@ import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.util.Arrays;
+import java.util.regex.Pattern;
 import javax.imageio.ImageIO;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -108,7 +109,8 @@ class RevelacaoEfeitosIT {
     comporComRadio(ana, bruno);
     assertThat(ana.page().locator("#som")).hasAttribute("aria-pressed", "false");
 
-    revelar(ana, bruno);
+    // As notas só são baixadas quando tocam: o pedido prova que a fonte iniciada é a delas.
+    ana.page().waitForRequest("**/audio/radio-notas.mp3", () -> revelar(ana, bruno));
 
     // Com o som desligado, a única fonte possível é a das notas do rádio.
     ana.page().waitForFunction("() => window.__sonda.fontes.some((f) => f.iniciada)");
@@ -172,7 +174,10 @@ class RevelacaoEfeitosIT {
     // parados no mesmo desenho.
     assertThat(ana.page().locator("[data-efeito=brilho]")).hasCount(2);
     assertThat(ana.page().locator("#meteoros .meteoro")).hasCount(0);
-    assertThat(ana.page().locator("#meteoros")).not().hasAttribute("data-lado", "esquerdo");
+    // Sem lado nenhum (o atributo sai), e não só "não esquerdo".
+    assertThat(ana.page().locator("#meteoros"))
+        .not()
+        .hasAttribute("data-lado", Pattern.compile(".*"));
   }
 
   @Test
