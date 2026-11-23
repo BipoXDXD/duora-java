@@ -127,6 +127,14 @@ class CenarioTest {
   }
 
   @Test
+  void maximoZeroEAceito() {
+    DefinicaoDeAbertura abertura =
+        new DefinicaoDeAbertura("lanterna", Duration.ofSeconds(8), Duration.ZERO);
+
+    assertThat(abertura.maximo()).isZero();
+  }
+
+  @Test
   void comMaximoTrocaSoOMaximo() {
     DefinicaoDeAbertura abertura =
         new DefinicaoDeAbertura("lanterna", Duration.ofSeconds(8), Duration.ofSeconds(90));
