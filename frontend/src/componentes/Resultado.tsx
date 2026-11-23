@@ -43,6 +43,7 @@ export function Resultado({ visao, enviando, acoes, telaCheia, aoVerPainel, aoVe
   const botao = BOTAO_DO_AJUSTE[situacao];
   const enviarAjuste = botao.acao === "ajustar" ? acoes.pedirAjuste : acoes.recusarAjuste;
   const pedido = textoDoPedido(visao);
+  const descricaoDoPedido = pedido ? "ajuste-pedido" : undefined;
 
   // O botão do ajuste vira "Pedir para ajustar" debaixo do foco (o outro cancelou ou recusou, ou o
   // próprio pedido foi cancelado): um Enter atrasado mandaria um pedido novo. O foco vai ao título,
@@ -86,12 +87,14 @@ export function Resultado({ visao, enviando, acoes, telaCheia, aoVerPainel, aoVe
           {pedido}
         </p>
       )}
-      {/* Um botão só em todas as situações: o foco do teclado fica nele quando o pedido muda. */}
+      {/* Um botão só em todas as situações: o foco do teclado fica nele quando o pedido muda.
+          O pedido descreve os botões: quem chega a eles pelo teclado ouve quem pediu e o que espera. */}
       <button
         type="button"
         className={BOTAO_SECUNDARIO}
         id={botao.id}
         ref={refAjuste}
+        aria-describedby={descricaoDoPedido}
         aria-disabled={enviando !== null ? true : undefined}
         onClick={seDisponivel(enviando !== null, () => void enviarAjuste())}
       >
@@ -102,6 +105,7 @@ export function Resultado({ visao, enviando, acoes, telaCheia, aoVerPainel, aoVe
           type="button"
           className={AO_LADO}
           id="recusar-ajuste"
+          aria-describedby={descricaoDoPedido}
           aria-disabled={enviando !== null ? true : undefined}
           onClick={seDisponivel(enviando !== null, () => void acoes.recusarAjuste())}
         >

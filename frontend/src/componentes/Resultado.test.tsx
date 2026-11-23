@@ -84,6 +84,22 @@ describe("Resultado: ajuste combinado", () => {
     expect(screen.queryByRole("button", { name: "Pedir para ajustar" })).toBeNull();
   });
 
+  it("osBotoesDoPedidoRecebidoDescrevemQuemPediu", () => {
+    renderComAjuste({ deAssento: "B" });
+
+    for (const nome of ["Aceitar o ajuste", "Agora não"]) {
+      expect(screen.getByRole("button", { name: nome })).toHaveAccessibleDescription(
+        "Bruno quer ajustar a composição.",
+      );
+    }
+  });
+
+  it("semPedidoOBotaoNaoTemDescricao", () => {
+    renderComAjuste(null);
+
+    expect(screen.getByRole("button", { name: "Pedir para ajustar" })).not.toHaveAccessibleDescription();
+  });
+
   it("resultadoMostraCancelarParaQuemPediu", async () => {
     const acoes = renderComAjuste({ deAssento: "A" });
 
