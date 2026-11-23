@@ -9,11 +9,18 @@ import type { CenarioFront } from "../cenario/tipos";
 import { resumirConvite } from "../convite";
 import { ehToque as ehToqueDoDispositivo } from "../dispositivo";
 import { situacaoDoAjuste, textoDoPedido } from "../dominio/ajuste";
-import { type ErroComCodigo, mensagemDeErro, textoEncerrado } from "../dominio/mensagens";
-import type { Visao } from "../dominio/visao";
+import { type ErroComCodigo, mensagemDeErro, textoEncerrado, textoRecusaDoSinal } from "../dominio/mensagens";
+import { sinalDaMontagem, type Visao } from "../dominio/visao";
 import type { Aviso } from "./aviso";
 import { type Agendar, agendarComSetTimeout, DURACAO_DESTAQUE_MS, pecasQueMudaram } from "./destaques";
-import { instrucao, novidade, SUFIXO_ESC_CANCELA, textoRecusaDoSinal, textoSinalEnviado } from "./novidade";
+import {
+  instrucao,
+  novidade,
+  SUFIXO_ESC_CANCELA,
+  TEXTO_NOITE_REVELADA,
+  textoSinalEnviado,
+  textoSinalRecebido,
+} from "./novidade";
 import type { Acao, EstadoDaSessao, EstadoDaTela, PedidoDeFoco } from "./tipos";
 
 export type { Acao, EstadoDaSessao, EstadoDaTela, PedidoDeFoco, Tela } from "./tipos";
@@ -120,7 +127,7 @@ const TEXTO_JA_NESTE_TERRACO = "Você já está neste terraço.";
  * troca o encerraria. Na dúvida, não há troca; a saída fica com quem decide sair.
  */
 const TEXTO_CONVITE_SEM_CONFERIR =
-  "Não deu para conferir este convite neste navegador. Para entrar nele, saia deste terraço e abra o link de novo.";
+  "Não deu para conferir este convite neste navegador. Se ele for de outro terraço, saia deste e abra o link de novo.";
 
 /** O aviso de um erro fora da API (um defeito, não uma resposta do servidor). */
 const MENSAGEM_DE_DEFEITO = "Algo deu errado ao falar com o servidor. Recarregue a página.";
@@ -135,9 +142,18 @@ const semSala = (erro: unknown): boolean => erro instanceof ErroApi && CODIGOS_S
 /** A sala atual acabou com a troca aberta: o convite continua de pé. */
 const TEXTO_TROCA_SEM_SALA = "O terraço anterior terminou. Você pode entrar no convite.";
 
-/** Na troca, a sala que acabou só libera o convite; fora dela, o texto do erro. */
-const avisoDaSalaPerdida = (erro: ErroApi, emTroca: boolean): string =>
-  emTroca && semSala(erro) ? TEXTO_TROCA_SEM_SALA : mensagemDeErro(erro, null);
+/**
+ * Com um convite em mãos (na troca ou ainda em conferência na carga), a sala que acabou só libera
+ * o convite; sem convite, o texto do erro.
+ */
+const avisoDaSalaPerdida = (erro: ErroApi, comConvite: boolean): string =>
+  comConvite && semSala(erro) ? TEXTO_TROCA_SEM_SALA : mensagemDeErro(erro, null);
+
+/** Como cada tipo de ação reage a uma recusa do servidor: onde fica o foco e o que se diz. */
+interface ReacaoARecusa {
+  focar: (visao: Visao, peca: string) => void;
+  texto: (erro: ErroApi, visao: Visao | null) => string;
+}
 
 /** A peça selecionada segue escolhível na visão nova: ainda na montagem e ainda sua. */
 function selecaoContinua(visao: Visao, selecionada: string | null): boolean {
@@ -174,14 +190,13 @@ function exigirVisao(resposta: Resposta): Visao {
 
 export function criarSessao({
   api,
-  aviso,
+  aviso: avisoDaTela,
   convite,
   cenario,
   criarPolling = criarPollingPadrao,
   agendar = agendarComSetTimeout,
   ehToque = ehToqueDoDispositivo,
 }: OpcoesDaSessao): Sessao {
-  const sufixoCancelar = ehToque() ? "" : SUFIXO_ESC_CANCELA;
   const estado = {
     // O convite em espera: o da carga ou um aberto depois; com sala, ele pede a troca.
     convite,
@@ -193,6 +208,8 @@ export function criarSessao({
     enviando: null as Acao | null,
     // Para dizer quem saiu depois que a visão já foi descartada.
     ultimoParceiro: null as string | null,
+    // O último apelido desta pessoa nesta aba: a próxima entrada já vem com ele.
+    apelido: "",
     semVisao: { tela: "carregando" } as TelaSemVisao,
     confirmandoSaida: false,
     somLigado: false,
@@ -208,7 +225,21 @@ export function criarSessao({
   // Peça em destaque → cancela o fim dele. A lista muda de objeto só quando o conjunto muda.
   const fimDosDestaques = new Map<string, () => void>();
   let destaques: readonly string[] = SEM_DESTAQUES;
+  // A sala como estava quando a troca abriu: "Continuar no terraço" conta o que mudou desde então.
+  let visaoAntesDaTroca: Visao | null = null;
   let retrato = montarRetrato();
+  // O último texto escrito no #aviso: a sugestão que expira só apaga o aviso se ele ainda é o dela.
+  let ultimoAviso = "";
+  const aviso: Aviso = {
+    avisar(...args) {
+      ultimoAviso = args[0];
+      avisoDaTela.avisar(...args);
+    },
+    avisarComDetalhe(...args) {
+      ultimoAviso = args[0];
+      avisoDaTela.avisarComDetalhe(...args);
+    },
+  };
 
   let semConexao = false;
   const polling = criarPolling(api, {
@@ -255,11 +286,20 @@ export function criarSessao({
       selecionada,
       sugerindo,
       destaques,
-      instrucao: instrucao(cenario, visao, selecionada, enviando, sugerindo, sufixoCancelar),
+      instrucao: instrucao(cenario, visao, {
+        selecionada,
+        enviando,
+        sugerindo,
+        // A cada retrato: num aparelho híbrido, o teclado pode chegar depois da carga.
+        sufixoCancelar: ehToque() ? "" : SUFIXO_ESC_CANCELA,
+      }),
     };
   }
 
-  /** Revelado: noite com meteoros do lado do telescópio. Qualquer outra fase: crepúsculo. */
+  /**
+   * Revelado: noite com meteoros do lado do telescópio. Qualquer outra fase: crepúsculo. A troca de
+   * sala não muda o momento: a volta dela não pode parecer uma passagem ao vivo (notas uma vez só).
+   */
   function camposForaDaTela(): Omit<EstadoDaSessao, keyof EstadoDaTela> {
     const noite = estado.visao?.fase === "REVELADO";
     return {
@@ -304,14 +344,26 @@ export function criarSessao({
   /** comConvite: a página trouxe #convite= (a ação vira "Entrar no terraço"). */
   function mostrarEntrada(comConvite: boolean, focar = true): void {
     mostrarSemSala(
-      { tela: "entrada", comConvite, trocaDeSala: false, erroApelido: "" },
+      { tela: "entrada", comConvite, trocaDeSala: false, erroApelido: "", apelido: estado.apelido },
       focar ? { alvo: "apelido" } : null,
     );
   }
 
   /** A entrada que troca de sala: com o convite em espera, a sala atual fica por trás. */
   function mostrarTroca(): void {
-    estado.semVisao = { tela: "entrada", comConvite: true, trocaDeSala: true, erroApelido: "" };
+    if (!emTroca()) {
+      visaoAntesDaTroca = estado.visao;
+    }
+    // A escolha em curso não sobrevive à troca: quem continua no terraço recomeça do zero.
+    estado.selecionada = null;
+    estado.sugerindo = null;
+    estado.semVisao = {
+      tela: "entrada",
+      comConvite: true,
+      trocaDeSala: true,
+      erroApelido: "",
+      apelido: estado.apelido,
+    };
     estado.confirmandoSaida = false;
     // O botão do som some com a sala atual: o som não pode seguir sem controle na tela (WCAG 1.4.2).
     estado.somLigado = false;
@@ -326,6 +378,18 @@ export function criarSessao({
   function desfazerTroca(): void {
     estado.convite = null;
     estado.semVisao = { tela: "carregando" };
+    visaoAntesDaTroca = null;
+  }
+
+  /** "De volta ao terraço com Bruno.", mais o que mudou na sala enquanto a entrada estava na frente. */
+  function avisoDaVolta(antes: Visao | null): string {
+    const visao = estado.visao;
+    if (visao === null) {
+      return "";
+    }
+    const volta = visao.parceiro ? `De volta ao terraço com ${visao.parceiro.nome}.` : "De volta ao terraço.";
+    const mudou = antes ? novidade(cenario, antes, visao, false) : null;
+    return mudou ? `${volta} ${mudou}` : volta;
   }
 
   /**
@@ -337,22 +401,22 @@ export function criarSessao({
   }
 
   /**
-   * Com sala e convite em espera: o convite próprio só avisa (devolve o texto); o de outra sala
-   * mostra a troca (devolve null). resumo: o do token, quando a aba não o conhece; null se ela o
-   * conhece ou se não deu para calcular.
+   * Com sala e convite em espera: o convite próprio só avisa; o de outra sala mostra a troca. Publica
+   * a tela decidida. resumo: o do token, quando a aba não o conhece; null se ela o conhece ou se não
+   * deu para calcular.
    */
-  function decidirConvite(token: string, resumo: string | null): string | null {
+  function decidirConvite(token: string, resumo: string | null): void {
     if (conviteDestaSala(token, resumo)) {
       desfazerTroca();
-      return estado.visao?.fase === "AGUARDANDO_PAR" ? TEXTO_CONVITE_PROPRIO : TEXTO_JA_NESTE_TERRACO;
-    }
-    if (resumo === null) {
+      aviso.avisar(estado.visao?.fase === "AGUARDANDO_PAR" ? TEXTO_CONVITE_PROPRIO : TEXTO_JA_NESTE_TERRACO);
+    } else if (resumo === null) {
       desfazerTroca();
-      return TEXTO_CONVITE_SEM_CONFERIR;
+      aviso.avisar(TEXTO_CONVITE_SEM_CONFERIR);
+    } else {
+      estado.convite = token;
+      mostrarTroca();
     }
-    estado.convite = token;
-    mostrarTroca();
-    return null;
+    publicar();
   }
 
   function mostrarEncerrado({ titulo, texto }: { titulo: string; texto: string }): void {
@@ -403,6 +467,7 @@ export function criarSessao({
     if (visao.parceiro) {
       estado.ultimoParceiro = visao.parceiro.nome;
     }
+    estado.apelido = visao.voce.nome;
     if (!selecaoContinua(visao, estado.selecionada)) {
       estado.selecionada = null;
     }
@@ -412,21 +477,42 @@ export function criarSessao({
     if (anterior) {
       destacar(pecasQueMudaram(anterior, visao));
     }
-    // Na troca, a sala atual está fora da tela: as novidades dela não disputam o aviso da entrada.
-    let texto = anterior && !emTroca() ? novidade(cenario, anterior, visao, propria) : null;
     if (!anterior && estado.convite && !emTroca()) {
       // O convite chegou antes da sala (na carga): só agora dá para saber se é o próprio.
       const token = estado.convite;
       if (convitesProprios.has(token)) {
-        texto = decidirConvite(token, null);
-      } else {
-        void decidirConviteDaCarga(token);
+        decidirConvite(token, null);
+        return;
+      }
+      void decidirConviteDaCarga(token);
+    }
+    // Na troca, a sala atual está fora da tela: as novidades dela não disputam o aviso da entrada.
+    if (anterior && !emTroca()) {
+      const texto = novidade(cenario, anterior, visao, propria);
+      if (texto) {
+        aviso.avisar(texto);
+      } else if (sinalDaMontagem(visao) === null && avisoCita(avisoDoSinal(anterior))) {
+        // A sugestão expirou (ou foi atendida em silêncio): o aviso não pode seguir citando-a.
+        aviso.avisar("");
       }
     }
-    if (texto) {
-      aviso.avisar(texto);
-    }
     publicar();
+  }
+
+  /** O último aviso cita este texto: sozinho, ou dentro de outro (a volta da troca o junta ao seu). */
+  function avisoCita(texto: string | null): boolean {
+    return texto !== null && ultimoAviso.includes(texto);
+  }
+
+  /** O aviso que a sugestão em curso deu, para quem sugeriu ou para quem recebeu; null sem sugestão. */
+  function avisoDoSinal(visao: Visao): string | null {
+    const sinal = sinalDaMontagem(visao);
+    if (sinal === null) {
+      return null;
+    }
+    return sinal.deAssento === visao.voce.assento
+      ? textoSinalEnviado(cenario, visao, sinal.peca, sinal.lugar)
+      : textoSinalRecebido(cenario, visao, sinal);
   }
 
   /** O convite da carga que a aba não conhece: decide quando o resumo chega, se nada mudou. */
@@ -435,11 +521,7 @@ export function criarSessao({
     if (estado.convite !== token || estado.visao === null || emTroca() || estado.enviando === "entrada") {
       return;
     }
-    const texto = decidirConvite(token, resumo);
-    if (texto) {
-      aviso.avisar(texto);
-    }
-    publicar();
+    decidirConvite(token, resumo);
   }
 
   /** receberConvite com o resumo já em mãos (ou sem precisar dele). */
@@ -457,11 +539,7 @@ export function criarSessao({
       }
       return;
     }
-    const texto = decidirConvite(token, resumo);
-    if (texto) {
-      aviso.avisar(texto);
-    }
-    publicar();
+    decidirConvite(token, resumo);
   }
 
   // ------------------------------------------------------------ ações
@@ -575,7 +653,8 @@ export function criarSessao({
       const mensagem = aoAceitar(nova);
       estado.enviando = null;
       aplicarVisao(nova, true);
-      if (mensagem) {
+      // A troca abriu durante o envio: a resposta é da sala que ficou por trás da entrada.
+      if (mensagem && !emTroca()) {
         aviso.avisar(mensagem);
       }
     } catch (erro) {
@@ -602,15 +681,12 @@ export function criarSessao({
       encerrarSessao(erro);
       return;
     }
+    const recusa = acao === "sinal" ? RECUSA_DO_SINAL : RECUSA_DA_PECA;
     const visaoAntes = estado.visao;
     if (erro.visao) {
       polling.aceitar(null);
       if (erro.status === 409 && peca) {
-        if (acao === "sinal") {
-          focarAposRecusaDoSinal(erro.visao, peca);
-        } else {
-          focarAposRecusa(erro.visao, peca);
-        }
+        recusa.focar(erro.visao, peca);
       }
       aplicarVisao(erro.visao, true);
     } else {
@@ -619,12 +695,11 @@ export function criarSessao({
         polling.consultarAgora();
       }
     }
-    const visaoDoTexto = estado.visao ?? visaoAntes;
-    aviso.avisar(
-      acao === "sinal" ? textoRecusaDoSinal(erro, visaoDoTexto) : mensagemDeErro(erro, visaoDoTexto),
-      "erro",
-    );
+    aviso.avisar(recusa.texto(erro, estado.visao ?? visaoAntes), "erro");
   }
+
+  const RECUSA_DO_SINAL: ReacaoARecusa = { focar: focarAposRecusaDoSinal, texto: textoRecusaDoSinal };
+  const RECUSA_DA_PECA: ReacaoARecusa = { focar: focarAposRecusa, texto: mensagemDeErro };
 
   /** Com destinos de sobra, a sugestão continua e o foco vai ao primeiro; senão, volta à peça. */
   function focarAposRecusaDoSinal(visao: Visao, peca: string): void {
@@ -700,7 +775,13 @@ export function criarSessao({
       }
     }
     limparSessao();
-    estado.semVisao = { tela: "entrada", comConvite: true, trocaDeSala: false, erroApelido: "" };
+    estado.semVisao = {
+      tela: "entrada",
+      comConvite: true,
+      trocaDeSala: false,
+      erroApelido: "",
+      apelido: estado.apelido,
+    };
     estado.enviando = "entrada";
     publicar();
   }
@@ -749,9 +830,11 @@ export function criarSessao({
         return;
       }
     }
+    // Sem parceiro, não houve encontro para encerrar: só a espera acabou.
+    const motivo = estado.visao.parceiro === null ? "SEM_ENCONTRO" : "VOCE_SAIU";
     limparSessao();
     aviso.avisar("");
-    mostrarEncerrado(textoEncerrado("VOCE_SAIU"));
+    mostrarEncerrado(textoEncerrado(motivo));
   }
 
   /**
@@ -775,7 +858,6 @@ export function criarSessao({
     const estavaNaSala = estado.visao !== null;
     const parceiro = estado.visao?.parceiro?.nome ?? estado.ultimoParceiro;
     const telaDaVez = telaAtual();
-    const emTrocaAntes = emTroca();
     limparSessao();
     if (!(erro instanceof ErroApi)) {
       // Como antes: a tela da vez fica parada, só a cena, o céu, o som e a confirmação de saída
@@ -789,12 +871,15 @@ export function criarSessao({
     if (semAssento || (estado.convite && erro.status !== 403)) {
       // Ao carregar sem sala (ou com convite em mãos), o caminho é entrar.
       mostrarEntrada(Boolean(estado.convite), estavaNaSala);
-      aviso.avisar(estavaNaSala ? avisoDaSalaPerdida(erro, emTrocaAntes) : "");
+      aviso.avisar(estavaNaSala ? avisoDaSalaPerdida(erro, Boolean(estado.convite)) : "");
       return;
     }
     if (erro.codigo === "SALA_ENCERRADA" || erro.codigo === "SALA_INEXISTENTE") {
+      const motivo = erro.motivo ?? "SALA_INEXISTENTE";
+      // A aba esteve na sala e nunca viu um parceiro: o terraço acabou na espera (outra aba saiu).
+      const semEncontro = motivo === "SAIU" && estavaNaSala && parceiro === null;
       aviso.avisar("");
-      mostrarEncerrado(textoEncerrado(erro.motivo ?? "SALA_INEXISTENTE", parceiro));
+      mostrarEncerrado(textoEncerrado(semEncontro ? "SEM_ENCONTRO" : motivo, parceiro));
       return;
     }
     mostrarEntrada(false, false);
@@ -836,7 +921,7 @@ export function criarSessao({
         (visao) => api.marcarPronto(visao.versao, !visao.prontos.voce),
         (visao) => {
           if (visao.fase === "REVELADO") {
-            return "Os dois confirmaram. Olhem o céu.";
+            return TEXTO_NOITE_REVELADA;
           }
           return visao.prontos.voce ? null : "Confirmação desfeita. Ajuste à vontade.";
         },
@@ -880,7 +965,9 @@ export function criarSessao({
       if (estado.enviando === "entrada") {
         return;
       }
+      const antes = visaoAntesDaTroca;
       desfazerTroca();
+      aviso.avisar(avisoDaVolta(antes));
       publicar();
     },
     limparErroApelido() {

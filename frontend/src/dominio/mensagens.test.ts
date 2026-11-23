@@ -96,6 +96,7 @@ describe("textoEncerrado", () => {
     ["SAIU", null, "O encontro terminou", "Que bom montar o terraço a dois."],
     ["EXPIROU", "Bruno", "Terraço encerrado", "O terraço expirou depois de 30 minutos sem ações."],
     ["VOCE_SAIU", null, "Você saiu do terraço", "O encontro terminou para as duas pessoas."],
+    ["SEM_ENCONTRO", null, "Terraço encerrado", "Ninguém chegou a entrar. Crie outro quando quiser."],
     [
       "SALA_INEXISTENTE",
       "Bruno",
@@ -108,10 +109,10 @@ describe("textoEncerrado", () => {
 });
 
 describe("textoConfirmarSaida", () => {
-  it("com parceiro, encerra para os dois", () => {
+  it("com parceiro, encerra para as duas pessoas", () => {
     expect(textoConfirmarSaida("Bruno")).toEqual({
       aviso: "Isso encerra o terraço para Bruno também.",
-      acao: "Encerrar para os dois",
+      acao: "Encerrar para as duas pessoas",
     });
   });
 
@@ -127,6 +128,11 @@ describe("textoMotivoConfirmacao", () => {
     ["você confirmou", visao({ prontos: { voce: true, parceiro: false } }), "Você confirmou. Esperando Bruno."],
     ["parceiro confirmou", visao({ prontos: { voce: false, parceiro: true } }), "Bruno já confirmou esta composição."],
     ["vazio", visao(), ""],
+    [
+      "você confirmou, sem parceiro na visão",
+      visao({ parceiro: null, prontos: { voce: true, parceiro: false } }),
+      "Você confirmou. Esperando a outra pessoa.",
+    ],
   ])("%s", (_caso, v, texto) => {
     expect(textoMotivoConfirmacao(v)).toBe(texto);
   });

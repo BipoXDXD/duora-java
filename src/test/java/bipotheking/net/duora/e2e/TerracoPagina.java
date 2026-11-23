@@ -226,15 +226,15 @@ final class TerracoPagina {
   }
 
   /**
-   * "Sair" e depois a confirmação: "Encerrar para os dois" com par, "Encerrar o terraço" enquanto
-   * espera o convite.
+   * "Sair" e depois a confirmação: "Encerrar para as duas pessoas" com par, "Encerrar o terraço"
+   * enquanto espera o convite.
    */
   void sairDoTerraco() {
     botaoSair().click();
     page.getByRole(
             AriaRole.BUTTON,
             new Page.GetByRoleOptions()
-                .setName(Pattern.compile("^Encerrar (para os dois|o terraço)$")))
+                .setName(Pattern.compile("^Encerrar (para as duas pessoas|o terraço)$")))
         .click();
   }
 

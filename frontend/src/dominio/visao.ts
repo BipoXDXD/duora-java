@@ -93,3 +93,9 @@ export function lanternasAcenderam(anterior: Visao, visao: Visao): boolean {
 export function sinalDaMontagem(visao: Visao): VisaoSinal | null {
   return visao.fase === "MONTANDO" ? visao.sinal : null;
 }
+
+/** O sinal que o parceiro mandou para você, na montagem; null se não há ou se foi você que mandou. */
+export function sinalRecebido(visao: Visao): VisaoSinal | null {
+  const sinal = sinalDaMontagem(visao);
+  return sinal !== null && sinal.deAssento !== visao.voce.assento ? sinal : null;
+}

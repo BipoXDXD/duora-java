@@ -54,12 +54,13 @@ function telaDaVez(props: Omit<PropsPainel, "refAviso">): TelaDoPainel {
         conteudo: (
           <Entrada
             comConvite={estado.comConvite}
-            trocaDeSala={estado.trocaDeSala}
-            enviando={estado.enviando === "entrada"}
+            troca={estado.trocaDeSala ? { aoContinuar: acoes.continuarNoTerraco } : undefined}
+            apelido={estado.apelido}
+            // Qualquer ação em voo, também a da sala por trás da troca: o clique seria ignorado.
+            enviando={estado.enviando !== null}
             erro={estado.erroApelido}
             aoEnviar={(apelido) => void acoes.enviarApelido(apelido)}
             aoCorrigir={acoes.limparErroApelido}
-            aoContinuar={acoes.continuarNoTerraco}
           />
         ),
       };

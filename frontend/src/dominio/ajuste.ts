@@ -1,5 +1,6 @@
 // O pedido de ajuste da noite revelada, do ponto de vista de quem olha.
 
+import { nomeDoParceiro, nomeDoParceiroNoMeio } from "./mensagens";
 import type { Visao } from "./visao";
 
 export type SituacaoDoAjuste = "nenhum" | "meu" | "do-outro";
@@ -14,14 +15,12 @@ export function situacaoDoAjuste(visao: Visao): SituacaoDoAjuste {
 
 /** O pedido pendente em uma frase, para o resultado e para o aviso; vazio sem pedido. */
 export function textoDoPedido(visao: Visao): string {
-  // Só há pedido na noite revelada, com os dois no terraço.
-  const parceiro = String(visao.parceiro?.nome);
   switch (situacaoDoAjuste(visao)) {
     case "nenhum":
       return "";
     case "meu":
-      return `Esperando ${parceiro} aceitar.`;
+      return `Esperando ${nomeDoParceiroNoMeio(visao)} aceitar.`;
     case "do-outro":
-      return `${parceiro} quer ajustar a composição.`;
+      return `${nomeDoParceiro(visao)} quer ajustar a composição.`;
   }
 }

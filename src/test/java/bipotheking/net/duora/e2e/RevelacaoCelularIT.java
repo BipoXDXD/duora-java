@@ -105,7 +105,7 @@ class RevelacaoCelularIT {
     TerracoPagina ana = revelarComAnaNoCelular(participantes);
 
     // A noite chegou pelo polling: o aviso conta, e continua à vista sobre o céu.
-    assertThat(ana.aviso()).hasText("Os dois confirmaram. Olhem o céu.");
+    assertThat(ana.aviso()).hasText("Vocês confirmaram. Olhem o céu.");
     assertThat(ana.aviso()).isVisible();
     assertThat(ana.aviso()).isInViewport();
   }

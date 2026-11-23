@@ -157,7 +157,7 @@ class JornadaDoisNavegadoresIT {
     assertThat(ana.confirmacaoDeSaida()).isVisible();
     assertThat(ana.confirmacaoDeSaida())
         .hasAccessibleName("Isso encerra o terraço para Bruno também.");
-    assertThat(ana.botao("Encerrar para os dois")).isVisible();
+    assertThat(ana.botao("Encerrar para as duas pessoas")).isVisible();
     assertThat(ana.botaoContinuarNoTerraco()).isFocused();
     assertThat(ana.botaoSair()).hasAttribute("aria-expanded", "true");
     assertThat(ana.botaoSair()).hasAttribute("aria-controls", "confirmar-saida");
@@ -205,7 +205,7 @@ class JornadaDoisNavegadoresIT {
     ana.page().route("**/api/sala/sair", saidaRetida::set);
     ana.botaoSair().click();
 
-    ana.botao("Encerrar para os dois").dblclick();
+    ana.botao("Encerrar para as duas pessoas").dblclick();
     ana.page().waitForCondition(() -> saidaRetida.get() != null);
     saidaRetida.get().resume();
 
@@ -236,7 +236,7 @@ class JornadaDoisNavegadoresIT {
     ana.botaoSair().click();
 
     assertThat(ana.confirmacaoDeSaida()).hasAccessibleName("Isso encerra o terraço.");
-    assertThat(ana.botao("Encerrar para os dois")).hasCount(0);
+    assertThat(ana.botao("Encerrar para as duas pessoas")).hasCount(0);
     ana.botao("Encerrar o terraço").click();
     assertThat(ana.tituloEncerrado()).isFocused();
   }

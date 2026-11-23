@@ -10,7 +10,15 @@ export interface ErroComCodigo {
   motivo: string | null;
 }
 
-const nomeDoParceiro = (visao: Visao | null | undefined): string => visao?.parceiro?.nome ?? "A outra pessoa";
+/**
+ * O nome do parceiro num texto, no começo da frase. Sem parceiro na visão (a invariante quebrou ou
+ * a visão é de transição), "A outra pessoa": o texto nunca diz "undefined".
+ */
+export const nomeDoParceiro = (visao: Visao | null | undefined): string => visao?.parceiro?.nome ?? "A outra pessoa";
+
+/** O mesmo nome no meio da frase: o substituto vem em minúscula. */
+export const nomeDoParceiroNoMeio = (visao: Visao | null | undefined): string =>
+  visao?.parceiro?.nome ?? "a outra pessoa";
 
 /** Mensagem curta para um ErroApi: diz o que aconteceu e o que fazer. */
 export function mensagemDeErro(erro: ErroComCodigo, visao: Visao | null | undefined): string {
@@ -26,7 +34,7 @@ export function mensagemDeErro(erro: ErroComCodigo, visao: Visao | null | undefi
     case "CONVITE_INVALIDO":
       return "Este convite não vale mais. Peça um link novo ou crie seu próprio terraço.";
     case "PECA_ALHEIA":
-      return `Essa peça é de ${parceiro}. Toque nela no terraço para sugerir que mova.`;
+      return `Essa peça é de ${nomeDoParceiroNoMeio(visao)}. Toque nela no terraço para sugerir que mova.`;
     case "ORIGEM_RECUSADA":
       return "O servidor recusou o pedido. Recarregue a página e tente de novo.";
     case "LUGAR_OCUPADO":
@@ -59,10 +67,25 @@ export function mensagemDeErro(erro: ErroComCodigo, visao: Visao | null | undefi
   }
 }
 
+/**
+ * A recusa de um sinal. Os textos gerais de PECA_ALHEIA e LUGAR_OCUPADO falam de colocar a própria
+ * peça; aqui a peça é do parceiro e o lugar pode estar ocupado por qualquer um dos dois.
+ */
+export function textoRecusaDoSinal(erro: ErroComCodigo, visao: Visao | null): string {
+  switch (erro.codigo) {
+    case "PECA_ALHEIA":
+      return "Esta peça é sua. Para mover, escolha a peça em Suas peças.";
+    case "LUGAR_OCUPADO":
+      return "Este lugar não está mais livre. Escolha outro.";
+    default:
+      return mensagemDeErro(erro, visao);
+  }
+}
+
 /** Texto de estado para uma peça própria que não pode ser colocada agora. */
 export function textoBloqueio(codigo: string, visao: Visao | null | undefined): string {
   if (codigo === "ESPERE_PRIMEIRA_PECA") {
-    return `Espere ${visao?.parceiro?.nome ?? "a outra pessoa"} colocar a primeira peça.`;
+    return `Espere ${nomeDoParceiroNoMeio(visao)} colocar a primeira peça.`;
   }
   return "Indisponível agora.";
 }
@@ -70,13 +93,14 @@ export function textoBloqueio(codigo: string, visao: Visao | null | undefined): 
 /** Aviso e ação do bloco que confirma a saída; sem parceiro, só o próprio terraço acaba. */
 export function textoConfirmarSaida(nomeParceiro: string | null | undefined): { aviso: string; acao: string } {
   return nomeParceiro
-    ? { aviso: `Isso encerra o terraço para ${nomeParceiro} também.`, acao: "Encerrar para os dois" }
+    ? { aviso: `Isso encerra o terraço para ${nomeParceiro} também.`, acao: "Encerrar para as duas pessoas" }
     : { aviso: "Isso encerra o terraço.", acao: "Encerrar o terraço" };
 }
 
 /**
- * motivo: SAIU | EXPIROU | SALA_INEXISTENTE | VOCE_SAIU (vem do servidor; outro valor cai no último
- * texto). Quem fica (SAIU) não ouve quem saiu: a despedida agradece o encontro, sem culpa.
+ * motivo: SAIU | EXPIROU | SALA_INEXISTENTE (vêm do servidor; outro valor cai no último texto), ou
+ * VOCE_SAIU e SEM_ENCONTRO, decididos no cliente. Quem fica (SAIU) não ouve quem saiu: a despedida
+ * agradece o encontro, sem culpa. SEM_ENCONTRO: o terraço acabou antes de alguém entrar.
  */
 export function textoEncerrado(motivo: string, nomeParceiro?: string | null): { titulo: string; texto: string } {
   switch (motivo) {
@@ -87,6 +111,8 @@ export function textoEncerrado(motivo: string, nomeParceiro?: string | null): { 
       };
     case "VOCE_SAIU":
       return { titulo: "Você saiu do terraço", texto: "O encontro terminou para as duas pessoas." };
+    case "SEM_ENCONTRO":
+      return { titulo: "Terraço encerrado", texto: "Ninguém chegou a entrar. Crie outro quando quiser." };
     case "EXPIROU":
       return { titulo: "Terraço encerrado", texto: "O terraço expirou depois de 30 minutos sem ações." };
     default:
@@ -103,7 +129,7 @@ export function textoMotivoConfirmacao(visao: Visao): string {
     return faltam === 1 ? "Falta 1 peça no terraço." : `Faltam ${String(faltam)} peças no terraço.`;
   }
   if (visao.prontos.voce && !visao.prontos.parceiro) {
-    return `Você confirmou. Esperando ${nomeDoParceiro(visao)}.`;
+    return `Você confirmou. Esperando ${nomeDoParceiroNoMeio(visao)}.`;
   }
   if (visao.prontos.parceiro && !visao.prontos.voce) {
     return `${nomeDoParceiro(visao)} já confirmou esta composição.`;

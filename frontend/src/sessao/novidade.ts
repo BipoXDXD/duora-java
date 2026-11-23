@@ -2,8 +2,13 @@
 
 import type { CenarioFront } from "../cenario/tipos";
 import { situacaoDoAjuste, textoDoPedido } from "../dominio/ajuste";
-import { type ErroComCodigo, mensagemDeErro, textoConexaoDoParceiro, textoPecasDoParceiro } from "../dominio/mensagens";
-import { aberturaAtiva, lanternasAcenderam, sinalDaMontagem, type Visao } from "../dominio/visao";
+import {
+  nomeDoParceiro,
+  nomeDoParceiroNoMeio,
+  textoConexaoDoParceiro,
+  textoPecasDoParceiro,
+} from "../dominio/mensagens";
+import { aberturaAtiva, lanternasAcenderam, sinalRecebido, type Visao, type VisaoSinal } from "../dominio/visao";
 import type { Acao } from "./tipos";
 
 /**
@@ -11,12 +16,11 @@ import type { Acao } from "./tipos";
  * propria: a visão veio da resposta a uma ação desta pessoa.
  */
 export function novidade(c: CenarioFront, anterior: Visao, visao: Visao, propria: boolean): string | null {
-  // Nos ramos que o usam, o parceiro existe; String() mantém o texto do main.js antigo se não existir.
-  const parceiro = String(visao.parceiro?.nome);
-  const sinal = sinalDaMontagem(visao);
+  // Em todos os ramos que o usam, o nome abre a frase.
+  const parceiro = nomeDoParceiro(visao);
+  const sinal = sinalRecebido(visao);
   const sinalNovo =
     sinal !== null &&
-    sinal.deAssento !== visao.voce.assento &&
     (anterior.sinal?.peca !== sinal.peca ||
       anterior.sinal.deAssento !== sinal.deAssento ||
       anterior.sinal.lugar !== sinal.lugar);
@@ -25,7 +29,7 @@ export function novidade(c: CenarioFront, anterior: Visao, visao: Visao, propria
     return "As lanternas acenderam.";
   }
   if (sinalNovo) {
-    return `${parceiro} sugeriu mover ${c.peca(sinal.peca).artigo}: ${c.lugar(sinal.lugar).nome}.`;
+    return textoSinalRecebido(c, visao, sinal);
   }
   // Só o parceiro mexe nas peças dele: vale também quando a visão veio da própria ação.
   const pecas = textoPecasDoParceiro(c, anterior, visao);
@@ -39,20 +43,14 @@ export function novidade(c: CenarioFront, anterior: Visao, visao: Visao, propria
       : `${parceiro} entrou no terraço. Escolham as primeiras peças.`;
   }
   if (anterior.fase === "MONTANDO" && visao.fase === "REVELADO") {
-    return "Os dois confirmaram. Olhem o céu.";
+    return TEXTO_NOITE_REVELADA;
   }
   // Só o aceite volta à montagem; vindo do polling, quem aceitou foi o parceiro.
   if (anterior.fase === "REVELADO" && visao.fase === "MONTANDO") {
     return `${parceiro} aceitou. De volta à montagem.`;
   }
-  const ajusteAntes = situacaoDoAjuste(anterior);
-  if (visao.fase === "REVELADO" && ajusteAntes !== situacaoDoAjuste(visao)) {
-    if (ajusteAntes === "meu") {
-      return `${parceiro} prefere manter esta noite.`;
-    }
-    return ajusteAntes === "do-outro" ? `${parceiro} cancelou o pedido.` : textoDoPedido(visao);
-  }
-  const frases = [pecas, textoConexaoDoParceiro(anterior, visao)];
+  // O ajuste não esconde a conexão do parceiro que mudou no mesmo polling.
+  const frases = [textoAjusteDoParceiro(anterior, visao, parceiro), pecas, textoConexaoDoParceiro(anterior, visao)];
   if (anterior.prontos.voce && !visao.prontos.voce) {
     frases.push("A composição mudou e sua confirmação foi desfeita. Confirme de novo quando quiser.");
   } else if (!anterior.prontos.parceiro && visao.prontos.parceiro) {
@@ -61,41 +59,53 @@ export function novidade(c: CenarioFront, anterior: Visao, visao: Visao, propria
   return frases.filter(Boolean).join(" ") || null;
 }
 
-/** O aviso de quem sugeriu, depois que o servidor aceitou o sinal. */
-export function textoSinalEnviado(c: CenarioFront, visao: Visao, peca: string, lugar: string): string {
-  return `Você sugeriu que ${String(visao.parceiro?.nome)} mova ${c.peca(peca).artigo}: ${c.lugar(lugar).nome}.`;
+/** O que mudou no pedido de ajuste da noite revelada; null se nada mudou. */
+function textoAjusteDoParceiro(anterior: Visao, visao: Visao, parceiro: string): string | null {
+  const ajusteAntes = situacaoDoAjuste(anterior);
+  if (visao.fase !== "REVELADO" || ajusteAntes === situacaoDoAjuste(visao)) {
+    return null;
+  }
+  switch (ajusteAntes) {
+    case "meu":
+      return `${parceiro} prefere manter esta noite.`;
+    case "do-outro":
+      return `${parceiro} cancelou o pedido.`;
+    case "nenhum":
+      return textoDoPedido(visao);
+  }
 }
 
-/**
- * A recusa de um sinal. Os textos gerais de PECA_ALHEIA e LUGAR_OCUPADO falam de colocar a própria
- * peça; aqui a peça é do parceiro e o lugar pode estar ocupado por qualquer um dos dois.
- */
-export function textoRecusaDoSinal(erro: ErroComCodigo, visao: Visao | null): string {
-  switch (erro.codigo) {
-    case "PECA_ALHEIA":
-      return "Essa peça é sua. Para mudá-la de lugar, escolha-a em Suas peças.";
-    case "LUGAR_OCUPADO":
-      return "Este lugar não está mais livre. Escolha outro.";
-    default:
-      return mensagemDeErro(erro, visao);
-  }
+/** A noite se revela: o mesmo texto para quem confirmou por último e para quem soube pelo polling. */
+export const TEXTO_NOITE_REVELADA = "Vocês confirmaram. Olhem o céu.";
+
+/** O aviso de quem recebe uma sugestão do parceiro. */
+export function textoSinalRecebido(c: CenarioFront, visao: Visao, sinal: VisaoSinal): string {
+  return `${nomeDoParceiro(visao)} sugeriu mover ${c.peca(sinal.peca).artigo}: ${c.lugar(sinal.lugar).nome}.`;
+}
+
+/** O aviso de quem sugeriu, depois que o servidor aceitou o sinal. */
+export function textoSinalEnviado(c: CenarioFront, visao: Visao, peca: string, lugar: string): string {
+  return `Você sugeriu que ${nomeDoParceiroNoMeio(visao)} mova ${c.peca(peca).artigo}: ${c.lugar(lugar).nome}.`;
 }
 
 /** O fim da instrução de escolher um lugar com teclado à mão: o Esc desfaz a escolha. */
 export const SUFIXO_ESC_CANCELA = " Esc cancela.";
 
-/**
- * A instrução da montagem: o próximo passo de quem está na tela. sugerindo: a peça do parceiro
- * cujo destino você está escolhendo. sufixoCancelar: como desfazer a escolha do lugar ("" no
- * toque, onde não há Esc).
- */
+/** O que a tela tem em mãos além da visão: a escolha em curso e a ação em envio. */
+export interface EscolhaDaVez {
+  selecionada: string | null;
+  enviando: Acao | null;
+  /** A peça do parceiro cujo destino você está escolhendo. */
+  sugerindo?: string | null;
+  /** Como desfazer a escolha do lugar ("" no toque, onde não há Esc). */
+  sufixoCancelar?: string;
+}
+
+/** A instrução da montagem: o próximo passo de quem está na tela. */
 export function instrucao(
   c: CenarioFront,
   visao: Visao,
-  selecionada: string | null,
-  enviando: Acao | null,
-  sugerindo: string | null = null,
-  sufixoCancelar = SUFIXO_ESC_CANCELA,
+  { selecionada, enviando, sugerindo = null, sufixoCancelar = SUFIXO_ESC_CANCELA }: EscolhaDaVez,
 ): string {
   // A abertura é sem palavras: a lanterna na cena é o único convite, também durante o toque.
   if (aberturaAtiva(visao)) {
@@ -108,17 +118,17 @@ export function instrucao(
     return "Olhem para cima.";
   }
   if (sugerindo) {
-    return `Escolha onde ${c.peca(sugerindo).artigo} de ${String(visao.parceiro?.nome)} ficaria melhor.${sufixoCancelar}`;
+    return `Escolha onde ${c.peca(sugerindo).artigo} de ${nomeDoParceiroNoMeio(visao)} ficaria melhor.${sufixoCancelar}`;
   }
   if (selecionada) {
     const { artigo, zona } = c.peca(selecionada);
     return `Escolha onde ${artigo} fica: ${c.zona(zona).instrucao}.${sufixoCancelar}`;
   }
   if (visao.prontos.voce) {
-    return `Esperando ${visao.parceiro?.nome ?? "a outra pessoa"} confirmar a mesma composição.`;
+    return `Esperando ${nomeDoParceiroNoMeio(visao)} confirmar a mesma composição.`;
   }
   if (visao.confirmacao.podeConfirmar) {
-    return "Tudo no lugar. Quando os dois confirmarem, o céu escurece.";
+    return "Tudo no lugar. Quando vocês confirmarem, o céu escurece.";
   }
   const minhas = visao.pecas.filter((p) => p.assento === visao.voce.assento && p.lugar);
   if (minhas.length === 0) {

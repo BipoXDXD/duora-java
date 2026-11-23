@@ -68,7 +68,7 @@ function adiada() {
 const CONVITE_PROPRIO = "Este é o convite do seu terraço. Mande para a outra pessoa.";
 const JA_NESTE_TERRACO = "Você já está neste terraço.";
 const CONVITE_SEM_CONFERIR =
-  "Não deu para conferir este convite neste navegador. Para entrar nele, saia deste terraço e abra o link de novo.";
+  "Não deu para conferir este convite neste navegador. Se ele for de outro terraço, saia deste e abra o link de novo.";
 /** SHA-256 de "abc" (vetor do FIPS 180-2): o conviteDaSala de uma sala com o convite "abc". */
 const RESUMO_ABC = "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad";
 
@@ -404,15 +404,14 @@ describe("criarSessao", () => {
     expect(aviso.avisar).toHaveBeenCalledWith("Este lugar está ocupado. Escolha outro.", "erro");
   });
 
-  it("peça do parceiro envia um sinal", async () => {
-    const { sessao, api, aviso } = naSala(visao({ pecas: [BANCO_EM_C2] }), {
+  it("avisoDeQuemSugereCitaODestino", async () => {
+    const { sessao, aviso } = naSala(visao({ pecas: [BANCO_EM_C2] }), {
       api: { sinalizar: vi.fn(() => Promise.resolve(resposta(visao({ versao: 4 })))) },
     });
 
     await sessao.escolherPeca("banco", false);
     await sessao.escolherLugar("C1", null);
 
-    expect(api.sinalizar).toHaveBeenCalledWith("banco", "C1");
     expect(aviso.avisar).toHaveBeenLastCalledWith("Você sugeriu que Bruno mova o banco: centro, à esquerda.");
   });
 
@@ -523,10 +522,63 @@ describe("criarSessao", () => {
 
     await sessao.escolherLugar("R1", null);
 
-    expect(aviso.avisar).toHaveBeenLastCalledWith(
-      "Essa peça é sua. Para mudá-la de lugar, escolha-a em Suas peças.",
-      "erro",
-    );
+    expect(aviso.avisar).toHaveBeenLastCalledWith("Esta peça é sua. Para mover, escolha a peça em Suas peças.", "erro");
+  });
+
+  describe("sugestão que expira", () => {
+    const SINAL_DE_ANA = { peca: "lanterna", deAssento: "A", lugar: "R1" } as const;
+
+    it("quemRecebeuDeixaDeOuvirASugestaoQueExpirou", () => {
+      const { doPolling, aviso } = naSala(visaoDeBrunoComSinal({ sinal: null }));
+      doPolling().aoReceber(visaoDeBrunoComSinal());
+      expect(aviso.avisar).toHaveBeenLastCalledWith("Ana sugeriu mover a lanterna: fundo, à direita.");
+
+      doPolling().aoReceber(visaoDeBrunoComSinal({ versao: 5, sinal: null }));
+
+      expect(aviso.avisar).toHaveBeenLastCalledWith("");
+    });
+
+    it("quemSugeriuDeixaDeOuvirASugestaoQueExpirou", async () => {
+      const comSinal = visao({ versao: 4, pecas: [LANTERNA_EM_R2], sinal: SINAL_DE_ANA });
+      const { sessao, doPolling, aviso } = naSala(visao({ pecas: [LANTERNA_EM_R2] }), {
+        api: { sinalizar: vi.fn(() => Promise.resolve(resposta(comSinal))) },
+      });
+      await sessao.escolherPeca("lanterna", false);
+      await sessao.escolherLugar("R1", null);
+      expect(aviso.avisar).toHaveBeenLastCalledWith("Você sugeriu que Bruno mova a lanterna: fundo, à direita.");
+
+      doPolling().aoReceber(visao({ versao: 5, pecas: [LANTERNA_EM_R2], sinal: null }));
+
+      expect(aviso.avisar).toHaveBeenLastCalledWith("");
+    });
+
+    it("sugestaoRecebidaNaTrocaSaiDoAvisoDaVoltaQuandoExpira", async () => {
+      const { sessao, doPolling, aviso } = naSala(visaoDeBrunoComSinal({ sinal: null }));
+      await sessao.receberConvite("outra");
+      doPolling().aoReceber(visaoDeBrunoComSinal());
+      sessao.continuarNoTerraco();
+      expect(aviso.avisar).toHaveBeenLastCalledWith(
+        "De volta ao terraço com Ana. Ana sugeriu mover a lanterna: fundo, à direita.",
+      );
+
+      doPolling().aoReceber(visaoDeBrunoComSinal({ versao: 5, sinal: null }));
+
+      expect(aviso.avisar).toHaveBeenLastCalledWith("");
+    });
+
+    it("avisoQueVeioDepoisDaSugestaoFicaQuandoElaExpira", async () => {
+      const comSinal = visao({ versao: 4, pecas: [LANTERNA_EM_R2], sinal: SINAL_DE_ANA });
+      const { sessao, doPolling, aviso } = naSala(visao({ pecas: [LANTERNA_EM_R2] }), {
+        api: { sinalizar: vi.fn(() => Promise.resolve(resposta(comSinal))) },
+      });
+      await sessao.escolherPeca("lanterna", false);
+      await sessao.escolherLugar("R1", null);
+      await sessao.escolherLugar("C1", "ocupado");
+
+      doPolling().aoReceber(visao({ versao: 5, pecas: [LANTERNA_EM_R2], sinal: null }));
+
+      expect(aviso.avisar).toHaveBeenLastCalledWith("Este lugar está ocupado. Escolha outro.", "erro");
+    });
   });
 
   it("moverParaLevaAPecaAoLugarSugerido", async () => {
@@ -570,6 +622,16 @@ describe("criarSessao", () => {
 
     expect(api.marcarPronto).toHaveBeenCalledExactlyOnceWith(3, true);
     expect(sessao.obter()).toMatchObject({ enviando: "pronto", instrucao: "Enviando…" });
+  });
+
+  it("confirmarQueRevelaANoiteFalaComAsDuasPessoas", async () => {
+    const { sessao, aviso } = naSala(visao({ confirmacao: { podeConfirmar: true, faltam: 0 } }), {
+      api: { marcarPronto: vi.fn(() => Promise.resolve(resposta(visao({ versao: 4, fase: "REVELADO" })))) },
+    });
+
+    await sessao.confirmar();
+
+    expect(aviso.avisar).toHaveBeenLastCalledWith("Vocês confirmaram. Olhem o céu.");
   });
 
   it("sairComErroDeRedeReabreOPolling", async () => {
@@ -828,6 +890,132 @@ describe("criarSessao", () => {
     expect(sessao.obter()).toMatchObject({ tela: "montagem", enviando: null });
   });
 
+  describe("apelido já dado nesta sessão (WCAG 3.3.7)", () => {
+    it("aTrocaTrazOApelidoDeQuemEstaNaSala", async () => {
+      const { sessao } = naSala();
+
+      await sessao.receberConvite("outra");
+
+      expect(sessao.obter()).toMatchObject({ tela: "entrada", trocaDeSala: true, apelido: "Ana" });
+    });
+
+    it("criarOutroDepoisDoFimTrazOApelido", () => {
+      const { sessao, doPolling } = naSala();
+      doPolling().aoFalhar(ENCERRADA_PELO_PARCEIRO, null);
+
+      sessao.criarOutro();
+
+      expect(sessao.obter()).toMatchObject({ tela: "entrada", apelido: "Ana" });
+    });
+
+    it("primeiraEntradaVemVazia", () => {
+      const { sessao, doPolling } = montar();
+      sessao.iniciar();
+
+      doPolling().aoFalhar(new ErroApi({ status: 401, codigo: "SEM_ASSENTO" }), null);
+
+      expect(sessao.obter()).toMatchObject({ tela: "entrada", apelido: "" });
+    });
+  });
+
+  describe("troca de sala: o que fica para trás", () => {
+    it("aTrocaVindaDaNoiteNaoMudaOMomentoNemNaVolta", async () => {
+      // A cena atrás da entrada segue sendo a noite: se o momento oscilasse, a volta pareceria uma
+      // passagem ao vivo e as notas do rádio tocariam de novo.
+      const { sessao } = naSala(
+        visao({
+          fase: "REVELADO",
+          resultado: { secundariaA: "manta", secundariaB: "banco", ladoTelescopio: "esquerda" },
+        }),
+      );
+      const daNoite = { momento: "noite", ladoTelescopio: "esquerda" };
+
+      await sessao.receberConvite("outra");
+      expect(sessao.obter()).toMatchObject({ tela: "entrada", ...daNoite });
+
+      sessao.continuarNoTerraco();
+      expect(sessao.obter()).toMatchObject({ tela: "montagem", ...daNoite });
+    });
+
+    it("continuarNoTerracoNaoTrazASelecaoDeAntes", async () => {
+      const { sessao } = naSala();
+      await sessao.escolherPeca("telescopio", true);
+      await sessao.receberConvite("outra");
+
+      sessao.continuarNoTerraco();
+
+      expect(sessao.obter()).toMatchObject({ tela: "montagem", selecionada: null, sugerindo: null });
+    });
+
+    it("continuarNoTerracoAnunciaAVolta", async () => {
+      const { sessao, aviso } = naSala();
+      await sessao.receberConvite("outra");
+
+      sessao.continuarNoTerraco();
+
+      expect(aviso.avisar).toHaveBeenLastCalledWith("De volta ao terraço com Bruno.");
+    });
+
+    it("continuarNoTerracoContaOQueMudouDuranteATroca", async () => {
+      const { sessao, doPolling, aviso } = naSala();
+      await sessao.receberConvite("outra");
+      doPolling().aoReceber(visao({ versao: 4, prontos: { voce: false, parceiro: true } }));
+      expect(aviso.avisar).not.toHaveBeenCalledWith("Bruno confirmou esta composição.");
+
+      sessao.continuarNoTerraco();
+
+      expect(aviso.avisar).toHaveBeenLastCalledWith("De volta ao terraço com Bruno. Bruno confirmou esta composição.");
+    });
+
+    it("respostaDaAcaoEmVooNaoFalaSobreAEntrada", async () => {
+      const pronto = adiada();
+      const { sessao, aviso } = naSala(visao({ confirmacao: { podeConfirmar: true, faltam: 0 } }), {
+        api: { marcarPronto: vi.fn(() => pronto.promessa) },
+      });
+      const envio = sessao.confirmar();
+      await sessao.receberConvite("outra");
+
+      pronto.resolver(resposta(visao({ versao: 4, fase: "REVELADO" })));
+      await envio;
+
+      expect(aviso.avisar).not.toHaveBeenCalledWith("Vocês confirmaram. Olhem o céu.");
+    });
+
+    it("sugestaoQueExpiraNaTrocaNaoApagaOAvisoDaEntrada", async () => {
+      const { sessao, doPolling, aviso } = naSala(visaoDeBrunoComSinal({ sinal: null }));
+      doPolling().aoReceber(visaoDeBrunoComSinal());
+      await sessao.receberConvite("outra");
+      aviso.avisar.mockClear();
+
+      doPolling().aoReceber(visaoDeBrunoComSinal({ versao: 5, sinal: null }));
+
+      expect(aviso.avisar).not.toHaveBeenCalled();
+    });
+
+    it("salaQueAcabaComOConviteDaCargaEmConferenciaNaoMandaCriarOutro", () => {
+      const { sessao, doPolling, aviso } = montar({ convite: "abc" });
+      sessao.iniciar();
+      doPolling().aoReceber(visao());
+
+      doPolling().aoFalhar(ENCERRADA_PELO_PARCEIRO, null);
+
+      expect(sessao.obter()).toMatchObject({ tela: "entrada", comConvite: true });
+      expect(aviso.avisar).toHaveBeenLastCalledWith("O terraço anterior terminou. Você pode entrar no convite.");
+    });
+
+    it("oSufixoDoEscSegueOTecladoDeAgora", async () => {
+      let toque = true;
+      const { sessao } = naSala(visao(), { ehToque: () => toque });
+      toque = false;
+
+      await sessao.escolherPeca("telescopio", true);
+
+      expect(sessao.obter()).toMatchObject({
+        instrucao: "Escolha onde o telescópio fica: na área de observação, no centro. Esc cancela.",
+      });
+    });
+  });
+
   it("continuarNoTerracoDesisteDaTroca", async () => {
     const { sessao, api } = naSala();
     await sessao.receberConvite("outra");
@@ -875,6 +1063,56 @@ describe("criarSessao", () => {
       tela: "encerrado",
       titulo: "O encontro terminou",
       texto: "Que bom montar o terraço com Bruno.",
+    });
+  });
+
+  describe("terraço que acaba antes de alguém entrar", () => {
+    const ESPERA = visao({ fase: "AGUARDANDO_PAR", parceiro: null, convite: "abc" });
+    const SEM_ENCONTRO = {
+      tela: "encerrado",
+      titulo: "Terraço encerrado",
+      texto: "Ninguém chegou a entrar. Crie outro quando quiser.",
+    };
+
+    it("encerrarAPropriaEsperaNaoFalaDeEncontro", async () => {
+      const { sessao } = naSala(ESPERA, { api: { sair: vi.fn(() => Promise.resolve(resposta(null, null))) } });
+
+      await sessao.encerrar();
+
+      expect(sessao.obter()).toMatchObject(SEM_ENCONTRO);
+    });
+
+    it("esperaEncerradaEmOutraAbaNaoFalaDeEncontro", () => {
+      const { sessao, doPolling } = naSala(ESPERA);
+
+      doPolling().aoFalhar(new ErroApi({ status: 410, codigo: "SALA_ENCERRADA", motivo: "SAIU" }), null);
+
+      expect(sessao.obter()).toMatchObject(SEM_ENCONTRO);
+    });
+
+    it("segundaEsperaNaMesmaAbaNaoHerdaOParceiroDaSalaAnterior", async () => {
+      const { sessao, doPolling } = naSala(visao(), {
+        api: { criarSala: vi.fn(() => Promise.resolve(resposta(ESPERA, '"v1"'))) },
+      });
+      doPolling().aoFalhar(ENCERRADA_PELO_PARCEIRO, null);
+      sessao.criarOutro();
+      await sessao.enviarApelido("Ana");
+
+      doPolling().aoFalhar(ENCERRADA_PELO_PARCEIRO, null);
+
+      expect(sessao.obter()).toMatchObject(SEM_ENCONTRO);
+    });
+
+    it("recarregarDepoisQueOParceiroSaiuContinuaAgradecendoOEncontro", () => {
+      const { sessao, doPolling } = montar();
+      sessao.iniciar();
+
+      doPolling().aoFalhar(new ErroApi({ status: 410, codigo: "SALA_ENCERRADA", motivo: "SAIU" }), null);
+
+      expect(sessao.obter()).toMatchObject({
+        titulo: "O encontro terminou",
+        texto: "Que bom montar o terraço a dois.",
+      });
     });
   });
 

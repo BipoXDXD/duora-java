@@ -22,8 +22,11 @@ export type PedidoDeFoco =
 /** Cada tela só carrega o que existe nela (State com tipo selado). */
 export type EstadoDaTela =
   | { tela: "carregando" }
-  /** trocaDeSala: a entrada veio de um convite para outra sala, com esta ainda aberta. */
-  | { tela: "entrada"; comConvite: boolean; trocaDeSala: boolean; erroApelido: string }
+  /**
+   * trocaDeSala: a entrada veio de um convite para outra sala, com esta ainda aberta. apelido: o
+   * último que a pessoa usou nesta aba, para não pedir de novo (WCAG 3.3.7); vazio se nenhum.
+   */
+  | { tela: "entrada"; comConvite: boolean; trocaDeSala: boolean; erroApelido: string; apelido: string }
   | { tela: "convite"; visao: Visao }
   /** sugerindo: a peça do parceiro que você está sugerindo mover; destaques: peças em destaque na cena. */
   | {
