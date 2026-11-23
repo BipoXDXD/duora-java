@@ -106,6 +106,22 @@ describe("novidade", () => {
       "A composição mudou e sua confirmação foi desfeita. Confirme de novo quando quiser.",
     );
   });
+  it("aceiteDaPropriaPessoaNaoViraNovidadeDoParceiro", () => {
+    const pedidoDoBruno = visao({
+      fase: "REVELADO",
+      ajuste: { deAssento: "B" },
+      prontos: { voce: true, parceiro: true },
+    });
+
+    expect(novidade(CENARIO, pedidoDoBruno, visao(), true)).toBeNull();
+  });
+
+  it("recusaDaPropriaPessoaNaoViraNovidadeDoParceiro", () => {
+    const noite = visao({ fase: "REVELADO", prontos: { voce: true, parceiro: true } });
+
+    expect(novidade(CENARIO, { ...noite, ajuste: { deAssento: "B" } }, noite, true)).toBeNull();
+  });
+
 
   it("o parceiro confirmou, junto com a peça que ele moveu", () => {
     const agora = visao({

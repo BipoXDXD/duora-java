@@ -257,6 +257,36 @@ describe("criarSessao", () => {
       const { sessao } = naSala(noite({ deAssento: "B" }));
 
       void sessao.recusarAjuste();
+    it("aceiteProprioQueOPollingTrazAntesDaRespostaNaoViraNovidadeDoParceiro", async () => {
+      const resposta_ = adiada();
+      const { sessao, doPolling, aviso } = naSala(noite({ deAssento: "B" }), {
+        api: { pedirAjuste: vi.fn(() => resposta_.promessa) },
+      });
+      const envio = sessao.pedirAjuste();
+
+      doPolling().aoReceber(visao({ versao: 4 }));
+      resposta_.resolver(resposta(visao({ versao: 4 })));
+      await envio;
+
+      expect(aviso.avisar).not.toHaveBeenCalledWith("Bruno aceitou. De volta à montagem.");
+      expect(aviso.avisar).toHaveBeenLastCalledWith("De volta à montagem. As confirmações foram zeradas.");
+    });
+
+    it("recusaPropriaQueOPollingTrazAntesDaRespostaNaoViraNovidadeDoParceiro", async () => {
+      const resposta_ = adiada();
+      const { sessao, doPolling, aviso } = naSala(noite({ deAssento: "B" }), {
+        api: { recusarAjuste: vi.fn(() => resposta_.promessa) },
+      });
+      const envio = sessao.recusarAjuste();
+
+      doPolling().aoReceber(noite());
+      resposta_.resolver(resposta(noite()));
+      await envio;
+
+      expect(aviso.avisar).not.toHaveBeenCalledWith("Bruno cancelou o pedido.");
+      expect(aviso.avisar).toHaveBeenLastCalledWith("Tudo bem, a noite fica como está.");
+    });
+
 
       expect(sessao.obter()).toMatchObject({ enviando: "recusar-ajuste" });
     });

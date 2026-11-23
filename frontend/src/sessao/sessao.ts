@@ -201,7 +201,9 @@ export function criarSessao({
   let semConexao = false;
   const polling = criarPolling(api, {
     aoReceber: (visao) => {
-      aplicarVisao(visao, false);
+      // Com o próprio ajuste em voo, a mudança que o polling traz antes da resposta é desta pessoa:
+      // o texto da ação a anuncia, e não "Bruno aceitou" ou "Bruno cancelou o pedido".
+      aplicarVisao(visao, estado.enviando === "ajustar" || estado.enviando === "recusar-ajuste");
     },
     aoFalhar: (erro, esperaMs) => {
       if (esperaMs !== null) {
