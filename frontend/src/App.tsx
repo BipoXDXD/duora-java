@@ -15,6 +15,8 @@ import { Topo } from "./componentes/Topo";
 import { lerConvite } from "./convite";
 import { type Aviso, criarAviso } from "./sessao/aviso";
 import { criarSessao, type EstadoDaSessao, type Sessao } from "./sessao/sessao";
+import { useAlturaDoParEAviso } from "./useAlturaDoParEAviso";
+import { useFocoDaTelaCheia } from "./useFocoDaTelaCheia";
 import { marcasDaCena, useSessao, visaoDaCena, visaoDaTela } from "./useSessao";
 import { useSomDaRevelacao } from "./useSomDaRevelacao";
 import { useTelaCheia } from "./useTelaCheia";
@@ -129,18 +131,6 @@ function useEscCancelaSelecao(sessao: Sessao): void {
   }, [sessao]);
 }
 
-/**
- * Ao entrar na tela cheia, o foco que ficou num controle do painel ou do topo (agora escondidos) vai
- * para o título do resultado. Foco já no resultado ou na cena fica onde está.
- */
-function useFocoDaTelaCheia(telaCheia: boolean): void {
-  useLayoutEffect(() => {
-    if (telaCheia && !document.activeElement?.closest("#resultado, .cena")) {
-      document.querySelector<HTMLElement>("#resultado-titulo")?.focus();
-    }
-  }, [telaCheia]);
-}
-
 export function App({ convite, cenario }: { convite: string | null; cenario: CenarioFront }) {
   const refAviso = useRef<HTMLParagraphElement>(null);
   const refCena = useRef<CenaRef>(null);
@@ -162,6 +152,7 @@ export function App({ convite, cenario }: { convite: string | null; cenario: Cen
   useEscCancelaSelecao(sessao);
   const telaCheia = useTelaCheia(estado);
   useFocoDaTelaCheia(telaCheia.telaCheia);
+  useAlturaDoParEAviso();
 
   const visao = visaoDaTela(estado);
   const visaoDaCenaAtual = visaoDaCena(estado);
@@ -188,7 +179,7 @@ export function App({ convite, cenario }: { convite: string | null; cenario: Cen
           marcas={marcasDaCena(estado)}
           enviando={estado.enviando !== null}
           momento={estado.momento}
-          ladoTelescopio={ladoDosMeteoros(cenario, visaoDaCenaAtual?.pecas ?? [], estado.ladoTelescopio)}
+          ladoMeteoros={ladoDosMeteoros(cenario, visaoDaCenaAtual?.pecas ?? [], estado.ladoTelescopio)}
           cenario={cenario}
           aoEscolherPeca={(peca, minha) => void sessao.escolherPeca(peca, minha)}
           aoEscolherLugar={(lugar, bloqueio) => void sessao.escolherLugar(lugar, bloqueio)}

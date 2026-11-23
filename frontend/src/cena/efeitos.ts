@@ -49,8 +49,7 @@ export function criarElementosDoEfeito(
     }
     case "halo": {
       // Luz sobre a peça (o modelo vem apagado), na altura já projetada pela câmera inclinada.
-      const centro = { x: ponto.x, y: ponto.y - g.pxPorMetro * efeito.alturaProjetada };
-      return [{ camada: "frente", el: criarDiv(efeito.tipo, peca, centro, efeito.largura, g) }];
+      return [{ camada: "frente", el: criarDiv(efeito.tipo, peca, acima(efeito.alturaProjetada), efeito.largura, g) }];
     }
     case "brilho": {
       // Poço de luz na cor da peça; estilo dinâmico só por CSSOM (CSP).

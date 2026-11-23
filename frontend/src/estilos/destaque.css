@@ -15,7 +15,7 @@
   transform: translate(-50%, -50%);
   border: 2px solid var(--verde-agua);
   border-radius: 50%;
-  background: rgb(168 213 197 / 0.22);
+  background: color-mix(in srgb, var(--verde-agua) 22%, transparent);
   pointer-events: none;
 }
 
@@ -25,11 +25,11 @@
 
 @keyframes pulso-destaque {
   from {
-    box-shadow: 0 0 0 0 rgb(168 213 197 / 0.75);
+    box-shadow: 0 0 0 0 color-mix(in srgb, var(--verde-agua) 75%, transparent);
   }
 
   to {
-    box-shadow: 0 0 0 14px rgb(168 213 197 / 0);
+    box-shadow: 0 0 0 14px color-mix(in srgb, var(--verde-agua) 0%, transparent);
   }
 }
 
@@ -57,8 +57,8 @@
 @media (max-width: 860px) and (min-height: 700px) {
   :root {
     --altura-cena: calc(96px + 112vw * 1186 / 1800 + var(--e-3));
-    /* O par numa linha e o aviso em até duas (a 390 px, "Bruno entrou no terraço. Escolham as
-       primeiras peças." já quebra), mais os respiros do bloco e uma folga para o anel de foco. */
+    /* Estimativa até a primeira medida: o par numa linha e o aviso em até duas, mais os respiros do
+       bloco e uma folga para o anel de foco. useAlturaDoParEAviso.ts troca pela altura medida. */
     --altura-par-e-aviso: calc(3 * 1.5rem + 4 * var(--e-2));
   }
 

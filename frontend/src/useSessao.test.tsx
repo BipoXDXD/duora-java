@@ -98,19 +98,14 @@ describe("useSessao", () => {
   });
 
   it("o pedido da peça na cena foca o botão dela na cena, não o item do inventário", () => {
-    // A cena de verdade foca o botão da peça na camada dela (cena.test.ts); aqui, o mesmo no #pecas.
-    const cena = {
-      focarPrimeiroLugar: vi.fn(() => false),
-      focarPeca: (peca: string) => {
-        document.querySelector<HTMLElement>(`#pecas [data-peca=${peca}]`)?.focus();
-        return true;
-      },
-    };
+    // Como a cena foca o botão na camada dela já está em cena.test.ts; aqui, só quem recebe o pedido.
+    const cena = { focarPrimeiroLugar: vi.fn(() => false), focarPeca: vi.fn(() => true) };
     const { container, publicar } = montar(cena);
 
     publicar(ENCERRADO, { alvo: "peca-na-cena", peca: "manta" });
 
-    expect(document.activeElement).toBe(container.querySelector("#pecas [data-peca=manta]"));
+    expect(cena.focarPeca).toHaveBeenCalledExactlyOnceWith("manta");
+    expect(document.activeElement).not.toBe(container.querySelector("#inventario [data-peca=manta]"));
   });
 
   it("depois de uma recusa sem lugar livre, o foco volta à peça no inventário", () => {

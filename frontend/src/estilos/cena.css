@@ -386,7 +386,7 @@
 
 /* Sugestão: a peça do parceiro escolhida brilha no verde-água dos destinos "Que tal aqui?". */
 .peca[data-dono="parceiro"][aria-pressed="true"] {
-  filter: drop-shadow(0 0 6px rgb(168 213 197 / 0.9));
+  filter: drop-shadow(0 0 6px color-mix(in srgb, var(--verde-agua) 90%, transparent));
 }
 
 /* Peça do parceiro sem destino livre: não aceita sugestão. */
@@ -500,13 +500,13 @@
    específico vence o que esconde os rótulos no celular. */
 .lugar[data-sugestao="true"]::before {
   border-color: var(--verde-agua);
-  background: rgb(168 213 197 / 0.18);
+  background: color-mix(in srgb, var(--verde-agua) 18%, transparent);
 }
 
 .lugar[data-sugestao="true"]:hover::before,
 .lugar[data-sugestao="true"]:focus-visible::before {
   border-color: var(--verde-agua);
-  background: rgb(168 213 197 / 0.38);
+  background: color-mix(in srgb, var(--verde-agua) 38%, transparent);
 }
 
 .lugar[data-sugestao="true"] .rotulo-lugar {

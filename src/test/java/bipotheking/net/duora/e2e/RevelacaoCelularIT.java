@@ -111,14 +111,15 @@ class RevelacaoCelularIT {
   }
 
   @Test
-  void sairAlcancavelDepoisDeVerOPainel(Participantes participantes) {
+  void sairAlcancavelNaTelaCheia(Participantes participantes) {
     TerracoPagina ana = revelarComAnaNoCelular(participantes);
-    assertThat(ana.botaoSair()).not().isVisible();
 
-    ana.botao("Ver o painel").click();
+    // Sem passar por "Ver o painel": o topo continua preso sobre o céu (playtest P7).
     ana.botaoSair().click();
 
     assertThat(ana.confirmacaoDeSaida()).isVisible();
+    assertThat(ana.confirmacaoDeSaida()).isInViewport();
+    assertThat(ana.app()).hasAttribute("data-tela-cheia", "true");
   }
 
   @Test

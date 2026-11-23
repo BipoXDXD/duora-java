@@ -193,30 +193,33 @@
 
 /* R6: layout, não a Fullscreen API. O data-tela-cheia só vale "true" no celular em pé (useTelaCheia),
    então nada aqui precisa de media query. A noite ocupa a tela; o terraço assenta sobre a folha do
-   resultado, que rola sozinha. Topo e painel saem da vista e da leitura, menos o resultado e o
-   #aviso (região viva: um pedido de ajuste não pode chegar mudo). */
+   resultado, que rola sozinha. O painel sai da vista e da leitura, menos o resultado e o #aviso
+   (região viva: um pedido de ajuste não pode chegar mudo). O topo fica, preso sobre o alto do céu:
+   o título da página e o Sair continuam a um toque, sem passar por "Ver o painel". */
 .app[data-tela-cheia="true"] {
   --altura-resultado: 40dvh;
 }
 
-.app[data-tela-cheia="true"] :is(.topo, .painel) {
+/* O documento por trás não rola (useTelaCheia.ts liga a classe). */
+html.tela-cheia {
+  overflow: hidden;
+}
+
+.app[data-tela-cheia="true"] .painel {
   visibility: hidden;
+}
+
+/* Acima da cena e da folha; com a confirmação de saída aberta, ele cresce para baixo sobre o céu.
+   O !important vence as utilidades do Topo (celular-alto:sticky, z-5, static ao confirmar), que
+   estão numa camada acima desta. */
+.app[data-tela-cheia="true"] .topo {
+  position: fixed !important;
+  inset: 0 0 auto;
+  z-index: 7 !important;
 }
 
 .app[data-tela-cheia="true"] :is(#resultado, #aviso) {
   visibility: visible;
-}
-
-/* Com movimento reduzido, base.css dá 0,01 ms de transição a tudo, e transition-property é "all":
-   ao sair da tela cheia, a visibilidade passaria um quadro em hidden e o navegador tiraria o foco do
-   "Ver o céu". Aqui não há transição a perder (já é instantânea), então topo e painel ficam sem. */
-@media (prefers-reduced-motion: reduce) {
-  .app :is(.topo, .painel),
-  .app :is(.topo, .painel) *,
-  .app :is(.topo, .painel) *::before,
-  .app :is(.topo, .painel) *::after {
-    transition-property: none;
-  }
 }
 
 .app[data-tela-cheia="true"] .cena {
@@ -245,10 +248,10 @@
   background: var(--noite-800);
 }
 
-/* O aviso flutua no alto do céu, longe do polegar; vazio, não aparece. */
+/* O aviso flutua no alto do céu, logo abaixo do topo e longe do polegar; vazio, não aparece. */
 .app[data-tela-cheia="true"] #aviso {
   position: fixed;
-  top: var(--e-4);
+  top: calc(var(--altura-topo) + var(--e-4));
   inset-inline: var(--e-4);
   z-index: 6;
 }

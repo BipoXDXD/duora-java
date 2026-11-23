@@ -86,6 +86,7 @@ describe("criarSom: notas e desbloqueio", () => {
 
   afterEach(() => {
     vi.unstubAllGlobals();
+    vi.restoreAllMocks();
   });
 
   it("as notas tocam com o som desligado", async () => {
@@ -154,5 +155,78 @@ describe("criarSom: notas e desbloqueio", () => {
 
     expect(ContextoFalso.ultimo?.resumes).toBe(1);
     expect(fetchFalso).not.toHaveBeenCalled();
+  });
+
+  it("com o som desligado, desbloquear destrava e deixa o contexto suspenso de novo", async () => {
+    const som = criarSom(cenarioDoTerraco());
+
+    som.desbloquear();
+
+    await vi.waitFor(() => {
+      expect(ContextoFalso.ultimo?.suspends).toBe(1);
+    });
+    expect(ContextoFalso.ultimo?.resumes).toBe(1);
+  });
+
+  it("com o som ligado, desbloquear não suspende o contexto", async () => {
+    fetchFalso.mockImplementation(() => Promise.resolve(new Response(new ArrayBuffer(8))));
+    const som = criarSom(cenarioDoTerraco());
+    som.definir(true);
+
+    som.desbloquear();
+    await vi.waitFor(() => {
+      expect(ContextoFalso.ultimo?.resumes).toBe(2);
+    });
+    await Promise.resolve();
+
+    expect(ContextoFalso.ultimo?.suspends).toBe(0);
+  });
+
+  it("o destravar não corta notas que estão tocando", async () => {
+    fetchFalso.mockResolvedValue(new Response(new ArrayBuffer(8)));
+    const som = criarSom(cenarioDoTerraco());
+    som.notas(NOTAS, 0.5);
+    await vi.waitFor(() => {
+      expect(ContextoFalso.ultimo?.starts).toBe(1);
+    });
+
+    som.desbloquear();
+    await new Promise((resolver) => setTimeout(resolver, 0));
+    expect(ContextoFalso.ultimo?.suspends).toBe(0);
+
+    ContextoFalso.ultimo?.terminar.forEach((terminar) => {
+      terminar();
+    });
+    expect(ContextoFalso.ultimo?.suspends).toBe(1);
+  });
+
+  it("notas que falham ao tocar não deixam o contexto rodando", async () => {
+    fetchFalso.mockResolvedValue(new Response(new ArrayBuffer(8)));
+    vi.spyOn(ContextoFalso.prototype, "createBufferSource").mockImplementation(() => {
+      throw new DOMException("sem saída de áudio", "InvalidStateError");
+    });
+    const som = criarSom(cenarioDoTerraco());
+
+    som.notas(NOTAS, 0.5);
+
+    await vi.waitFor(() => {
+      expect(ContextoFalso.ultimo?.suspends).toBe(1);
+    });
+  });
+
+  it("o fim das primeiras notas não corta as segundas", async () => {
+    fetchFalso.mockImplementation(() => Promise.resolve(new Response(new ArrayBuffer(8))));
+    const som = criarSom(cenarioDoTerraco());
+    som.notas(NOTAS, 0.5);
+    som.notas(NOTAS, 0.5);
+    await vi.waitFor(() => {
+      expect(ContextoFalso.ultimo?.starts).toBe(2);
+    });
+    const [primeira, segunda] = ContextoFalso.ultimo?.terminar ?? [];
+
+    primeira?.();
+    expect(ContextoFalso.ultimo?.suspends).toBe(0);
+    segunda?.();
+    expect(ContextoFalso.ultimo?.suspends).toBe(1);
   });
 });

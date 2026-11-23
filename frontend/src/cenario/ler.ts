@@ -76,7 +76,7 @@ const EsquemaCenario = v.strictObject({
     v.strictObject({
       tipo: v.picklist(["acender-junto"]),
       sprite: v.string(),
-      escala: v.number(),
+      escala: v.pipe(v.number(), v.gtValue(0)),
       lugares: v.strictObject({ A: v.string(), B: v.string() }),
     }),
   ),
