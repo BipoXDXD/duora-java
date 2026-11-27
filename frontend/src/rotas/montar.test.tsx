@@ -3,6 +3,7 @@ import userEvent from "@testing-library/user-event";
 import type { Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { ErroHttp } from "../api/http";
+import { stubarFetch } from "../teste/fetchFalso";
 import { montarCasca, tentarDeNovo } from "./montar";
 
 let raiz: HTMLElement;
@@ -10,6 +11,8 @@ let root: Root | null;
 let tituloDoIndex: HTMLTitleElement;
 
 beforeEach(() => {
+  // O rodapé do layout lê as versões legais; os outros pedidos ficam sem resposta.
+  stubarFetch();
   // O index.html chega com o título do terraço; a casca precisa trocá-lo.
   tituloDoIndex = document.createElement("title");
   tituloDoIndex.textContent = "Antes da primeira estrela";
@@ -61,14 +64,11 @@ describe("montarCasca", () => {
   });
 
   it("entrarCarregaATelaSobDemanda", async () => {
-    vi.stubGlobal(
-      "fetch",
-      vi.fn<typeof fetch>(() =>
-        Promise.resolve(
-          new Response(JSON.stringify({ chaveDoSiteTurnstile: "1x00000000000000000000AA" }), {
-            headers: { "Content-Type": "application/json" },
-          }),
-        ),
+    stubarFetch(() =>
+      Promise.resolve(
+        new Response(JSON.stringify({ chaveDoSiteTurnstile: "1x00000000000000000000AA" }), {
+          headers: { "Content-Type": "application/json" },
+        }),
       ),
     );
 
@@ -80,16 +80,11 @@ describe("montarCasca", () => {
 
   it("tokenSobreviveAoStrictMode", async () => {
     const corpos: unknown[] = [];
-    vi.stubGlobal(
-      "fetch",
-      vi.fn<typeof fetch>((_entrada, opcoes) => {
-        // Só os POST: o GET das versões legais (rodapé do layout) não leva corpo nem token.
-        if (opcoes?.method === "POST") {
-          corpos.push(typeof opcoes.body === "string" ? JSON.parse(opcoes.body) : null);
-        }
-        return Promise.resolve(new Response(null, { status: 503 }));
-      }),
-    );
+    // As versões legais (rodapé do layout) respondem no helper; todo outro pedido entra na lista.
+    stubarFetch((_entrada, opcoes) => {
+      corpos.push(typeof opcoes?.body === "string" ? JSON.parse(opcoes.body) : null);
+      return Promise.resolve(new Response(null, { status: 503 }));
+    });
 
     await montarEm("/entrar/confirmar#t=abc");
 
@@ -195,17 +190,14 @@ describe("montarCasca", () => {
   });
 
   it("termosAbreODocumentoComORodape", async () => {
-    vi.stubGlobal(
-      "fetch",
-      vi.fn<typeof fetch>((entrada) =>
-        entrada === "/api/legal/termos"
-          ? Promise.resolve(
-              new Response(JSON.stringify({ versao: "2026-11-22", html: "<h1>Termos de uso</h1>\n<p>Texto.</p>\n" }), {
-                headers: { "Content-Type": "application/json" },
-              }),
-            )
-          : Promise.reject(new Error("sem contato")),
-      ),
+    stubarFetch((entrada) =>
+      entrada === "/api/legal/termos"
+        ? Promise.resolve(
+            new Response(JSON.stringify({ versao: "2026-11-22", html: "<h1>Termos de uso</h1>\n<p>Texto.</p>\n" }), {
+              headers: { "Content-Type": "application/json" },
+            }),
+          )
+        : Promise.reject(new Error("pedido inesperado")),
     );
 
     await montarEm("/termos");

@@ -10,6 +10,7 @@ async function esperarAResposta(): Promise<void> {
 
 afterEach(() => {
   vi.unstubAllGlobals();
+  vi.restoreAllMocks();
 });
 
 describe("Rodape", () => {
@@ -22,12 +23,35 @@ describe("Rodape", () => {
   });
 
   it("semContatoAindaTemTermosEPrivacidade", async () => {
+    vi.spyOn(console, "warn").mockImplementation(() => undefined);
     render(<Rodape obterContato={() => Promise.reject(new ErroHttp({ status: 0, codigo: "REDE" }))} />);
 
     await esperarAResposta();
 
     expect(screen.getByRole("link", { name: "Termos de uso" })).toHaveAttribute("href", "/termos");
     expect(screen.getByRole("link", { name: "Privacidade" })).toHaveAttribute("href", "/privacidade");
+    expect(screen.queryByRole("link", { name: "Contato" })).not.toBeInTheDocument();
+  });
+
+  it("respostaInvalidaAvisaNoConsole", async () => {
+    const aviso = vi.spyOn(console, "warn").mockImplementation(() => undefined);
+    vi.stubGlobal(
+      "fetch",
+      vi.fn<typeof fetch>(() =>
+        Promise.resolve(
+          new Response(JSON.stringify({ contato: 42 }), { headers: { "Content-Type": "application/json" } }),
+        ),
+      ),
+    );
+
+    render(<Rodape />);
+
+    await vi.waitFor(() => {
+      expect(aviso).toHaveBeenCalledWith(
+        "Contato do rodapé indisponível:",
+        expect.objectContaining({ codigo: "RESPOSTA_INVALIDA" }),
+      );
+    });
     expect(screen.queryByRole("link", { name: "Contato" })).not.toBeInTheDocument();
   });
 

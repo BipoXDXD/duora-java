@@ -29,9 +29,11 @@ export function Rodape({ obterContato = obterContatoDoServidor }: PropsRodape): 
           setContato(lido);
         }
       },
-      // Sem contato, sem o link: o e-mail é um extra do rodapé, e a falha do pedido já aparece na
-      // rede do navegador. Um aviso no console repetiria isso a cada carga do terraço.
-      () => undefined,
+      (erro: unknown) => {
+        // Sem contato, sem o link; Termos e Privacidade continuam. O Contato é o canal dos pedidos de
+        // dados (LGPD): a falha, inclusive uma resposta 200 fora do contrato, fica no console.
+        console.warn("Contato do rodapé indisponível:", erro);
+      },
     );
     return () => {
       montado = false;
