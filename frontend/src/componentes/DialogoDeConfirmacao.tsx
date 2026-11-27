@@ -5,7 +5,10 @@ export interface PropsDoDialogoDeConfirmacao {
   aberto: boolean;
   titulo: string;
   texto: string;
-  /** Rótulo do botão que confirma; repete o verbo do botão que abriu o diálogo. */
+  /**
+   * Rótulo do botão que confirma; repete o verbo do botão que abriu o diálogo. Durante o envio, quem
+   * usa troca pelo gerúndio (Excluindo…).
+   */
   acao: string;
   aoConfirmar: () => void;
   aoCancelar: () => void;
@@ -78,6 +81,7 @@ export function DialogoDeConfirmacao({
       ref={dialogo}
       aria-labelledby={idDoTitulo}
       aria-describedby={idDoTexto}
+      aria-busy={enviando ? true : undefined}
       onCancel={aoPedirParaFechar}
       onClose={aoFechar}
       className={[

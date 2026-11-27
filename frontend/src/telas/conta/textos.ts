@@ -1,5 +1,11 @@
 // Textos fixos das telas de conta. As mensagens de negócio (sucesso, e-mail recusado) vêm do servidor.
 
+/** O link de volta ao "/", nas telas sem próximo passo na casca. */
+const VOLTAR_AO_TERRACO = "Voltar ao terraço";
+
+/** O passo depois do cadastro, enquanto a verificação de idade não chega (2b). */
+const PROXIMO_PASSO_DA_VERIFICACAO = "Falta confirmar sua idade. Essa etapa chega em breve.";
+
 export const ENTRAR = {
   titulo: "Entrar no Duora",
   tituloDaAba: "Entrar · Duora",
@@ -51,7 +57,7 @@ export const CADASTRO = {
   semData: "Informe sua data de nascimento.",
   semAceite: "Marque a caixa para aceitar os termos.",
   menorDeIdade: "O Duora é só para maiores de 18 anos. Não criamos a conta.",
-  voltarAoTerraco: "Voltar ao terraço",
+  voltarAoTerraco: VOLTAR_AO_TERRACO,
   carregandoTermos: "Carregando os termos…",
   falhaDosTermos: "Não conseguimos carregar os termos. Tente de novo em instantes.",
   tentarDeNovo: "Tentar de novo",
@@ -65,7 +71,7 @@ export const CADASTRO = {
 export const AGUARDANDO = {
   titulo: "Cadastro recebido",
   tituloDaAba: "Cadastro recebido · Duora",
-  proximoPasso: "Falta confirmar sua idade. Essa etapa chega em breve.",
+  proximoPasso: PROXIMO_PASSO_DA_VERIFICACAO,
   minhaConta: "Minha conta",
 } as const;
 
@@ -73,7 +79,7 @@ export const MINHA_CONTA = {
   titulo: "Minha conta",
   tituloDaAba: "Minha conta · Duora",
   /** Só com AGUARDANDO_VERIFICACAO; o selo de verificada é da 2b. */
-  proximoPasso: "Falta confirmar sua idade. Essa etapa chega em breve.",
+  proximoPasso: PROXIMO_PASSO_DA_VERIFICACAO,
   sair: "Sair da conta",
   saindo: "Saindo…",
   /** Falha sem resposta conclusiva (rede, servidor fora do ar): a sessão pode seguir aberta. */
@@ -81,13 +87,17 @@ export const MINHA_CONTA = {
   tituloDaExclusao: "Excluir conta",
   avisoDaExclusao: "Apaga seus dados pessoais. Não dá para desfazer.",
   excluir: "Excluir conta",
+  excluindo: "Excluindo…",
   tituloDoDialogo: "Excluir sua conta?",
   textoDoDialogo: "Apagamos seus dados pessoais agora. Não dá para desfazer.",
-  /** Falha sem resposta conclusiva: repetir é seguro, a exclusão repetida também responde 204. */
+  /**
+   * Falha sem resposta conclusiva. Tentar de novo é seguro: se a exclusão chegou ao servidor, a nova
+   * tentativa recebe 401 e a tela leva a /entrar.
+   */
   falhaAoExcluir: "Não conseguimos excluir a conta. Tente de novo em instantes.",
   tituloExcluida: "Conta excluída",
   tituloDaAbaExcluida: "Conta excluída · Duora",
-  voltarAoTerraco: "Voltar ao terraço",
+  voltarAoTerraco: VOLTAR_AO_TERRACO,
 } as const;
 
 /** Falha do loader de uma rota que exige conta. */
@@ -99,7 +109,7 @@ export const ERRO_DA_CONTA = {
   /** Vale para a leitura da conta, o download da tela e erro ao desenhá-la. */
   falha: "Pode ter sido a conexão ou uma falha nossa. Tente de novo em instantes.",
   tentarDeNovo: "Tentar de novo",
-  voltarAoTerraco: "Voltar ao terraço",
+  voltarAoTerraco: VOLTAR_AO_TERRACO,
 } as const;
 
 /** Texto do 429: o Retry-After em segundos vira minutos inteiros, arredondados para cima, nunca menos de 1. */

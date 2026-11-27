@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { fireEvent, render, screen, within } from "@testing-library/react";
+import { act, fireEvent, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { createMemoryRouter, RouterProvider } from "react-router";
 import { afterEach, describe, expect, it, vi } from "vitest";
@@ -31,10 +31,17 @@ interface Pedido {
 }
 
 /** Responde o sair e a exclusão; guarda cada pedido feito, com o corpo cru. */
+/** A resposta pronta ou, para rede caída ou resposta segura pelo teste, a promessa de cada pedido. */
+type Responder = RespostaFalsa | (() => Promise<Response>);
+
+function responderCom(responder: Responder): Promise<Response> {
+  return typeof responder === "function" ? responder() : Promise.resolve(resposta(responder));
+}
+
 function prepararFetch({
   sair = SEM_CONTEUDO,
   exclusao = SEM_CONTEUDO,
-}: { sair?: RespostaFalsa; exclusao?: RespostaFalsa } = {}) {
+}: { sair?: Responder; exclusao?: Responder } = {}) {
   const pedidos: Pedido[] = [];
   vi.stubGlobal(
     "fetch",
@@ -42,10 +49,10 @@ function prepararFetch({
       const url = typeof entrada === "string" ? entrada : "";
       pedidos.push({ url, corpo: typeof opcoes?.body === "string" ? opcoes.body : null });
       if (url === "/api/conta/sair" && opcoes?.method === "POST") {
-        return Promise.resolve(resposta(sair));
+        return responderCom(sair);
       }
       if (url === "/api/conta/exclusao" && opcoes?.method === "POST") {
-        return Promise.resolve(resposta(exclusao));
+        return responderCom(exclusao);
       }
       return Promise.reject(new Error(`pedido inesperado: ${url}`));
     }),
@@ -268,5 +275,71 @@ describe("MinhaConta", () => {
 
     expect(await screen.findByRole("heading", { name: "Tela de entrar" })).toBeInTheDocument();
     expect(cliente.getQueryData(["conta"])).toBeUndefined();
+  });
+
+  it("falhaDeRedeNaExclusaoAvisaEDestrava", async () => {
+    let tentativas = 0;
+    const pedidos = prepararFetch({
+      exclusao: () => {
+        tentativas += 1;
+        return tentativas === 1
+          ? Promise.reject(new TypeError("Failed to fetch"))
+          : Promise.resolve(resposta(SEM_CONTEUDO));
+      },
+    });
+    renderizar();
+    const { usuario, dialogo } = await abrirODialogo();
+    await usuario.click(within(dialogo).getByRole("button", { name: "Excluir conta" }));
+    expect(await screen.findByText("Não conseguimos excluir a conta. Tente de novo em instantes.")).toHaveAttribute(
+      "role",
+      "alert",
+    );
+
+    const segunda = await abrirODialogo();
+    await segunda.usuario.click(within(segunda.dialogo).getByRole("button", { name: "Excluir conta" }));
+
+    expect(await screen.findByRole("heading", { level: 1, name: "Conta excluída" })).toBeInTheDocument();
+    expect(pedidos).toHaveLength(2);
+  });
+
+  /** O Safari e o Firefox do macOS não focam o botão no clique; o foco ainda precisa voltar a ele. */
+  it("focoVoltaAoExcluirMesmoSemFocoNoClique", async () => {
+    prepararFetch();
+    renderizar();
+    const botao = await botaoExcluir();
+
+    fireEvent.click(botao);
+    await userEvent.click(within(screen.getByRole("dialog")).getByRole("button", { name: "Cancelar" }));
+
+    expect(botao).toHaveFocus();
+  });
+
+  it("excluindoMostraOEnvioNoDialogo", async () => {
+    prepararFetch({ exclusao: () => new Promise<Response>(() => undefined) });
+    renderizar();
+    const { usuario, dialogo } = await abrirODialogo();
+
+    await usuario.click(within(dialogo).getByRole("button", { name: "Excluir conta" }));
+
+    expect(await within(dialogo).findByRole("button", { name: "Excluindo…" })).toHaveAttribute("aria-disabled", "true");
+    expect(dialogo).toHaveAttribute("aria-busy", "true");
+  });
+
+  /** Com o diálogo fechado à força no meio da exclusão, o Sair aparece indisponível e não envia. */
+  it("sairFicaIndisponivelComExclusaoPendente", async () => {
+    const pedidos = prepararFetch({ exclusao: () => new Promise<Response>(() => undefined) });
+    renderizar();
+    const { usuario, dialogo } = await abrirODialogo();
+    await usuario.click(within(dialogo).getByRole("button", { name: "Excluir conta" }));
+    await within(dialogo).findByRole("button", { name: "Excluindo…" });
+
+    act(() => {
+      (dialogo as HTMLDialogElement).close();
+    });
+    const sair = await botaoSair();
+    await usuario.click(sair);
+
+    expect(sair).toHaveAttribute("aria-disabled", "true");
+    expect(pedidos.map(({ url }) => url)).toEqual(["/api/conta/exclusao"]);
   });
 });

@@ -65,7 +65,7 @@ public class ContasDeTeste {
         .param("excluidaEm", excluida ? agora : null)
         .update();
     ContaId conta = new ContaId(id);
-    return new ContaDeTeste(conta, "duora_sessao=" + sessoes.abrir(conta));
+    return new ContaDeTeste(conta, "duora_sessao=" + sessoes.abrir(conta, OrigemDeTeste.LOCAL));
   }
 
   /** Conta ativa, nascida em 1990-05-10, ativada agora. */

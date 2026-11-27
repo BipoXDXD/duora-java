@@ -40,7 +40,7 @@ class ConfirmacaoController {
   ResponseEntity<RespostaDeConfirmacao> confirmar(
       @RequestBody PedidoDeConfirmacaoJson corpo, HttpServletRequest request) {
     ResultadoDaConfirmacao resultado =
-        confirmacao.confirmar(corpo.token(), origem.de(request).ip(), cookie.ler(request));
+        confirmacao.confirmar(corpo.token(), origem.de(request), cookie.ler(request));
     return ResponseEntity.ok()
         .header(HttpHeaders.SET_COOKIE, cookie.emitir(resultado.tokenDaSessao()))
         .body(new RespostaDeConfirmacao(resultado.cadastroConcluido()));

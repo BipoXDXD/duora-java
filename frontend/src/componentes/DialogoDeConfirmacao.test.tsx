@@ -1,4 +1,4 @@
-import { render, screen, within } from "@testing-library/react";
+import { act, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { useState, type ReactElement } from "react";
 import { describe, expect, it, vi } from "vitest";
@@ -7,10 +7,16 @@ import { DialogoDeConfirmacao } from "./DialogoDeConfirmacao";
 interface PropsDoCenario {
   enviando?: boolean;
   aoConfirmar?: () => void;
+  /** Espião chamado junto com o fechamento pelo estado. */
+  aoCancelar?: () => void;
 }
 
 /** Um botão de origem e o diálogo, com o estado de aberto na mão de quem usa, como na tela. */
-function Cenario({ enviando = false, aoConfirmar = () => undefined }: PropsDoCenario): ReactElement {
+function Cenario({
+  enviando = false,
+  aoConfirmar = () => undefined,
+  aoCancelar = () => undefined,
+}: PropsDoCenario): ReactElement {
   const [aberto, setAberto] = useState(false);
   return (
     <>
@@ -29,6 +35,7 @@ function Cenario({ enviando = false, aoConfirmar = () => undefined }: PropsDoCen
         acao="Excluir conta"
         aoConfirmar={aoConfirmar}
         aoCancelar={() => {
+          aoCancelar();
           setAberto(false);
         }}
         enviando={enviando}
@@ -107,6 +114,43 @@ describe("DialogoDeConfirmacao", () => {
 
     expect(acao).toHaveAttribute("aria-disabled", "true");
     expect(aoConfirmar).not.toHaveBeenCalled();
+  });
+
+  it("enviandoIgnoraOCancelar", async () => {
+    const aoCancelar = vi.fn<() => void>();
+    const { usuario, dialogo } = await abrir({ enviando: true, aoCancelar });
+    const cancelar = within(dialogo).getByRole("button", { name: "Cancelar" });
+
+    await usuario.click(cancelar);
+
+    expect(cancelar).toHaveAttribute("aria-disabled", "true");
+    expect(aoCancelar).not.toHaveBeenCalled();
+    expect(screen.getByRole("dialog", { name: "Excluir sua conta?" })).toBeInTheDocument();
+  });
+
+  it("enviandoMarcaODialogoOcupado", async () => {
+    const { dialogo } = await abrir({ enviando: true });
+
+    expect(dialogo).toHaveAttribute("aria-busy", "true");
+  });
+
+  it("paradoNaoMarcaODialogoOcupado", async () => {
+    const { dialogo } = await abrir();
+
+    expect(dialogo).not.toHaveAttribute("aria-busy");
+  });
+
+  /** O Chrome fecha sem perguntar no segundo Esc seguido, mesmo com o preventDefault. */
+  it("fechamentoForcadoChamaAoCancelar", async () => {
+    const aoCancelar = vi.fn<() => void>();
+    const { dialogo } = await abrir({ aoCancelar });
+
+    act(() => {
+      (dialogo as HTMLDialogElement).close();
+    });
+
+    expect(aoCancelar).toHaveBeenCalledOnce();
+    expect(screen.getByRole("button", { name: "Abrir" })).toHaveFocus();
   });
 
   it("enviandoIgnoraOEsc", async () => {

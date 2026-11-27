@@ -1,5 +1,6 @@
 package bipotheking.net.duora.conta;
 
+import bipotheking.net.duora.nucleo.Origem;
 import java.util.UUID;
 import org.springframework.test.web.servlet.request.RequestPostProcessor;
 
@@ -8,6 +9,9 @@ import org.springframework.test.web.servlet.request.RequestPostProcessor;
  * requisição com um IP próprio não esbarra no limite de outra.
  */
 public final class OrigemDeTeste {
+
+  /** A origem dos acessos que os testes abrem direto, sem requisição. */
+  public static final Origem LOCAL = new Origem("127.0.0.1", 0);
 
   private OrigemDeTeste() {}
 
@@ -22,6 +26,15 @@ public final class OrigemDeTeste {
   public static RequestPostProcessor ip(String ip) {
     return requisicao -> {
       requisicao.setRemoteAddr(ip);
+      return requisicao;
+    };
+  }
+
+  /** Um {@code remoteAddr} e um {@code remotePort} fixos. */
+  public static RequestPostProcessor origem(String ip, int porta) {
+    return requisicao -> {
+      requisicao.setRemoteAddr(ip);
+      requisicao.setRemotePort(porta);
       return requisicao;
     };
   }
