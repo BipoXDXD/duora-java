@@ -15,6 +15,7 @@ public interface RepositorioDeUsoDeContaNova {
    *
    * @param limite pelo menos 1
    * @return o uso depois de somar; vazio se o dia já estava no limite
+   * @throws IllegalArgumentException se {@code limite} é menor que 1
    */
   OptionalInt consumir(ContaId conta, LocalDate dia, TipoDeLimiteNovo tipo, int limite);
 }

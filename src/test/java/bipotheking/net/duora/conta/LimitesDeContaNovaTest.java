@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import bipotheking.net.duora.conta.ContasDeTeste.ContaDeTeste;
+import bipotheking.net.duora.conta.dominio.RepositorioDeUsoDeContaNova;
 import bipotheking.net.duora.retencao.PoliticaDeRetencao;
 import bipotheking.net.duora.web.BancoDeTeste;
 import java.time.Duration;
@@ -32,6 +33,7 @@ class LimitesDeContaNovaTest extends BancoDeTeste {
   private static final Duration ESPERA = Duration.ofSeconds(5);
 
   @Autowired private LimitesDeContaNova limites;
+  @Autowired private RepositorioDeUsoDeContaNova uso;
   @Autowired private ContasDeTeste contas;
   @Autowired private List<PoliticaDeRetencao> politicas;
   @Autowired private PlatformTransactionManager transacoes;
@@ -116,7 +118,11 @@ class LimitesDeContaNovaTest extends BancoDeTeste {
         .isOne();
   }
 
-  /** 20 consumos largam juntos contra o limite de 10 imagens: passam exatamente 10. */
+  /**
+   * 20 consumos largam juntos contra o limite de 10 imagens: passam exatamente 10. O pool de teste
+   * tem 4 conexões, então no máximo 4 disputam a linha ao mesmo tempo; a prova determinística da
+   * espera e da reavaliação é {@link #consumoQueEsperaATravaReavaliaOLimite}.
+   */
   @Test
   void consumosSimultaneosNaoPassamDoLimite() throws Exception {
     ContaDeTeste conta = contas.criarAtiva();
@@ -189,6 +195,56 @@ class LimitesDeContaNovaTest extends BancoDeTeste {
     assertThat(esperaram).as("os dois consumos esperaram a trava da linha").isTrue();
     assertThat(sucessos).isOne();
     assertThat(usados(conta.id(), TipoDeLimiteNovo.IMAGEM)).isEqualTo(10);
+  }
+
+  /**
+   * O primeiro consumo do dia insere a linha e ainda não fez commit; outro consumo espera a
+   * inserção. Com o rollback do primeiro, quem esperava insere a própria linha, com {@code usados =
+   * 1}.
+   */
+  @Test
+  void consumoQueEsperaInsercaoDesfeitaInsereComUm() throws Exception {
+    ContaDeTeste conta = contas.criarAtiva();
+    CountDownLatch inseriu = new CountDownLatch(1);
+    CountDownLatch soltar = new CountDownLatch(1);
+
+    boolean esperou;
+    boolean passou;
+    try (ExecutorService threads = Executors.newFixedThreadPool(2)) {
+      Future<?> primeira =
+          threads.submit(() ->
+              transacao()
+                  .executeWithoutResult(status -> {
+                    limites.consumir(conta.id(), TipoDeLimiteNovo.IMAGEM);
+                    inseriu.countDown();
+                    aguardar(soltar);
+                    status.setRollbackOnly();
+                  }));
+      Future<Boolean> esperando;
+      try {
+        assertThat(inseriu.await(ESPERA.toMillis(), TimeUnit.MILLISECONDS)).isTrue();
+        esperando = threads.submit(() -> tentarConsumir(conta.id(), TipoDeLimiteNovo.IMAGEM));
+        esperou = conexoesEmEspera(1);
+      } finally {
+        soltar.countDown();
+      }
+      primeira.get();
+      passou = esperando.get();
+    }
+
+    assertThat(esperou).as("o consumo esperou a inserção da outra transação").isTrue();
+    assertThat(passou).isTrue();
+    assertThat(usados(conta.id(), TipoDeLimiteNovo.IMAGEM)).isOne();
+  }
+
+  @Test
+  void repositorioRecusaLimiteMenorQueUm() {
+    ContaDeTeste conta = contas.criarAtiva();
+    LocalDate hoje = LocalDate.of(2026, 11, 22);
+
+    assertThatThrownBy(() -> uso.consumir(conta.id(), hoje, TipoDeLimiteNovo.IMAGEM, 0))
+        .isInstanceOf(IllegalArgumentException.class);
+    assertThat(usados(conta.id(), TipoDeLimiteNovo.IMAGEM)).isZero();
   }
 
   @Test

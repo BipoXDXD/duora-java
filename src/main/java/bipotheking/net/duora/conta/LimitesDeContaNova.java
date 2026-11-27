@@ -43,6 +43,17 @@ public class LimitesDeContaNova {
    * nova: na dúvida, o limite vale. O uso do dia fica travado até o commit do chamador, então
    * consumos da mesma conta e tipo esperam um pelo outro.
    *
+   * <p>Para quem chama (Etapas 4 e 5):
+   *
+   * <ul>
+   *   <li>não capture o {@link LimiteDeContaNovaExcedido} dentro da transação: ao atravessar este
+   *       método, a exceção já marcou a transação como rollback-only, e o commit falharia. Deixe a
+   *       exceção sair da transação e trate-a fora dela;
+   *   <li>quem consome mais de um tipo na mesma transação consome na ordem do enum {@link
+   *       TipoDeLimiteNovo} ({@code MENSAGEM}, {@code IMAGEM}, {@code CONVITE}): duas transações
+   *       que travassem os tipos em ordens opostas entrariam em deadlock.
+   * </ul>
+   *
    * @throws LimiteDeContaNovaExcedido se o limite do dia acabou, com espera até a meia-noite de São
    *     Paulo
    * @throws IllegalArgumentException se a conta não existe

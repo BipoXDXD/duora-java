@@ -24,6 +24,10 @@ class LimitesDeContaNovaJdbc implements RepositorioDeUsoDeContaNova {
 
   @Override
   public OptionalInt consumir(ContaId conta, LocalDate dia, TipoDeLimiteNovo tipo, int limite) {
+    // A inserção grava 1 sem olhar o limite: com limite 0, o primeiro consumo do dia passaria.
+    if (limite < 1) {
+      throw new IllegalArgumentException("O limite precisa ser pelo menos 1: " + limite);
+    }
     return jdbc.sql(
             """
             insert into uso_conta_nova (conta_id, dia, tipo, usados)
