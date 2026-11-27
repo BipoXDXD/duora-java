@@ -29,10 +29,10 @@ class CascaDeContaIT {
   private static final String CHUNK_DA_CASCA = "/app/casca-de-conta";
 
   /**
-   * Rota encaminhada que ainda não tem tela: a casca cai na {@code NaoEncontrada}. Quando a tela do
-   * encarregado chegar, troque por outra rota sem tela ou apague o teste do axe.
+   * Caminho que nunca terá tela nem encaminhamento no Spring: só a navegação no cliente chega a
+   * ele, e a casca cai na {@code NaoEncontrada}.
    */
-  private static final String ROTA_SEM_TELA = "encarregado";
+  private static final String ROTA_INEXISTENTE = "rota-inexistente";
 
   @Value("${local.server.port}")
   private int porta;
@@ -75,9 +75,21 @@ class CascaDeContaIT {
     assertThat(pedidos).isNotEmpty().noneMatch(url -> url.contains(CHUNK_DA_CASCA));
   }
 
+  /**
+   * O Spring dá 404 a caminho fora de {@code RotasDoSpa.CAMINHOS}; a {@code NaoEncontrada} aparece
+   * quando a navegação no cliente sai das rotas da casca. O {@code createBrowserRouter} escuta o
+   * {@code popstate} da história do navegador.
+   */
   @Test
   void naoEncontradaSemViolacoes(Participantes participantes) {
-    Page page = participantes.novo().abrir(raiz(porta) + ROTA_SEM_TELA).page();
+    Page page = participantes.novo().abrir(raiz(porta) + "conta").page();
+    assertThat(page.getByRole(AriaRole.MAIN)).isVisible();
+
+    page.evaluate(
+        "caminho => { history.pushState({}, '', caminho);"
+            + " dispatchEvent(new PopStateEvent('popstate')); }",
+        "/" + ROTA_INEXISTENTE);
+
     assertThat(
             page.getByRole(
                 AriaRole.HEADING, new Page.GetByRoleOptions().setName("Página não encontrada")))
