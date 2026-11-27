@@ -1,5 +1,6 @@
 package bipotheking.net.duora;
 
+import static com.tngtech.archunit.lang.syntax.ArchRuleDefinition.classes;
 import static com.tngtech.archunit.library.dependencies.SlicesRuleDefinition.slices;
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -38,6 +39,16 @@ class ArquiteturaTest {
 
   /** Mais forte que "sem Spring": o núcleo só usa o JDK (e anotações de nulidade). */
   @ArchTest static final ArchRule nucleoSemSpring = RegrasDeArquitetura.nucleoJavaPuro(RAIZ);
+
+  /** ADR 0006: {@code retencao} é só a raiz; web e JDBC já ficam de fora pela regra do domínio. */
+  @ArchTest
+  static final ArchRule retencaoSoNaRaiz =
+      classes()
+          .that()
+          .resideInAPackage(RAIZ + ".retencao..")
+          .should()
+          .resideInAPackage(RAIZ + ".retencao")
+          .allowEmptyShould(false);
 
   /** Garante que as regras acima olham bytecode de verdade (Java 25), não um import vazio. */
   @ArchTest
