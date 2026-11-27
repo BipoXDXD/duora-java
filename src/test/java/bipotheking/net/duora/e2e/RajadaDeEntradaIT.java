@@ -1,9 +1,11 @@
 package bipotheking.net.duora.e2e;
 
 import static com.microsoft.playwright.assertions.PlaywrightAssertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThat;
 
 import bipotheking.net.duora.e2e.NavegadorExtension.Participantes;
 import com.microsoft.playwright.Locator;
+import com.microsoft.playwright.Response;
 import com.microsoft.playwright.options.AriaRole;
 import java.util.regex.Pattern;
 import org.junit.jupiter.api.Test;
@@ -35,15 +37,16 @@ class RajadaDeEntradaIT extends ContaE2eBase {
     String email = emailNovo();
 
     for (int pedido = 0; pedido < PEDIDOS_DENTRO_DO_LIMITE; pedido++) {
-      conta.pedirLink(email);
-      // Durante um pedido o status fica vazio; o texto volta só se este pedido deu certo.
+      Response resposta = conta.pedirLink(email);
+      assertThat(resposta.status()).isEqualTo(202);
       assertThat(status(conta))
           .hasText("Enviamos um link para o seu e-mail. Ele vale por 15 minutos.");
       assertThat(alerta(conta)).isEmpty();
     }
 
-    conta.pedirLink(email);
+    Response recusa = conta.pedirLink(email);
 
+    assertThat(recusa.status()).isEqualTo(429);
     assertThat(alerta(conta)).hasText(AVISO_DE_ESPERA);
   }
 

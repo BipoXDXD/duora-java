@@ -9,6 +9,7 @@ import com.microsoft.playwright.Locator;
 import com.microsoft.playwright.Page;
 import com.microsoft.playwright.options.AriaRole;
 import java.time.LocalDate;
+import java.time.ZoneId;
 import java.util.List;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -20,7 +21,11 @@ import org.springframework.beans.factory.annotation.Autowired;
 class ContaIT extends ContaE2eBase {
 
   private static final LocalDate NASCIMENTO_DE_ADULTO = LocalDate.of(1990, 5, 10);
-  private static final LocalDate NASCIMENTO_DE_MENOR = LocalDate.of(2010, 1, 1);
+
+  /** Data relativa: uma data fixa deixaria de ser de menor com o passar dos anos. */
+  private static final LocalDate NASCIMENTO_DE_MENOR =
+      LocalDate.now(ZoneId.of("America/Sao_Paulo")).minusYears(10);
+
   private static final String COOKIE_DA_SESSAO = "duora_sessao";
 
   @Autowired private ContasDeTeste contas;
@@ -76,17 +81,23 @@ class ContaIT extends ContaE2eBase {
         .isVisible();
   }
 
-  /** O helper da base entrega o link de cada pedido, não o do pedido anterior. */
+  /** Um pedido novo invalida o link anterior do mesmo e-mail: só o último entra. */
   @Test
-  void segundoPedidoTrazLinkNovo(Participantes participantes) {
+  void segundoPedidoInvalidaOPrimeiroLink(Participantes participantes) {
     ContaPagina conta = novaConta(participantes);
     String email = emailNovo();
     conta.abrir(raiz() + "entrar").pedirLink(email);
     String primeiro = linkRecebido(email);
-
     conta.pedirLink(email);
+    String segundo = linkRecebido(email);
 
-    assertThat(linkRecebido(email)).isNotEqualTo(primeiro);
+    conta.abrirLink(primeiro);
+    conta.confirmarEntrada();
+    assertThat(conta.link("Pedir novo link")).isVisible();
+
+    conta.abrirLink(segundo);
+    conta.confirmarEntrada();
+    assertThat(conta.heading("Falta pouco")).isVisible();
   }
 
   /** No WebKit a flag de cookie seguro está desligada; quem prova o {@code Secure} é a API (C4). */
