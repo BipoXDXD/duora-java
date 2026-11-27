@@ -4,6 +4,7 @@ import { createRoot, type Root } from "react-dom/client";
 import { createBrowserRouter, RouterProvider } from "react-router";
 import { ErroHttp } from "../api/http";
 import { criarRotas } from "./rotas";
+import { lerTokenDoLink } from "./tokenDoLink";
 
 const MAXIMO_DE_TENTATIVAS_EXTRAS = 2;
 
@@ -14,15 +15,15 @@ export function tentarDeNovo(falhas: number, erro: unknown): boolean {
 
 /**
  * Monta a casca de conta na raiz: React Router no modo de dados e TanStack Query. Carregado por
- * import() a partir do despacho, fora do JS inicial do terraço. Local e história já fazem parte da
- * assinatura do contrato: a F7 lê com eles, uma vez, o #t= do link mágico e limpa a URL (até lá,
- * _local e _historia ficam sem uso).
+ * import() a partir do despacho, fora do JS inicial do terraço. O #t= do link mágico é lido aqui, uma
+ * vez e antes do primeiro render, e sai da URL; a tela de confirmação o recebe pelo contexto da casca.
  */
-export function montarCasca(raiz: HTMLElement, _local: Location, _historia: History): Root {
+export function montarCasca(raiz: HTMLElement, local: Location, historia: History): Root {
+  const tokenDoLink = lerTokenDoLink(local, historia);
   const clienteDeConsulta = new QueryClient({
     defaultOptions: { queries: { retry: tentarDeNovo } },
   });
-  const roteador = createBrowserRouter(criarRotas({ clienteDeConsulta, tokenDoLink: null }));
+  const roteador = createBrowserRouter(criarRotas({ clienteDeConsulta, tokenDoLink }));
   const root = createRoot(raiz);
   root.render(
     <StrictMode>
