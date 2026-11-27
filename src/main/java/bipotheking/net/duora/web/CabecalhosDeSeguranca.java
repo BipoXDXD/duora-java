@@ -24,9 +24,15 @@ import org.springframework.web.filter.OncePerRequestFilter;
 @Order(Ordered.HIGHEST_PRECEDENCE + 1)
 public final class CabecalhosDeSeguranca extends OncePerRequestFilter {
 
+  /**
+   * O script e o iframe do Turnstile (challenges.cloudflare.com) são a única origem externa, como
+   * pede a doc da Cloudflare; o widget não precisa de style-src nem de 'unsafe-*'.
+   */
   public static final String CSP =
       "default-src 'self'; img-src 'self' data:; object-src 'none'; base-uri 'none'; "
-          + "frame-ancestors 'none'; form-action 'self'";
+          + "frame-ancestors 'none'; form-action 'self'; "
+          + "script-src 'self' https://challenges.cloudflare.com; "
+          + "frame-src https://challenges.cloudflare.com";
 
   /**
    * O index.html, o service worker, o manifest e as rotas do SPA, que o Spring encaminha ao

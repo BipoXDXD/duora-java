@@ -765,7 +765,9 @@ class SalaApiTest {
                     "Content-Security-Policy",
                     "default-src 'self'; img-src 'self' data:; object-src 'none'; "
                         + "base-uri 'none'; "
-                        + "frame-ancestors 'none'; form-action 'self'"))
+                        + "frame-ancestors 'none'; form-action 'self'; "
+                        + "script-src 'self' https://challenges.cloudflare.com; "
+                        + "frame-src https://challenges.cloudflare.com"))
         .andExpect(header().string("X-Content-Type-Options", "nosniff"))
         .andExpect(header().string("Referrer-Policy", "no-referrer"))
         .andExpect(header().string("Cross-Origin-Resource-Policy", "same-origin"));
