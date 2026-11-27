@@ -1,6 +1,6 @@
 import { act, screen } from "@testing-library/react";
 import type { Root } from "react-dom/client";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { ErroHttp } from "../api/http";
 import { montarCasca, tentarDeNovo } from "./montar";
 
@@ -25,6 +25,7 @@ afterEach(() => {
   raiz.remove();
   tituloDoIndex.remove();
   history.pushState(null, "", "/");
+  vi.unstubAllGlobals();
 });
 
 async function montarEm(url: string): Promise<void> {
@@ -48,6 +49,24 @@ describe("montarCasca", () => {
 
     await screen.findByRole("heading", { name: "Página não encontrada" });
     expect(document.title).toBe("Página não encontrada · Duora");
+  });
+
+  it("entrarCarregaATelaSobDemanda", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn<typeof fetch>(() =>
+        Promise.resolve(
+          new Response(JSON.stringify({ chaveDoSiteTurnstile: "1x00000000000000000000AA" }), {
+            headers: { "Content-Type": "application/json" },
+          }),
+        ),
+      ),
+    );
+
+    await montarEm("/entrar");
+
+    expect(await screen.findByRole("heading", { level: 1, name: "Entrar no Duora" })).toBeInTheDocument();
+    expect(document.title).toBe("Entrar · Duora");
   });
 
   it("telaFicaNoMainDoLayout", async () => {

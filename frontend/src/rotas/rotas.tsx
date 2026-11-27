@@ -19,7 +19,13 @@ export function criarRotas(_contexto: ContextoDaCasca): RouteObject[] {
     {
       path: "/",
       Component: LayoutDeConta,
-      children: [{ path: "*", Component: NaoEncontrada }],
+      children: [
+        {
+          path: "entrar",
+          lazy: async () => ({ Component: (await import("../telas/conta/Entrar")).Entrar }),
+        },
+        { path: "*", Component: NaoEncontrada },
+      ],
     },
   ];
 }
