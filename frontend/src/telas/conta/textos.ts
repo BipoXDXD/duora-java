@@ -6,15 +6,19 @@ const VOLTAR_AO_TERRACO = "Voltar ao terraço";
 /** O passo depois do cadastro, enquanto a verificação de idade não chega (2b). */
 const PROXIMO_PASSO_DA_VERIFICACAO = "Falta confirmar sua idade. Essa etapa chega em breve.";
 
+/** A verificação de segurança (Turnstile), nas telas que a pedem antes de enviar. */
+export const VERIFICACAO = {
+  aguarde: "Aguarde a verificação de segurança acima.",
+  falha: "Não conseguimos carregar a verificação de segurança.",
+  tentarDeNovo: "Tentar de novo",
+} as const;
+
 export const ENTRAR = {
   titulo: "Entrar no Duora",
   tituloDaAba: "Entrar · Duora",
   rotuloDoEmail: "Seu e-mail",
   enviar: "Enviar link",
   enviando: "Enviando…",
-  aguardeAVerificacao: "Aguarde a verificação de segurança acima.",
-  falhaDaVerificacao: "Não conseguimos carregar a verificação de segurança.",
-  tentarDeNovo: "Tentar de novo",
   /** Falha sem resposta conclusiva (rede, servidor fora do ar, 409): o link pode ter saído. */
   falhaNoEnvio: "Não conseguimos confirmar o envio do link. Tente de novo em instantes.",
 } as const;

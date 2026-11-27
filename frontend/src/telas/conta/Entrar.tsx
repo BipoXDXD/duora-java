@@ -13,7 +13,7 @@ import {
   TITULO_DA_CASCA,
 } from "../../componentes/estilos";
 import { carregarTurnstile, Turnstile, type ApiTurnstile, type ControleDoTurnstile } from "../../componentes/Turnstile";
-import { ENTRAR, textoDeEspera } from "./textos";
+import { ENTRAR, textoDeEspera, VERIFICACAO } from "./textos";
 
 interface PropsDeEntrar {
   carregarTurnstile?: () => Promise<ApiTurnstile>;
@@ -143,10 +143,10 @@ export function Entrar({ carregarTurnstile: carregar = carregarTurnstile }: Prop
           {verificacaoFalhou ? (
             <div className="grid gap-(--e-2)">
               <p className={TEXTO_SECUNDARIO} id="entrar-falha-verificacao">
-                {ENTRAR.falhaDaVerificacao}
+                {VERIFICACAO.falha}
               </p>
               <button type="button" className={BOTAO_SECUNDARIO_SEM_MARGEM} onClick={tentarDeNovo}>
-                {ENTRAR.tentarDeNovo}
+                {VERIFICACAO.tentarDeNovo}
               </button>
             </div>
           ) : (
@@ -186,7 +186,7 @@ export function Entrar({ carregarTurnstile: carregar = carregarTurnstile }: Prop
         {token === null && !verificacaoFalhou && (
           // Com a mensagem de sucesso na tela, a dica sai da vista, mas segue como motivo do botão.
           <p className={pedido.isSuccess ? "sr-only" : DICA} id="entrar-motivo">
-            {ENTRAR.aguardeAVerificacao}
+            {VERIFICACAO.aguarde}
           </p>
         )}
       </form>
