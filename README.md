@@ -108,7 +108,8 @@ terraço na largura 1800 com o aparelho em pé, captura a tela em pé e deitada 
 antes), instala o app, abre o app instalado e exige o modo standalone, sem a barra do navegador. O
 resultado (JSON e as capturas `-em-pe`, `-deitado`, `-standalone` e `-home`) fica em
 `target/android/`. A ordem dos passos e a volta da rotação têm testes que rodam sem emulador:
-`node --test 'scripts/android/*.test.mjs'`.
+`node --test 'scripts/android/*.test.mjs'`. Eles ficam fora do `./mvnw verify`: a CI os roda num
+passo próprio, depois do verify, com o Node que ele baixou em `frontend/node`.
 
 Atenção: `emulador.sh instalar` aceita sozinho as licenças do Android SDK (`sdkmanager
 --licenses`). Leia as licenças antes de rodar se isso importa para você.
