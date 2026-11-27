@@ -15,11 +15,28 @@ Crie um todo por item e marque só depois da evidência.
 
 ### 1. Testes afetados
 
-Antes de qualquer `./mvnw`, garanta que nenhum outro Maven pesado está rodando (um por vez na máquina):
+Desde a Etapa 2a, todo `verify`, todo e2e e o `spring-boot:run` precisam de Docker (Postgres 18 pelo Testcontainers ou pelo `compose.yaml`). Antes de qualquer `./mvnw`:
 
 ```sh
+docker info >/dev/null && echo docker ok                          # o daemon tem de responder
 pgrep -fl "[c]lassworlds\.launcher" | grep -v RemoteMavenServer   # tem de sair vazio
 ```
+
+Rode todo comando pesado (`./mvnw`, e2e, Docker) sob a trava da máquina, que serializa as sessões: uma suíte com Docker por vez. A trava sai sozinha no fim, inclusive se o comando falhar:
+
+```sh
+( until mkdir /private/tmp/claude-501/duora-pesado.lock 2>/dev/null; do sleep 15; done
+  trap 'rmdir /private/tmp/claude-501/duora-pesado.lock' EXIT
+  caffeinate -dims ./mvnw -q verify )
+```
+
+Limpeza, depois de rodar:
+
+- testes: `docker ps --filter label=org.testcontainers -q` sai vazio (o Ryuk remove o Postgres alguns segundos depois de a JVM sair);
+- `spring-boot:run`: `docker compose ps -q` sai vazio (o ciclo `start-and-stop` derruba o serviço ao sair);
+- contêiner criado à mão: remova-o.
+
+Migração nova: uma só por task, com versão maior que a maior da `main` e dentro de V1–V19 na Etapa 2 (`ls src/main/resources/db/migration`). Uma migração menor nunca entra depois de uma maior (`spring.flyway.out-of-order=false`).
 
 | Mudou | Comando |
 |---|---|
@@ -50,11 +67,11 @@ Sobre o que vai entrar no commit (`git add` dos seus caminhos antes):
 
 ```sh
 git diff --cached -U0 | grep -nE "/Use[r]s/|$(whoami)|@gmai[l]\.com"
-git diff --cached -U0 | grep -nEi "(api[_-]?key|secret|token|senha|password)[a-z_]*[\"']?[[:space:]]*[:=][[:space:]]*[\"'][^\"']{8,}[\"']|sk-[A-Za-z0-9]{16,}|BEGIN [A-Z ]*PRIVATE KEY"
+git diff --cached -U0 | grep -nEi "(api[_-]?key|secret|token|senha|password)[a-z_]*[\"']?[[:space:]]*[:=][[:space:]]*[\"'][^\"']{8,}[\"']|sk-[A-Za-z0-9]{16,}|AKIA[0-9A-Z]{16}|re_[A-Za-z0-9_]{16,}|BEGIN [A-Z ]*PRIVATE KEY"
 git diff --cached --name-only | grep -nE "\.env|settings\.local\.json|\.claude/handoff/|\.glb$"
 ```
 
-O segundo grep só pega valor literal entre aspas (`token = "…"`, `apiKey: '…'`), chave `sk-…` ou chave privada; código como `String token = Segredos.novoToken(…)` não aparece. Revise cada acerto dos três greps:
+O segundo grep só pega valor literal entre aspas (`token = "…"`, `apiKey: '…'`), chave `sk-…`, chave de acesso da AWS (`AKIA…`), chave do Resend (`re_…`) ou chave privada; código como `String token = Segredos.novoToken(…)` não aparece. Revise cada acerto dos três greps:
 
 - caminho local ou e-mail: troque por caminho relativo ao repositório;
 - segredo real, `.env`, handoff ou GLB: tire do commit;

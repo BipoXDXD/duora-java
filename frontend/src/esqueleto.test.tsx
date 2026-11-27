@@ -19,6 +19,7 @@ describe("esqueleto da primeira pintura", () => {
       <Moldura momento="crepusculo" confirmandoSaida={false} ceuPintado={false}>
         <Topo
           mostrarSair={false}
+          mostrarLinkDaConta={false}
           nomeParceiro={null}
           confirmando={false}
           enviandoSaida={false}

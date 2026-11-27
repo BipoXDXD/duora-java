@@ -20,7 +20,7 @@ jobs:
   verify:
     name: Build e testes
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: actions/setup-java@d1374f8ac74474200d16ef8ecee22c7ae7a51880 # v6.3.0
@@ -41,6 +41,10 @@ jobs:
         with:
           path: ${{ env.PNPM_STORE }}
           key: ${{ steps.front.outputs.chave-store }}
+      # Os testes com banco sobem o Postgres 18 pelo Testcontainers (sem services:); a imagem
+      # baixada antes deixa o tempo do download fora dos testes.
+      - name: Baixar a imagem do Postgres 18
+        run: docker pull postgres:18
       - name: Verificar (formatação, compilação, front, testes unitários e de API)
         run: ./mvnw -B -q verify
       # O Node é o que o verify acabou de baixar (ou restaurar do cache) em frontend/node.
@@ -88,6 +92,10 @@ jobs:
         with:
           path: ~/.cache/ms-playwright
           key: playwright-1.65.1-${{ matrix.navegador }}-chromium
+      # Os testes com banco sobem o Postgres 18 pelo Testcontainers (sem services:); a imagem
+      # baixada antes deixa o tempo do download fora dos testes.
+      - name: Baixar a imagem do Postgres 18
+        run: docker pull postgres:18
       # O Chromium completo entra em todos os jobs: o InstalabilidadeIT sempre o usa.
       - name: Instalar o navegador do Playwright, o Chromium e as dependências do sistema
         run: >-

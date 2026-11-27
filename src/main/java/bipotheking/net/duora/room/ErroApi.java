@@ -1,47 +1,35 @@
 package bipotheking.net.duora.room;
 
+import bipotheking.net.duora.nucleo.ErroDeNegocio;
 import java.io.Serial;
-import java.util.Optional;
+import java.util.Map;
 
-/** Recusa que vira {@code application/problem+json} com {@code codigo} e campos extras. */
-final class ErroApi extends RuntimeException {
+/** Recusa do terraço; a visão e o motivo do encerramento viajam como campos extras. */
+final class ErroApi extends ErroDeNegocio {
 
   @Serial private static final long serialVersionUID = 1L;
 
   private final Codigo codigo;
-  private final transient Optional<Visao> visao;
-  private final transient Optional<MotivoEncerramento> motivo;
 
   ErroApi(Codigo codigo, String detalhe) {
-    this(codigo, detalhe, Optional.empty(), Optional.empty());
+    this(codigo, detalhe, Map.of());
   }
 
-  private ErroApi(
-      Codigo codigo, String detalhe, Optional<Visao> visao, Optional<MotivoEncerramento> motivo) {
-    super(detalhe, null, false, false);
+  private ErroApi(Codigo codigo, String detalhe, Map<String, Object> extras) {
+    super(codigo, detalhe, extras, null);
     this.codigo = codigo;
-    this.visao = visao;
-    this.motivo = motivo;
   }
 
   static ErroApi comVisao(Codigo codigo, String detalhe, Visao visao) {
-    return new ErroApi(codigo, detalhe, Optional.of(visao), Optional.empty());
+    return new ErroApi(codigo, detalhe, Map.of("visao", visao));
   }
 
   static ErroApi encerrada(MotivoEncerramento motivo) {
-    return new ErroApi(
-        Codigo.SALA_ENCERRADA, motivo.detalhe(), Optional.empty(), Optional.of(motivo));
+    return new ErroApi(Codigo.SALA_ENCERRADA, motivo.detalhe(), Map.of("motivo", motivo.name()));
   }
 
-  Codigo codigo() {
+  @Override
+  public Codigo codigo() {
     return codigo;
-  }
-
-  Optional<Visao> visao() {
-    return visao;
-  }
-
-  Optional<MotivoEncerramento> motivo() {
-    return motivo;
   }
 }

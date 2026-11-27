@@ -26,9 +26,10 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.annotation.DirtiesContext;
 
 /**
- * Varredura automática do axe-core (WCAG 2.0, 2.1 e 2.2, níveis A e AA) em quatro estados da
- * jornada e na tela de erro do cenário, pelo {@link Axe}. Complementa os ITs de acessibilidade
- * escritos à mão. Os participantes usam movimento reduzido, como o {@link Axe} exige.
+ * Varredura automática do axe-core (WCAG 2.0, 2.1 e 2.2, níveis A e AA) no terraço: quatro estados
+ * da jornada e a tela de erro do cenário, pelo {@link Axe}. As telas de conta e as públicas ficam
+ * no {@link AxeContaIT}. Complementa os ITs de acessibilidade escritos à mão. Os participantes usam
+ * movimento reduzido, como o {@link Axe} exige.
  */
 // Aplicação nova por classe: as salas de um IT não somam com as de outro no limite de 20 salas
 // ativas (LimitesSala), que é de produção e não muda nos testes.

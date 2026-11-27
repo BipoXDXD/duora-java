@@ -5,6 +5,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import bipotheking.net.duora.game.Assento;
 import bipotheking.net.duora.game.Terraco;
+import bipotheking.net.duora.web.RelogioDeTeste;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.Optional;

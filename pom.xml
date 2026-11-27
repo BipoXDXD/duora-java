@@ -36,6 +36,10 @@
         <skipUnitTests>false</skipUnitTests>
         <!-- Motor das jornadas E2E: chromium, firefox ou webkit (-Dnavegador=...) -->
         <navegador>chromium</navegador>
+        <!-- Versões fora do BOM do Spring Boot (conferidas no Maven Central em 2026-11-23) -->
+        <bucket4j.version>8.23.0</bucket4j.version>
+        <commonmark.version>0.33.0</commonmark.version>
+        <archunit.version>1.5.1</archunit.version>
     </properties>
 
     <dependencies>
@@ -47,6 +51,63 @@
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-validation</artifactId>
         </dependency>
+        <!-- Banco: Spring Data JDBC/JdbcClient (sem JPA), PostgreSQL 18 e Flyway. No Boot 4 o
+             Flyway precisa do starter próprio: só a flyway-core no classpath não roda as migrações. -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-data-jdbc</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-flyway</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.flywaydb</groupId>
+            <artifactId>flyway-database-postgresql</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.postgresql</groupId>
+            <artifactId>postgresql</artifactId>
+            <scope>runtime</scope>
+        </dependency>
+        <!-- Em dev, o spring-boot:run sobe o compose.yaml e conecta sozinho; fora do jar -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-docker-compose</artifactId>
+            <optional>true</optional>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-actuator</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-restclient</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>com.bucket4j</groupId>
+            <artifactId>bucket4j_jdk17-core</artifactId>
+            <version>${bucket4j.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>com.github.ben-manes.caffeine</groupId>
+            <artifactId>caffeine</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.commonmark</groupId>
+            <artifactId>commonmark</artifactId>
+            <version>${commonmark.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>org.commonmark</groupId>
+            <artifactId>commonmark-ext-gfm-tables</artifactId>
+            <version>${commonmark.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>org.commonmark</groupId>
+            <artifactId>commonmark-ext-yaml-front-matter</artifactId>
+            <version>${commonmark.version}</version>
+        </dependency>
 
         <dependency>
             <groupId>org.springframework.boot</groupId>
@@ -56,6 +117,24 @@
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-webmvc-test</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-restclient-test</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <!-- Testcontainers 2.x (≥ 2.0.2 para o Docker Engine 29): a URL jdbc:tc: da config de teste
+             sobe um único Postgres 18 por JVM de teste (TC_DAEMON) -->
+        <dependency>
+            <groupId>org.testcontainers</groupId>
+            <artifactId>testcontainers-postgresql</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>com.tngtech.archunit</groupId>
+            <artifactId>archunit-junit5</artifactId>
+            <version>${archunit.version}</version>
             <scope>test</scope>
         </dependency>
         <dependency>
@@ -281,11 +360,18 @@
                             <!-- Ferramenta de captura, não jornada: roda só com -Dit.test=VisualIT -->
                             <excludes>
                                 <exclude>**/VisualIT.java</exclude>
+                                <!-- Rede real (Cloudflare): roda só com -Dit.test=TurnstileChavesDeTesteIT -->
+                                <exclude>**/TurnstileChavesDeTesteIT.java</exclude>
                             </excludes>
                             <systemPropertyVariables>
                                 <navegador>${navegador}</navegador>
                                 <!-- A abertura conclui apagada já na entrada; só o AberturaIT a liga -->
                                 <duora.cenarios.abertura.maximo>PT0S</duora.cenarios.abertura.maximo>
+                                <!-- Limites por IP folgados (o teste de rajada volta a 1 por propriedade
+                                     de teste), agendamentos ligados e outbox rápida no e2e -->
+                                <duora.limites.multiplicador>1000</duora.limites.multiplicador>
+                                <duora.agendamentos.habilitados>true</duora.agendamentos.habilitados>
+                                <duora.outbox.intervalo>PT0.2S</duora.outbox.intervalo>
                             </systemPropertyVariables>
                         </configuration>
                         <executions>

@@ -16,6 +16,9 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import bipotheking.net.duora.web.CabecalhosDeSeguranca;
+import bipotheking.net.duora.web.MesmaOrigem;
+import bipotheking.net.duora.web.RelogioDeTeste;
 import com.jayway.jsonpath.JsonPath;
 import jakarta.servlet.http.Cookie;
 import java.nio.charset.StandardCharsets;
@@ -762,7 +765,9 @@ class SalaApiTest {
                     "Content-Security-Policy",
                     "default-src 'self'; img-src 'self' data:; object-src 'none'; "
                         + "base-uri 'none'; "
-                        + "frame-ancestors 'none'; form-action 'self'"))
+                        + "frame-ancestors 'none'; form-action 'self'; "
+                        + "script-src 'self' https://challenges.cloudflare.com; "
+                        + "frame-src https://challenges.cloudflare.com"))
         .andExpect(header().string("X-Content-Type-Options", "nosniff"))
         .andExpect(header().string("Referrer-Policy", "no-referrer"))
         .andExpect(header().string("Cross-Origin-Resource-Policy", "same-origin"));

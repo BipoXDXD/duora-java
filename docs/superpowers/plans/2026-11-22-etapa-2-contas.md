@@ -1,5 +1,7 @@
 # Etapa 2 — Persistência e contas: plano de implementação
 
+> **Substituído em parte (2026-11-23):** as Tasks 1–11, 15 e 16 foram replanejadas em `2026-11-23-etapa-2a-contas.md` (Etapa 2a). As Tasks 12, 13, 14 e 17 (verificação de idade) ficam para o plano da Etapa 2b, que parte deste texto e das auditorias da 2a.
+
 > **Para agentes:** sub-skill obrigatória: superpowers:subagent-driven-development (recomendado) ou superpowers:executing-plans. Passos com checkbox (`- [ ]`). Implementadores usam `superpowers:test-driven-development` ou `mattpocock-skills:tdd`.
 
 **Objetivo:** uma pessoa cria conta pelo celular com e-mail, link mágico, data de nascimento, aceite dos termos e verificação de idade obrigatória (prova de vida e estimativa de idade pela selfie na AWS); um menor é recusado, uma rajada de cadastros é barrada, contas novas têm limites por dia, os acessos ficam registrados por 6 meses, há um canal público de denúncia e o contato do encarregado, e o terraço anônimo continua funcionando.

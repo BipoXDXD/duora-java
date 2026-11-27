@@ -1,5 +1,5 @@
 import "./estilos/app.css";
-import { lerConvite } from "./convite";
+import { despachar } from "./despachar";
 import { iniciarApp } from "./inicio";
 import { registrarServiceWorker } from "./pwa";
 
@@ -8,6 +8,10 @@ if (raiz === null) {
   throw new Error("#raiz ausente no index.html");
 }
 
-void iniciarApp(raiz, lerConvite(location, history));
+despachar(location, history, raiz, {
+  iniciarTerraco: iniciarApp,
+  // Fora do JS inicial: o terraço não baixa React Router nem TanStack Query (chunk casca-de-conta).
+  carregarCasca: () => import("./rotas/montar"),
+});
 
 registrarServiceWorker();

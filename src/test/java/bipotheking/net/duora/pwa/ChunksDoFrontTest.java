@@ -7,8 +7,9 @@ import org.junit.jupiter.api.Test;
 
 /**
  * A divisão do bundle que os testes de navegador supõem: o laço de polling num chunk próprio (a
- * sonda do PollingIT o reconhece pela pilha) e CSS sem {@code :has()}, que celulares com navegador
- * mais antigo não entendem.
+ * sonda do PollingIT o reconhece pela pilha), React Router e TanStack Query num chunk da casca de
+ * conta que o terraço não baixa, e CSS sem {@code :has()}, que celulares com navegador mais antigo
+ * não entendem.
  */
 class ChunksDoFrontTest {
 
@@ -20,6 +21,17 @@ class ChunksDoFrontTest {
             .toList();
 
     assertThat(chunks).hasSize(1);
+  }
+
+  @Test
+  void cascaDeContaForaDoJsInicial() {
+    List<String> chunks =
+        Estaticos.arquivos().stream()
+            .filter(caminho -> caminho.matches("app/casca-de-conta-[^/]+\\.js"))
+            .toList();
+
+    assertThat(chunks).hasSize(1);
+    assertThat(Estaticos.jsInicial()).noneMatch(url -> url.contains("casca-de-conta"));
   }
 
   @Test
