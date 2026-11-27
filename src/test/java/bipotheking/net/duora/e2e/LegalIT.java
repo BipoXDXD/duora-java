@@ -1,6 +1,5 @@
 package bipotheking.net.duora.e2e;
 
-import static bipotheking.net.duora.e2e.Axe.assertSemViolacoes;
 import static bipotheking.net.duora.e2e.Cenarios.raiz;
 import static com.microsoft.playwright.assertions.PlaywrightAssertions.assertThat;
 
@@ -44,7 +43,6 @@ class LegalIT {
         .isVisible();
     assertThat(page.getByRole(AriaRole.LINK, new Page.GetByRoleOptions().setName("Contato")))
         .hasAttribute("href", "mailto:support@meetduora.com");
-    assertSemViolacoes(page, "termos");
 
     ana.abrir(raiz(porta));
     page.getByRole(AriaRole.LINK, new Page.GetByRoleOptions().setName("Privacidade")).click();
@@ -55,7 +53,6 @@ class LegalIT {
                 AriaRole.HEADING,
                 new Page.GetByRoleOptions().setName("Política de privacidade").setLevel(1)))
         .isVisible();
-    assertSemViolacoes(page, "privacidade");
   }
 
   @Test

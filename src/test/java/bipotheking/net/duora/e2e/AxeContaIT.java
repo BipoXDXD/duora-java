@@ -11,6 +11,7 @@ import com.microsoft.playwright.Page;
 import com.microsoft.playwright.Route;
 import com.microsoft.playwright.options.AriaRole;
 import java.time.LocalDate;
+import java.time.ZoneId;
 import java.util.Map;
 import org.jspecify.annotations.Nullable;
 import org.junit.jupiter.api.Test;
@@ -24,7 +25,10 @@ import org.springframework.beans.factory.annotation.Autowired;
 class AxeContaIT extends ContaE2eBase {
 
   private static final LocalDate NASCIMENTO_DE_ADULTO = LocalDate.of(1990, 5, 10);
-  private static final LocalDate NASCIMENTO_DE_MENOR = LocalDate.of(2010, 1, 1);
+
+  /** Data relativa: uma data fixa deixaria de ser de menor com o passar dos anos. */
+  private static final LocalDate NASCIMENTO_DE_MENOR =
+      LocalDate.now(ZoneId.of("America/Sao_Paulo")).minusYears(10);
 
   /** 5 minutos: a tela arredonda o {@code Retry-After} para minutos inteiros. */
   private static final String SEGUNDOS_PARA_TENTAR_DE_NOVO = "300";
@@ -77,6 +81,16 @@ class AxeContaIT extends ContaE2eBase {
     assertThat(conta.page().getByText("Muitas tentativas. Tente de novo em 5 minutos."))
         .isVisible();
     assertSemViolacoes(conta.page(), "entrar com limite");
+  }
+
+  @Test
+  void confirmarEntrada(Participantes participantes) {
+    ContaPagina conta = semConta(participantes);
+    conta.abrirLink(raiz() + "entrar/confirmar#t=" + TOKEN_INEXISTENTE);
+
+    assertThat(conta.heading("Confirmar entrada")).isVisible();
+
+    assertSemViolacoes(conta.page(), "confirmar entrada");
   }
 
   @Test
@@ -141,11 +155,7 @@ class AxeContaIT extends ContaE2eBase {
   void dialogoDeExclusaoAberto(Participantes participantes) {
     ContaPagina conta = minhaContaAberta(participantes);
 
-    conta
-        .page()
-        .getByRole(AriaRole.REGION, new Page.GetByRoleOptions().setName("Excluir conta"))
-        .getByRole(AriaRole.BUTTON, new Locator.GetByRoleOptions().setName("Excluir conta"))
-        .click();
+    botaoExcluirDaSecao(conta.page()).click();
 
     assertThat(
             conta
@@ -154,6 +164,21 @@ class AxeContaIT extends ContaE2eBase {
                     AriaRole.DIALOG, new Page.GetByRoleOptions().setName("Excluir sua conta?")))
         .isVisible();
     assertSemViolacoes(conta.page(), "diálogo de exclusão aberto");
+  }
+
+  @Test
+  void contaExcluida(Participantes participantes) {
+    ContaPagina conta = minhaContaAberta(participantes);
+    botaoExcluirDaSecao(conta.page()).click();
+
+    conta
+        .page()
+        .getByRole(AriaRole.DIALOG)
+        .getByRole(AriaRole.BUTTON, new Locator.GetByRoleOptions().setName("Excluir conta"))
+        .click();
+
+    assertThat(conta.heading("Conta excluída")).isVisible();
+    assertSemViolacoes(conta.page(), "conta excluída");
   }
 
   /** Com o token do Turnstile em mãos: o botão de envio fica disponível. */
@@ -165,6 +190,35 @@ class AxeContaIT extends ContaE2eBase {
     assertThat(botao(conta.page(), "Enviar denúncia")).not().hasAttribute("aria-disabled", "true");
 
     assertSemViolacoes(conta.page(), "denunciar");
+  }
+
+  @Test
+  void termos(Participantes participantes) {
+    ContaPagina conta = semConta(participantes).abrir(raiz() + "termos");
+
+    assertThat(conta.heading("Termos de uso").first()).isVisible();
+
+    assertSemViolacoes(conta.page(), "termos");
+  }
+
+  @Test
+  void privacidade(Participantes participantes) {
+    ContaPagina conta = semConta(participantes).abrir(raiz() + "privacidade");
+
+    assertThat(conta.heading("Política de privacidade").first()).isVisible();
+
+    assertSemViolacoes(conta.page(), "privacidade");
+  }
+
+  /** Sem o token do Turnstile: a tela espera a verificação com o envio indisponível. */
+  @Test
+  void denunciarSemToken(Participantes participantes) {
+    ContaPagina conta =
+        ContaPagina.de(participantes.novo(Cenarios::turnstileSemToken)).abrir(raiz() + "denunciar");
+
+    assertThat(botao(conta.page(), "Enviar denúncia")).hasAttribute("aria-disabled", "true");
+
+    assertSemViolacoes(conta.page(), "denunciar sem token");
   }
 
   @Test
@@ -221,6 +275,12 @@ class AxeContaIT extends ContaE2eBase {
             .abrir(raiz() + "conta");
     assertThat(conta.heading("Minha conta")).isVisible();
     return conta;
+  }
+
+  /** O botão da seção; com o diálogo aberto há outro com o mesmo nome. */
+  private static Locator botaoExcluirDaSecao(Page page) {
+    return page.getByRole(AriaRole.REGION, new Page.GetByRoleOptions().setName("Excluir conta"))
+        .getByRole(AriaRole.BUTTON, new Locator.GetByRoleOptions().setName("Excluir conta"));
   }
 
   private static Locator botao(Page page, String nome) {
