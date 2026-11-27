@@ -89,6 +89,10 @@ final class ContaPagina {
     return page.getByRole(AriaRole.HEADING, new Page.GetByRoleOptions().setName(nome));
   }
 
+  Locator link(String nome) {
+    return page.getByRole(AriaRole.LINK, new Page.GetByRoleOptions().setName(nome).setExact(true));
+  }
+
   private Locator botao(String nome) {
     return page.getByRole(
         AriaRole.BUTTON, new Page.GetByRoleOptions().setName(nome).setExact(true));
