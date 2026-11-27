@@ -93,4 +93,11 @@ class EmailTest {
             ErroDeNegocio.class,
             erro -> assertThat(erro.codigo()).isEqualTo(CodigoEmail.EMAIL_INVALIDO));
   }
+
+  @Test
+  void toStringMascaraOEndereco() {
+    assertThat(Email.de("ana.silva@exemplo.com").toString())
+        .isEqualTo("Email[a***@exemplo.com]")
+        .doesNotContain("ana.silva");
+  }
 }

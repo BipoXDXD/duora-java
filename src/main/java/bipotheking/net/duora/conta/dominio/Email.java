@@ -1,6 +1,7 @@
 package bipotheking.net.duora.conta.dominio;
 
 import bipotheking.net.duora.conta.CodigoEmail;
+import bipotheking.net.duora.nucleo.EmailMascarado;
 import bipotheking.net.duora.nucleo.ErroDeNegocio;
 import java.util.Locale;
 import java.util.Set;
@@ -9,7 +10,8 @@ import org.jspecify.annotations.Nullable;
 
 /**
  * E-mail já normalizado: sem espaços nas pontas e em minúsculas. O construtor recusa um valor fora
- * da forma normalizada; {@link #de(String)} normaliza antes.
+ * da forma normalizada; {@link #de(String)} normaliza antes. O {@code toString} mascara o endereço,
+ * que assim não vaza para log nem mensagem de exceção.
  */
 public record Email(String valor) {
 
@@ -54,6 +56,11 @@ public record Email(String valor) {
       dominio = "gmail.com";
     }
     return local + "@" + dominio;
+  }
+
+  @Override
+  public String toString() {
+    return "Email[" + EmailMascarado.mascarar(valor) + "]";
   }
 
   private static boolean valido(String valor) {
