@@ -1,7 +1,7 @@
 import { type ComponentType, type ReactElement, type ReactNode, useEffect, useState } from "react";
 import { obterVersoesLegais } from "../api/legal";
 
-/** Link de um documento: <a> comum no terraço; o Link do roteador na casca. */
+/** Link para uma página da casca: <a> comum no terraço; o Link do roteador na casca. */
 export type LinkDoRodape = ComponentType<{ href: string; className: string; children: ReactNode }>;
 
 interface PropsRodape {
@@ -26,10 +26,11 @@ const LINK =
   "inline-flex items-center min-h-[44px] text-texto-2 underline underline-offset-3 hover:text-marfim [transition:color_var(--transicao)]";
 
 /**
- * Termos, Privacidade e Contato, na entrada do terraço e nas telas da casca. Também roda no "/": por
- * padrão usa só o fetch de http.ts (sem TanStack Query) e <a> comuns, sem o roteador da casca; a casca
- * injeta o contato do cache e o Link dela. O Contato espera o e-mail do servidor; se ele não vier, o
- * rodapé segue com os dois documentos. O mailto: é sempre um <a>.
+ * Termos, Privacidade, Denunciar, Encarregado de dados e Contato, na entrada do terraço e nas telas da
+ * casca. Também roda no "/": por padrão usa só o fetch de http.ts (sem TanStack Query) e <a> comuns,
+ * sem o roteador da casca; a casca injeta o contato do cache e o Link dela. O Contato espera o e-mail
+ * do servidor e vem por último, para não empurrar os outros links quando chega; se ele não vier, o
+ * rodapé segue sem ele. O mailto: é sempre um <a>.
  */
 export function Rodape({ obterContato = obterContatoDoServidor, link: Link = LinkComum }: PropsRodape): ReactElement {
   const [contato, setContato] = useState<string | null>(null);
@@ -43,7 +44,7 @@ export function Rodape({ obterContato = obterContatoDoServidor, link: Link = Lin
         }
       },
       (erro: unknown) => {
-        // Sem contato, sem o link; Termos e Privacidade continuam. O Contato é o canal dos pedidos de
+        // Sem contato, sem o link; os outros continuam. O Contato é o canal dos pedidos de
         // dados (LGPD): a falha, inclusive uma resposta 200 fora do contrato, fica no console.
         console.warn("Contato do rodapé indisponível:", erro);
       },
@@ -64,6 +65,16 @@ export function Rodape({ obterContato = obterContatoDoServidor, link: Link = Lin
         <li>
           <Link href="/privacidade" className={LINK}>
             Privacidade
+          </Link>
+        </li>
+        <li>
+          <Link href="/denunciar" className={LINK}>
+            Denunciar
+          </Link>
+        </li>
+        <li>
+          <Link href="/encarregado" className={LINK}>
+            Encarregado de dados
           </Link>
         </li>
         {contato !== null && (

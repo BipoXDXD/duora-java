@@ -16,7 +16,8 @@ import org.springframework.test.annotation.DirtiesContext;
 
 /**
  * O rodapé da entrada do terraço leva aos documentos legais, que a casca de conta mostra com o
- * texto que o servidor gera do Markdown versionado.
+ * texto que o servidor gera do Markdown versionado, e às telas públicas de denúncia e do
+ * encarregado de dados.
  */
 @DirtiesContext(classMode = DirtiesContext.ClassMode.AFTER_CLASS)
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
@@ -55,5 +56,35 @@ class LegalIT {
                 new Page.GetByRoleOptions().setName("Política de privacidade").setLevel(1)))
         .isVisible();
     assertSemViolacoes(page, "privacidade");
+  }
+
+  @Test
+  void rodapeAbreDenunciarEEncarregado(Participantes participantes) {
+    TerracoPagina ana = participantes.novo(Cenarios::turnstileSemToken).abrir(raiz(porta));
+    Page page = ana.page();
+
+    page.getByRole(AriaRole.LINK, new Page.GetByRoleOptions().setName("Denunciar")).click();
+
+    assertThat(page).hasURL(raiz(porta) + "denunciar");
+    assertThat(
+            page.getByRole(
+                AriaRole.HEADING,
+                new Page.GetByRoleOptions().setName("Denunciar um problema").setLevel(1)))
+        .isVisible();
+
+    ana.abrir(raiz(porta));
+    page.getByRole(AriaRole.LINK, new Page.GetByRoleOptions().setName("Encarregado de dados"))
+        .click();
+
+    assertThat(page).hasURL(raiz(porta) + "encarregado");
+    assertThat(
+            page.getByRole(
+                AriaRole.HEADING,
+                new Page.GetByRoleOptions().setName("Encarregado de dados").setLevel(1)))
+        .isVisible();
+    assertThat(
+            page.getByRole(
+                AriaRole.LINK, new Page.GetByRoleOptions().setName("encarregado@exemplo.invalid")))
+        .hasAttribute("href", "mailto:encarregado@exemplo.invalid");
   }
 }

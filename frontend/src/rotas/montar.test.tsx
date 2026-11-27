@@ -241,6 +241,16 @@ describe("montarCasca", () => {
     expect(document.title).toBe("Termos de uso · Duora");
   });
 
+  it.each([
+    ["/denunciar", "Denunciar um problema"],
+    ["/encarregado", "Encarregado de dados"],
+  ])("%s abre a tela pública sem conta", async (caminho, titulo) => {
+    await montarEm(caminho);
+
+    expect(await screen.findByRole("heading", { level: 1, name: titulo })).toBeInTheDocument();
+    expect(location.pathname).toBe(caminho);
+  });
+
   it("rodapeDaCascaNavegaPeloRoteador", async () => {
     await montarEm("/qualquer");
 

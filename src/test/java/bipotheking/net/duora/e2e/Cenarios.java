@@ -10,13 +10,34 @@ import static bipotheking.net.duora.e2e.TerracoPagina.Peca.MANTA;
 import static bipotheking.net.duora.e2e.TerracoPagina.Peca.TELESCOPIO;
 import static com.microsoft.playwright.assertions.PlaywrightAssertions.assertThat;
 
+import com.microsoft.playwright.Page;
+import com.microsoft.playwright.Route;
+
 /** Passos comuns das jornadas: Ana cria o terraço, Bruno entra e os dois o compõem. */
 final class Cenarios {
 
   static final String ANA = "Ana";
   static final String BRUNO = "Bruno";
 
+  /** O script do Turnstile sem rede: um widget que não desenha nada nem entrega token. */
+  private static final String TURNSTILE_SEM_TOKEN =
+      "window.turnstile = { render: () => 'widget-falso', reset() {}, remove() {} };";
+
   private Cenarios() {}
+
+  /**
+   * Troca o script do Turnstile (challenges.cloudflare.com) por um widget falso que nunca entrega
+   * token: a tela fica no estado de espera da verificação, sem depender da rede da Cloudflare.
+   */
+  static void turnstileSemToken(Page page) {
+    page.route(
+        "https://challenges.cloudflare.com/**",
+        rota ->
+            rota.fulfill(
+                new Route.FulfillOptions()
+                    .setContentType("text/javascript")
+                    .setBody(TURNSTILE_SEM_TOKEN)));
+  }
 
   static String raiz(int porta) {
     return "http://127.0.0.1:" + porta + "/";
