@@ -1,6 +1,5 @@
 package bipotheking.net.duora.conta.infra;
 
-import bipotheking.net.duora.conta.dominio.Conta;
 import bipotheking.net.duora.conta.dominio.CredencialCurta;
 import bipotheking.net.duora.conta.dominio.CredencialDoNavegador;
 import bipotheking.net.duora.conta.dominio.Email;
@@ -16,11 +15,13 @@ import bipotheking.net.duora.conta.dominio.SituacaoDaProva;
 import java.nio.charset.StandardCharsets;
 import java.time.Clock;
 import java.time.Duration;
+import java.time.LocalDate;
 import java.util.Arrays;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Collectors;
+import org.jspecify.annotations.Nullable;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Component;
 
@@ -83,11 +84,11 @@ class ProvaDeVidaFalsa implements ProvaDeVida, CredencialDoNavegador {
 
   @Override
   public ResultadoDaProva resultado(String sessaoId) {
-    Optional<Conta> conta = contaDaSessao(verificacoes, contas, sessaoId);
+    Optional<ContaMarcada> conta = contaDaSessao(verificacoes, contas, sessaoId);
     if (conta.isEmpty()) {
       return EXPIRADA;
     }
-    Set<String> marcadores = marcadores(conta.get());
+    Set<String> marcadores = conta.get().marcadores();
     if (marcadores.contains("vidafalha")) {
       return FALHOU;
     }
@@ -111,22 +112,26 @@ class ProvaDeVidaFalsa implements ProvaDeVida, CredencialDoNavegador {
   }
 
   /**
+   * Os marcadores do e-mail e a data declarada da conta dona da sessão.
+   *
+   * @param marcadores o que vem depois de cada {@code +} na parte local do e-mail
+   */
+  record ContaMarcada(Set<String> marcadores, @Nullable LocalDate nascimento) {}
+
+  /**
    * A conta dona da sessão; vazio se a sessão ou a conta não existirem ou se ela não tiver e-mail.
    */
-  static Optional<Conta> contaDaSessao(
+  static Optional<ContaMarcada> contaDaSessao(
       RepositorioDeVerificacoes verificacoes, RepositorioDeContas contas, String sessaoId) {
     return verificacoes
         .porSessao(sessaoId)
         .flatMap(tentativa -> contas.porId(tentativa.conta()))
-        .filter(conta -> conta.email() != null);
+        .flatMap(conta ->
+            Optional.ofNullable(conta.email())
+                .map(email -> new ContaMarcada(marcadores(email), conta.dataDeNascimento())));
   }
 
-  /** Os marcadores da parte local do e-mail, depois do primeiro {@code +}; vazio sem e-mail. */
-  static Set<String> marcadores(Conta conta) {
-    Email email = conta.email();
-    if (email == null) {
-      return Set.of();
-    }
+  private static Set<String> marcadores(Email email) {
     String local = email.valor().substring(0, email.valor().indexOf('@'));
     return Arrays.stream(local.split("\\+")).skip(1).collect(Collectors.toUnmodifiableSet());
   }

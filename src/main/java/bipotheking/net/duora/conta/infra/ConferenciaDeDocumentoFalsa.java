@@ -1,11 +1,11 @@
 package bipotheking.net.duora.conta.infra;
 
 import bipotheking.net.duora.conta.dominio.ConferenciaDeDocumento;
-import bipotheking.net.duora.conta.dominio.Conta;
 import bipotheking.net.duora.conta.dominio.Imagem;
 import bipotheking.net.duora.conta.dominio.RepositorioDeContas;
 import bipotheking.net.duora.conta.dominio.RepositorioDeVerificacoes;
 import bipotheking.net.duora.conta.dominio.ResultadoDoDocumento;
+import bipotheking.net.duora.conta.infra.ProvaDeVidaFalsa.ContaMarcada;
 import java.time.Clock;
 import java.time.LocalDate;
 import java.time.ZoneId;
@@ -43,20 +43,20 @@ class ConferenciaDeDocumentoFalsa implements ConferenciaDeDocumento {
 
   @Override
   public ResultadoDoDocumento conferir(Imagem frente, Imagem verso, Imagem selfie) {
-    Optional<Conta> conta =
+    Optional<ContaMarcada> conta =
         ProvaDeVidaFalsa.sessaoDaReferencia(selfie)
             .flatMap(sessao -> ProvaDeVidaFalsa.contaDaSessao(verificacoes, contas, sessao));
     if (conta.isEmpty()) {
       return NAO_ACEITO;
     }
-    Set<String> marcadores = ProvaDeVidaFalsa.marcadores(conta.get());
+    Set<String> marcadores = conta.get().marcadores();
     if (marcadores.contains("docilegivel")) {
       return NAO_ACEITO;
     }
     Optional<LocalDate> data =
         marcadores.contains("docmenor")
             ? Optional.of(LocalDate.now(relogio.withZone(FUSO)).minusYears(IDADE_DO_MENOR))
-            : Optional.ofNullable(conta.get().dataDeNascimento());
+            : Optional.ofNullable(conta.get().nascimento());
     return new ResultadoDoDocumento(true, data, !marcadores.contains("docoutro"));
   }
 }
