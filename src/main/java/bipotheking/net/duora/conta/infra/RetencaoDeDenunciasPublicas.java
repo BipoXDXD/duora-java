@@ -13,8 +13,9 @@ import org.springframework.stereotype.Component;
 import org.springframework.transaction.support.TransactionTemplate;
 
 /**
- * A denúncia pública resolvida some 183 dias depois da {@code criada_em} (o caso fechado mais seis
- * meses). A pendente fica até a moderação resolvê-la.
+ * A denúncia pública resolvida some 183 dias depois da {@code resolvida_em}: seis meses depois de
+ * fechado o caso, como promete a política de privacidade. A pendente fica até a moderação
+ * resolvê-la, por mais antiga que seja.
  */
 @Component
 class RetencaoDeDenunciasPublicas implements PoliticaDeRetencao {
@@ -53,7 +54,7 @@ class RetencaoDeDenunciasPublicas implements PoliticaDeRetencao {
             """
             delete from denuncia_publica where id in (
                 select id from denuncia_publica
-                where situacao = 'RESOLVIDA' and criada_em < :limite limit 1000)
+                where situacao = 'RESOLVIDA' and resolvida_em < :limite limit 1000)
             """)
         .param("limite", antesDe)
         .update();
@@ -65,7 +66,7 @@ class RetencaoDeDenunciasPublicas implements PoliticaDeRetencao {
     return jdbc.sql(
             """
             select count(*) from denuncia_publica
-            where situacao = 'RESOLVIDA' and criada_em < :limite
+            where situacao = 'RESOLVIDA' and resolvida_em < :limite
             """)
         .param("limite", OffsetDateTime.ofInstant(relogio.instant().minus(PRAZO), ZoneOffset.UTC))
         .query(Long.class)
