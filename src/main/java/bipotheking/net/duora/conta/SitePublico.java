@@ -15,17 +15,17 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
  *     fragmento
  */
 @ConfigurationProperties("duora")
-public record SitePublico(String urlPublica) {
+record SitePublico(String urlPublica) {
 
   private static final String PROPRIEDADE = "duora.url-publica";
   private static final Set<String> ESQUEMAS = Set.of("http", "https");
 
-  public SitePublico {
+  SitePublico {
     exigirUrlAbsoluta(urlPublica);
   }
 
   /** O endereço público seguido do caminho, que começa por {@code /}. */
-  public String endereco(String caminho) {
+  String endereco(String caminho) {
     return urlPublica + caminho;
   }
 
