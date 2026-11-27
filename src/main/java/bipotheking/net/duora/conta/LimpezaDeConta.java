@@ -50,7 +50,8 @@ class LimpezaDeConta {
 
   /**
    * Trava o e-mail, bloqueia-o e exclui a conta: depois do commit, um pedido de link do mesmo
-   * e-mail vê o bloqueio e não grava link.
+   * e-mail vê o bloqueio e não grava link. O bloqueio vale mesmo se a conta já saiu dos estados
+   * disponíveis numa transação concorrente.
    */
   void excluirEBloquear(ContaId id, Email email, String motivo, Instant agora) {
     String titular = travar(email);
@@ -61,9 +62,13 @@ class LimpezaDeConta {
   /**
    * Trava o e-mail e exclui a conta, sem bloquear o e-mail: um pedido de link que esperava a trava
    * grava, depois do commit, um link para uma conta nova, sem nada da excluída.
+   *
+   * @return se a conta ainda estava num estado disponível e foi excluída; se não, o chamador decide
+   *     o que desfazer
    */
-  void excluir(ContaId id, Email email, Instant agora) {
-    apagar(id, email, travar(email), agora);
+  boolean excluir(ContaId id, Email email, Instant agora) {
+    String titular = travar(email);
+    return apagar(id, email, titular, agora);
   }
 
   private String travar(Email email) {
@@ -74,13 +79,20 @@ class LimpezaDeConta {
 
   /**
    * Apaga os links do e-mail (nenhuma linha guarda o e-mail), a carga das mensagens pendentes (o
-   * link pendente não sai), as sessões, os dados da conta e os aceites. Só com a trava tomada.
+   * link pendente não sai), as sessões, os dados da conta e os aceites. Só com a trava tomada. A
+   * linha da conta é a última trava: a exclusão condicional espera quem a mudou em paralelo e vê o
+   * estado dele. Os aceites só saem se a conta foi excluída.
+   *
+   * @return se a conta estava num estado disponível e foi excluída
    */
-  private void apagar(ContaId id, Email email, String titular, Instant agora) {
+  private boolean apagar(ContaId id, Email email, String titular, Instant agora) {
     links.apagarDoEmail(email);
     outbox.esquecerTitular(titular);
     sessoes.revogarTodas(id);
-    contas.excluir(id, agora);
+    if (!contas.excluir(id, agora)) {
+      return false;
+    }
     aceites.apagarDaConta(id);
+    return true;
   }
 }
