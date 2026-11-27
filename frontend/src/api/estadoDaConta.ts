@@ -11,7 +11,12 @@ export interface Conta {
   verificada: boolean;
 }
 
-const ESTADOS: readonly string[] = ["PENDENTE", "AGUARDANDO_VERIFICACAO", "ATIVA"] satisfies EstadoDaConta[];
+/** Exaustivo: um estado novo no tipo obriga a listá-lo aqui. */
+const ESTADOS: readonly string[] = Object.keys({
+  PENDENTE: true,
+  AGUARDANDO_VERIFICACAO: true,
+  ATIVA: true,
+} satisfies Record<EstadoDaConta, true>);
 
 function ehConta(dados: unknown): dados is Conta {
   if (typeof dados !== "object" || dados === null) {

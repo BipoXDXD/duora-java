@@ -1,5 +1,6 @@
 import { type ReactElement, useEffect, useState } from "react";
 import { type Conta, obterConta } from "../api/estadoDaConta";
+import { ErroHttp } from "../api/http";
 import { BOTAO_TEXTO } from "./estilos";
 
 interface PropsLinkDaConta {
@@ -7,7 +8,7 @@ interface PropsLinkDaConta {
 }
 
 /** Mesmo visual do Sair, que ocupa este lugar no convite e na montagem. */
-const CLASSES_DO_LINK = `link-da-conta ${BOTAO_TEXTO} inline-flex items-center flex-none`;
+const CLASSES_DO_LINK = `${BOTAO_TEXTO} inline-flex items-center flex-none`;
 
 /**
  * Link para a casca de conta no topo do terraço: "Entrar" para quem está anônimo, "Minha conta" para
@@ -26,8 +27,12 @@ export function LinkDaConta({ obter = obterConta }: PropsLinkDaConta): ReactElem
           setConta(lida);
         }
       },
-      () => {
-        // A falha só tira o link: o terraço anônimo não depende da conta.
+      (erro: unknown) => {
+        // A falha só tira o link: o terraço anônimo não depende da conta. A conta indisponível (403) é
+        // uma resposta prevista; o resto fica no console para diagnóstico, sem erro na tela.
+        if (!(erro instanceof ErroHttp && erro.codigo === "CONTA_INDISPONIVEL")) {
+          console.warn("Estado da conta indisponível:", erro);
+        }
       },
     );
     return () => {

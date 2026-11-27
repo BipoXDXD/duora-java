@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { cleanup, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { Topo } from "./Topo";
@@ -6,6 +6,7 @@ import { Topo } from "./Topo";
 function renderizar(mudancas: Partial<Parameters<typeof Topo>[0]> = {}) {
   const props = {
     mostrarSair: true,
+    mostrarLinkDaConta: true,
     nomeParceiro: "Bruno",
     confirmando: true,
     enviandoSaida: false,
@@ -27,19 +28,9 @@ describe("Topo", () => {
     const fetchFalso = vi.fn<typeof fetch>(() => Promise.resolve(new Response(null, { status: 204 })));
     vi.stubGlobal("fetch", fetchFalso);
 
-    const { unmount } = render(
-      <Topo
-        mostrarSair={false}
-        nomeParceiro={null}
-        confirmando={false}
-        enviandoSaida={false}
-        aoAlternarSaida={vi.fn()}
-        aoContinuar={vi.fn()}
-        aoEncerrar={vi.fn()}
-      />,
-    );
+    renderizar({ mostrarSair: false, confirmando: false });
     expect(await screen.findByRole("link", { name: "Entrar" })).toHaveAttribute("href", "/entrar");
-    unmount();
+    cleanup();
     fetchFalso.mockClear();
 
     renderizar({ confirmando: false });

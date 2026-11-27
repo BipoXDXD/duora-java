@@ -13,6 +13,7 @@ export function ErroDeCenario() {
     <Moldura momento="crepusculo" confirmandoSaida={false} ceuPintado={false}>
       <Topo
         mostrarSair={false}
+        mostrarLinkDaConta
         nomeParceiro={null}
         confirmando={false}
         enviandoSaida={false}

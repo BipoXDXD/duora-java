@@ -45,6 +45,17 @@ describe("obterConta", () => {
     await expect(obterConta()).rejects.toMatchObject({ name: "ErroHttp", status: 401 });
   });
 
+  it("contaIndisponivel403ChegaComCodigoEMensagem", async () => {
+    responder(403, { codigo: "CONTA_INDISPONIVEL", mensagem: "Esta conta não está disponível." });
+
+    await expect(obterConta()).rejects.toMatchObject({
+      name: "ErroHttp",
+      status: 403,
+      codigo: "CONTA_INDISPONIVEL",
+      mensagem: "Esta conta não está disponível.",
+    });
+  });
+
   it("erro500Lanca", async () => {
     responder(500);
 

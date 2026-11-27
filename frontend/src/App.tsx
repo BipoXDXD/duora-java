@@ -166,6 +166,7 @@ export function App({ convite, cenario }: { convite: string | null; cenario: Cen
       >
         <Topo
           mostrarSair={visao !== null}
+          mostrarLinkDaConta={estado.tela !== "carregando"}
           nomeParceiro={visao?.parceiro?.nome ?? null}
           confirmando={estado.confirmandoSaida}
           enviandoSaida={estado.enviando === "sair"}
