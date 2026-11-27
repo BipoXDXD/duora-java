@@ -7,8 +7,9 @@ import java.util.OptionalInt;
 import org.jspecify.annotations.Nullable;
 
 /**
- * O que outros módulos sabem de uma conta. {@code verificada} é sempre {@code false} na Etapa 2a. O
- * {@code toString} omite a data de nascimento, que nunca vai para o log.
+ * O que outros módulos sabem de uma conta. {@code verificada} diz se a verificação de idade da
+ * conta foi aprovada (há linha em {@code verificacao_idade}). O {@code toString} omite a data de
+ * nascimento, que nunca vai para o log.
  */
 public record ContaResumo(
     ContaId id,

@@ -14,6 +14,7 @@ import org.jspecify.annotations.Nullable;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.EnumSource;
+import org.junit.jupiter.params.provider.ValueSource;
 
 class ContaTest {
 
@@ -137,6 +138,14 @@ class ContaTest {
     assertThat(ativa.toString())
         .isEqualTo("Conta[id=" + ID + ", estado=ATIVA]")
         .doesNotContain("1990", "ana@");
+  }
+
+  @ParameterizedTest
+  @ValueSource(booleans = {true, false})
+  void resumoLevaOSeloRecebido(boolean verificada) {
+    Conta ativa = conta(EstadoConta.ATIVA, EMAIL, NASCIMENTO, AGORA);
+
+    assertThat(ativa.resumo(verificada).verificada()).isEqualTo(verificada);
   }
 
   private static Conta pendente() {
