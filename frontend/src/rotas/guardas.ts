@@ -4,12 +4,13 @@
 import type { QueryClient } from "@tanstack/react-query";
 import { redirect } from "react-router";
 import type { Conta, EstadoDaConta } from "../api/estadoDaConta";
+import { CAMINHO_DA_VERIFICACAO } from "./caminhosDaCasca";
 import { consultaDaConta } from "./consultas";
 
 /** A tela de cada estado; o estado fora das telas aceitas por uma rota segue para a sua. */
 const TELA_DO_ESTADO = {
   PENDENTE: "/cadastro",
-  AGUARDANDO_VERIFICACAO: "/aguardando",
+  AGUARDANDO_VERIFICACAO: CAMINHO_DA_VERIFICACAO,
   ATIVA: "/conta",
 } as const satisfies Record<EstadoDaConta, string>;
 

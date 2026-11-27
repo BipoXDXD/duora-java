@@ -30,4 +30,12 @@ describe("registrarServiceWorker", () => {
 
     expect(register).not.toHaveBeenCalled();
   });
+
+  it("naoRegistraServiceWorkerNaVerificacao", () => {
+    vi.stubEnv("PROD", true);
+
+    registrarServiceWorker("/verificacao");
+
+    expect(register).not.toHaveBeenCalled();
+  });
 });

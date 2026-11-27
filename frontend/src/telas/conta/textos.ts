@@ -3,9 +3,6 @@
 /** O link de volta ao "/", nas telas sem próximo passo na casca. */
 const VOLTAR_AO_TERRACO = "Voltar ao terraço";
 
-/** O passo depois do cadastro, enquanto a verificação de idade não chega (2b). */
-const PROXIMO_PASSO_DA_VERIFICACAO = "Falta confirmar sua idade. Essa etapa chega em breve.";
-
 /** A verificação de segurança (Turnstile), nas telas que a pedem antes de enviar. */
 export const VERIFICACAO = {
   aguarde: "Aguarde a verificação de segurança acima.",
@@ -72,18 +69,15 @@ export const CADASTRO = {
   falha: "Não conseguimos concluir o cadastro. Tente de novo em instantes.",
 } as const;
 
-export const AGUARDANDO = {
-  titulo: "Cadastro recebido",
-  tituloDaAba: "Cadastro recebido · Duora",
-  proximoPasso: PROXIMO_PASSO_DA_VERIFICACAO,
-  minhaConta: "Minha conta",
-} as const;
-
 export const MINHA_CONTA = {
   titulo: "Minha conta",
   tituloDaAba: "Minha conta · Duora",
-  /** Só com AGUARDANDO_VERIFICACAO; o selo de verificada é da 2b. */
-  proximoPasso: PROXIMO_PASSO_DA_VERIFICACAO,
+  /** Só com AGUARDANDO_VERIFICACAO, junto do link para a verificação. */
+  faltaConfirmar: "Falta confirmar sua idade.",
+  confirmarIdade: "Confirmar minha idade",
+  /** Só com a verificação de idade aprovada. */
+  selo: "Conta verificada",
+  descricaoDoSelo: "Confirmamos que você tem 18 anos ou mais.",
   sair: "Sair da conta",
   saindo: "Saindo…",
   /** Falha sem resposta conclusiva (rede, servidor fora do ar): a sessão pode seguir aberta. */

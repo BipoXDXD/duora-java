@@ -15,26 +15,29 @@ import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 @Configuration
 public class RotasDoSpa implements WebMvcConfigurer {
 
+  /**
+   * A prova de vida: o {@link CabecalhosDeSeguranca} serve só este caminho, exato, com a CSP e a
+   * Permissions-Policy da verificação. Espelha {@code CAMINHO_DA_VERIFICACAO} de {@code
+   * caminhosDaCasca.ts}.
+   */
+  public static final String CAMINHO_DA_VERIFICACAO = "/verificacao";
+
   public static final List<String> CAMINHOS =
       List.of(
           "/entrar",
           "/entrar/confirmar",
           "/cadastro",
-          "/aguardando",
+          CAMINHO_DA_VERIFICACAO,
           "/conta",
           "/termos",
           "/privacidade",
           "/denunciar",
           "/encarregado");
 
-  /** Prova de vida: fora de CAMINHOS até a F3 movê-la com o front (e tirar /aguardando). */
-  public static final String VERIFICACAO = "/verificacao";
-
   private static final String INDEX = "forward:/index.html";
 
   @Override
   public void addViewControllers(ViewControllerRegistry registro) {
     CAMINHOS.forEach(caminho -> registro.addViewController(caminho).setViewName(INDEX));
-    registro.addViewController(VERIFICACAO).setViewName(INDEX);
   }
 }
