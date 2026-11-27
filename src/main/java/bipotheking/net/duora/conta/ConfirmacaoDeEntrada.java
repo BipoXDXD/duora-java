@@ -101,8 +101,15 @@ public class ConfirmacaoDeEntrada {
       throw linkInvalido();
     }
     Optional<Conta> existente = contas.porEmail(email);
-    ContaId conta = existente.map(Conta::id).orElseGet(() -> contas.criarPendente(email));
-    EstadoConta estado = existente.map(Conta::estado).orElse(EstadoConta.PENDENTE);
+    ContaId conta;
+    EstadoConta estado;
+    if (existente.isPresent()) {
+      conta = existente.get().id();
+      estado = existente.get().estado();
+    } else {
+      conta = contas.criarPendente(email);
+      estado = EstadoConta.PENDENTE;
+    }
     if (!estado.disponivel()) {
       throw new ErroDeNegocio(
           CodigoSessao.CONTA_INDISPONIVEL, CodigoSessao.CONTA_INDISPONIVEL.mensagem());
