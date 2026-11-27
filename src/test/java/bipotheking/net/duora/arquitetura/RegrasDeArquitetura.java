@@ -81,6 +81,19 @@ public final class RegrasDeArquitetura {
         .allowEmptyShould(false);
   }
 
+  /** O SDK da AWS é detalhe de fornecedor: só {@code infra/} o conhece. */
+  public static ArchRule sdkDaAwsSoNaInfra(String raiz) {
+    return noClasses()
+        .that()
+        .resideInAPackage(raiz + "..")
+        .and()
+        .resideOutsideOfPackage("..infra..")
+        .should()
+        .dependOnClassesThat()
+        .resideInAPackage("software.amazon..")
+        .allowEmptyShould(false);
+  }
+
   /** O {@code dominio/} de cada módulo é Java puro: só JDK e o próprio projeto. */
   public static ArchRule dominioJavaPuro(String raiz) {
     return javaPuro(
