@@ -34,6 +34,19 @@ class RegrasDeArquiteturaTest {
         .anySatisfy(v -> assertThat(v).contains("UsaHttp").contains("HttpStatus"));
   }
 
+  @Test
+  void webSemJdbcMorde() {
+    assertThat(violacoes(RegrasDeArquitetura.webSemJdbc(RAIZ)))
+        .isNotEmpty()
+        .allSatisfy(v -> assertThat(v).contains("UsaJdbcNoWeb", "JdbcTemplate"));
+  }
+
+  @Test
+  void dominioJavaPuroMorde() {
+    assertThat(violacoes(RegrasDeArquitetura.dominioJavaPuro(RAIZ)))
+        .anySatisfy(v -> assertThat(v).contains("UsaSpring").contains("StringUtils"));
+  }
+
   private List<String> violacoes(ArchRule regra) {
     return regra.evaluate(exemplos).getFailureReport().getDetails();
   }

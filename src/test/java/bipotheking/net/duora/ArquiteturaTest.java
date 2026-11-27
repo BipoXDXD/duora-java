@@ -1,6 +1,5 @@
 package bipotheking.net.duora;
 
-import static com.tngtech.archunit.lang.syntax.ArchRuleDefinition.noClasses;
 import static com.tngtech.archunit.library.dependencies.SlicesRuleDefinition.slices;
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -31,15 +30,16 @@ class ArquiteturaTest {
   @ArchTest
   static final ArchRule dominioSemWebNemJdbc = RegrasDeArquitetura.dominioSemWebNemJdbc(RAIZ);
 
+  @ArchTest static final ArchRule webSemJdbc = RegrasDeArquitetura.webSemJdbc(RAIZ);
+
+  // Nenhum módulo tem dominio/ ainda (o primeiro é conta/dominio, na trilha C): até lá a regra
+  // aceita um conjunto vazio. As fábricas seguem com allowEmptyShould(false) nos exemplos.
   @ArchTest
-  static final ArchRule nucleoSemSpring =
-      noClasses()
-          .that()
-          .resideInAPackage(RAIZ + ".nucleo..")
-          .should()
-          .dependOnClassesThat()
-          .resideInAPackage("org.springframework..")
-          .allowEmptyShould(false);
+  static final ArchRule dominioJavaPuro =
+      RegrasDeArquitetura.dominioJavaPuro(RAIZ).allowEmptyShould(true);
+
+  /** Mais forte que "sem Spring": o núcleo só usa o JDK (e anotações de nulidade). */
+  @ArchTest static final ArchRule nucleoSemSpring = RegrasDeArquitetura.nucleoJavaPuro(RAIZ);
 
   /** Garante que as regras acima olham bytecode de verdade (Java 25), não um import vazio. */
   @ArchTest

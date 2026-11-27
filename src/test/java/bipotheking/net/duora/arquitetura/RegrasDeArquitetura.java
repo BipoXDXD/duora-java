@@ -1,14 +1,18 @@
 package bipotheking.net.duora.arquitetura;
 
+import static com.tngtech.archunit.core.domain.JavaClass.Predicates.resideInAPackage;
+import static com.tngtech.archunit.core.domain.JavaClass.Predicates.resideInAnyPackage;
 import static com.tngtech.archunit.lang.syntax.ArchRuleDefinition.classes;
 import static com.tngtech.archunit.lang.syntax.ArchRuleDefinition.noClasses;
 
+import com.tngtech.archunit.base.DescribedPredicate;
 import com.tngtech.archunit.core.domain.Dependency;
 import com.tngtech.archunit.core.domain.JavaClass;
 import com.tngtech.archunit.lang.ArchCondition;
 import com.tngtech.archunit.lang.ArchRule;
 import com.tngtech.archunit.lang.ConditionEvents;
 import com.tngtech.archunit.lang.SimpleConditionEvent;
+import java.util.Arrays;
 import java.util.Optional;
 
 /**
@@ -52,6 +56,54 @@ public final class RegrasDeArquitetura {
             "tools.jackson..",
             "com.fasterxml.jackson..")
         .allowEmptyShould(false);
+  }
+
+  /**
+   * A camada web não fala com o banco. Exceções registradas nas Global Constraints: a reserva e a
+   * retenção das chaves de idempotência, que vivem em {@code web/}.
+   */
+  public static ArchRule webSemJdbc(String raiz) {
+    return noClasses()
+        .that()
+        .resideInAPackage(raiz + "..web..")
+        .and(
+            DescribedPredicate.not(
+                umaDas(raiz + ".web.Idempotencia", raiz + ".web.RetencaoDeIdempotencia")))
+        .should()
+        .dependOnClassesThat()
+        .resideInAnyPackage("org.springframework.jdbc..", "org.springframework.data..")
+        .allowEmptyShould(false);
+  }
+
+  /** O {@code dominio/} de cada módulo é Java puro: só JDK e o próprio projeto. */
+  public static ArchRule dominioJavaPuro(String raiz) {
+    return javaPuro(raiz + "..dominio..", raiz + "..");
+  }
+
+  /** O {@code nucleo} é Java puro: só JDK e ele mesmo. */
+  public static ArchRule nucleoJavaPuro(String raiz) {
+    return javaPuro(raiz + ".nucleo..", raiz + ".nucleo..");
+  }
+
+  private static ArchRule javaPuro(String pacotes, String projetoPermitido) {
+    return classes()
+        .that()
+        .resideInAPackage(pacotes)
+        .should()
+        .onlyDependOnClassesThat(
+            // org.jspecify: anotações de nulidade, sem comportamento (o nucleo já usa @Nullable).
+            resideInAnyPackage("java..", "org.jspecify..", projetoPermitido)
+                .and(DescribedPredicate.not(resideInAPackage("java.sql.."))))
+        .allowEmptyShould(false);
+  }
+
+  /** A classe ou uma aninhada nela ({@code Classe$Interna}). */
+  private static DescribedPredicate<JavaClass> umaDas(String... nomes) {
+    return DescribedPredicate.describe(
+        "uma de " + String.join(", ", nomes),
+        classe ->
+            Arrays.stream(nomes)
+                .anyMatch(n -> classe.getName().equals(n) || classe.getName().startsWith(n + "$")));
   }
 
   private static final class SoUsaApiPublicaDeOutroModulo extends ArchCondition<JavaClass> {
