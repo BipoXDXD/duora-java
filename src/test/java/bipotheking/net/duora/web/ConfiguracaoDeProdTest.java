@@ -37,6 +37,14 @@ class ConfiguracaoDeProdTest {
     assertThat(carregar().getProperty("logging.structured.format.console")).isEqualTo("ecs");
   }
 
+  @Test
+  void emailPeloResendComAChaveDoAmbiente() throws IOException {
+    Properties prod = carregar();
+
+    assertThat(prod.getProperty("duora.email.provedor")).isEqualTo("resend");
+    assertThat(prod.getProperty("duora.email.resend.chave")).isEqualTo("${RESEND_API_KEY}");
+  }
+
   private static Properties carregar() throws IOException {
     try (InputStream entrada =
         ConfiguracaoDeProdTest.class.getResourceAsStream("/application-prod.properties")) {

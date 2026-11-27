@@ -8,17 +8,11 @@ import static org.springframework.test.web.client.response.MockRestResponseCreat
 import static org.springframework.test.web.client.response.MockRestResponseCreators.withServerError;
 import static org.springframework.test.web.client.response.MockRestResponseCreators.withSuccess;
 
-import com.sun.net.httpserver.HttpServer;
-import java.io.IOException;
-import java.net.InetAddress;
-import java.net.InetSocketAddress;
+import bipotheking.net.duora.web.ServidorHttpLento;
 import java.net.SocketTimeoutException;
 import java.net.URI;
-import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.util.Map;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -157,28 +151,9 @@ class TurnstileVerificacaoTest {
   }
 
   @Test
-  void respostaQueDemora10sViraFalseEmMenosDe8s() throws IOException {
-    Duration atraso = Duration.ofSeconds(10);
-    ExecutorService threads = Executors.newCachedThreadPool();
-    HttpServer lento =
-        HttpServer.create(new InetSocketAddress(InetAddress.getLoopbackAddress(), 0), 0);
-    lento.setExecutor(threads);
-    lento.createContext(
-        "/",
-        troca -> {
-          try (troca) {
-            Thread.sleep(atraso);
-            byte[] corpo = "{\"success\": true}".getBytes(StandardCharsets.UTF_8);
-            troca.getResponseHeaders().add("Content-Type", "application/json");
-            troca.sendResponseHeaders(200, corpo.length);
-            troca.getResponseBody().write(corpo);
-          } catch (InterruptedException e) {
-            Thread.currentThread().interrupt();
-          }
-        });
-    lento.start();
-    try {
-      URI url = URI.create("http://127.0.0.1:" + lento.getAddress().getPort() + "/siteverify");
+  void respostaQueDemora10sViraFalseEmMenosDe8s() {
+    try (ServidorHttpLento lento = ServidorHttpLento.iniciar(Duration.ofSeconds(10))) {
+      URI url = lento.uri().resolve("siteverify");
       TurnstileVerificacao comTimeouts =
           TurnstileVerificacao.comTimeouts(
               RestClient.builder(), new TurnstileConfig("chave-do-site", SEGREDO, url));
@@ -189,9 +164,6 @@ class TurnstileVerificacaoTest {
 
       assertThat(resultado).isFalse();
       assertThat(decorrido).isLessThan(Duration.ofSeconds(8));
-    } finally {
-      lento.stop(0);
-      threads.shutdownNow();
     }
   }
 }
