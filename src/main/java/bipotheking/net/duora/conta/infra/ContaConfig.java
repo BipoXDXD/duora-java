@@ -2,6 +2,7 @@ package bipotheking.net.duora.conta.infra;
 
 import bipotheking.net.duora.conta.ResumoDeEmail;
 import bipotheking.net.duora.conta.dominio.DominiosDescartaveis;
+import bipotheking.net.duora.conta.dominio.VerificacaoHumana;
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
@@ -11,6 +12,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.core.io.Resource;
+import org.springframework.web.client.RestClient;
 
 /** Monta as peças puras do domínio de conta a partir dos recursos e da configuração. */
 @Configuration
@@ -30,5 +32,10 @@ class ContaConfig {
   @Bean
   ResumoDeEmail resumoDeEmail(@Value("${duora.segredo-email}") String segredo) {
     return new ResumoDeEmail(segredo);
+  }
+
+  @Bean
+  VerificacaoHumana verificacaoHumana(RestClient.Builder builder, TurnstileConfig config) {
+    return TurnstileVerificacao.comTimeouts(builder, config);
   }
 }
