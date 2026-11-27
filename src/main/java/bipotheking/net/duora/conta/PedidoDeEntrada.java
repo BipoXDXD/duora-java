@@ -9,7 +9,6 @@ import bipotheking.net.duora.conta.dominio.VerificacaoHumana;
 import bipotheking.net.duora.notificacao.Outbox;
 import bipotheking.net.duora.nucleo.ErroDeNegocio;
 import bipotheking.net.duora.nucleo.GeradorDeIds;
-import bipotheking.net.duora.nucleo.Resumos;
 import bipotheking.net.duora.web.Idempotencia;
 import bipotheking.net.duora.web.Idempotencia.Reserva;
 import bipotheking.net.duora.web.LimiteDeTaxa;
@@ -109,10 +108,7 @@ public class PedidoDeEntrada {
     String chave = chaveDeIdempotencia.get();
     Reserva<RespostaDeEntrada> reserva =
         idempotencia.reservar(
-            ESCOPO_DE_IDEMPOTENCIA,
-            chave,
-            Resumos.sha256Hex(email.valor()),
-            RespostaDeEntrada.class);
+            ESCOPO_DE_IDEMPOTENCIA, chave, resumoDeEmail.hex(email), RespostaDeEntrada.class);
     return switch (reserva) {
       case Reserva.JaRespondida<RespostaDeEntrada>(RespostaDeEntrada resposta) -> resposta;
       case Reserva.Tua<RespostaDeEntrada>(UUID dono) ->

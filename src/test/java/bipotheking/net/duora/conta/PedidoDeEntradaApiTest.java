@@ -288,6 +288,20 @@ class PedidoDeEntradaApiTest extends BancoDeTeste {
     assertThat(links()).isOne();
   }
 
+  /**
+   * A impressão do pedido fica no banco por 24 horas: é o HMAC do e-mail, que não se confere por
+   * palpite sem a chave do servidor, nunca o SHA-256 puro.
+   */
+  @Test
+  void impressaoDaChaveEOResumoComChaveDoEmail() throws Exception {
+    String email = emailNovo();
+
+    entrarComChave(email, chaveNova()).andExpect(status().isAccepted());
+
+    assertThat(jdbc.sql("select impressao from chave_de_idempotencia").query(String.class).single())
+        .isEqualTo(resumoDeEmail.hex(Email.de(email)));
+  }
+
   @Test
   void mesmaChaveOutroEmailRecusada() throws Exception {
     String chave = chaveNova();
