@@ -1,11 +1,9 @@
-import { useMutation, useQuery } from "@tanstack/react-query";
+import { useMutation } from "@tanstack/react-query";
 import { useEffect, useRef, useState, type ReactElement, type SubmitEvent } from "react";
-import { obterConfiguracao } from "../../api/conta";
 import { enviarDenuncia, type DenunciaPublica, type MotivoDaDenuncia } from "../../api/denuncia";
 import { ErroHttp } from "../../api/http";
 import {
   BOTAO_PRIMARIO,
-  BOTAO_SECUNDARIO_SEM_MARGEM,
   CAMPO,
   DICA,
   ENTRADA_DE_TEXTO,
@@ -13,8 +11,10 @@ import {
   TEXTO_SECUNDARIO,
   TITULO_DA_CASCA,
 } from "../../componentes/estilos";
-import { carregarTurnstile, Turnstile, type ApiTurnstile, type ControleDoTurnstile } from "../../componentes/Turnstile";
+import type { ApiTurnstile } from "../../componentes/Turnstile";
+import { CaixaDaVerificacao } from "../conta/CaixaDaVerificacao";
 import { textoDeEspera, VERIFICACAO } from "../conta/textos";
+import { useVerificacaoHumana } from "../conta/useVerificacaoHumana";
 import { DENUNCIAR, textoDoContador } from "./textos";
 
 /** Os limites do servidor (C12), em caracteres (code points), depois de tirar os espaços das pontas. */
@@ -93,15 +93,8 @@ interface PropsDeDenunciarPublico {
  * resposta gasta o token: o widget reinicia e pede outro. No sucesso, o formulário volta ao início e o
  * foco vai para a mensagem do servidor. Nada do que a pessoa escreve vai para o console.
  */
-export function DenunciarPublico({
-  carregarTurnstile: carregar = carregarTurnstile,
-}: PropsDeDenunciarPublico): ReactElement {
-  const configuracao = useQuery({
-    queryKey: ["conta", "configuracao"],
-    queryFn: obterConfiguracao,
-    staleTime: Infinity,
-  });
-  const turnstile = useRef<ControleDoTurnstile>(null);
+export function DenunciarPublico({ carregarTurnstile: carregar }: PropsDeDenunciarPublico): ReactElement {
+  const verificacao = useVerificacaoHumana();
   const formulario = useRef<HTMLFormElement>(null);
   const primeiroMotivo = useRef<HTMLInputElement>(null);
   const campoDaDescricao = useRef<HTMLTextAreaElement>(null);
@@ -110,11 +103,6 @@ export function DenunciarPublico({
   const mensagemDeSucesso = useRef<HTMLParagraphElement>(null);
   const [descricao, setDescricao] = useState("");
   const [falha, setFalha] = useState<Falha | null>(null);
-  const [token, setToken] = useState<string | null>(null);
-  const [widgetFalhou, setWidgetFalhou] = useState(false);
-  // Trava síncrona: o isPending só chega no render seguinte, e um duplo toque nessa janela mandaria
-  // outra denúncia com o mesmo token (já gasto).
-  const enviando = useRef(false);
 
   const campos: Record<Campo, { current: HTMLElement | null }> = {
     motivo: primeiroMotivo,
@@ -141,11 +129,7 @@ export function DenunciarPublico({
     onError: (erro) => {
       mostrar(falhaDoEnvio(erro));
     },
-    onSettled: () => {
-      enviando.current = false;
-      setToken(null);
-      turnstile.current?.reiniciar();
-    },
+    onSettled: verificacao.liberar,
   });
 
   useEffect(() => {
@@ -154,14 +138,15 @@ export function DenunciarPublico({
     }
   }, [denuncia.isSuccess]);
 
-  const verificacaoFalhou = widgetFalhou || configuracao.isError;
+  const { token, falhou: verificacaoFalhou } = verificacao;
   const indisponivel = token === null || denuncia.isPending;
   const descricaoLimpa = descricao.trim();
   const caracteresDaDescricao = caracteres(descricaoLimpa);
 
   function enviar(evento: SubmitEvent<HTMLFormElement>) {
     evento.preventDefault();
-    if (token === null || enviando.current) {
+    // A tela só confere os campos com o envio livre; a trava fecha depois da conferência.
+    if (!verificacao.livre()) {
       return;
     }
     const dados = new FormData(evento.currentTarget);
@@ -180,9 +165,12 @@ export function DenunciarPublico({
       mostrar({ texto: DENUNCIAR.referenciaLonga, campo: "referencia" });
       return;
     }
-    enviando.current = true;
+    const tokenDoEnvio = verificacao.tomar();
+    if (tokenDoEnvio === null) {
+      return;
+    }
     setFalha(null);
-    const nova: DenunciaPublica = { motivo, descricao: descricaoLimpa, tokenVerificacao: token };
+    const nova: DenunciaPublica = { motivo, descricao: descricaoLimpa, tokenVerificacao: tokenDoEnvio };
     if (referencia !== "") {
       nova.referencia = referencia;
     }
@@ -190,14 +178,6 @@ export function DenunciarPublico({
       nova.emailContato = emailContato;
     }
     denuncia.mutate(nova);
-  }
-
-  /** Sair do aviso monta um widget novo; o carregador tenta o script de novo se ele não veio. */
-  function tentarDeNovo() {
-    setWidgetFalhou(false);
-    if (configuracao.isError) {
-      void configuracao.refetch();
-    }
   }
 
   function descricaoDo(campo: Campo, ...base: string[]): string | undefined {
@@ -295,34 +275,7 @@ export function DenunciarPublico({
             aria-invalid={invalido("email")}
           />
         </div>
-        <div className="min-h-[65px]">
-          {verificacaoFalhou ? (
-            <div className="grid gap-(--e-2)">
-              <p className={TEXTO_SECUNDARIO} id={ID_DA_FALHA_DA_VERIFICACAO}>
-                {VERIFICACAO.falha}
-              </p>
-              <button type="button" className={BOTAO_SECUNDARIO_SEM_MARGEM} onClick={tentarDeNovo}>
-                {VERIFICACAO.tentarDeNovo}
-              </button>
-            </div>
-          ) : (
-            configuracao.data && (
-              <Turnstile
-                ref={turnstile}
-                chaveDoSite={configuracao.data.chaveDoSiteTurnstile}
-                carregar={carregar}
-                aoObterToken={setToken}
-                aoExpirar={() => {
-                  setToken(null);
-                }}
-                aoFalhar={() => {
-                  setToken(null);
-                  setWidgetFalhou(true);
-                }}
-              />
-            )
-          )}
-        </div>
+        <CaixaDaVerificacao verificacao={verificacao} idDaFalha={ID_DA_FALHA_DA_VERIFICACAO} carregar={carregar} />
         <div className="grid gap-(--e-2)">
           <button
             type="submit"
