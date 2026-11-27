@@ -73,6 +73,8 @@ class RotasProtegidasTest extends BancoDeTeste {
     assertThat(rotasDaApi().stream().filter(Rota::publica).map(Rota::toString))
         .containsExactlyInAnyOrder(
             "GET /api/conta",
+            "POST /api/conta/entrar",
+            "GET /api/conta/configuracao",
             "POST /api/salas",
             "POST /api/salas/entrar",
             "GET /api/sala",
