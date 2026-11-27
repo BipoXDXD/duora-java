@@ -180,6 +180,24 @@ describe("montarCasca", () => {
       expect(await screen.findByRole("heading", { level: 1, name: "Cadastro recebido" })).toBeInTheDocument();
     });
 
+    it.each(["AGUARDANDO_VERIFICACAO", "ATIVA"])("minhaContaAbreParaConta %s", async (estado) => {
+      prepararConta(200, contaNoEstado(estado));
+
+      await montarEm("/conta");
+
+      expect(await screen.findByRole("heading", { level: 1, name: "Minha conta" })).toBeInTheDocument();
+      expect(document.title).toBe("Minha conta · Duora");
+    });
+
+    it("minhaContaDaContaPendenteVaiParaCadastro", async () => {
+      prepararConta(200, contaNoEstado("PENDENTE"));
+
+      await montarEm("/conta");
+
+      expect(await screen.findByRole("heading", { level: 1, name: "Falta pouco" })).toBeInTheDocument();
+      expect(location.pathname).toBe("/cadastro");
+    });
+
     it("contaIndisponivelMostraAMensagemSemVirarAnonimo", async () => {
       prepararConta(403, { codigo: "CONTA_INDISPONIVEL", mensagem: "Esta conta não está disponível." });
 

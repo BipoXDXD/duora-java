@@ -8,6 +8,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import bipotheking.net.duora.conta.ContasDeTeste;
 import bipotheking.net.duora.conta.EstadoConta;
 import bipotheking.net.duora.e2e.NavegadorExtension.Participantes;
+import com.microsoft.playwright.Locator;
 import com.microsoft.playwright.Page;
 import com.microsoft.playwright.Response;
 import com.microsoft.playwright.options.AriaRole;
@@ -118,11 +119,12 @@ class CascaDeContaIT {
   /**
    * O Spring dá 404 a caminho fora de {@code RotasDoSpa.CAMINHOS}; a {@code NaoEncontrada} aparece
    * quando a navegação no cliente sai das rotas da casca. O {@code createBrowserRouter} escuta o
-   * {@code popstate} da história do navegador.
+   * {@code popstate} da história do navegador. Parte de uma rota sem guarda nem rede: {@code
+   * /conta} agora leva o anônimo a {@code /entrar}.
    */
   @Test
   void naoEncontradaSemViolacoes(Participantes participantes) {
-    Page page = participantes.novo().abrir(raiz(porta) + "conta").page();
+    Page page = participantes.novo().abrir(raiz(porta) + "entrar/confirmar").page();
     assertThat(page.getByRole(AriaRole.MAIN)).isVisible();
 
     page.evaluate(
@@ -195,6 +197,69 @@ class CascaDeContaIT {
 
     page.navigate(raiz(porta) + "cadastro");
     assertThat(page).hasURL(raiz(porta) + "entrar");
+  }
+
+  /** O diálogo nativo: foco inicial no Cancelar, Esc fecha e o foco volta ao botão de origem. */
+  @Test
+  void minhaContaEDialogoSemViolacoes(Participantes participantes) {
+    Page page = logado(participantes, EstadoConta.ATIVA);
+    page.navigate(raiz(porta) + "conta");
+
+    assertThat(page.getByRole(AriaRole.HEADING, new Page.GetByRoleOptions().setName("Minha conta")))
+        .isVisible();
+    assertSemViolacoes(page, "minha conta");
+
+    Locator excluir = botaoExcluirDaSecao(page);
+    excluir.click();
+    Locator dialogo =
+        page.getByRole(AriaRole.DIALOG, new Page.GetByRoleOptions().setName("Excluir sua conta?"));
+    assertThat(
+            dialogo.getByRole(AriaRole.BUTTON, new Locator.GetByRoleOptions().setName("Cancelar")))
+        .isFocused();
+    assertSemViolacoes(page, "diálogo de exclusão");
+
+    page.keyboard().press("Escape");
+    assertThat(dialogo).isHidden();
+    assertThat(excluir).isFocused();
+  }
+
+  @Test
+  void sairEncerraASessao(Participantes participantes) {
+    Page page = logado(participantes, EstadoConta.AGUARDANDO_VERIFICACAO);
+    page.navigate(raiz(porta) + "conta");
+
+    page.getByRole(AriaRole.BUTTON, new Page.GetByRoleOptions().setName("Sair da conta")).click();
+
+    assertThat(
+            page.getByRole(
+                AriaRole.HEADING, new Page.GetByRoleOptions().setName("Entrar no Duora")))
+        .isVisible();
+    page.navigate(raiz(porta) + "conta");
+    assertThat(page).hasURL(raiz(porta) + "entrar");
+  }
+
+  @Test
+  void excluirApagaAContaEEncerraASessao(Participantes participantes) {
+    Page page = logado(participantes, EstadoConta.ATIVA);
+    page.navigate(raiz(porta) + "conta");
+
+    botaoExcluirDaSecao(page).click();
+    page.getByRole(AriaRole.DIALOG)
+        .getByRole(AriaRole.BUTTON, new Locator.GetByRoleOptions().setName("Excluir conta"))
+        .click();
+
+    assertThat(
+            page.getByRole(AriaRole.HEADING, new Page.GetByRoleOptions().setName("Conta excluída")))
+        .isFocused();
+    assertSemViolacoes(page, "conta excluída");
+    page.navigate(raiz(porta) + "conta");
+    assertThat(page).hasURL(raiz(porta) + "entrar");
+  }
+
+  /** O botão da seção; com o diálogo aberto há outro com o mesmo nome. */
+  private static Locator botaoExcluirDaSecao(Page page) {
+    return page.getByRole(AriaRole.REGION, new Page.GetByRoleOptions().setName("Excluir conta"))
+        .getByRole(AriaRole.BUTTON, new Locator.GetByRoleOptions().setName("Excluir conta"));
   }
 
   /**

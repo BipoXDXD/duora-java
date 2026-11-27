@@ -1,11 +1,18 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { concluirCadastro, confirmarEntrada, obterConfiguracao, pedirLink } from "./conta";
+import { concluirCadastro, confirmarEntrada, excluirConta, obterConfiguracao, pedirLink, sairDaConta } from "./conta";
 import { ErroHttp } from "./http";
 
 function responder(corpo: unknown, status = 200) {
   const fetchFalso = vi.fn<typeof fetch>(() =>
     Promise.resolve(new Response(JSON.stringify(corpo), { status, headers: { "Content-Type": "application/json" } })),
   );
+  vi.stubGlobal("fetch", fetchFalso);
+  return fetchFalso;
+}
+
+/** 204 sem corpo, como o servidor responde ao sair e ao excluir. */
+function responderSemConteudo() {
+  const fetchFalso = vi.fn<typeof fetch>(() => Promise.resolve(new Response(null, { status: 204 })));
   vi.stubGlobal("fetch", fetchFalso);
   return fetchFalso;
 }
@@ -104,5 +111,44 @@ describe("concluirCadastro", () => {
     responder({ cadastroConcluido: true, proximoPasso: "TERRACO" });
 
     await expect(concluirCadastro(DADOS)).rejects.toMatchObject({ codigo: "RESPOSTA_INVALIDA" });
+  });
+});
+
+describe("sairDaConta", () => {
+  it("enviaOPostDeSair", async () => {
+    const fetchFalso = responderSemConteudo();
+
+    await expect(sairDaConta()).resolves.toBeUndefined();
+
+    const [url, opcoes] = fetchFalso.mock.calls[0] ?? [];
+    expect(url).toBe("/api/conta/sair");
+    expect(opcoes?.method).toBe("POST");
+    expect(new Headers(opcoes?.headers).get("X-Duora")).toBe("1");
+  });
+
+  it("recusaViraErroHttp", async () => {
+    responder({ codigo: "NAO_AUTENTICADO", mensagem: "Entre para continuar." }, 401);
+
+    await expect(sairDaConta()).rejects.toMatchObject({ status: 401, codigo: "NAO_AUTENTICADO" });
+  });
+});
+
+describe("excluirConta", () => {
+  it("enviaAConfirmacao", async () => {
+    const fetchFalso = responderSemConteudo();
+
+    await expect(excluirConta()).resolves.toBeUndefined();
+
+    const [url, opcoes] = fetchFalso.mock.calls[0] ?? [];
+    expect(url).toBe("/api/conta/exclusao");
+    expect(opcoes?.method).toBe("POST");
+    expect(opcoes?.body).toBe('{"confirmo":true}');
+    expect(new Headers(opcoes?.headers).get("X-Duora")).toBe("1");
+  });
+
+  it("recusaViraErroHttp", async () => {
+    responder({ codigo: "CONTA_INDISPONIVEL", mensagem: "Esta conta não está disponível." }, 403);
+
+    await expect(excluirConta()).rejects.toMatchObject({ status: 403, codigo: "CONTA_INDISPONIVEL" });
   });
 });
