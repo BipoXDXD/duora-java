@@ -15,7 +15,7 @@ import org.springframework.transaction.annotation.Transactional;
  * registro não tem API de leitura.
  */
 @Service
-public class RegistroDeAcessos {
+class RegistroDeAcessos {
 
   private final RepositorioDeAcessos repositorio;
   private final Clock relogio;
