@@ -12,7 +12,6 @@ import com.microsoft.playwright.Locator;
 import com.microsoft.playwright.Page;
 import com.microsoft.playwright.Response;
 import com.microsoft.playwright.options.AriaRole;
-import com.microsoft.playwright.options.Cookie;
 import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
@@ -269,9 +268,6 @@ class CascaDeContaIT {
   private Page logado(Participantes participantes, EstadoConta estado) {
     ContasDeTeste.ContaDeTeste conta =
         contas.criar(estado, estado == EstadoConta.PENDENTE ? null : NASCIMENTO_DE_ADULTO);
-    String[] cookie = conta.cookie().split("=", 2);
-    Page page = participantes.novo().page();
-    page.context().addCookies(List.of(new Cookie(cookie[0], cookie[1]).setUrl(raiz(porta))));
-    return page;
+    return Contas.comConta(participantes.novo(), conta, raiz(porta)).page();
   }
 }
