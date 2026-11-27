@@ -30,7 +30,7 @@ import { parseArgs } from 'node:util';
 
 const CHROME = 'com.android.chrome';
 const RAIZ_REPO = resolve(dirname(fileURLToPath(import.meta.url)), '../..');
-const SAIDA = join(RAIZ_REPO, 'target', 'android');
+export const SAIDA = join(RAIZ_REPO, 'target', 'android');
 const SERIAL = `emulator-${process.env.DUORA_AVD_PORTA ?? '5580'}`;
 const PORTA_CDP = Number(process.env.DUORA_CDP_PORTA ?? '9333');
 const TEXTOS_FECHAR_PROMO = ['No thanks', 'No, thanks', 'Not now', 'Got it'];
@@ -66,7 +66,7 @@ function lerArgumentos() {
   return { ...values, porta };
 }
 
-function resolverAdb() {
+export function resolverAdb() {
   let sdk = process.env.ANDROID_SDK_ROOT ?? process.env.ANDROID_HOME;
   if (!sdk) {
     try {
@@ -79,7 +79,7 @@ function resolverAdb() {
   return join(sdk, 'platform-tools', 'adb');
 }
 
-function criarAdb(binario) {
+export function criarAdb(binario) {
   const executar = (args, opcoes = {}) => {
     try {
       return execFileSync(binario, ['-s', SERIAL, ...args],
@@ -93,7 +93,7 @@ function criarAdb(binario) {
   return { executar, shell };
 }
 
-function exigirEmuladorPronto(adb) {
+export function exigirEmuladorPronto(adb) {
   let pronto = false;
   try { pronto = adb.shell('getprop sys.boot_completed').trim() === '1'; } catch { /* desligado */ }
   if (!pronto) throw new Falha(`emulador ${SERIAL} não está pronto; rode: scripts/android/emulador.sh subir`);
@@ -181,7 +181,7 @@ const TENTATIVAS_DE_ABRIR_URL = 3;
  * Abre a URL no Chrome e conecta o CDP na aba. Um aviso de primeira execução às vezes engole o
  * intent e o Chrome fica na página inicial; aí fecha os avisos e manda o intent de novo.
  */
-async function abrirNoChrome(adb, url, base) {
+export async function abrirNoChrome(adb, url, base) {
   for (let tentativa = 1; ; tentativa++) {
     log(`abrindo ${url} no Chrome${tentativa > 1 ? ` (tentativa ${tentativa})` : ''}`);
     adb.shell(`am start -a android.intent.action.VIEW -d '${url}' ${CHROME}`);
@@ -365,7 +365,7 @@ async function barraDoNavegadorVisivel(adb) {
   return (await lerTela(adb)).some((n) => n['resource-id'] === `${CHROME}:id/url_bar`);
 }
 
-function capturarTela(adb, arquivo) {
+export function capturarTela(adb, arquivo) {
   writeFileSync(arquivo, adb.executar(['exec-out', 'screencap', '-p'], { binario: true }));
   return arquivo;
 }
