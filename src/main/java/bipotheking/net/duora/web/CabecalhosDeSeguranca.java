@@ -6,6 +6,8 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
 import java.util.Set;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 import org.springframework.core.Ordered;
 import org.springframework.core.annotation.Order;
 import org.springframework.http.HttpHeaders;
@@ -26,8 +28,15 @@ public final class CabecalhosDeSeguranca extends OncePerRequestFilter {
       "default-src 'self'; img-src 'self' data:; object-src 'none'; base-uri 'none'; "
           + "frame-ancestors 'none'; form-action 'self'";
 
+  /**
+   * O index.html, o service worker, o manifest e as rotas do SPA, que o Spring encaminha ao
+   * index.html: o filtro não roda de novo no forward, então vale o caminho pedido.
+   */
   private static final Set<String> SEMPRE_REVALIDADOS =
-      Set.of("/", "/index.html", "/sw.js", "/manifest.webmanifest");
+      Stream.concat(
+              Stream.of("/", "/index.html", "/sw.js", "/manifest.webmanifest"),
+              RotasDoSpa.CAMINHOS.stream())
+          .collect(Collectors.toUnmodifiableSet());
 
   @Override
   protected void doFilterInternal(
