@@ -24,7 +24,7 @@ class EmailResendTimeoutTest {
     MensagemDeEmail mensagem =
         new MensagemDeEmail("ana@exemplo.com", "Assunto", "Texto", "<p>Texto</p>");
 
-    try (ServidorHttpLento lento = ServidorHttpLento.iniciar(Duration.ofSeconds(1))) {
+    try (ServidorHttpLento lento = ServidorHttpLento.iniciar(Duration.ofSeconds(3))) {
       EmailResend resend =
           EmailResend.comTimeouts(
               RestClient.builder(), configuracao, lento.uri().resolve("emails"));

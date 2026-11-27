@@ -136,6 +136,21 @@ class EmailResendTest {
   }
 
   @Test
+  void respostaDeErroLogaWarnComStatusEIdSemEndereco(CapturedOutput saida) {
+    server.expect(requestTo(API)).andRespond(withStatus(HttpStatusCode.valueOf(401)));
+
+    assertThatThrownBy(() -> resend(builder, "re_teste").enviar(MENSAGEM, ID_DA_MENSAGEM))
+        .isInstanceOf(FalhaNoEnvio.class);
+
+    assertThat(saida.getOut())
+        .contains("WARN")
+        .contains("401")
+        .contains(ID_DA_MENSAGEM.toString())
+        .doesNotContain("ana@exemplo.com")
+        .doesNotContain("re_teste");
+  }
+
+  @Test
   void chaveNaoApareceNoLogNemNaFalha(CapturedOutput saida) {
     String canario = "re_CANARY-" + UUID.randomUUID();
     server

@@ -5,6 +5,8 @@ import bipotheking.net.duora.notificacao.MensagemDeEmail;
 import java.net.URI;
 import java.util.List;
 import java.util.UUID;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.boot.http.client.ClientHttpRequestFactoryBuilder;
 import org.springframework.boot.http.client.HttpClientSettings;
 import org.springframework.http.HttpHeaders;
@@ -20,6 +22,8 @@ import org.springframework.web.client.RestClientResponseException;
  * causa: o corpo de erro do Resend pode citar o destinatário, e nada aqui cita a chave.
  */
 class EmailResend implements EnvioDeEmail {
+
+  private static final Logger LOG = LoggerFactory.getLogger(EmailResend.class);
 
   static final URI API = URI.create("https://api.resend.com/emails");
 
@@ -71,7 +75,10 @@ class EmailResend implements EnvioDeEmail {
           .retrieve()
           .toBodilessEntity();
     } catch (RestClientResponseException e) {
-      throw new FalhaNoEnvio("Resend respondeu " + e.getStatusCode().value());
+      // Separa chave errada (401/403) de instabilidade (5xx) antes das dez tentativas da outbox.
+      int status = e.getStatusCode().value();
+      LOG.warn("Resend respondeu {} à mensagem {}", status, chaveDeIdempotencia);
+      throw new FalhaNoEnvio("Resend respondeu " + status);
     } catch (RestClientException e) {
       throw new FalhaNoEnvio(
           "Resend indisponível (" + e.getMostSpecificCause().getClass().getSimpleName() + ")");

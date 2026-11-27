@@ -1,6 +1,7 @@
 package bipotheking.net.duora.notificacao.infra;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import bipotheking.net.duora.notificacao.EnvioDeEmail;
 import java.time.Duration;
@@ -100,6 +101,14 @@ class EmailConfigTest {
           assertThat(resend.conexao()).isEqualTo(Duration.ofSeconds(5));
           assertThat(resend.leitura()).isEqualTo(Duration.ofSeconds(10));
         });
+  }
+
+  @Test
+  void resendNuloNaConstrucaoDiretaFalhaComMensagemClara() {
+    assertThatThrownBy(
+            () -> new ConfiguracaoDeEmail("resend", "Duora <entrar@meetduora.com>", null))
+        .isInstanceOf(IllegalArgumentException.class)
+        .hasMessageContaining("duora.email.resend");
   }
 
   @Configuration(proxyBeanMethods = false)

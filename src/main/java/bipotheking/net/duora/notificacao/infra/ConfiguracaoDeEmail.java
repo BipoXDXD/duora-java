@@ -27,6 +27,10 @@ record ConfiguracaoDeEmail(String provedor, String remetente, @DefaultValue Rese
           "duora.email.provedor deve ser " + LOG + " ou " + RESEND + ", veio " + provedor);
     }
     exigir(remetente, "duora.email.remetente");
+    // O Binder sempre preenche (@DefaultValue); nulo só vem de construção direta.
+    if (resend == null) {
+      throw new IllegalArgumentException("duora.email.resend ausente");
+    }
     if (RESEND.equals(provedor)) {
       exigir(resend.chave(), "duora.email.resend.chave");
     }
