@@ -1,6 +1,7 @@
 import { useRef, useState, type SubmitEvent } from "react";
 import { validarApelido } from "../dominio/apelido";
 import { BOTAO_PRIMARIO, BOTAO_SECUNDARIO_SEM_MARGEM, CAMPO, DICA, ENTRADA_DE_TEXTO, ROTULO, TELA } from "./estilos";
+import { Rodape } from "./Rodape";
 
 interface PropsEntrada {
   /** A URL trouxe #convite=: a ação vira "Entrar no terraço". */
@@ -71,58 +72,64 @@ export function Entrada({ comConvite, apelido = "", troca, enviando, erro, aoEnv
   }
 
   return (
-    <form className={`entrada ${TELA}`} id="entrada" noValidate onSubmit={enviar}>
-      <div className={CAMPO}>
-        <label className={ROTULO} htmlFor="apelido">
-          Seu apelido
-        </label>
-        <input
-          ref={refApelido}
-          className={ENTRADA_DE_TEXTO}
-          id="apelido"
-          name="apelido"
-          type="text"
-          // maxLength conta unidades UTF-16: 20 caracteres (pontos de código, como validarApelido e o
-          // servidor contam) cabem em até 40. O limite de verdade fica na validação.
-          maxLength={40}
-          defaultValue={apelido}
-          autoComplete="nickname"
-          spellCheck={false}
-          required
-          aria-describedby={troca ? "apelido-dica apelido-troca apelido-erro" : "apelido-dica apelido-erro"}
-          aria-invalid={erroMostrado ? true : undefined}
-          onInput={aoDigitar}
-        />
-        <p className={DICA} id="apelido-dica">
-          De 1 a 20 caracteres. A outra pessoa vê este nome.
-        </p>
-        {troca && (
-          <p className="m-0 max-w-[40ch] text-texto-2" id="apelido-troca">
-            Entrar neste convite encerra o terraço atual para as duas pessoas.
+    <>
+      <form className={`entrada ${TELA}`} id="entrada" noValidate onSubmit={enviar}>
+        <div className={CAMPO}>
+          <label className={ROTULO} htmlFor="apelido">
+            Seu apelido
+          </label>
+          <input
+            ref={refApelido}
+            className={ENTRADA_DE_TEXTO}
+            id="apelido"
+            name="apelido"
+            type="text"
+            // maxLength conta unidades UTF-16: 20 caracteres (pontos de código, como validarApelido e o
+            // servidor contam) cabem em até 40. O limite de verdade fica na validação.
+            maxLength={40}
+            defaultValue={apelido}
+            autoComplete="nickname"
+            spellCheck={false}
+            required
+            aria-describedby={troca ? "apelido-dica apelido-troca apelido-erro" : "apelido-dica apelido-erro"}
+            aria-invalid={erroMostrado ? true : undefined}
+            onInput={aoDigitar}
+          />
+          <p className={DICA} id="apelido-dica">
+            De 1 a 20 caracteres. A outra pessoa vê este nome.
           </p>
-        )}
-        <p className="erro-campo m-0 text-[0.875rem] leading-[1.45] text-coral empty:hidden" id="apelido-erro">
-          {erroMostrado}
-        </p>
-      </div>
-      <button type="submit" className={BOTAO_PRIMARIO} id="entrar" aria-disabled={enviando ? true : undefined}>
-        {enviando ? "Enviando…" : acao}
-      </button>
-      {troca && (
-        <button
-          type="button"
-          className={BOTAO_SECUNDARIO_SEM_MARGEM}
-          id="continuar-no-terraco"
-          aria-disabled={enviando ? true : undefined}
-          onClick={() => {
-            if (!enviando) {
-              troca.aoContinuar();
-            }
-          }}
-        >
-          Continuar no terraço
+          {troca && (
+            <p className="m-0 max-w-[40ch] text-texto-2" id="apelido-troca">
+              Entrar neste convite encerra o terraço atual para as duas pessoas.
+            </p>
+          )}
+          <p className="erro-campo m-0 text-[0.875rem] leading-[1.45] text-coral empty:hidden" id="apelido-erro">
+            {erroMostrado}
+          </p>
+        </div>
+        <button type="submit" className={BOTAO_PRIMARIO} id="entrar" aria-disabled={enviando ? true : undefined}>
+          {enviando ? "Enviando…" : acao}
         </button>
-      )}
-    </form>
+        {troca && (
+          <button
+            type="button"
+            className={BOTAO_SECUNDARIO_SEM_MARGEM}
+            id="continuar-no-terraco"
+            aria-disabled={enviando ? true : undefined}
+            onClick={() => {
+              if (!enviando) {
+                troca.aoContinuar();
+              }
+            }}
+          >
+            Continuar no terraço
+          </button>
+        )}
+      </form>
+      {/* Só na entrada: na montagem o painel é da cena e das peças. No fim do painel, também no celular. */}
+      <div className="rodape mt-auto celular:order-last celular-deitado:order-last">
+        <Rodape />
+      </div>
+    </>
   );
 }

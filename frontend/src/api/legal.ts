@@ -1,4 +1,6 @@
-// Cliente da API pública dos documentos legais (L1), sem sessão. Só a casca de conta importa este módulo.
+// Versões e contatos da API pública dos documentos legais (L1), sem sessão. Usa só o fetch de http.ts:
+// o rodapé do terraço importa este módulo, e o JS inicial não leva TanStack Query. O texto dos
+// documentos fica em documentoLegal.ts, que só a tela dos documentos baixa.
 
 import { ErroHttp, requisitarHttp } from "./http";
 

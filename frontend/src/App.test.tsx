@@ -3,6 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { Resposta } from "./api/cliente";
 import type { Visao } from "./dominio/visao";
 import { cenarioDoTerraco } from "./teste/cenarioDoTerraco";
+import { stubarFetch } from "./teste/fetchFalso";
 
 /** Ana no assento B; a manta de Bruno já está no terraço. */
 const VISAO: Visao = {
@@ -40,6 +41,8 @@ const { App } = await import("./App");
 const { ErroApi } = await import("./api/cliente");
 
 beforeEach(() => {
+  // Sem resposta para quem não espiona o fetch: o rodapé da entrada não vai à rede.
+  stubarFetch();
   // O jsdom não implementa matchMedia; a cena só lê prefers-reduced-motion.
   vi.stubGlobal("matchMedia", (consulta: string) => ({
     matches: false,
@@ -54,11 +57,12 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
-/** fetch falso que responde 204 a tudo; o App só o usa para GET /api/conta (obterSala é mock). */
+/**
+ * fetch falso que responde 204 a GET /api/conta (obterSala é mock) e as versões legais ao rodapé da
+ * entrada.
+ */
 function espionarFetch() {
-  const fetchFalso = vi.fn<typeof fetch>(() => Promise.resolve(new Response(null, { status: 204 })));
-  vi.stubGlobal("fetch", fetchFalso);
-  return fetchFalso;
+  return stubarFetch(() => Promise.resolve(new Response(null, { status: 204 })));
 }
 
 describe("App", () => {
