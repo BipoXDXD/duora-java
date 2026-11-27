@@ -34,7 +34,7 @@ test('linkSemTokenIgnorado', () => {
 });
 
 test('passosParamNaTelaAguardando', () => {
-  const passos = passosDaRodada({});
+  const passos = passosDaRodada();
 
   assert.equal(passos.at(-1), 'capturarAguardando');
   for (const captura of ['capturarEntrar', 'capturarCadastro', 'capturarMinhaConta']) {
