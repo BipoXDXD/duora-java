@@ -7,7 +7,6 @@ import com.microsoft.playwright.Locator;
 import com.microsoft.playwright.Page;
 import com.microsoft.playwright.options.AriaRole;
 import java.time.LocalDate;
-import java.util.UUID;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -81,10 +80,6 @@ class MinhaContaIT extends ContaE2eBase {
     TerracoPagina pagina = participantes.novo();
     TurnstileFalso.instalar(pagina.page());
     return ContaPagina.de(pagina);
-  }
-
-  private static String emailNovo() {
-    return "minha-conta-" + UUID.randomUUID() + "@exemplo.com";
   }
 
   private static Locator dialogoDeExclusao(Page page) {
