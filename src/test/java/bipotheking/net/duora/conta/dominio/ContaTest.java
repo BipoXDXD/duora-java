@@ -1,0 +1,75 @@
+package bipotheking.net.duora.conta.dominio;
+
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+
+import bipotheking.net.duora.conta.ContaId;
+import bipotheking.net.duora.conta.EstadoConta;
+import java.time.Instant;
+import java.time.LocalDate;
+import java.util.UUID;
+import org.jspecify.annotations.Nullable;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.EnumSource;
+
+class ContaTest {
+
+  private static final ContaId ID =
+      new ContaId(UUID.fromString("0196f1a0-0000-7000-8000-000000000001"));
+  private static final Email EMAIL = new Email("ana@teste.duora.invalid");
+  private static final LocalDate NASCIMENTO = LocalDate.of(1990, 5, 10);
+  private static final Instant AGORA = Instant.parse("2026-11-22T12:00:00Z");
+
+  @Test
+  void pendenteSemNascimentoNemAtivacaoValida() {
+    assertThat(conta(EstadoConta.PENDENTE, EMAIL, null, null).estado())
+        .isEqualTo(EstadoConta.PENDENTE);
+  }
+
+  @Test
+  void excluidaSemEmailValida() {
+    assertThat(conta(EstadoConta.EXCLUIDA, null, null, null).email()).isNull();
+  }
+
+  @ParameterizedTest
+  @EnumSource(value = EstadoConta.class, names = "EXCLUIDA", mode = EnumSource.Mode.EXCLUDE)
+  void semEmailForaDeExcluidaRecusada(EstadoConta estado) {
+    assertThatThrownBy(() -> conta(estado, null, NASCIMENTO, AGORA))
+        .isInstanceOf(IllegalStateException.class);
+  }
+
+  @Test
+  void excluidaComEmailRecusada() {
+    assertThatThrownBy(() -> conta(EstadoConta.EXCLUIDA, EMAIL, null, null))
+        .isInstanceOf(IllegalStateException.class);
+  }
+
+  @ParameterizedTest
+  @EnumSource(
+      value = EstadoConta.class,
+      names = {"AGUARDANDO_VERIFICACAO", "ATIVA", "SUSPENSA", "BANIDA"})
+  void semNascimentoDepoisDoCadastroRecusada(EstadoConta estado) {
+    assertThatThrownBy(() -> conta(estado, EMAIL, null, AGORA))
+        .isInstanceOf(IllegalStateException.class);
+  }
+
+  @Test
+  void ativaSemAtivacaoRecusada() {
+    assertThatThrownBy(() -> conta(EstadoConta.ATIVA, EMAIL, NASCIMENTO, null))
+        .isInstanceOf(IllegalStateException.class);
+  }
+
+  @Test
+  void banidaSemAtivacaoValida() {
+    assertThat(conta(EstadoConta.BANIDA, EMAIL, NASCIMENTO, null).ativadaEm()).isNull();
+  }
+
+  private static Conta conta(
+      EstadoConta estado,
+      @Nullable Email email,
+      @Nullable LocalDate nascimento,
+      @Nullable Instant ativadaEm) {
+    return new Conta(ID, email, estado, nascimento, AGORA, ativadaEm);
+  }
+}

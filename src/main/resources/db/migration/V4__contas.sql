@@ -13,5 +13,8 @@ create table conta (
     check (email = lower(email)),
     check ((estado = 'EXCLUIDA') = (email is null)),
     check (estado not in ('AGUARDANDO_VERIFICACAO', 'ATIVA', 'SUSPENSA', 'BANIDA')
-           or data_nascimento is not null)
+           or data_nascimento is not null),
+    -- Suspensa e banida podem não ter ativada_em: a moderação bane até conta pendente.
+    check (estado <> 'ATIVA' or ativada_em is not null),
+    check ((estado = 'EXCLUIDA') = (excluida_em is not null))
 );

@@ -100,6 +100,24 @@ class SessoesTest extends BancoDeTeste {
   }
 
   @Test
+  void validarTokenDesconhecidoDaVazio() {
+    contas.criarAtiva();
+
+    assertThat(sessoes.validar("token-que-nunca-foi-emitido")).isEmpty();
+  }
+
+  @Test
+  void renovadaValeAlemDoVencimentoOriginal() {
+    String token = sessoes.abrir(contas.criarAtiva().id());
+    relogio.avancar(UM_DIA.plus(UM_SEGUNDO));
+    sessoes.validar(token);
+
+    relogio.avancar(TRINTA_DIAS.minus(UM_SEGUNDO.multipliedBy(2)));
+
+    assertThat(sessoes.validar(token)).isPresent();
+  }
+
+  @Test
   void encerrarInvalida() {
     String token = sessoes.abrir(contas.criarAtiva().id());
 
@@ -162,7 +180,12 @@ class SessoesTest extends BancoDeTeste {
     Instant limite = Instant.now().plusSeconds(10);
     while (updatesNoLock() < quantos) {
       assertThat(Instant.now()).as("UPDATEs presos no lock").isBefore(limite);
-      Thread.onSpinWait();
+      try {
+        Thread.sleep(5);
+      } catch (InterruptedException e) {
+        Thread.currentThread().interrupt();
+        throw new IllegalStateException(e);
+      }
     }
   }
 
