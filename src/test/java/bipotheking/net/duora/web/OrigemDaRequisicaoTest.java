@@ -25,6 +25,13 @@ class OrigemDaRequisicaoTest {
   }
 
   @Test
+  void tiraOZoneIdDoIpv6() {
+    Origem origem = origemDaRequisicao.de(requisicaoDe("fe80::1%en0", 51234));
+
+    assertThat(origem).isEqualTo(new Origem("fe80::1", 51234));
+  }
+
+  @Test
   void ignoraXForwardedFor() {
     MockHttpServletRequest request = requisicaoDe("203.0.113.7", 51234);
     request.addHeader("X-Forwarded-For", "198.51.100.9");

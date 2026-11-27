@@ -35,14 +35,15 @@ class SessoesTest extends BancoDeTeste {
   void abrirEValidarDevolveAConta() {
     ContaId conta = contas.criarAtiva().id();
 
-    String token = sessoes.abrir(conta);
+    String token = sessoes.abrir(conta, OrigemDeTeste.LOCAL);
 
-    assertThat(sessoes.validar(token)).contains(new SessaoAtiva(conta, EstadoConta.ATIVA, false));
+    assertThat(sessoes.validar(token, OrigemDeTeste.LOCAL))
+        .contains(new SessaoAtiva(conta, EstadoConta.ATIVA, false));
   }
 
   @Test
   void bancoGuardaSoOResumo() {
-    String token = sessoes.abrir(contas.criarAtiva().id());
+    String token = sessoes.abrir(contas.criarAtiva().id(), OrigemDeTeste.LOCAL);
 
     Integer comOResumo =
         jdbc.sql("select count(*) from sessao where token_hash = :resumo")
@@ -59,28 +60,28 @@ class SessoesTest extends BancoDeTeste {
 
   @Test
   void expiraAos30DiasExatos() {
-    String token = sessoes.abrir(contas.criarAtiva().id());
+    String token = sessoes.abrir(contas.criarAtiva().id(), OrigemDeTeste.LOCAL);
 
     relogio.avancar(TRINTA_DIAS);
 
-    assertThat(sessoes.validar(token)).isEmpty();
+    assertThat(sessoes.validar(token, OrigemDeTeste.LOCAL)).isEmpty();
   }
 
   @Test
   void valeAte30DiasMenos1s() {
-    String token = sessoes.abrir(contas.criarAtiva().id());
+    String token = sessoes.abrir(contas.criarAtiva().id(), OrigemDeTeste.LOCAL);
 
     relogio.avancar(TRINTA_DIAS.minus(UM_SEGUNDO));
 
-    assertThat(sessoes.validar(token)).isPresent();
+    assertThat(sessoes.validar(token, OrigemDeTeste.LOCAL)).isPresent();
   }
 
   @Test
   void naoRenovaCom24hExatas() {
-    String token = sessoes.abrir(contas.criarAtiva().id());
+    String token = sessoes.abrir(contas.criarAtiva().id(), OrigemDeTeste.LOCAL);
     relogio.avancar(UM_DIA);
 
-    Optional<SessaoAtiva> sessao = sessoes.validar(token);
+    Optional<SessaoAtiva> sessao = sessoes.validar(token, OrigemDeTeste.LOCAL);
 
     assertThat(sessao).map(SessaoAtiva::renovada).contains(false);
     assertThat(renovadaEm(token)).isEqualTo(utc(INICIO));
@@ -89,10 +90,10 @@ class SessoesTest extends BancoDeTeste {
 
   @Test
   void renovaCom24hE1s() {
-    String token = sessoes.abrir(contas.criarAtiva().id());
+    String token = sessoes.abrir(contas.criarAtiva().id(), OrigemDeTeste.LOCAL);
     relogio.avancar(UM_DIA.plus(UM_SEGUNDO));
 
-    Optional<SessaoAtiva> sessao = sessoes.validar(token);
+    Optional<SessaoAtiva> sessao = sessoes.validar(token, OrigemDeTeste.LOCAL);
 
     assertThat(sessao).map(SessaoAtiva::renovada).contains(true);
     assertThat(renovadaEm(token)).isEqualTo(utc(relogio.instant()));
@@ -103,49 +104,50 @@ class SessoesTest extends BancoDeTeste {
   void validarTokenDesconhecidoDaVazio() {
     contas.criarAtiva();
 
-    assertThat(sessoes.validar("token-que-nunca-foi-emitido")).isEmpty();
+    assertThat(sessoes.validar("token-que-nunca-foi-emitido", OrigemDeTeste.LOCAL)).isEmpty();
   }
 
   @Test
   void renovadaValeAlemDoVencimentoOriginal() {
-    String token = sessoes.abrir(contas.criarAtiva().id());
+    String token = sessoes.abrir(contas.criarAtiva().id(), OrigemDeTeste.LOCAL);
     relogio.avancar(UM_DIA.plus(UM_SEGUNDO));
-    sessoes.validar(token);
+    sessoes.validar(token, OrigemDeTeste.LOCAL);
 
     relogio.avancar(TRINTA_DIAS.minus(UM_SEGUNDO.multipliedBy(2)));
 
-    assertThat(sessoes.validar(token)).isPresent();
+    assertThat(sessoes.validar(token, OrigemDeTeste.LOCAL)).isPresent();
   }
 
   @Test
   void encerrarInvalida() {
-    String token = sessoes.abrir(contas.criarAtiva().id());
+    String token = sessoes.abrir(contas.criarAtiva().id(), OrigemDeTeste.LOCAL);
 
     sessoes.encerrar(token);
 
-    assertThat(sessoes.validar(token)).isEmpty();
+    assertThat(sessoes.validar(token, OrigemDeTeste.LOCAL)).isEmpty();
   }
 
   @Test
   void revogarTodasSoDaConta() {
     ContasDeTeste.ContaDeTeste a = contas.criarAtiva();
-    String segundaDeA = sessoes.abrir(a.id());
+    String segundaDeA = sessoes.abrir(a.id(), OrigemDeTeste.LOCAL);
     ContasDeTeste.ContaDeTeste b = contas.criarAtiva();
 
     sessoes.revogarTodas(a.id());
 
-    assertThat(sessoes.validar(token(a))).isEmpty();
-    assertThat(sessoes.validar(segundaDeA)).isEmpty();
-    assertThat(sessoes.validar(token(b))).isPresent();
+    assertThat(sessoes.validar(token(a), OrigemDeTeste.LOCAL)).isEmpty();
+    assertThat(sessoes.validar(segundaDeA, OrigemDeTeste.LOCAL)).isEmpty();
+    assertThat(sessoes.validar(token(b), OrigemDeTeste.LOCAL)).isPresent();
   }
 
   /**
    * Força a corrida: o teste segura o lock da linha; as duas validações leem a sessão ainda velha e
-   * ficam presas no UPDATE. Só quando as duas esperam o lock o teste o solta.
+   * ficam presas no UPDATE. Só quando as duas esperam o lock o teste o solta. Só a vencedora deixa
+   * registro de acesso.
    */
   @Test
   void renovacoesSimultaneasGravamUmaVez() {
-    String token = sessoes.abrir(contas.criarAtiva().id());
+    String token = sessoes.abrir(contas.criarAtiva().id(), OrigemDeTeste.LOCAL);
     relogio.avancar(UM_DIA.plus(UM_SEGUNDO));
 
     List<Boolean> renovadas;
@@ -162,10 +164,17 @@ class SessoesTest extends BancoDeTeste {
     }
 
     assertThat(renovadas).containsExactlyInAnyOrder(true, false);
+    assertThat(renovacoesRegistradas()).isOne();
+  }
+
+  private long renovacoesRegistradas() {
+    return jdbc.sql("select count(*) from registro_acesso where evento = 'RENOVACAO'")
+        .query(Long.class)
+        .single();
   }
 
   private boolean renovou(String token) {
-    return sessoes.validar(token).orElseThrow().renovada();
+    return sessoes.validar(token, OrigemDeTeste.LOCAL).orElseThrow().renovada();
   }
 
   private void travarSessao(String token) {

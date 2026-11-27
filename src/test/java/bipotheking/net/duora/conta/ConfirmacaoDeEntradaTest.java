@@ -3,12 +3,14 @@ package bipotheking.net.duora.conta;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
 
 import bipotheking.net.duora.conta.dominio.Email;
 import bipotheking.net.duora.conta.dominio.RepositorioDeBloqueios;
 import bipotheking.net.duora.conta.dominio.RepositorioDeContas;
 import bipotheking.net.duora.conta.dominio.RepositorioDeLinks;
 import bipotheking.net.duora.nucleo.ErroDeNegocio;
+import bipotheking.net.duora.nucleo.Origem;
 import bipotheking.net.duora.web.LimiteDeTaxa;
 import java.time.Clock;
 import java.time.Instant;
@@ -23,15 +25,19 @@ import org.springframework.transaction.TransactionStatus;
 import org.springframework.transaction.support.SimpleTransactionStatus;
 import org.springframework.transaction.support.TransactionTemplate;
 
-/** O corte do tamanho do token, sem banco: o link falso conta as consultas. */
+/**
+ * O corte do tamanho do token e a chave do limite de taxa, sem banco: o link falso conta as
+ * consultas.
+ */
 class ConfirmacaoDeEntradaTest {
 
-  private static final String IP = "10.0.0.1";
+  private static final Origem ORIGEM = new Origem("10.0.0.1", 54321);
 
+  private final LimiteDeTaxa limiteDeTaxa = mock(LimiteDeTaxa.class);
   private final LinksQueContam links = new LinksQueContam();
   private final ConfirmacaoDeEntrada confirmacao =
       new ConfirmacaoDeEntrada(
-          mock(LimiteDeTaxa.class),
+          limiteDeTaxa,
           links,
           mock(RepositorioDeBloqueios.class),
           new ResumoDeEmail("chave-de-teste-com-pelo-menos-32-bytes"),
@@ -42,7 +48,7 @@ class ConfirmacaoDeEntradaTest {
 
   @Test
   void tokenDe64CaracteresConsultaOBanco() {
-    assertThatThrownBy(() -> confirmacao.confirmar("a".repeat(64), IP, Optional.empty()))
+    assertThatThrownBy(() -> confirmacao.confirmar("a".repeat(64), ORIGEM, Optional.empty()))
         .isInstanceOfSatisfying(
             ErroDeNegocio.class,
             erro -> assertThat(erro.codigo()).isEqualTo(CodigoEntrada.LINK_INVALIDO));
@@ -52,12 +58,20 @@ class ConfirmacaoDeEntradaTest {
 
   @Test
   void tokenDe65CaracteresNemConsultaOBanco() {
-    assertThatThrownBy(() -> confirmacao.confirmar("a".repeat(65), IP, Optional.empty()))
+    assertThatThrownBy(() -> confirmacao.confirmar("a".repeat(65), ORIGEM, Optional.empty()))
         .isInstanceOfSatisfying(
             ErroDeNegocio.class,
             erro -> assertThat(erro.codigo()).isEqualTo(CodigoEntrada.LINK_INVALIDO));
 
     assertThat(links.consultas).isZero();
+  }
+
+  @Test
+  void limiteDeTaxaContaSoPeloIp() {
+    assertThatThrownBy(() -> confirmacao.confirmar("a".repeat(65), ORIGEM, Optional.empty()))
+        .isInstanceOf(ErroDeNegocio.class);
+
+    verify(limiteDeTaxa).consumir("confirmar-ip", "10.0.0.1");
   }
 
   /** Nenhum link existe; só conta quantas vezes alguém tentou consumir um. */

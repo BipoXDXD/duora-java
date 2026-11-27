@@ -13,6 +13,8 @@ import java.time.Instant;
 import java.time.LocalDate;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
+import java.util.Arrays;
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 import org.jspecify.annotations.Nullable;
@@ -28,6 +30,10 @@ class ContasJdbc implements RepositorioDeContas {
 
   private static final String COLUNAS =
       "select id, email, estado, data_nascimento, criada_em, ativada_em from conta";
+
+  /** Os estados de onde a exclusão sai: os mesmos que {@link EstadoConta#disponivel()} aceita. */
+  private static final List<String> DISPONIVEIS =
+      Arrays.stream(EstadoConta.values()).filter(EstadoConta::disponivel).map(Enum::name).toList();
 
   private final JdbcClient jdbc;
   private final Clock relogio;
@@ -87,18 +93,19 @@ class ContasJdbc implements RepositorioDeContas {
   }
 
   @Override
-  public void excluir(ContaId id, Instant agora) {
-    jdbc.sql(
-            """
-            update conta
-            set estado = :excluida, email = null, data_nascimento = null,
-                excluida_em = coalesce(excluida_em, :agora)
-            where id = :id
-            """)
-        .param("excluida", EstadoConta.EXCLUIDA.name())
-        .param("agora", OffsetDateTime.ofInstant(agora, ZoneOffset.UTC))
-        .param("id", id.valor())
-        .update();
+  public boolean excluir(ContaId id, Instant agora) {
+    return jdbc.sql(
+                """
+                update conta
+                set estado = :excluida, email = null, data_nascimento = null, excluida_em = :agora
+                where id = :id and estado in (:disponiveis)
+                """)
+            .param("excluida", EstadoConta.EXCLUIDA.name())
+            .param("agora", OffsetDateTime.ofInstant(agora, ZoneOffset.UTC))
+            .param("id", id.valor())
+            .param("disponiveis", DISPONIVEIS)
+            .update()
+        == 1;
   }
 
   private static Conta conta(ResultSet rs) throws SQLException {
