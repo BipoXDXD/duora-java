@@ -33,6 +33,8 @@ const BINDING_DA_CSP = 'duoraViolacaoDeCsp';
 const ESPERA_DO_TURNSTILE_MS = 60000;
 const ESPERA_DO_LINK_MS = 30000;
 const ESPERA_DA_TELA_MS = 20000;
+// Código de saída de quem morre pelo sinal (128 + número do sinal), como o shell reporta.
+const CODIGOS_DOS_SINAIS = Object.freeze({ SIGINT: 130, SIGTERM: 143 });
 
 const esperar = (ms) => new Promise((r) => setTimeout(r, ms));
 const log = (msg) => console.log(`==> ${msg}`);
@@ -239,6 +241,28 @@ async function main() {
 
   if (!existsSync(args.log)) throw new Falha(`log do spring-boot:run não encontrado: ${args.log}`);
   exigirEmuladorPronto(adb);
+
+  let limpo = false;
+  // Roda uma vez só: no fim da rodada ou num sinal, o que vier primeiro.
+  const limpar = () => {
+    if (limpo) return;
+    limpo = true;
+    cdp?.fechar();
+    try { adb.executar(['forward', '--remove', `tcp:${PORTA_CDP}`]); } catch { /* já removido */ }
+    try { adb.executar(['reverse', '--remove', `tcp:${args.porta}`]); } catch { /* já removido */ }
+    writeFileSync(join(SAIDA, 'conta-check.json'), `${JSON.stringify(resultado, null, 2)}\n`);
+    log(`resultado: ${join(SAIDA, 'conta-check.json')}`);
+  };
+  // Ctrl+C ou kill no meio da rodada: desfaz o reverse e o forward e grava o resultado com o motivo.
+  for (const [sinal, codigo] of Object.entries(CODIGOS_DOS_SINAIS)) {
+    process.once(sinal, () => {
+      resultado.ok = false;
+      resultado.erro = `interrompido por ${sinal}`;
+      limpar();
+      process.exit(codigo);
+    });
+  }
+
   try {
     prepararChrome(adb, true);
     adb.executar(['reverse', `tcp:${args.porta}`, `tcp:${args.porta}`]);
@@ -260,11 +284,7 @@ async function main() {
     try { resultado.capturaDaFalha = capturarTela(adb, join(SAIDA, 'conta-falha.png')); } catch { /* sem tela */ }
     throw e;
   } finally {
-    cdp?.fechar();
-    try { adb.executar(['forward', '--remove', `tcp:${PORTA_CDP}`]); } catch { /* já removido */ }
-    try { adb.executar(['reverse', '--remove', `tcp:${args.porta}`]); } catch { /* já removido */ }
-    writeFileSync(join(SAIDA, 'conta-check.json'), `${JSON.stringify(resultado, null, 2)}\n`);
-    log(`resultado: ${join(SAIDA, 'conta-check.json')}`);
+    limpar();
   }
 }
 

@@ -194,12 +194,29 @@ export async function abrirNoChrome(adb, url, base) {
   }
 }
 
-function abrirSessao(wsUrl) {
+// Sem resposta nesse prazo, o comando falha: um Chrome que trava não pendura a rodada.
+const TIMEOUT_DO_COMANDO_MS = 15000;
+// As leituras que esperam dentro da página até 15 s precisam de folga além disso.
+const TIMEOUT_DA_LEITURA_LONGA_MS = 30000;
+
+/**
+ * Sessão do CDP sobre o WebSocket da aba. Cada comando falha com Falha se o Chrome responder erro,
+ * se não responder em `timeoutMs` ou se a conexão cair: uma promessa pendurada deixaria o Node sair
+ * com 0 sem rodar a limpeza. `criarWebSocket` existe para os testes.
+ */
+export function abrirSessao(wsUrl, { criarWebSocket = (url) => new WebSocket(url) } = {}) {
   return new Promise((ok, erro) => {
-    const ws = new WebSocket(wsUrl);
+    const ws = criarWebSocket(wsUrl);
     const pendentes = new Map();
     const ouvintes = new Map();
     let proximoId = 0;
+    let encerrada;
+    const encerrar = (motivo) => {
+      encerrada ??= motivo;
+      erro(new Falha(motivo));
+      for (const pendente of pendentes.values()) pendente.erro(new Falha(motivo));
+      pendentes.clear();
+    };
     ws.onmessage = ({ data }) => {
       const msg = JSON.parse(data);
       // Evento do CDP: tem method e não tem id.
@@ -212,11 +229,21 @@ function abrirSessao(wsUrl) {
       pendentes.delete(msg.id);
       msg.error ? p.erro(new Falha(`CDP: ${msg.error.message}`)) : p.ok(msg.result);
     };
-    ws.onerror = () => erro(new Falha(`falha ao conectar no CDP (${wsUrl})`));
+    ws.onerror = () => encerrar(`falha na conexão com o CDP (${wsUrl})`);
+    ws.onclose = () => encerrar(`o CDP fechou a conexão (${wsUrl})`);
     ws.onopen = () => ok({
-      enviar: (method, params = {}) => new Promise((ok2, erro2) => {
+      enviar: (method, params = {}, { timeoutMs = TIMEOUT_DO_COMANDO_MS } = {}) => new Promise((ok2, erro2) => {
+        if (encerrada) {
+          erro2(new Falha(`CDP: ${method} depois de a conexão cair (${encerrada})`));
+          return;
+        }
         const id = ++proximoId;
-        pendentes.set(id, { ok: ok2, erro: erro2 });
+        const prazo = setTimeout(() => {
+          pendentes.delete(id);
+          erro2(new Falha(`CDP: ${method} sem resposta em ${timeoutMs / 1000}s`));
+        }, timeoutMs);
+        const encerrarCom = (fn) => (valor) => { clearTimeout(prazo); fn(valor); };
+        pendentes.set(id, { ok: encerrarCom(ok2), erro: encerrarCom(erro2) });
         ws.send(JSON.stringify({ id, method, params }));
       }),
       /** Um ouvinte por evento; o domínio do evento precisa estar ligado (ex.: Runtime.enable). */
@@ -242,7 +269,7 @@ async function verificarInstalabilidade(cdp) {
         : 'sem-suporte',
       new Promise((r) => setTimeout(() => r('timeout'), 15000))])`,
     awaitPromise: true, returnByValue: true,
-  });
+  }, { timeoutMs: TIMEOUT_DA_LEITURA_LONGA_MS });
   const estadoSw = sw.result?.value;
 
   // O Chrome recalcula a instalabilidade depois que o SW ativa; tenta por alguns segundos.
@@ -421,7 +448,7 @@ async function verificarTerraco(cdp) {
   const { result, exceptionDetails } = await cdp.enviar('Runtime.evaluate', {
     expression: expressaoDoTerraco(),
     awaitPromise: true, returnByValue: true,
-  });
+  }, { timeoutMs: TIMEOUT_DA_LEITURA_LONGA_MS });
   if (exceptionDetails) {
     throw new Falha(`leitura do terraço falhou: ${exceptionDetails.exception?.description ?? exceptionDetails.text}`);
   }
