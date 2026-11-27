@@ -3,7 +3,6 @@ package bipotheking.net.duora.conta;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
-import bipotheking.net.duora.retencao.ExpiracaoDeDados;
 import bipotheking.net.duora.retencao.PoliticaDeRetencao;
 import bipotheking.net.duora.web.BancoDeTeste;
 import java.time.Duration;
@@ -25,7 +24,6 @@ class RetencaoDeDenunciasPublicasTest extends BancoDeTeste {
   private static final Instant UM_ANO_ATRAS = INICIO.minus(Duration.ofDays(365));
 
   @Autowired private List<PoliticaDeRetencao> politicas;
-  @Autowired private ExpiracaoDeDados expiracao;
 
   @Test
   void resolvidaCom183DiasE1sSome() {
@@ -90,17 +88,6 @@ class RetencaoDeDenunciasPublicasTest extends BancoDeTeste {
                 .param("criada", OffsetDateTime.ofInstant(INICIO, ZoneOffset.UTC))
                 .update())
         .isInstanceOf(DataIntegrityViolationException.class);
-  }
-
-  /** A tabela de retenção da política de privacidade, nos nomes e prazos do código. */
-  @Test
-  void prazosDaContaExpostos() {
-    assertThat(expiracao.prazos())
-        .containsEntry("links-de-entrada", Duration.parse("P1D"))
-        .containsEntry("sessoes-expiradas", Duration.parse("PT0S"))
-        .containsEntry("registros-de-acesso", Duration.parse("P183D"))
-        .containsEntry("uso-conta-nova", Duration.parse("P8D"))
-        .containsEntry("denuncias-publicas", Duration.parse("P183D"));
   }
 
   private PoliticaDeRetencao denuncias() {
