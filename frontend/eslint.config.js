@@ -53,6 +53,8 @@ export default defineConfig([
     files: ["src/rotas/**/*.{ts,tsx}", "src/telas/**/*.{ts,tsx}"],
     rules: {
       "no-restricted-imports": ["error", { paths: [VALIBOT], patterns: [VALIBOT_SUBMODULOS] }],
+      // O loader do React Router redireciona lançando a Response de redirect().
+      "@typescript-eslint/only-throw-error": ["error", { allow: [{ from: "lib", name: "Response" }] }],
     },
   },
   {

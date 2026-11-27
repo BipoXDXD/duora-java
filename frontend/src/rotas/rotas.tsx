@@ -1,5 +1,7 @@
 import type { QueryClient } from "@tanstack/react-query";
 import type { RouteObject } from "react-router";
+import { ErroDaConta } from "./ErroDaConta";
+import { exigirConta } from "./guardas";
 import { LayoutDeConta } from "./LayoutDeConta";
 import { NaoEncontrada } from "./NaoEncontrada";
 
@@ -11,9 +13,11 @@ export interface ContextoDaCasca {
 
 /**
  * A árvore da casca: o layout de conta por fora e, dentro dele, cada tela com `lazy` (cada uma no
- * seu chunk). O contexto chega às telas que precisam do cliente de consulta ou do token do link.
+ * seu chunk). O contexto chega às telas que precisam do cliente de consulta ou do token do link. As
+ * rotas que exigem conta têm o guarda no loader, fora do chunk da tela: o redirect sai antes de
+ * baixá-la.
  */
-export function criarRotas({ tokenDoLink }: ContextoDaCasca): RouteObject[] {
+export function criarRotas({ clienteDeConsulta, tokenDoLink }: ContextoDaCasca): RouteObject[] {
   return [
     {
       path: "/",
@@ -29,6 +33,18 @@ export function criarRotas({ tokenDoLink }: ContextoDaCasca): RouteObject[] {
             const { ConfirmarEntrada } = await import("../telas/conta/ConfirmarEntrada");
             return { element: <ConfirmarEntrada token={tokenDoLink} /> };
           },
+        },
+        {
+          path: "cadastro",
+          loader: () => exigirConta(clienteDeConsulta, ["PENDENTE"]),
+          lazy: async () => ({ Component: (await import("../telas/conta/Cadastro")).Cadastro }),
+          ErrorBoundary: ErroDaConta,
+        },
+        {
+          path: "aguardando",
+          loader: () => exigirConta(clienteDeConsulta, ["AGUARDANDO_VERIFICACAO"]),
+          lazy: async () => ({ Component: (await import("../telas/conta/Aguardando")).Aguardando }),
+          ErrorBoundary: ErroDaConta,
         },
         { path: "*", Component: NaoEncontrada },
       ],

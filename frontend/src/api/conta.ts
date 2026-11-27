@@ -77,3 +77,36 @@ export async function confirmarEntrada(token: string): Promise<RespostaDaConfirm
   }
   return { cadastroConcluido: resposta.dados.cadastroConcluido };
 }
+
+export interface DadosDoCadastro {
+  /** AAAA-MM-DD, como o input type=date entrega. */
+  dataDeNascimento: string;
+  versaoTermos: string;
+  versaoPrivacidade: string;
+  aceito: true;
+}
+
+export interface RespostaDoCadastro {
+  cadastroConcluido: false;
+  proximoPasso: "VERIFICACAO";
+}
+
+function ehRespostaDoCadastro(dados: unknown): dados is RespostaDoCadastro {
+  if (typeof dados !== "object" || dados === null) {
+    return false;
+  }
+  const campos = dados as Partial<Record<keyof RespostaDoCadastro, unknown>>;
+  return campos.cadastroConcluido === false && campos.proximoPasso === "VERIFICACAO";
+}
+
+/**
+ * Conclui o cadastro da conta da sessão (C7) com as versões legais lidas do servidor. A recusa por
+ * idade (422 MENOR_DE_IDADE) já chega com a conta excluída e o cookie expirado.
+ */
+export async function concluirCadastro(dados: DadosDoCadastro): Promise<RespostaDoCadastro> {
+  const resposta = await requisitarHttp("POST", "/conta/cadastro", { corpo: dados });
+  if (!ehRespostaDoCadastro(resposta.dados)) {
+    throw new ErroHttp({ status: resposta.status, codigo: "RESPOSTA_INVALIDA" });
+  }
+  return { cadastroConcluido: false, proximoPasso: "VERIFICACAO" };
+}
