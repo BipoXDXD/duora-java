@@ -4,6 +4,7 @@ import static com.tngtech.archunit.core.domain.JavaClass.Predicates.resideInAPac
 import static com.tngtech.archunit.core.domain.JavaClass.Predicates.resideInAnyPackage;
 import static com.tngtech.archunit.lang.syntax.ArchRuleDefinition.classes;
 import static com.tngtech.archunit.lang.syntax.ArchRuleDefinition.noClasses;
+import static com.tngtech.archunit.library.dependencies.SlicesRuleDefinition.slices;
 
 import com.tngtech.archunit.base.DescribedPredicate;
 import com.tngtech.archunit.core.domain.Dependency;
@@ -22,6 +23,11 @@ import java.util.Optional;
 public final class RegrasDeArquitetura {
 
   private RegrasDeArquitetura() {}
+
+  /** Nenhum ciclo de dependência entre módulos ({@code raiz.A} usa {@code raiz.B}, que usa A). */
+  public static ArchRule semCiclosEntreModulos(String raiz) {
+    return slices().matching(raiz + ".(*)..").should().beFreeOfCycles().allowEmptyShould(false);
+  }
 
   /** Uma classe de {@code raiz.A..} só usa, de outro módulo {@code B}, o pacote {@code raiz.B}. */
   public static ArchRule apiPublica(String raiz) {
