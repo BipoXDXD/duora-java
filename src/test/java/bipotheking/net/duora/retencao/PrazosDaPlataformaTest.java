@@ -28,8 +28,9 @@ class PrazosDaPlataformaTest extends BancoDeTeste {
   private static final String SECAO = "## Por quanto tempo guardamos";
 
   /**
-   * Linha da tabela para as políticas que a cumprem, na ordem dos prazos que a linha cita. As
-   * linhas de fora (chat, imagens, verificação de idade) são de etapas que ainda não têm política.
+   * Linha da tabela para as políticas que a cumprem, na ordem dos prazos que a linha cita. Ficam de
+   * fora as linhas sem prazo (conta até a exclusão, código do e-mail recusado) e as de etapas que
+   * ainda não têm política (chat, imagens, verificação de idade).
    */
   private static final Map<String, List<String>> POLITICAS_POR_LINHA =
       Map.of(
@@ -38,15 +39,8 @@ class PrazosDaPlataformaTest extends BancoDeTeste {
           "E-mails na fila de envio", List.of("outbox-enviada", "outbox-falhada"),
           "Chaves de repetição de pedidos", List.of("chaves-de-idempotencia"),
           "Registros de acesso (IP, porta e horário)", List.of("registros-de-acesso"),
-          "Denúncias feitas sem conta", List.of("denuncias-publicas"));
-
-  /**
-   * Políticas sem linha na tabela: divergência conhecida, à espera da decisão do dono sobre o texto
-   * legal. Quando a linha entrar na política de privacidade, ela sai daqui e vai para {@link
-   * #POLITICAS_POR_LINHA}.
-   */
-  private static final Map<String, Duration> SEM_LINHA_NA_POLITICA =
-      Map.of("uso-conta-nova", Duration.parse("P8D"));
+          "Denúncias feitas sem conta", List.of("denuncias-publicas"),
+          "Contagens diárias de conta nova", List.of("uso-conta-nova"));
 
   private static final Pattern PRAZO = Pattern.compile("(\\d+) (minutos?|horas?|dias?|mês|meses)");
 
@@ -60,7 +54,7 @@ class PrazosDaPlataformaTest extends BancoDeTeste {
     Map<String, String> tabela = tabelaDeRetencao();
     assertThat(tabela).containsKeys(POLITICAS_POR_LINHA.keySet().toArray(String[]::new));
 
-    Map<String, Duration> esperados = new HashMap<>(SEM_LINHA_NA_POLITICA);
+    Map<String, Duration> esperados = new HashMap<>();
     POLITICAS_POR_LINHA.forEach((dado, politicas) -> {
       List<Duration> prazos = prazosDaRetencao(Objects.requireNonNull(tabela.get(dado)));
       assertThat(prazos).as("prazos da linha %s", dado).hasSameSizeAs(politicas);

@@ -48,6 +48,8 @@ O controlador dos dados é o responsável pelo Duora. Para dúvidas e pedidos so
 | Tentativas de verificação de idade | 1 dia |
 | Registros de acesso (IP, porta e horário) | 6 meses |
 | Denúncias feitas sem conta | 6 meses depois de resolvidas |
+| Contagens diárias de conta nova | 8 dias depois do fim de cada dia, mesmo se a conta for excluída |
+| Código do e-mail recusado por idade | sem prazo, para impedir uma nova tentativa |
 
 ## Registros de acesso
 
