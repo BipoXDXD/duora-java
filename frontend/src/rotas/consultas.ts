@@ -3,6 +3,7 @@
 import { queryOptions } from "@tanstack/react-query";
 import { obterConta } from "../api/estadoDaConta";
 import { obterVersoesLegais } from "../api/legal";
+import { obterVerificacao } from "../api/verificacao";
 
 /** A conta da sessão (null quando anônimo). Quem abre ou fecha uma sessão invalida esta chave. */
 export const consultaDaConta = queryOptions({ queryKey: ["conta"], queryFn: obterConta });
@@ -17,3 +18,6 @@ export const consultaDasVersoesLegais = queryOptions({
   queryFn: obterVersoesLegais,
   staleTime: Infinity,
 });
+
+/** A situação da verificação de idade da conta, lida do servidor a cada chegada à /verificacao. */
+export const consultaDaVerificacao = queryOptions({ queryKey: ["conta", "verificacao"], queryFn: obterVerificacao });

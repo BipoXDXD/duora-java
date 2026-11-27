@@ -15,6 +15,7 @@ import {
   TITULO_DA_CASCA,
 } from "../../componentes/estilos";
 import { consultaDaConta, consultaDasVersoesLegais } from "../../rotas/consultas";
+import { CAMINHO_DA_VERIFICACAO } from "../../rotas/caminhosDaCasca";
 import { CADASTRO, CONFIRMAR, textoDeEspera } from "./textos";
 
 const ID_DA_DATA = "cadastro-data";
@@ -52,13 +53,22 @@ function LinkDoDocumento({ href, nome }: { href: string; nome: string }): ReactE
   );
 }
 
+interface PropsDoCadastro {
+  /** Saída da casca com recarga completa; a verificação vive num documento próprio. */
+  navegarParaPagina?: (url: string) => void;
+}
+
 /**
  * Conclui o cadastro da conta pendente: data de nascimento e aceite das versões atuais dos Termos e da
  * Política, lidas do servidor. O botão fica sempre disponível e explica o que falta. Menor de idade
  * recebe a recusa no lugar do formulário: a conta já foi excluída e a sessão, encerrada, então a
- * conta sai do cache.
+ * conta sai do cache. Concluído, segue para a verificação de idade por página inteira.
  */
-export function Cadastro(): ReactElement {
+export function Cadastro({
+  navegarParaPagina = (url) => {
+    location.assign(url);
+  },
+}: PropsDoCadastro): ReactElement {
   const clienteDeConsulta = useQueryClient();
   const navegar = useNavigate();
   // A versão que a pessoa aceita é a que a tela mostrou: sem releitura ao voltar da aba dos Termos.
@@ -108,9 +118,8 @@ export function Cadastro(): ReactElement {
         void navegar("/entrar", { replace: true });
         return;
       case "CADASTRO_JA_CONCLUIDO":
-        // O guarda de /aguardando leva à tela certa se a conta já estiver ativa.
-        void clienteDeConsulta.invalidateQueries({ queryKey: consultaDaConta.queryKey, exact: true });
-        void navegar("/aguardando", { replace: true });
+        // O guarda da verificação leva à tela certa se a conta já estiver ativa.
+        navegarParaPagina(CAMINHO_DA_VERIFICACAO);
         return;
       case "DATA_INVALIDA":
         mostrar({ texto: erro.mensagem ?? CADASTRO.dataInvalida, campo: "data" });
@@ -135,10 +144,9 @@ export function Cadastro(): ReactElement {
 
   const cadastro = useMutation({
     mutationFn: concluirCadastro,
-    onSuccess: async () => {
-      // A trava segue fechada até a navegação: o cadastro já foi aceito.
-      await clienteDeConsulta.invalidateQueries({ queryKey: consultaDaConta.queryKey, exact: true });
-      await navegar("/aguardando", { replace: true });
+    // A trava segue fechada até a navegação: o cadastro já foi aceito. A página nova lê a conta de novo.
+    onSuccess: () => {
+      navegarParaPagina(CAMINHO_DA_VERIFICACAO);
     },
     onError: (erro) => {
       enviando.current = false;

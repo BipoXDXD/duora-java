@@ -63,12 +63,12 @@ function prepararFetch(cadastro: RespostaFalsa = CONCLUIDO, versoes: unknown[] =
 }
 
 function renderizar() {
+  const navegarParaPagina = vi.fn<(url: string) => void>();
   const cliente = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   cliente.setQueryData(["conta"], { estado: "PENDENTE", cadastroConcluido: false, verificada: false });
   const roteador = createMemoryRouter(
     [
-      { path: "/cadastro", element: <Cadastro /> },
-      { path: "/aguardando", element: <h1>Tela de aguardando</h1> },
+      { path: "/cadastro", element: <Cadastro navegarParaPagina={navegarParaPagina} /> },
       { path: "/entrar", element: <h1>Tela de entrar</h1> },
     ],
     { initialEntries: ["/cadastro"] },
@@ -78,7 +78,7 @@ function renderizar() {
       <RouterProvider router={roteador} />
     </QueryClientProvider>,
   );
-  return { cliente, roteador };
+  return { cliente, roteador, navegarParaPagina };
 }
 
 async function campoDaData(): Promise<HTMLInputElement> {
@@ -175,7 +175,7 @@ describe("Cadastro", () => {
   it("duploToqueEnviaUmaVez", async () => {
     const usuario = userEvent.setup();
     const { corposDoCadastro } = prepararFetch();
-    renderizar();
+    const { navegarParaPagina } = renderizar();
     fireEvent.change(await campoDaData(), { target: { value: NASCIMENTO } });
     await usuario.click(caixaDoAceite());
 
@@ -187,19 +187,22 @@ describe("Cadastro", () => {
     fireEvent.submit(formulario);
     fireEvent.submit(formulario);
 
-    expect(await screen.findByRole("heading", { name: "Tela de aguardando" })).toBeInTheDocument();
+    await vi.waitFor(() => {
+      expect(navegarParaPagina).toHaveBeenCalledExactlyOnceWith("/verificacao");
+    });
     expect(corposDoCadastro).toHaveLength(1);
   });
 
-  it("cadastroConcluidoLevaAAguardando", async () => {
+  it("cadastroConcluidoAbreAVerificacaoPorPaginaInteira", async () => {
     prepararFetch();
-    const { cliente, roteador } = renderizar();
+    const { roteador, navegarParaPagina } = renderizar();
 
     await preencherEConcluir();
 
-    expect(await screen.findByRole("heading", { name: "Tela de aguardando" })).toBeInTheDocument();
-    expect(roteador.state.location.pathname).toBe("/aguardando");
-    expect(cliente.getQueryState(["conta"])?.isInvalidated).toBe(true);
+    await vi.waitFor(() => {
+      expect(navegarParaPagina).toHaveBeenCalledExactlyOnceWith("/verificacao");
+    });
+    expect(roteador.state.location.pathname).toBe("/cadastro");
   });
 
   it("menorMostraRecusaENaoFicaLogado", async () => {
@@ -229,13 +232,15 @@ describe("Cadastro", () => {
     expect(cliente.getQueryData(["conta"])).toBeUndefined();
   });
 
-  it("cadastroJaConcluidoSegueParaAguardando", async () => {
+  it("cadastroJaConcluidoAbreAVerificacaoPorPaginaInteira", async () => {
     prepararFetch(erro(409, "CADASTRO_JA_CONCLUIDO", "O cadastro já foi concluído."));
-    renderizar();
+    const { navegarParaPagina } = renderizar();
 
     await preencherEConcluir();
 
-    expect(await screen.findByRole("heading", { name: "Tela de aguardando" })).toBeInTheDocument();
+    await vi.waitFor(() => {
+      expect(navegarParaPagina).toHaveBeenCalledExactlyOnceWith("/verificacao");
+    });
   });
 
   it("dataRecusadaVoltaAoCampo", async () => {

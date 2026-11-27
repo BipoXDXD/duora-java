@@ -42,7 +42,8 @@ class ContaIT extends ContaE2eBase {
     conta.confirmarEntrada();
     conta.concluirCadastro(NASCIMENTO_DE_ADULTO);
 
-    assertThat(conta.heading("Cadastro recebido")).isVisible();
+    assertThat(conta.page()).hasURL(raiz() + "verificacao");
+    assertThat(conta.heading("Confirme sua idade")).isVisible();
   }
 
   @Test
@@ -109,8 +110,8 @@ class ContaIT extends ContaE2eBase {
 
     assertThat(nomesDosCookies(conta.page())).contains(COOKIE_DA_SESSAO);
     conta.page().reload();
-    assertThat(conta.page()).hasURL(raiz() + "aguardando");
-    assertThat(conta.heading("Cadastro recebido")).isVisible();
+    assertThat(conta.page()).hasURL(raiz() + "verificacao");
+    assertThat(conta.heading("Confirme sua idade")).isVisible();
   }
 
   @Test

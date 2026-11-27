@@ -116,6 +116,16 @@ describe("montarCasca", () => {
           corpo === undefined
             ? new Response(null, { status })
             : new Response(JSON.stringify(corpo), { status, headers: { "Content-Type": "application/json" } }),
+        "/api/conta/verificacao": () =>
+          new Response(
+            JSON.stringify({
+              estado: "AGUARDANDO",
+              tentativasRestantesHoje: 3,
+              enviosDeDocumentoRestantesHoje: 2,
+              modo: "falso",
+            }),
+            { headers: { "Content-Type": "application/json" } },
+          ),
         "/api/conta/configuracao": () =>
           new Response(JSON.stringify({ chaveDoSiteTurnstile: "1x00000000000000000000AA" }), {
             headers: { "Content-Type": "application/json" },
@@ -177,21 +187,15 @@ describe("montarCasca", () => {
       expect(pedidosDasVersoes).toHaveLength(1);
     });
 
-    it("aguardandoDaContaPendenteVaiParaCadastro", async () => {
-      prepararConta(200, contaNoEstado("PENDENTE"));
-
-      await montarEm("/aguardando");
-
-      expect(await screen.findByRole("heading", { level: 1, name: "Falta pouco" })).toBeInTheDocument();
-      expect(location.pathname).toBe("/cadastro");
-    });
-
-    it("aguardandoAbreParaQuemAguardaVerificacao", async () => {
+    it("passaOCaminhoDaPrimeiraCarga", async () => {
+      // Aberta como documento próprio, a verificação roda o próprio loader; sem o caminho da carga,
+      // o embrulho recarregaria o documento e a tela nunca chegaria.
       prepararConta(200, contaNoEstado("AGUARDANDO_VERIFICACAO"));
 
-      await montarEm("/aguardando");
+      await montarEm("/verificacao");
 
-      expect(await screen.findByRole("heading", { level: 1, name: "Cadastro recebido" })).toBeInTheDocument();
+      expect(await screen.findByRole("heading", { level: 1, name: "Confirme sua idade" })).toBeInTheDocument();
+      expect(location.pathname).toBe("/verificacao");
     });
 
     it.each(["AGUARDANDO_VERIFICACAO", "ATIVA"])("minhaContaAbreParaConta %s", async (estado) => {

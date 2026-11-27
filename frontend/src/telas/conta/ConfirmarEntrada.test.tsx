@@ -53,7 +53,6 @@ function renderizar(token: string | null = TOKEN) {
     [
       { path: "/entrar/confirmar", element: <ConfirmarEntrada token={token} navegarParaPagina={navegarParaPagina} /> },
       { path: "/cadastro", element: <h1>Tela de cadastro</h1> },
-      { path: "/aguardando", element: <h1>Tela de aguardando</h1> },
       { path: "/entrar", element: <h1>Tela de entrar</h1> },
     ],
     { initialEntries: ["/entrar/confirmar"] },
@@ -118,14 +117,16 @@ describe("ConfirmarEntrada", () => {
     expect(roteador.state.location.pathname).toBe("/cadastro");
   });
 
-  it("aguardandoVaiParaAguardando", async () => {
+  it("aguardandoVerificacaoAbreAVerificacaoPorPaginaInteira", async () => {
     prepararFetch({ status: 200, corpo: { cadastroConcluido: false } }, contaNoEstado("AGUARDANDO_VERIFICACAO"));
-    const { roteador } = renderizar();
+    const { navegarParaPagina, roteador } = renderizar();
 
     await userEvent.click(botaoEntrar());
 
-    expect(await screen.findByRole("heading", { name: "Tela de aguardando" })).toBeInTheDocument();
-    expect(roteador.state.location.pathname).toBe("/aguardando");
+    await vi.waitFor(() => {
+      expect(navegarParaPagina).toHaveBeenCalledExactlyOnceWith("/verificacao");
+    });
+    expect(roteador.state.location.pathname).toBe("/entrar/confirmar");
   });
 
   it("contaConcluidaVaiParaOTerraco", async () => {

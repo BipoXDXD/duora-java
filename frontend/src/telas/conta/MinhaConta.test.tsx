@@ -6,7 +6,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import type { Conta, EstadoDaConta } from "../../api/estadoDaConta";
 import { MinhaConta } from "./MinhaConta";
 
-const PROXIMO_PASSO = "Falta confirmar sua idade. Essa etapa chega em breve.";
+const FALTA_CONFIRMAR = "Falta confirmar sua idade.";
 const SEM_CONTEUDO = { status: 204 };
 
 interface RespostaFalsa {
@@ -60,8 +60,8 @@ function prepararFetch({
   return pedidos;
 }
 
-function renderizar(estado: EstadoDaConta = "ATIVA") {
-  const conta: Conta = { estado, cadastroConcluido: estado === "ATIVA", verificada: false };
+function renderizar(estado: EstadoDaConta = "ATIVA", verificada = false) {
+  const conta: Conta = { estado, cadastroConcluido: estado === "ATIVA", verificada };
   const cliente = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   cliente.setQueryData(["conta"], conta);
   const roteador = createMemoryRouter(
@@ -113,27 +113,41 @@ describe("MinhaConta", () => {
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
   });
 
-  it("aguardandoMostraOProximoPasso", async () => {
+  it("aguardandoMostraLinkParaConfirmarIdade", async () => {
     prepararFetch();
     renderizar("AGUARDANDO_VERIFICACAO");
 
-    expect(await screen.findByText(PROXIMO_PASSO)).toBeInTheDocument();
+    expect(await screen.findByText(FALTA_CONFIRMAR)).toBeInTheDocument();
+    // Um <a> comum, não o Link do roteador: a verificação abre num documento próprio.
+    const link = screen.getByRole("link", { name: "Confirmar minha idade" });
+    expect(link).toHaveAttribute("href", "/verificacao");
+    expect(link).not.toHaveAttribute("data-discover");
   });
 
-  it("ativaNaoMostraOProximoPasso", async () => {
+  it("ativaNaoMostraOLinkParaConfirmarIdade", async () => {
     prepararFetch();
-    renderizar("ATIVA");
+    renderizar("ATIVA", true);
 
     await screen.findByRole("heading", { level: 1, name: "Minha conta" });
-    expect(screen.queryByText(PROXIMO_PASSO)).not.toBeInTheDocument();
+    expect(screen.queryByText(FALTA_CONFIRMAR)).not.toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: "Confirmar minha idade" })).not.toBeInTheDocument();
   });
 
-  it("naoMostraSelo", async () => {
+  it("verificadaMostraOSelo", async () => {
     prepararFetch();
-    renderizar("ATIVA");
+    renderizar("ATIVA", true);
+
+    expect(await screen.findByText("Conta verificada")).toBeInTheDocument();
+    expect(screen.getByText("Confirmamos que você tem 18 anos ou mais.")).toBeInTheDocument();
+  });
+
+  it("naoVerificadaNaoMostraOSelo", async () => {
+    prepararFetch();
+    renderizar("AGUARDANDO_VERIFICACAO");
 
     await screen.findByRole("heading", { level: 1, name: "Minha conta" });
-    expect(screen.queryByText(/verificad/i)).not.toBeInTheDocument();
+    expect(screen.queryByText("Conta verificada")).not.toBeInTheDocument();
+    expect(screen.queryByText("Confirmamos que você tem 18 anos ou mais.")).not.toBeInTheDocument();
   });
 
   it("sairChamaAApiEVaiParaEntrar", async () => {
