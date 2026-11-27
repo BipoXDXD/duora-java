@@ -1,6 +1,6 @@
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { Topo } from "./Topo";
 
 function renderizar(mudancas: Partial<Parameters<typeof Topo>[0]> = {}) {
@@ -18,7 +18,38 @@ function renderizar(mudancas: Partial<Parameters<typeof Topo>[0]> = {}) {
   return props;
 }
 
+afterEach(() => {
+  vi.unstubAllGlobals();
+});
+
 describe("Topo", () => {
+  it("linkDaContaApareceSoSemOSair", async () => {
+    const fetchFalso = vi.fn<typeof fetch>(() => Promise.resolve(new Response(null, { status: 204 })));
+    vi.stubGlobal("fetch", fetchFalso);
+
+    const { unmount } = render(
+      <Topo
+        mostrarSair={false}
+        nomeParceiro={null}
+        confirmando={false}
+        enviandoSaida={false}
+        aoAlternarSaida={vi.fn()}
+        aoContinuar={vi.fn()}
+        aoEncerrar={vi.fn()}
+      />,
+    );
+    expect(await screen.findByRole("link", { name: "Entrar" })).toHaveAttribute("href", "/entrar");
+    unmount();
+    fetchFalso.mockClear();
+
+    renderizar({ confirmando: false });
+    await new Promise((resolver) => setTimeout(resolver, 0));
+
+    expect(screen.getByRole("button", { name: "Sair" })).toBeVisible();
+    expect(screen.queryByRole("link")).not.toBeInTheDocument();
+    expect(fetchFalso).not.toHaveBeenCalled();
+  });
+
   it("Esc no grupo da confirmação fecha a confirmação sem subir até o documento", async () => {
     const noDocumento = vi.fn();
     document.addEventListener("keydown", noDocumento);
