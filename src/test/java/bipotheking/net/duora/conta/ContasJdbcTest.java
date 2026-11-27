@@ -37,8 +37,17 @@ class ContasJdbcTest extends BancoDeTeste {
   void emailUnicoNoBanco() {
     repositorio.criarPendente(EMAIL);
 
-    assertThatThrownBy(() -> repositorio.criarPendente(EMAIL))
+    assertThatThrownBy(() -> inserir(EstadoConta.PENDENTE, EMAIL.valor(), null, null, null))
         .isInstanceOf(DuplicateKeyException.class);
+  }
+
+  /** Duas confirmações do mesmo e-mail: a segunda não grava nada nem estoura o unique. */
+  @Test
+  void criarPendenteDeEmailComContaVemVazio() {
+    ContaId primeira = repositorio.criarPendente(EMAIL).orElseThrow();
+
+    assertThat(repositorio.criarPendente(EMAIL)).isEmpty();
+    assertThat(repositorio.porEmail(EMAIL)).map(Conta::id).contains(primeira);
   }
 
   /**
@@ -49,7 +58,8 @@ class ContasJdbcTest extends BancoDeTeste {
   void violacaoDeUnicoNaoPoeOEmailNaMensagem() {
     repositorio.criarPendente(EMAIL);
 
-    Throwable erro = catchThrowable(() -> repositorio.criarPendente(EMAIL));
+    Throwable erro =
+        catchThrowable(() -> inserir(EstadoConta.PENDENTE, EMAIL.valor(), null, null, null));
 
     assertThat(erro).isInstanceOf(DuplicateKeyException.class);
     for (Throwable causa = erro; causa != null; causa = causa.getCause()) {
@@ -111,7 +121,7 @@ class ContasJdbcTest extends BancoDeTeste {
 
   @Test
   void porEmailDevolveAContaPendente() {
-    ContaId id = repositorio.criarPendente(EMAIL);
+    ContaId id = repositorio.criarPendente(EMAIL).orElseThrow();
 
     assertThat(repositorio.porEmail(EMAIL))
         .contains(new Conta(id, EMAIL, EstadoConta.PENDENTE, null, INICIO, null));
@@ -128,7 +138,7 @@ class ContasJdbcTest extends BancoDeTeste {
   /** Repetir a exclusão não desloca o prazo de retenção, que conta de {@code excluida_em}. */
   @Test
   void excluirDeNovoMantemOInstanteDaPrimeiraExclusao() {
-    ContaId conta = repositorio.criarPendente(EMAIL);
+    ContaId conta = repositorio.criarPendente(EMAIL).orElseThrow();
     repositorio.excluir(conta, INICIO);
 
     repositorio.excluir(conta, INICIO.plus(Duration.ofDays(1)));
@@ -148,7 +158,7 @@ class ContasJdbcTest extends BancoDeTeste {
       value = EstadoConta.class,
       names = {"SUSPENSA", "BANIDA"})
   void excluirNaoSaiDeContaIndisponivel(EstadoConta estado) {
-    ContaId conta = repositorio.criarPendente(EMAIL);
+    ContaId conta = repositorio.criarPendente(EMAIL).orElseThrow();
     jdbc.sql(
             """
             update conta set estado = :estado, data_nascimento = :nascimento,

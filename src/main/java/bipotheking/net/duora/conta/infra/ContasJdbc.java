@@ -46,19 +46,21 @@ class ContasJdbc implements RepositorioDeContas {
   }
 
   @Override
-  public ContaId criarPendente(Email email) {
+  public Optional<ContaId> criarPendente(Email email) {
     UUID id = geradorDeIds.novo();
-    jdbc.sql(
-            """
-            insert into conta (id, email, estado, criada_em)
-            values (:id, :email, :estado, :agora)
-            """)
-        .param("id", id)
-        .param("email", email.valor())
-        .param("estado", EstadoConta.PENDENTE.name())
-        .param("agora", OffsetDateTime.ofInstant(relogio.instant(), ZoneOffset.UTC))
-        .update();
-    return new ContaId(id);
+    int criadas =
+        jdbc.sql(
+                """
+                insert into conta (id, email, estado, criada_em)
+                values (:id, :email, :estado, :agora)
+                on conflict (email) do nothing
+                """)
+            .param("id", id)
+            .param("email", email.valor())
+            .param("estado", EstadoConta.PENDENTE.name())
+            .param("agora", OffsetDateTime.ofInstant(relogio.instant(), ZoneOffset.UTC))
+            .update();
+    return criadas == 1 ? Optional.of(new ContaId(id)) : Optional.empty();
   }
 
   @Override

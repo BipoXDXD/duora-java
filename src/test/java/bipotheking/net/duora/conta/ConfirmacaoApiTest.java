@@ -15,6 +15,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import bipotheking.net.duora.conta.ContasDeTeste.ContaDeTeste;
 import bipotheking.net.duora.conta.dominio.Email;
 import bipotheking.net.duora.conta.dominio.RepositorioDeBloqueios;
+import bipotheking.net.duora.conta.dominio.RepositorioDeContas;
 import bipotheking.net.duora.conta.dominio.Token;
 import bipotheking.net.duora.nucleo.Resumos;
 import bipotheking.net.duora.web.BancoDeTeste;
@@ -27,9 +28,11 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.Callable;
+import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
 import java.util.random.RandomGenerator;
 import org.jspecify.annotations.Nullable;
 import org.junit.jupiter.api.Test;
@@ -48,8 +51,10 @@ class ConfirmacaoApiTest extends BancoDeTeste {
 
   private static final String LINK_INVALIDO = "LINK_INVALIDO";
   private static final LocalDate NASCIMENTO = LocalDate.of(1990, 5, 10);
+  private static final Duration ESPERA = Duration.ofSeconds(5);
 
   @Autowired private PedidoDeEntrada pedidoDeEntrada;
+  @Autowired private RepositorioDeContas repositorio;
   @Autowired private RepositorioDeBloqueios bloqueios;
   @Autowired private ResumoDeEmail resumoDeEmail;
   @Autowired private ContasDeTeste contas;
@@ -158,6 +163,46 @@ class ConfirmacaoApiTest extends BancoDeTeste {
     }
 
     assertThat(status).containsExactlyInAnyOrder(200, 422);
+    assertThat(sessoesAbertas()).isOne();
+  }
+
+  /**
+   * Outra transação criou a conta do mesmo e-mail e ainda não fez commit. A confirmação espera a
+   * inserção e, com o commit da outra, abre a sessão na conta que já existe, sem erro 500.
+   */
+  @Test
+  void confirmacaoQueEsperaCriacaoConcorrenteUsaAContaCriada() throws Exception {
+    String email = emailNovo();
+    String token = pedirLink(email);
+    CountDownLatch criou = new CountDownLatch(1);
+    CountDownLatch soltar = new CountDownLatch(1);
+
+    boolean esperou;
+    int status;
+    try (ExecutorService threads = Executors.newFixedThreadPool(2)) {
+      Future<?> outra =
+          threads.submit(() ->
+              new TransactionTemplate(transacoes)
+                  .executeWithoutResult(transacao -> {
+                    repositorio.criarPendente(Email.de(email));
+                    criou.countDown();
+                    aguardar(soltar);
+                  }));
+      Future<MockHttpServletResponse> resposta;
+      try {
+        assertThat(criou.await(ESPERA.toMillis(), TimeUnit.MILLISECONDS)).isTrue();
+        resposta = threads.submit(() -> confirmar(token).andReturn().getResponse());
+        esperou = conexoesEmEspera();
+      } finally {
+        soltar.countDown();
+      }
+      outra.get();
+      status = resposta.get().getStatus();
+    }
+
+    assertThat(esperou).as("a confirmação esperou a inserção da outra transação").isTrue();
+    assertThat(status).isEqualTo(200);
+    assertThat(contasCriadas()).isOne();
     assertThat(sessoesAbertas()).isOne();
   }
 
@@ -307,6 +352,34 @@ class ConfirmacaoApiTest extends BancoDeTeste {
         .param("email", email)
         .query(String.class)
         .single();
+  }
+
+  /** Espera uma conexão presa na trava de outra transação, até o limite. */
+  private boolean conexoesEmEspera() throws InterruptedException {
+    long limite = System.nanoTime() + ESPERA.toNanos();
+    while (System.nanoTime() < limite) {
+      long esperando =
+          jdbc.sql("select count(*) from pg_locks where locktype = 'transactionid' and not granted")
+              .query(Long.class)
+              .single();
+      if (esperando >= 1) {
+        return true;
+      }
+      Thread.sleep(10);
+    }
+    return false;
+  }
+
+  private static void aguardar(CountDownLatch trinco) {
+    try {
+      // Folga maior que a da sondagem da trava, para a falha sair na asserção, não aqui.
+      if (!trinco.await(ESPERA.multipliedBy(3).toMillis(), TimeUnit.MILLISECONDS)) {
+        throw new IllegalStateException("O teste não soltou a transação a tempo");
+      }
+    } catch (InterruptedException e) {
+      Thread.currentThread().interrupt();
+      throw new IllegalStateException(e);
+    }
   }
 
   private long contasCriadas() {
