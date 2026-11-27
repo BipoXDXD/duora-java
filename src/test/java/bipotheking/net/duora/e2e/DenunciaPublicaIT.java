@@ -7,12 +7,13 @@ import bipotheking.net.duora.e2e.NavegadorExtension.Participantes;
 import com.microsoft.playwright.Locator;
 import com.microsoft.playwright.Page;
 import com.microsoft.playwright.options.AriaRole;
+import java.util.regex.Pattern;
 import org.junit.jupiter.api.Test;
 
 /**
  * A denúncia pública de ponta a ponta, sem conta: o formulário de {@code /denunciar} chega ao
- * servidor de verdade (Turnstile do {@link TurnstileFalso}), e o rodapé do terraço leva a ele e ao
- * contato do encarregado de dados.
+ * servidor de verdade (Turnstile do {@link TurnstileFalso}). O caminho pelo rodapé fica com o
+ * {@code LegalIT}.
  */
 class DenunciaPublicaIT extends ContaE2eBase {
 
@@ -23,8 +24,11 @@ class DenunciaPublicaIT extends ContaE2eBase {
 
   @Test
   void denunciarSemConta(Participantes participantes) {
-    Page page = paginaSemConta(participantes);
-    page.navigate(raiz() + "denunciar");
+    TerracoPagina pagina = participantes.novo();
+    TurnstileFalso.instalar(pagina.page());
+    Page page = pagina.page();
+    assertThat(page.context().cookies()).isEmpty();
+    ContaPagina.de(pagina).abrir(raiz() + "denunciar");
 
     page.getByRole(AriaRole.RADIO, new Page.GetByRoleOptions().setName("Golpe").setExact(true))
         .check();
@@ -36,40 +40,10 @@ class DenunciaPublicaIT extends ContaE2eBase {
     assertThat(enviar).not().hasAttribute("aria-disabled", "true");
     enviar.click();
 
-    assertThat(page.getByText("Recebemos sua denúncia.")).isVisible();
+    assertThat(page.getByRole(AriaRole.STATUS))
+        .hasText(Pattern.compile("^Recebemos sua denúncia\\."));
     assertThat(page.context().cookies())
         .extracting(cookie -> cookie.name)
         .doesNotContain(COOKIE_DA_SESSAO);
-  }
-
-  @Test
-  void rodapeLevaADenunciarEEncarregado(Participantes participantes) {
-    Page page = paginaSemConta(participantes);
-    ContaPagina conta = new ContaPagina(page);
-
-    conta.abrir(raiz());
-    link(page, "Denunciar").click();
-
-    assertThat(page).hasURL(raiz() + "denunciar");
-    assertThat(conta.heading("Denunciar um problema")).isVisible();
-
-    conta.abrir(raiz());
-    link(page, "Encarregado de dados").click();
-
-    assertThat(page).hasURL(raiz() + "encarregado");
-    assertThat(link(page, "encarregado@exemplo.invalid"))
-        .hasAttribute("href", "mailto:encarregado@exemplo.invalid");
-  }
-
-  /** Navegador novo, sem cookie nenhum, com o Turnstile local. */
-  private static Page paginaSemConta(Participantes participantes) {
-    Page page = participantes.novo().page();
-    TurnstileFalso.instalar(page);
-    assertThat(page.context().cookies()).isEmpty();
-    return page;
-  }
-
-  private static Locator link(Page page, String nome) {
-    return page.getByRole(AriaRole.LINK, new Page.GetByRoleOptions().setName(nome).setExact(true));
   }
 }

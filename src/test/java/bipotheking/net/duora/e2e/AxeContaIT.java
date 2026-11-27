@@ -18,8 +18,8 @@ import org.springframework.beans.factory.annotation.Autowired;
 
 /**
  * Varredura do axe-core ({@link Axe}) em cada estado novo das telas de conta e das telas públicas,
- * um teste por estado. Os participantes usam movimento reduzido, como o {@link Axe} exige; o
- * Turnstile é o {@link TurnstileFalso}.
+ * um teste por estado. Os participantes usam movimento reduzido, como o {@link Axe} exige; nas
+ * telas que pedem a verificação de segurança, o Turnstile é o {@link TurnstileFalso}.
  */
 class AxeContaIT extends ContaE2eBase {
 
@@ -34,7 +34,7 @@ class AxeContaIT extends ContaE2eBase {
       """
       {"type":"about:blank","title":"Limite de taxa","status":429,\
       "detail":"Muitas tentativas. Tente de novo em alguns minutos.",\
-      "codigo":"LIMITE_DE_TAXA",\
+      "instance":"/api/conta/entrar","codigo":"LIMITE_DE_TAXA",\
       "mensagem":"Muitas tentativas. Tente de novo em alguns minutos."}\
       """;
 
@@ -45,7 +45,7 @@ class AxeContaIT extends ContaE2eBase {
 
   @Test
   void entrar(Participantes participantes) {
-    ContaPagina conta = semConta(participantes).abrir(raiz() + "entrar");
+    ContaPagina conta = comTurnstile(participantes).abrir(raiz() + "entrar");
 
     assertThat(conta.heading("Entrar no Duora")).isVisible();
     assertThat(botao(conta.page(), "Enviar link")).not().hasAttribute("aria-disabled", "true");
@@ -59,7 +59,7 @@ class AxeContaIT extends ContaE2eBase {
    */
   @Test
   void entrarComLimite(Participantes participantes) {
-    ContaPagina conta = semConta(participantes);
+    ContaPagina conta = comTurnstile(participantes);
     conta
         .page()
         .route(
@@ -88,7 +88,7 @@ class AxeContaIT extends ContaE2eBase {
 
     assertThat(conta.page().getByText("Este link expirou ou já foi usado. Peça um novo."))
         .isVisible();
-    assertThat(link(conta.page(), "Pedir novo link")).isVisible();
+    assertThat(conta.link("Pedir novo link")).isVisible();
     assertSemViolacoes(conta.page(), "confirmar com link inválido");
   }
 
@@ -132,6 +132,8 @@ class AxeContaIT extends ContaE2eBase {
   void minhaConta(Participantes participantes) {
     ContaPagina conta = minhaContaAberta(participantes);
 
+    assertThat(conta.page().getByText("Falta confirmar sua idade. Essa etapa chega em breve."))
+        .isVisible();
     assertSemViolacoes(conta.page(), "minha conta");
   }
 
@@ -157,7 +159,7 @@ class AxeContaIT extends ContaE2eBase {
   /** Com o token do Turnstile em mãos: o botão de envio fica disponível. */
   @Test
   void denunciar(Participantes participantes) {
-    ContaPagina conta = semConta(participantes).abrir(raiz() + "denunciar");
+    ContaPagina conta = comTurnstile(participantes).abrir(raiz() + "denunciar");
 
     assertThat(conta.heading("Denunciar um problema")).isVisible();
     assertThat(botao(conta.page(), "Enviar denúncia")).not().hasAttribute("aria-disabled", "true");
@@ -170,7 +172,7 @@ class AxeContaIT extends ContaE2eBase {
     ContaPagina conta = semConta(participantes).abrir(raiz() + "encarregado");
 
     assertThat(conta.heading("Encarregado de dados")).isVisible();
-    assertThat(link(conta.page(), "encarregado@exemplo.invalid")).isVisible();
+    assertThat(conta.link("encarregado@exemplo.invalid")).isVisible();
 
     assertSemViolacoes(conta.page(), "encarregado");
   }
@@ -196,16 +198,21 @@ class AxeContaIT extends ContaE2eBase {
   }
 
   private static ContaPagina semConta(Participantes participantes) {
-    TerracoPagina pagina = participantes.novo();
-    TurnstileFalso.instalar(pagina.page());
-    return ContaPagina.de(pagina);
+    return ContaPagina.de(participantes.novo());
+  }
+
+  /** Para as telas que pedem a verificação de segurança antes de enviar. */
+  private static ContaPagina comTurnstile(Participantes participantes) {
+    ContaPagina conta = semConta(participantes);
+    TurnstileFalso.instalar(conta.page());
+    return conta;
   }
 
   /** Conta no estado pedido com o cookie da sessão no navegador, antes de abrir o site. */
   private ContaPagina logado(
       Participantes participantes, EstadoConta estado, @Nullable LocalDate nascimento) {
-    TerracoPagina pagina = participantes.novo();
-    return ContaPagina.de(Contas.comConta(pagina, contas.criar(estado, nascimento), raiz()));
+    return ContaPagina.de(
+        Contas.comConta(participantes.novo(), contas.criar(estado, nascimento), raiz()));
   }
 
   private ContaPagina minhaContaAberta(Participantes participantes) {
@@ -219,9 +226,5 @@ class AxeContaIT extends ContaE2eBase {
   private static Locator botao(Page page, String nome) {
     return page.getByRole(
         AriaRole.BUTTON, new Page.GetByRoleOptions().setName(nome).setExact(true));
-  }
-
-  private static Locator link(Page page, String nome) {
-    return page.getByRole(AriaRole.LINK, new Page.GetByRoleOptions().setName(nome).setExact(true));
   }
 }
