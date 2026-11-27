@@ -27,10 +27,14 @@ public class RotasDoSpa implements WebMvcConfigurer {
           "/denunciar",
           "/encarregado");
 
+  /** Prova de vida: fora de CAMINHOS até a F3 movê-la com o front (e tirar /aguardando). */
+  public static final String VERIFICACAO = "/verificacao";
+
   private static final String INDEX = "forward:/index.html";
 
   @Override
   public void addViewControllers(ViewControllerRegistry registro) {
     CAMINHOS.forEach(caminho -> registro.addViewController(caminho).setViewName(INDEX));
+    registro.addViewController(VERIFICACAO).setViewName(INDEX);
   }
 }

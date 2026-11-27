@@ -35,12 +35,36 @@ public final class CabecalhosDeSeguranca extends OncePerRequestFilter {
           + "frame-src https://challenges.cloudflare.com";
 
   /**
+   * Política do documento da prova de vida, servida só quando o caminho pedido é exatamente {@link
+   * RotasDoSpa#VERIFICACAO}. Parte da política validada no C# com três desvios: sai o {@code wss}
+   * do hub (a 2b não tem tempo real), sai o hash de estilo do {@code <model-viewer>} (a rota não
+   * tem terraço) e {@code trusted-types} vira {@code 'none'} (sem {@code lit-html}). O {@code
+   * 'wasm-unsafe-eval'} compila o WASM do detector (sem eval de JavaScript); o CDN da Rekognition
+   * serve o WASM e o modelo, e o streaming leva o vídeo da prova. Mudou aqui, mude {@code
+   * CspDaVerificacaoTest} e {@code cadeiaDeSuprimentos.test.ts}.
+   */
+  public static final String CSP_VERIFICACAO =
+      "default-src 'none'; script-src 'self' 'wasm-unsafe-eval'; style-src 'self'; "
+          + "img-src 'self'; font-src 'self'; media-src 'self'; "
+          + "connect-src 'self' blob: https://cdn.liveness.rekognition.amazonaws.com "
+          + "wss://streaming-rekognition.us-east-1.amazonaws.com; manifest-src 'self'; "
+          + "worker-src 'none'; base-uri 'none'; form-action 'self'; frame-ancestors 'none'; "
+          + "object-src 'none'; require-trusted-types-for 'script'; trusted-types 'none'";
+
+  /** A prova de vida usa só a câmera; o microfone fica fechado por menor privilégio. */
+  public static final String PERMISSIONS_POLICY_VERIFICACAO = "camera=(self), microphone=()";
+
+  /** Nenhuma outra resposta usa câmera nem microfone. */
+  public static final String PERMISSIONS_POLICY = "camera=(), microphone=()";
+
+  /**
    * O index.html, o service worker, o manifest e as rotas do SPA, que o Spring encaminha ao
    * index.html: o filtro não roda de novo no forward, então vale o caminho pedido.
    */
   private static final Set<String> SEMPRE_REVALIDADOS =
       Stream.concat(
-              Stream.of("/", "/index.html", "/sw.js", "/manifest.webmanifest"),
+              Stream.of(
+                  "/", "/index.html", "/sw.js", "/manifest.webmanifest", RotasDoSpa.VERIFICACAO),
               RotasDoSpa.CAMINHOS.stream())
           .collect(Collectors.toUnmodifiableSet());
 
@@ -48,7 +72,10 @@ public final class CabecalhosDeSeguranca extends OncePerRequestFilter {
   protected void doFilterInternal(
       HttpServletRequest request, HttpServletResponse response, FilterChain chain)
       throws ServletException, IOException {
-    response.setHeader("Content-Security-Policy", CSP);
+    boolean verificacao = RotasDoSpa.VERIFICACAO.equals(request.getRequestURI());
+    response.setHeader("Content-Security-Policy", verificacao ? CSP_VERIFICACAO : CSP);
+    response.setHeader(
+        "Permissions-Policy", verificacao ? PERMISSIONS_POLICY_VERIFICACAO : PERMISSIONS_POLICY);
     response.setHeader("X-Content-Type-Options", "nosniff");
     response.setHeader("Referrer-Policy", "no-referrer");
     response.setHeader("Cross-Origin-Resource-Policy", "same-origin");
