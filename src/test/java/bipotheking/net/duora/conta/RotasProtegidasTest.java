@@ -74,6 +74,7 @@ class RotasProtegidasTest extends BancoDeTeste {
         .containsExactlyInAnyOrder(
             "GET /api/conta",
             "POST /api/conta/entrar",
+            "POST /api/conta/confirmar",
             "GET /api/conta/configuracao",
             "POST /api/salas",
             "POST /api/salas/entrar",
