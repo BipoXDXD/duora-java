@@ -177,7 +177,7 @@ class CadastroApiTest extends BancoDeTeste {
           threads.submit(() ->
               new TransactionTemplate(transacoes)
                   .executeWithoutResult(status -> {
-                    pedidoDeEntrada.gravarLinkEMensagem(email, Token.novo(aleatorio));
+                    pedidoDeEntrada.registrarNaTransacao(email, Token.novo(aleatorio));
                     pedidoGravou.countDown();
                     aguardar(soltarPedido);
                   }));
@@ -197,6 +197,73 @@ class CadastroApiTest extends BancoDeTeste {
     assertThat(statusDaRecusa).isEqualTo(422);
     assertThat(contar("select count(*) from link_de_entrada where usado_em is null")).isZero();
     assertThat(contar("select count(*) from outbox where carga is not null")).isZero();
+  }
+
+  /**
+   * A recusa por idade segura a trava do e-mail até o commit; aqui ela fica presa na linha da
+   * conta, que o teste trava. Um pedido de link nessa hora espera a trava e, depois do commit da
+   * recusa, vê o bloqueio: nenhum link nem mensagem com link para o e-mail do menor.
+   */
+  @Test
+  void pedidoDeLinkDuranteARecusaVeOBloqueio() throws Exception {
+    ContaDeTeste conta = pendente();
+    Email email = Email.de(emailDe(conta));
+    TransactionTemplate transacao = new TransactionTemplate(transacoes);
+    CountDownLatch linhaTravada = new CountDownLatch(1);
+    CountDownLatch soltarLinha = new CountDownLatch(1);
+
+    boolean recusaEsperou;
+    boolean pedidoEsperou;
+    int statusDaRecusa;
+    try (ExecutorService threads = Executors.newFixedThreadPool(3)) {
+      Future<?> linha =
+          threads.submit(() ->
+              transacao.executeWithoutResult(status -> {
+                jdbc.sql("select id from conta where id = :id for update")
+                    .param("id", conta.id().valor())
+                    .query()
+                    .listOfRows();
+                linhaTravada.countDown();
+                aguardar(soltarLinha);
+              }));
+      Future<MockHttpServletResponse> recusa;
+      Future<?> pedido;
+      try {
+        assertThat(linhaTravada.await(ESPERA.toMillis(), TimeUnit.MILLISECONDS)).isTrue();
+        recusa = threads.submit(() -> cadastrar(conta, corpo(MENOR)).andReturn().getResponse());
+        recusaEsperou = travaEmEspera("transactionid");
+        pedido =
+            threads.submit(() ->
+                transacao.executeWithoutResult(
+                    status -> pedidoDeEntrada.registrarNaTransacao(email, Token.novo(aleatorio))));
+        pedidoEsperou = travaEmEspera("advisory");
+      } finally {
+        soltarLinha.countDown();
+      }
+      linha.get();
+      statusDaRecusa = recusa.get().getStatus();
+      pedido.get();
+    }
+
+    assertThat(recusaEsperou).as("a recusa ficou presa na linha da conta").isTrue();
+    assertThat(pedidoEsperou).as("o pedido esperou a trava do e-mail").isTrue();
+    assertThat(statusDaRecusa).isEqualTo(422);
+    assertThat(
+            jdbc.sql("select count(*) from link_de_entrada where email = :email")
+                .param("email", email.valor())
+                .query(Long.class)
+                .single())
+        .as("nenhum link para o e-mail do menor")
+        .isZero();
+    assertThat(
+            jdbc.sql(
+                    "select count(*) from outbox where carga->>'para' = :email"
+                        + " and carga::text like '%#t=%'")
+                .param("email", email.valor())
+                .query(Long.class)
+                .single())
+        .as("nenhuma mensagem com link para o e-mail do menor")
+        .isZero();
   }
 
   @Test
@@ -403,7 +470,7 @@ class CadastroApiTest extends BancoDeTeste {
     Token token = Token.novo(aleatorio);
     new TransactionTemplate(transacoes)
         .executeWithoutResult(
-            status -> pedidoDeEntrada.gravarLinkEMensagem(Email.de(email), token));
+            status -> pedidoDeEntrada.registrarNaTransacao(Email.de(email), token));
     return token.valor();
   }
 
@@ -468,10 +535,16 @@ class CadastroApiTest extends BancoDeTeste {
 
   /** Espera alguma conexão ficar presa numa trava advisory, até o limite. */
   private boolean travaEmEspera() throws InterruptedException {
+    return travaEmEspera("advisory");
+  }
+
+  /** Espera alguma conexão ficar presa numa trava do tipo dado, até o limite. */
+  private boolean travaEmEspera(String tipo) throws InterruptedException {
     long limite = System.nanoTime() + ESPERA.toNanos();
     while (System.nanoTime() < limite) {
       long esperando =
-          jdbc.sql("select count(*) from pg_locks where locktype = 'advisory' and not granted")
+          jdbc.sql("select count(*) from pg_locks where locktype = :tipo and not granted")
+              .param("tipo", tipo)
               .query(Long.class)
               .single();
       if (esperando > 0) {

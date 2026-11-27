@@ -121,14 +121,28 @@ public class PedidoDeEntrada {
   }
 
   /**
-   * Grava o link novo, depois de invalidar os abertos do e-mail, e registra o e-mail com o link na
-   * outbox. Precisa de uma transação aberta: separado de {@link #pedir} para os testes de
-   * atomicidade e de concorrência. A trava do e-mail vem primeiro: sem ela, dois pedidos
-   * simultâneos não veem o link um do outro e deixam dois abertos (write skew).
+   * Com o e-mail bloqueado, registra o aviso de bloqueio; senão, grava o link novo, depois de
+   * invalidar os abertos do e-mail, e registra o e-mail com o link na outbox. Precisa de uma
+   * transação aberta: separado de {@link #pedir} para os testes de atomicidade e de concorrência.
+   *
+   * <p>A trava do e-mail vem antes de tudo, inclusive da checagem do bloqueio. Sem ela, dois
+   * pedidos simultâneos não veem o link um do outro e deixam dois abertos (write skew). E um pedido
+   * que checasse o bloqueio antes de travar podia ler "não bloqueado", esperar a recusa por idade
+   * commitar e gravar depois dela um link e uma mensagem com o e-mail do menor. Depois da trava, a
+   * leitura em READ COMMITTED já vê o bloqueio commitado.
    */
-  void gravarLinkEMensagem(Email email, Token token) {
+  void registrarNaTransacao(Email email, Token token) {
     String resumo = resumoDeEmail.hex(email);
     links.travarEmail(resumo);
+    if (bloqueios.bloqueado(resumoDeEmail.de(email))) {
+      outbox.registrar(Outbox.EMAIL, resumo, mensagens.avisoDeBloqueio(email));
+    } else {
+      gravarLinkEMensagem(email, resumo, token);
+    }
+  }
+
+  /** Só com a trava do e-mail já tomada por {@link #registrarNaTransacao}. */
+  private void gravarLinkEMensagem(Email email, String resumo, Token token) {
     Instant agora = relogio.instant();
     links.invalidarAbertos(email, agora);
     links.gravar(geradorDeIds.novo(), email, token.resumo(), agora, agora.plus(VALIDADE_DO_LINK));
@@ -162,11 +176,7 @@ public class PedidoDeEntrada {
       throw new ErroDeNegocio(CodigoEmail.EMAIL_DESCARTAVEL, "Use um e-mail permanente.");
     }
     transacao.executeWithoutResult(status -> {
-      if (bloqueios.bloqueado(resumoDeEmail.de(email))) {
-        outbox.registrar(Outbox.EMAIL, resumoDeEmail.hex(email), mensagens.avisoDeBloqueio(email));
-      } else {
-        gravarLinkEMensagem(email, Token.novo(aleatorio));
-      }
+      registrarNaTransacao(email, Token.novo(aleatorio));
       if (chave != null) {
         idempotencia.concluir(ESCOPO_DE_IDEMPOTENCIA, chave.chave(), chave.dono(), RESPOSTA);
       }

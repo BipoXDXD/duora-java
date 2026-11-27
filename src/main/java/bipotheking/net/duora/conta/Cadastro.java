@@ -137,11 +137,11 @@ public class Cadastro {
   /**
    * Trava o e-mail, bloqueia-o, apaga os links dele (nenhuma linha guarda o e-mail do menor), apaga
    * a carga das mensagens pendentes (o link pendente não sai), encerra as sessões e exclui a conta.
-   * A trava é a mesma do pedido de link: um pedido que já gravou termina antes, e o link e a
-   * mensagem dele entram na limpeza. Um link gravado depois não abre conta: a confirmação recusa
-   * e-mail bloqueado. A exclusão vem antes de apagar os aceites: se um cadastro concorrente da
-   * mesma conta gravou aceites, a trava da linha da conta faz esta transação esperar o commit dele
-   * e vê-los.
+   * A trava é a mesma do pedido de link, que a toma antes de checar o bloqueio: um pedido que já
+   * travou termina antes, e o link e a mensagem dele entram na limpeza; um pedido que chega depois
+   * espera este commit e vê o bloqueio, sem gravar link. A exclusão vem antes de apagar os aceites:
+   * se um cadastro concorrente da mesma conta gravou aceites, a trava da linha da conta faz esta
+   * transação esperar o commit dele e vê-los.
    */
   private void recusarPorIdade(ContaId id, Email email, Instant agora) {
     String titular = resumoDeEmail.hex(email);
