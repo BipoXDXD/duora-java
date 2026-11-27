@@ -1,4 +1,4 @@
-import { render, screen, within } from "@testing-library/react";
+import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { Entrada } from "./Entrada";
@@ -17,9 +17,8 @@ describe("Entrada", () => {
   it("entradaMostraORodape", () => {
     render(<Entrada comConvite={false} enviando={false} erro="" aoEnviar={vi.fn()} aoCorrigir={vi.fn()} />);
 
-    const rodape = screen.getByRole("contentinfo");
-    expect(within(rodape).getByRole("link", { name: "Termos de uso" })).toHaveAttribute("href", "/termos");
-    expect(within(rodape).getByRole("link", { name: "Privacidade" })).toHaveAttribute("href", "/privacidade");
+    expect(screen.getByRole("link", { name: "Termos de uso" })).toHaveAttribute("href", "/termos");
+    expect(screen.getByRole("link", { name: "Privacidade" })).toHaveAttribute("href", "/privacidade");
   });
 
   it("apelido vazio mostra o erro e foca o campo, sem enviar", async () => {

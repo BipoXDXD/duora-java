@@ -161,6 +161,21 @@ describe("montarCasca", () => {
       expect(document.title).toBe("Cadastro · Duora");
     });
 
+    it("cadastroLeAsVersoesLegaisUmaVez", async () => {
+      prepararConta(200, contaNoEstado("PENDENTE"));
+
+      await montarEm("/cadastro");
+
+      // O rodapé do layout e o formulário do cadastro dividem a mesma consulta.
+      expect(await screen.findByRole("link", { name: "Contato" })).toHaveAttribute(
+        "href",
+        "mailto:support@meetduora.com",
+      );
+      await screen.findByRole("heading", { level: 1, name: "Falta pouco" });
+      const pedidosDasVersoes = vi.mocked(fetch).mock.calls.filter(([entrada]) => entrada === "/api/legal/versoes");
+      expect(pedidosDasVersoes).toHaveLength(1);
+    });
+
     it("aguardandoDaContaPendenteVaiParaCadastro", async () => {
       prepararConta(200, contaNoEstado("PENDENTE"));
 
@@ -206,6 +221,16 @@ describe("montarCasca", () => {
     expect(screen.getByRole("heading", { level: 1, name: "Termos de uso" })).toBeInTheDocument();
     expect(screen.getByRole("contentinfo")).not.toBeEmptyDOMElement();
     expect(document.title).toBe("Termos de uso · Duora");
+  });
+
+  it("rodapeDaCascaNavegaPeloRoteador", async () => {
+    await montarEm("/qualquer");
+
+    await userEvent.click(await screen.findByRole("link", { name: "Termos de uso" }));
+
+    // O jsdom não navega por <a> comum: a troca de tela vem do Link do roteador.
+    expect(await screen.findByRole("heading", { level: 1, name: "Termos de uso" })).toBeInTheDocument();
+    expect(location.pathname).toBe("/termos");
   });
 
   it("telaFicaNoMainDoLayout", async () => {

@@ -1,7 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import type { ReactElement } from "react";
 import { ErroHttp } from "../../api/http";
-import { type DocumentoLegal, obterDocumentoLegal } from "../../api/legal";
+import { type DocumentoLegal, obterDocumentoLegal } from "../../api/documentoLegal";
 import { BOTAO_SECUNDARIO_SEM_MARGEM, TEXTO_SECUNDARIO, TITULO_DA_CASCA } from "../../componentes/estilos";
 import { NaoEncontrada } from "../../rotas/NaoEncontrada";
 

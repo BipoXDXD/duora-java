@@ -55,6 +55,23 @@ describe("Rodape", () => {
     expect(screen.queryByRole("link", { name: "Contato" })).not.toBeInTheDocument();
   });
 
+  it("linkInjetadoLevaOsDocumentosMasNaoOContato", async () => {
+    render(
+      <Rodape
+        obterContato={() => Promise.resolve("teste@exemplo.com")}
+        link={({ href, className, children }) => (
+          <a href={`/falso${href}`} className={className}>
+            {children}
+          </a>
+        )}
+      />,
+    );
+
+    expect(await screen.findByRole("link", { name: "Contato" })).toHaveAttribute("href", "mailto:teste@exemplo.com");
+    expect(screen.getByRole("link", { name: "Termos de uso" })).toHaveAttribute("href", "/falso/termos");
+    expect(screen.getByRole("link", { name: "Privacidade" })).toHaveAttribute("href", "/falso/privacidade");
+  });
+
   it("antesDaRespostaNaoMostraContato", () => {
     render(<Rodape obterContato={() => new Promise<string>(() => {})} />);
 

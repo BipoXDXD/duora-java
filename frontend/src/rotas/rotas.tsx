@@ -31,6 +31,7 @@ export function criarRotas({ clienteDeConsulta, tomarTokenDoLink }: ContextoDaCa
         {
           path: "entrar",
           lazy: async () => ({ Component: (await import("../telas/conta/Entrar")).Entrar }),
+          ErrorBoundary: ErroDaConta,
         },
         {
           path: "entrar/confirmar",
@@ -59,6 +60,8 @@ export function criarRotas({ clienteDeConsulta, tomarTokenDoLink }: ContextoDaCa
           path: "termos",
           handle: LARGURA_DE_LEITURA,
           lazy: async () => ({ Component: (await import("../telas/legal/DocumentoLegalPagina")).TermosDeUso }),
+          // Também cobre a falha ao baixar o chunk da tela.
+          ErrorBoundary: ErroDaConta,
         },
         {
           path: "privacidade",
@@ -66,6 +69,7 @@ export function criarRotas({ clienteDeConsulta, tomarTokenDoLink }: ContextoDaCa
           lazy: async () => ({
             Component: (await import("../telas/legal/DocumentoLegalPagina")).PoliticaDePrivacidade,
           }),
+          ErrorBoundary: ErroDaConta,
         },
         { path: "*", Component: NaoEncontrada },
       ],

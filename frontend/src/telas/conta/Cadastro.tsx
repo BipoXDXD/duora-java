@@ -3,7 +3,6 @@ import { useEffect, useRef, useState, type ReactElement, type SubmitEvent } from
 import { useNavigate } from "react-router";
 import { concluirCadastro, type DadosDoCadastro } from "../../api/conta";
 import { ErroHttp } from "../../api/http";
-import { obterVersoesLegais } from "../../api/legal";
 import {
   BOTAO_PRIMARIO,
   BOTAO_SECUNDARIO_SEM_MARGEM,
@@ -15,10 +14,8 @@ import {
   TEXTO_SECUNDARIO,
   TITULO_DA_CASCA,
 } from "../../componentes/estilos";
-import { consultaDaConta } from "../../rotas/consultas";
+import { consultaDaConta, consultaDasVersoesLegais } from "../../rotas/consultas";
 import { CADASTRO, CONFIRMAR, textoDeEspera } from "./textos";
-
-const CHAVE_DAS_VERSOES = ["legal", "versoes"] as const;
 
 const ID_DA_DATA = "cadastro-data";
 const ID_DA_AJUDA = "cadastro-ajuda-data";
@@ -66,12 +63,7 @@ export function Cadastro(): ReactElement {
   const navegar = useNavigate();
   // A versão que a pessoa aceita é a que a tela mostrou: sem releitura ao voltar da aba dos Termos.
   // Só o TERMOS_DESATUALIZADOS pede a versão nova, e junto desmarca a caixa.
-  const versoes = useQuery({
-    queryKey: CHAVE_DAS_VERSOES,
-    queryFn: obterVersoesLegais,
-    staleTime: Infinity,
-    refetchOnWindowFocus: false,
-  });
+  const versoes = useQuery({ ...consultaDasVersoesLegais, refetchOnWindowFocus: false });
   const campoDaData = useRef<HTMLInputElement>(null);
   const caixaDoAceite = useRef<HTMLInputElement>(null);
   const mensagemFinal = useRef<HTMLParagraphElement>(null);
@@ -131,7 +123,7 @@ export function Cadastro(): ReactElement {
         if (caixaDoAceite.current) {
           caixaDoAceite.current.checked = false;
         }
-        void clienteDeConsulta.invalidateQueries({ queryKey: CHAVE_DAS_VERSOES });
+        void clienteDeConsulta.invalidateQueries({ queryKey: consultaDasVersoesLegais.queryKey });
         mostrar({ texto: erro.mensagem ?? CADASTRO.termosDesatualizados, campo: "aceite" });
         return;
       case "LIMITE_DE_TAXA":

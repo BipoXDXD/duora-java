@@ -1,12 +1,24 @@
-import { type ReactElement, useEffect, useState } from "react";
+import { type ComponentType, type ReactElement, type ReactNode, useEffect, useState } from "react";
 import { obterVersoesLegais } from "../api/legal";
+
+/** Link de um documento: <a> comum no terraço; o Link do roteador na casca. */
+export type LinkDoRodape = ComponentType<{ href: string; className: string; children: ReactNode }>;
 
 interface PropsRodape {
   obterContato?: () => Promise<string>;
+  link?: LinkDoRodape;
 }
 
 async function obterContatoDoServidor(): Promise<string> {
   return (await obterVersoesLegais()).contato;
+}
+
+function LinkComum({ href, className, children }: { href: string; className: string; children: ReactNode }) {
+  return (
+    <a href={href} className={className}>
+      {children}
+    </a>
+  );
 }
 
 /** Alvo de toque de 44 px, como os outros links de texto do app. */
@@ -14,11 +26,12 @@ const LINK =
   "inline-flex items-center min-h-[44px] text-texto-2 underline underline-offset-3 hover:text-marfim [transition:color_var(--transicao)]";
 
 /**
- * Termos, Privacidade e Contato, na entrada do terraço e nas telas da casca. Também roda no "/": usa
- * só o fetch de http.ts (sem TanStack Query) e <a> comuns, sem o roteador da casca. O Contato espera
- * o e-mail do servidor; se ele não vier, o rodapé segue com os dois documentos.
+ * Termos, Privacidade e Contato, na entrada do terraço e nas telas da casca. Também roda no "/": por
+ * padrão usa só o fetch de http.ts (sem TanStack Query) e <a> comuns, sem o roteador da casca; a casca
+ * injeta o contato do cache e o Link dela. O Contato espera o e-mail do servidor; se ele não vier, o
+ * rodapé segue com os dois documentos. O mailto: é sempre um <a>.
  */
-export function Rodape({ obterContato = obterContatoDoServidor }: PropsRodape): ReactElement {
+export function Rodape({ obterContato = obterContatoDoServidor, link: Link = LinkComum }: PropsRodape): ReactElement {
   const [contato, setContato] = useState<string | null>(null);
 
   useEffect(() => {
@@ -44,14 +57,14 @@ export function Rodape({ obterContato = obterContatoDoServidor }: PropsRodape): 
     <footer className="text-[0.875rem] leading-[1.4]">
       <ul className="m-0 p-0 list-none flex flex-wrap gap-x-(--e-5)">
         <li>
-          <a href="/termos" className={LINK}>
+          <Link href="/termos" className={LINK}>
             Termos de uso
-          </a>
+          </Link>
         </li>
         <li>
-          <a href="/privacidade" className={LINK}>
+          <Link href="/privacidade" className={LINK}>
             Privacidade
-          </a>
+          </Link>
         </li>
         {contato !== null && (
           <li>
