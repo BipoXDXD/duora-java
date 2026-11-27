@@ -104,7 +104,12 @@ export const MINHA_CONTA = {
   voltarAoTerraco: VOLTAR_AO_TERRACO,
 } as const;
 
-/** Falha do loader de uma rota que exige conta. */
+/** A casca de conta na primeira carga, enquanto a tela pedida chega. */
+export const CASCA = {
+  carregando: "Carregando…",
+} as const;
+
+/** Falha de qualquer rota da casca: a leitura da conta, o download da tela ou o desenho dela. */
 export const ERRO_DA_CONTA = {
   tituloIndisponivel: "Conta indisponível",
   tituloDaAbaIndisponivel: "Conta indisponível · Duora",

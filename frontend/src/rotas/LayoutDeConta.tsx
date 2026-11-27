@@ -2,6 +2,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { type ReactNode, useCallback } from "react";
 import { Link, Outlet, useMatches } from "react-router";
 import { Rodape } from "../componentes/Rodape";
+import { CASCA } from "../telas/conta/textos";
 import { consultaDasVersoesLegais } from "./consultas";
 
 /** handle da rota de um texto longo (os documentos legais): a coluna abre para a largura de leitura. */
@@ -24,7 +25,7 @@ function LinkDaCasca({ href, className, children }: { href: string; className: s
  * Moldura das telas de conta: a mesma noite e as mesmas fontes do terraço, mas sem a cena nem o
  * topo do encontro. Coluna única de leitura, alinhada à esquerda, com respiro maior no alto. O rodapé
  * fica fora do main, no fim da coluna, e lê o contato do mesmo cache das versões que o cadastro usa.
- * Serve ao layout da rota "/" e a qualquer tela que precise da mesma moldura.
+ * Serve ao layout, à espera da primeira carga e à falha de qualquer rota da casca.
  */
 export function MolduraDeConta({ children }: { children: ReactNode }) {
   const leitura = useMatches().some((rota) => pedeLeitura(rota.handle));
@@ -50,6 +51,17 @@ export function LayoutDeConta() {
   return (
     <MolduraDeConta>
       <Outlet />
+    </MolduraDeConta>
+  );
+}
+
+/** A primeira carga da casca, até o guarda e o chunk da tela chegarem: a moldura com o aviso de espera. */
+export function CarregandoDaCasca() {
+  return (
+    <MolduraDeConta>
+      <p role="status" className="m-0 text-texto-2 text-[1.125rem] leading-[1.5]">
+        {CASCA.carregando}
+      </p>
     </MolduraDeConta>
   );
 }

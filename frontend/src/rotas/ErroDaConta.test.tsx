@@ -1,16 +1,31 @@
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { createMemoryRouter, RouterProvider } from "react-router";
-import { describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { ErroHttp } from "../api/http";
+import { stubarFetch } from "../teste/fetchFalso";
 import { ErroDaConta } from "./ErroDaConta";
+
+beforeEach(() => {
+  // A falha desenha a moldura, e o rodapé dela lê as versões legais.
+  stubarFetch();
+});
+
+afterEach(() => {
+  vi.unstubAllGlobals();
+});
 
 function renderizarComLoader(loader: () => unknown) {
   const roteador = createMemoryRouter(
     [{ path: "/cadastro", loader, element: <h1>Tela aberta</h1>, ErrorBoundary: ErroDaConta }],
     { initialEntries: ["/cadastro"] },
   );
-  render(<RouterProvider router={roteador} />);
+  render(
+    <QueryClientProvider client={new QueryClient()}>
+      <RouterProvider router={roteador} />
+    </QueryClientProvider>,
+  );
 }
 
 describe("ErroDaConta", () => {
