@@ -12,8 +12,11 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import bipotheking.net.duora.conta.ContasDeTeste.ContaDeTeste;
 import bipotheking.net.duora.conta.GanchoDeExclusaoDeTeste.Chamada;
 import bipotheking.net.duora.conta.dominio.Email;
+import bipotheking.net.duora.conta.dominio.FinalidadeDaTentativa;
+import bipotheking.net.duora.conta.dominio.MetodoDeVerificacao;
 import bipotheking.net.duora.conta.dominio.RepositorioDeAceites;
 import bipotheking.net.duora.conta.dominio.RepositorioDeContas;
+import bipotheking.net.duora.conta.dominio.RepositorioDeVerificacoes;
 import bipotheking.net.duora.conta.dominio.Token;
 import bipotheking.net.duora.notificacao.MensagemDeEmail;
 import bipotheking.net.duora.notificacao.infra.DespachanteDaOutbox;
@@ -62,6 +65,7 @@ class ExclusaoApiTest extends BancoDeTeste {
   @Autowired private RandomGenerator aleatorio;
   @Autowired private DespachanteDaOutbox despachante;
   @Autowired private EmailNoLog emailNoLog;
+  @Autowired private RepositorioDeVerificacoes verificacoes;
 
   @BeforeEach
   void esquecerOGancho() {
@@ -134,6 +138,22 @@ class ExclusaoApiTest extends BancoDeTeste {
     excluir(conta, CONFIRMO).andExpect(status().isNoContent());
 
     assertThat(gancho.chamadas()).containsExactly(new Chamada(conta.id(), true));
+  }
+
+  @Test
+  void exclusaoApagaVerificacaoETentativas() throws Exception {
+    ContaDeTeste conta = contas.criarAtiva();
+    verificacoes.reservar(conta.id(), FinalidadeDaTentativa.SELFIE, 3, INICIO);
+    verificacoes.reservar(conta.id(), FinalidadeDaTentativa.DOCUMENTO, 2, INICIO);
+    verificacoes.gravarAprovacao(conta.id(), MetodoDeVerificacao.DOCUMENTO, INICIO);
+
+    excluir(conta, CONFIRMO).andExpect(status().isNoContent());
+
+    assertThat(contarDaConta("select count(*) from verificacao_idade where conta_id = :id", conta))
+        .isZero();
+    assertThat(
+            contarDaConta("select count(*) from tentativa_verificacao where conta_id = :id", conta))
+        .isZero();
   }
 
   /**

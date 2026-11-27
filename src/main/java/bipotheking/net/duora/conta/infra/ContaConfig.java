@@ -3,9 +3,9 @@ package bipotheking.net.duora.conta.infra;
 import bipotheking.net.duora.conta.ConsultaDeContas;
 import bipotheking.net.duora.conta.ContaResumo;
 import bipotheking.net.duora.conta.ResumoDeEmail;
-import bipotheking.net.duora.conta.dominio.Conta;
 import bipotheking.net.duora.conta.dominio.DominiosDescartaveis;
 import bipotheking.net.duora.conta.dominio.RepositorioDeContas;
+import bipotheking.net.duora.conta.dominio.RepositorioDeVerificacoes;
 import bipotheking.net.duora.conta.dominio.VerificacaoHumana;
 import java.io.BufferedReader;
 import java.io.IOException;
@@ -41,11 +41,13 @@ class ContaConfig {
   /**
    * A consulta é o repositório visto de fora: a conta inteira reduzida ao {@link ContaResumo}. Fica
    * fora do {@code ContasJdbc} porque as duas portas têm {@code porId(ContaId)} com retornos
-   * diferentes, e uma classe Java não implementa as duas.
+   * diferentes, e uma classe Java não implementa as duas. O selo {@code verificada} vem da
+   * aprovação da verificação de idade.
    */
   @Bean
-  ConsultaDeContas consultaDeContas(RepositorioDeContas contas) {
-    return id -> contas.porId(id).map(Conta::resumo);
+  ConsultaDeContas consultaDeContas(
+      RepositorioDeContas contas, RepositorioDeVerificacoes verificacoes) {
+    return id -> contas.porId(id).map(conta -> conta.resumo(verificacoes.aprovada(id)));
   }
 
   @Bean
