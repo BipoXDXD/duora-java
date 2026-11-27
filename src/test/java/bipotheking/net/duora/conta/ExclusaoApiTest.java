@@ -82,7 +82,7 @@ class ExclusaoApiTest extends BancoDeTeste {
   @Test
   void excluiDadosPessoais() throws Exception {
     ContaDeTeste conta = contas.criarAtiva();
-    sessoes.abrir(conta.id());
+    sessoes.abrir(conta.id(), OrigemDeTeste.LOCAL);
     aceitar(conta);
     pedirLink(emailDe(conta));
     Instant agora = INICIO.plusSeconds(90);

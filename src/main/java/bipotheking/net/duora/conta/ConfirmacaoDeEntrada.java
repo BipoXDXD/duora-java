@@ -6,6 +6,7 @@ import bipotheking.net.duora.conta.dominio.RepositorioDeBloqueios;
 import bipotheking.net.duora.conta.dominio.RepositorioDeContas;
 import bipotheking.net.duora.conta.dominio.RepositorioDeLinks;
 import bipotheking.net.duora.nucleo.ErroDeNegocio;
+import bipotheking.net.duora.nucleo.Origem;
 import bipotheking.net.duora.nucleo.Resumos;
 import bipotheking.net.duora.web.LimiteDeTaxa;
 import java.time.Clock;
@@ -73,26 +74,28 @@ public class ConfirmacaoDeEntrada {
   }
 
   /**
-   * Confirma o link e abre uma sessão, encerrando a anterior do mesmo navegador.
+   * Confirma o link e abre uma sessão, encerrando a anterior do mesmo navegador. O limite de taxa
+   * conta por IP; o registro de acesso do login guarda IP e porta.
    *
    * @throws ErroDeNegocio {@code LIMITE_DE_TAXA}, {@code LINK_INVALIDO} ou {@code
    *     CONTA_INDISPONIVEL}
    */
   public ResultadoDaConfirmacao confirmar(
-      @Nullable String token, String ip, Optional<String> tokenDaSessaoAnterior) {
-    limiteDeTaxa.consumir(LIMITE_POR_IP, ip);
+      @Nullable String token, Origem origem, Optional<String> tokenDaSessaoAnterior) {
+    limiteDeTaxa.consumir(LIMITE_POR_IP, origem.ip());
     if (token == null || token.isEmpty() || token.length() > TAMANHO_MAXIMO_DO_TOKEN) {
       throw linkInvalido();
     }
     ResultadoDaConfirmacao resultado =
-        transacao.execute(status -> efetuar(token, tokenDaSessaoAnterior));
+        transacao.execute(status -> efetuar(token, origem, tokenDaSessaoAnterior));
     if (resultado == null) {
       throw new IllegalStateException("A transação da confirmação não devolveu resultado");
     }
     return resultado;
   }
 
-  private ResultadoDaConfirmacao efetuar(String token, Optional<String> tokenDaSessaoAnterior) {
+  private ResultadoDaConfirmacao efetuar(
+      String token, Origem origem, Optional<String> tokenDaSessaoAnterior) {
     Email email =
         links
             .consumir(Resumos.sha256(token), relogio.instant())
@@ -115,7 +118,7 @@ public class ConfirmacaoDeEntrada {
           CodigoSessao.CONTA_INDISPONIVEL, CodigoSessao.CONTA_INDISPONIVEL.mensagem());
     }
     tokenDaSessaoAnterior.ifPresent(sessoes::encerrar);
-    String tokenDaSessao = sessoes.abrir(conta);
+    String tokenDaSessao = sessoes.abrir(conta, origem);
     LOG.info("Entrada confirmada para a conta {}", conta);
     return new ResultadoDaConfirmacao(tokenDaSessao, estado.cadastroConcluido());
   }
