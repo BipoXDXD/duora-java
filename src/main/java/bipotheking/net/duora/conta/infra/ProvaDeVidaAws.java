@@ -8,6 +8,7 @@ import bipotheking.net.duora.conta.dominio.ProvaDeVida;
 import bipotheking.net.duora.conta.dominio.ResultadoDaProva;
 import bipotheking.net.duora.conta.dominio.SessaoDeProva;
 import java.util.Objects;
+import java.util.Set;
 import java.util.UUID;
 import java.util.function.Supplier;
 import org.jspecify.annotations.Nullable;
@@ -26,10 +27,11 @@ import software.amazon.awssdk.services.sts.model.Credentials;
  * {@code AssumeRole} do papel de captura, a credencial de 15 minutos com que o navegador só pode
  * iniciar o streaming da sessão.
  *
- * <p>Falha de rede, timeout, 5xx, 401, 403 e limitação viram {@link FornecedorIndisponivel}, sem a
- * exceção do SDK como causa: a mensagem da AWS traz ARN e conta. O log diz só a operação, o status,
- * o código do erro e o id da requisição. Outro 4xx é pedido malformado nosso e sobe como veio (bug,
- * 500).
+ * <p>Falha de rede, timeout, 5xx, acesso negado (401, 403 ou código de credencial recusada, já que
+ * o Rekognition o devolve como 400) e limitação viram {@link FornecedorIndisponivel}. Outro 4xx é
+ * pedido malformado nosso e vira {@link IllegalStateException} (bug, 500). Em nenhum caso a exceção
+ * do SDK vai como causa nem sua mensagem é copiada: ela traz ARN e conta. O log diz só a operação,
+ * o status, o código do erro e o id da requisição.
  */
 final class ProvaDeVidaAws implements ProvaDeVida, CredencialDoNavegador, AutoCloseable {
 
@@ -41,6 +43,16 @@ final class ProvaDeVidaAws implements ProvaDeVida, CredencialDoNavegador, AutoCl
   static final int DURACAO_DA_CREDENCIAL_EM_SEGUNDOS = 900;
 
   private static final Logger LOG = LoggerFactory.getLogger(ProvaDeVidaAws.class);
+
+  /** Credencial, assinatura ou permissão recusada; {@code ExpiredToken*} entra pelo prefixo. */
+  private static final Set<String> CODIGOS_DE_ACESSO_NEGADO =
+      Set.of(
+          "AccessDeniedException",
+          "AccessDenied",
+          "UnrecognizedClientException",
+          "InvalidClientTokenId",
+          "InvalidSignatureException",
+          "SignatureDoesNotMatch");
 
   private static final String FORNECEDOR = "aws";
   private static final String CRIAR_SESSAO = "criar-sessao";
@@ -126,10 +138,11 @@ final class ProvaDeVidaAws implements ProvaDeVida, CredencialDoNavegador, AutoCl
     }
   }
 
-  private static FornecedorIndisponivel traduzir(String operacao, AwsServiceException e) {
+  /** Devolve a exceção a lançar; nunca a do SDK, cuja mensagem traz ARN e conta. */
+  private static RuntimeException traduzir(String operacao, AwsServiceException e) {
     int status = e.statusCode();
     String codigo = codigo(e.awsErrorDetails());
-    if (status == 401 || status == 403) {
+    if (acessoNegado(status, codigo)) {
       LOG.error(
           "AWS negou {} ({} {}, requisição {}): confira IAM do usuário da verificação e do papel"
               + " de captura",
@@ -144,7 +157,25 @@ final class ProvaDeVidaAws implements ProvaDeVida, CredencialDoNavegador, AutoCl
           "AWS indisponível em {} ({} {}, requisição {})", operacao, status, codigo, e.requestId());
       return indisponivel(operacao);
     }
-    throw e;
+    LOG.error(
+        "AWS recusou o pedido em {} ({} {}, requisição {}): pedido malformado",
+        operacao,
+        status,
+        codigo,
+        e.requestId());
+    return new IllegalStateException(
+        "AWS recusou o pedido em " + operacao + " (" + status + " " + codigo + ")");
+  }
+
+  /**
+   * O Rekognition devolve o acesso negado como HTTP 400, e o STS usa 400 e 403 conforme o código:
+   * vale o status ou o código do erro.
+   */
+  private static boolean acessoNegado(int status, String codigo) {
+    return status == 401
+        || status == 403
+        || CODIGOS_DE_ACESSO_NEGADO.contains(codigo)
+        || codigo.startsWith("ExpiredToken");
   }
 
   private static String codigo(@Nullable AwsErrorDetails detalhes) {
