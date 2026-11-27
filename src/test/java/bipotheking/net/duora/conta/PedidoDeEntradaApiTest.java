@@ -103,7 +103,7 @@ class PedidoDeEntradaApiTest extends BancoDeTeste {
 
     assertThatThrownBy(() ->
             transacao.executeWithoutResult(status -> {
-              pedidoDeEntrada.gravarLinkEMensagem(email, Token.novo(aleatorio));
+              pedidoDeEntrada.registrarNaTransacao(email, Token.novo(aleatorio));
               throw new IllegalStateException("falha forçada depois da outbox");
             }))
         .hasMessage("falha forçada depois da outbox");
@@ -231,7 +231,7 @@ class PedidoDeEntradaApiTest extends BancoDeTeste {
       Future<?> primeiro =
           threads.submit(() ->
               transacao.executeWithoutResult(status -> {
-                pedidoDeEntrada.gravarLinkEMensagem(email, Token.novo(aleatorio));
+                pedidoDeEntrada.registrarNaTransacao(email, Token.novo(aleatorio));
                 primeiroGravou.countDown();
                 aguardar(soltarPrimeiro);
               }));
@@ -241,7 +241,7 @@ class PedidoDeEntradaApiTest extends BancoDeTeste {
         segundo =
             threads.submit(() ->
                 transacao.executeWithoutResult(
-                    status -> pedidoDeEntrada.gravarLinkEMensagem(email, Token.novo(aleatorio))));
+                    status -> pedidoDeEntrada.registrarNaTransacao(email, Token.novo(aleatorio))));
         segundoEsperou = travaEmEspera();
       } finally {
         soltarPrimeiro.countDown();

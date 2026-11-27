@@ -3,8 +3,10 @@ package bipotheking.net.duora.conta.dominio;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+import bipotheking.net.duora.conta.CodigoCadastro;
 import bipotheking.net.duora.conta.ContaId;
 import bipotheking.net.duora.conta.EstadoConta;
+import bipotheking.net.duora.nucleo.ErroDeNegocio;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.util.UUID;
@@ -20,6 +22,7 @@ class ContaTest {
   private static final Email EMAIL = new Email("ana@teste.duora.invalid");
   private static final LocalDate NASCIMENTO = LocalDate.of(1990, 5, 10);
   private static final Instant AGORA = Instant.parse("2026-11-22T12:00:00Z");
+  private static final LocalDate HOJE = LocalDate.of(2026, 11, 22);
 
   @Test
   void pendenteSemNascimentoNemAtivacaoValida() {
@@ -63,6 +66,72 @@ class ContaTest {
   @Test
   void banidaSemAtivacaoValida() {
     assertThat(conta(EstadoConta.BANIDA, EMAIL, NASCIMENTO, null).ativadaEm()).isNull();
+  }
+
+  @Test
+  void pendenteMaiorConclui() {
+    assertThat(pendente().concluirCadastro(NASCIMENTO, HOJE))
+        .isInstanceOf(ResultadoDoCadastro.Concluido.class);
+  }
+
+  @Test
+  void pendenteMenorRecusada() {
+    assertThat(pendente().concluirCadastro(LocalDate.of(2008, 11, 23), HOJE))
+        .isInstanceOf(ResultadoDoCadastro.RecusadoPorIdade.class);
+  }
+
+  @Test
+  void aguardandoNaoConcluiDeNovo() {
+    Conta aguardando = conta(EstadoConta.AGUARDANDO_VERIFICACAO, EMAIL, NASCIMENTO, null);
+
+    assertThatThrownBy(() -> aguardando.concluirCadastro(NASCIMENTO, HOJE))
+        .isInstanceOfSatisfying(
+            ErroDeNegocio.class,
+            erro -> assertThat(erro.codigo()).isEqualTo(CodigoCadastro.CADASTRO_JA_CONCLUIDO));
+  }
+
+  @Test
+  void pendenteSemDataRecusada() {
+    assertThatThrownBy(() -> pendente().concluirCadastro(null, HOJE))
+        .isInstanceOfSatisfying(
+            ErroDeNegocio.class,
+            erro -> assertThat(erro.codigo()).isEqualTo(CodigoCadastro.DATA_INVALIDA));
+  }
+
+  @Test
+  void aguardandoSemDataRecebeCadastroJaConcluido() {
+    Conta aguardando = conta(EstadoConta.AGUARDANDO_VERIFICACAO, EMAIL, NASCIMENTO, null);
+
+    assertThatThrownBy(() -> aguardando.concluirCadastro(null, HOJE))
+        .isInstanceOfSatisfying(
+            ErroDeNegocio.class,
+            erro -> assertThat(erro.codigo()).isEqualTo(CodigoCadastro.CADASTRO_JA_CONCLUIDO));
+  }
+
+  @Test
+  void dataFuturaRecusada() {
+    assertThatThrownBy(() -> pendente().concluirCadastro(HOJE.plusDays(1), HOJE))
+        .isInstanceOfSatisfying(
+            ErroDeNegocio.class,
+            erro -> assertThat(erro.codigo()).isEqualTo(CodigoCadastro.DATA_INVALIDA));
+  }
+
+  @Test
+  void dataAntesDe1900Recusada() {
+    assertThatThrownBy(() -> pendente().concluirCadastro(LocalDate.of(1899, 12, 31), HOJE))
+        .isInstanceOfSatisfying(
+            ErroDeNegocio.class,
+            erro -> assertThat(erro.codigo()).isEqualTo(CodigoCadastro.DATA_INVALIDA));
+  }
+
+  @Test
+  void data1900_01_01Aceita() {
+    assertThat(pendente().concluirCadastro(LocalDate.of(1900, 1, 1), HOJE))
+        .isInstanceOf(ResultadoDoCadastro.Concluido.class);
+  }
+
+  private static Conta pendente() {
+    return conta(EstadoConta.PENDENTE, EMAIL, null, null);
   }
 
   private static Conta conta(
