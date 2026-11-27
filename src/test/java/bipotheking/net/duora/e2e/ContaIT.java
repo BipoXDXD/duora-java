@@ -10,7 +10,6 @@ import com.microsoft.playwright.Page;
 import com.microsoft.playwright.options.AriaRole;
 import java.time.LocalDate;
 import java.util.List;
-import java.util.UUID;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 
@@ -38,7 +37,7 @@ class ContaIT extends ContaE2eBase {
     conta.confirmarEntrada();
     conta.concluirCadastro(NASCIMENTO_DE_ADULTO);
 
-    assertThat(heading(conta.page(), "Cadastro recebido")).isVisible();
+    assertThat(conta.heading("Cadastro recebido")).isVisible();
   }
 
   @Test
@@ -51,7 +50,8 @@ class ContaIT extends ContaE2eBase {
     conta.confirmarEntrada();
     conta.concluirCadastro(NASCIMENTO_DE_MENOR);
 
-    assertThat(conta.page().getByText("O Duora é só para maiores de 18 anos.")).isVisible();
+    assertThat(conta.page().getByText("O Duora é só para maiores de 18 anos. Não criamos a conta."))
+        .isVisible();
     conta.abrir(raiz() + "conta");
     assertThat(conta.page()).hasURL(raiz() + "entrar");
   }
@@ -64,7 +64,7 @@ class ContaIT extends ContaE2eBase {
     String link = linkRecebido(email);
     conta.abrirLink(link);
     conta.confirmarEntrada();
-    assertThat(heading(conta.page(), "Falta pouco")).isVisible();
+    assertThat(conta.heading("Falta pouco")).isVisible();
 
     conta.abrirLink(link);
     conta.confirmarEntrada();
@@ -74,6 +74,19 @@ class ContaIT extends ContaE2eBase {
                 .page()
                 .getByRole(AriaRole.LINK, new Page.GetByRoleOptions().setName("Pedir novo link")))
         .isVisible();
+  }
+
+  /** O helper da base entrega o link de cada pedido, não o do pedido anterior. */
+  @Test
+  void segundoPedidoTrazLinkNovo(Participantes participantes) {
+    ContaPagina conta = novaConta(participantes);
+    String email = emailNovo();
+    conta.abrir(raiz() + "entrar").pedirLink(email);
+    String primeiro = linkRecebido(email);
+
+    conta.pedirLink(email);
+
+    assertThat(linkRecebido(email)).isNotEqualTo(primeiro);
   }
 
   /** No WebKit a flag de cookie seguro está desligada; quem prova o {@code Secure} é a API (C4). */
@@ -86,7 +99,7 @@ class ContaIT extends ContaE2eBase {
     assertThat(nomesDosCookies(conta.page())).contains(COOKIE_DA_SESSAO);
     conta.page().reload();
     assertThat(conta.page()).hasURL(raiz() + "aguardando");
-    assertThat(heading(conta.page(), "Cadastro recebido")).isVisible();
+    assertThat(conta.heading("Cadastro recebido")).isVisible();
   }
 
   @Test
@@ -98,7 +111,9 @@ class ContaIT extends ContaE2eBase {
     semSessao.abrir(raiz());
 
     assertThat(linkDoTopo(comSessao.page(), "Minha conta")).isVisible();
+    assertThat(linkDoTopo(comSessao.page(), "Entrar")).hasCount(0);
     assertThat(linkDoTopo(semSessao.page(), "Entrar")).isVisible();
+    assertThat(linkDoTopo(semSessao.page(), "Minha conta")).hasCount(0);
   }
 
   private static ContaPagina novaConta(Participantes participantes) {
@@ -107,16 +122,8 @@ class ContaIT extends ContaE2eBase {
     return ContaPagina.de(pagina);
   }
 
-  private static String emailNovo() {
-    return "conta-" + UUID.randomUUID() + "@exemplo.com";
-  }
-
   private static List<String> nomesDosCookies(Page page) {
     return page.context().cookies().stream().map(cookie -> cookie.name).toList();
-  }
-
-  private static Locator heading(Page page, String nome) {
-    return page.getByRole(AriaRole.HEADING, new Page.GetByRoleOptions().setName(nome));
   }
 
   private static Locator linkDoTopo(Page page, String nome) {

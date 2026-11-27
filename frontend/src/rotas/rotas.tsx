@@ -3,7 +3,7 @@ import type { RouteObject } from "react-router";
 import type { DadosDaConfirmacao } from "../telas/conta/ConfirmarEntrada";
 import { ErroDaConta } from "./ErroDaConta";
 import { exigirConta } from "./guardas";
-import { LayoutDeConta } from "./LayoutDeConta";
+import { LARGURA_DE_LEITURA, LayoutDeConta } from "./LayoutDeConta";
 import { NaoEncontrada } from "./NaoEncontrada";
 
 export interface ContextoDaCasca {
@@ -31,6 +31,7 @@ export function criarRotas({ clienteDeConsulta, tomarTokenDoLink }: ContextoDaCa
         {
           path: "entrar",
           lazy: async () => ({ Component: (await import("../telas/conta/Entrar")).Entrar }),
+          ErrorBoundary: ErroDaConta,
         },
         {
           path: "entrar/confirmar",
@@ -59,6 +60,21 @@ export function criarRotas({ clienteDeConsulta, tomarTokenDoLink }: ContextoDaCa
           path: "conta",
           loader: () => exigirConta(clienteDeConsulta, ["AGUARDANDO_VERIFICACAO", "ATIVA"]),
           lazy: async () => ({ Component: (await import("../telas/conta/MinhaConta")).MinhaConta }),
+          ErrorBoundary: ErroDaConta,
+        },
+        {
+          path: "termos",
+          handle: LARGURA_DE_LEITURA,
+          lazy: async () => ({ Component: (await import("../telas/legal/DocumentoLegalPagina")).TermosDeUso }),
+          // Também cobre a falha ao baixar o chunk da tela.
+          ErrorBoundary: ErroDaConta,
+        },
+        {
+          path: "privacidade",
+          handle: LARGURA_DE_LEITURA,
+          lazy: async () => ({
+            Component: (await import("../telas/legal/DocumentoLegalPagina")).PoliticaDePrivacidade,
+          }),
           ErrorBoundary: ErroDaConta,
         },
         { path: "*", Component: NaoEncontrada },

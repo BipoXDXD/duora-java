@@ -1,11 +1,12 @@
 import { render, screen } from "@testing-library/react";
 import { createRef } from "react";
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { Visao, VisaoAbertura } from "../dominio/visao";
 import type { AcoesDaSessao } from "../sessao/sessao";
 import type { EstadoDaSessao } from "../sessao/tipos";
 import { renderComCenario } from "../teste/comCenario";
 import { Painel } from "./Painel";
+import { stubarFetch } from "../teste/fetchFalso";
 
 const ENCERRADO: EstadoDaSessao = {
   tela: "encerrado",
@@ -80,7 +81,24 @@ function desenharMontagem(abertura: VisaoAbertura | null) {
   );
 }
 
+// O rodapé da entrada pede o contato ao servidor: o fetch falso responde.
+beforeEach(() => {
+  stubarFetch();
+});
+
+afterEach(() => {
+  vi.unstubAllGlobals();
+});
+
 describe("Painel", () => {
+  it("montagemSemRodape", () => {
+    desenharMontagem({ ativa: false, voceTocou: false, outroTocou: false, acesa: true });
+
+    expect(screen.getByRole("heading", { name: "Suas peças" })).toBeVisible();
+    expect(screen.queryByRole("link", { name: "Termos de uso" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: "Privacidade" })).not.toBeInTheDocument();
+  });
+
   it("entradaComConviteDizRecebeu", () => {
     renderComCenario(
       <Painel
