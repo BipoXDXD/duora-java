@@ -32,7 +32,7 @@ const CHROME = 'com.android.chrome';
 const RAIZ_REPO = resolve(dirname(fileURLToPath(import.meta.url)), '../..');
 export const SAIDA = join(RAIZ_REPO, 'target', 'android');
 const SERIAL = `emulator-${process.env.DUORA_AVD_PORTA ?? '5580'}`;
-const PORTA_CDP = Number(process.env.DUORA_CDP_PORTA ?? '9333');
+export const PORTA_CDP = Number(process.env.DUORA_CDP_PORTA ?? '9333');
 const TEXTOS_FECHAR_PROMO = ['No thanks', 'No, thanks', 'Not now', 'Got it'];
 // "Add to home screen" também aparece em páginas não instaláveis; só "Install app" indica PWA.
 const TEXTO_MENU_INSTALAR = 'Install app';
@@ -40,7 +40,7 @@ const TEXTOS_CONFIRMAR_LAUNCHER = ['Add to home screen', 'Add automatically', 'A
 // Android 13 (API 33) criou a permissão POST_NOTIFICATIONS.
 const SDK_COM_PERMISSAO_DE_NOTIFICACAO = 33;
 
-class Falha extends Error {}
+export class Falha extends Error {}
 
 const esperar = (ms) => new Promise((r) => setTimeout(r, ms));
 const log = (msg) => console.log(`==> ${msg}`);
@@ -198,9 +198,15 @@ function abrirSessao(wsUrl) {
   return new Promise((ok, erro) => {
     const ws = new WebSocket(wsUrl);
     const pendentes = new Map();
+    const ouvintes = new Map();
     let proximoId = 0;
     ws.onmessage = ({ data }) => {
       const msg = JSON.parse(data);
+      // Evento do CDP: tem method e não tem id.
+      if (msg.id === undefined) {
+        ouvintes.get(msg.method)?.(msg.params);
+        return;
+      }
       const p = pendentes.get(msg.id);
       if (!p) return;
       pendentes.delete(msg.id);
@@ -213,6 +219,8 @@ function abrirSessao(wsUrl) {
         pendentes.set(id, { ok: ok2, erro: erro2 });
         ws.send(JSON.stringify({ id, method, params }));
       }),
+      /** Um ouvinte por evento; o domínio do evento precisa estar ligado (ex.: Runtime.enable). */
+      ouvir: (method, ouvinte) => ouvintes.set(method, ouvinte),
       fechar: () => ws.close(),
     });
   });
