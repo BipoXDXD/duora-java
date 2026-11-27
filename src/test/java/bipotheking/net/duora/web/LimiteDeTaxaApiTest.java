@@ -30,4 +30,16 @@ class LimiteDeTaxaApiTest extends BancoDeTeste {
         .andExpect(jsonPath("$.codigo").value("LIMITE_DE_TAXA"))
         .andExpect(header().string(HttpHeaders.RETRY_AFTER, "900"));
   }
+
+  @Test
+  void baldeZeradoEntreTestes() throws Exception {
+    for (int i = 0; i < 3; i++) {
+      mvc.perform(pedidoDoIp("10.0.0.8")).andExpect(status().isNoContent());
+    }
+    mvc.perform(pedidoDoIp("10.0.0.8")).andExpect(status().isTooManyRequests());
+
+    limpar();
+
+    mvc.perform(pedidoDoIp("10.0.0.8")).andExpect(status().isNoContent());
+  }
 }

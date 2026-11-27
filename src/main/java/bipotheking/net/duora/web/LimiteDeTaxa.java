@@ -49,6 +49,11 @@ public class LimiteDeTaxa {
     }
   }
 
+  /** Esvazia o cache de baldes. Existe para isolar os testes que dividem o mesmo contexto. */
+  void esquecerBaldes() {
+    baldes.invalidateAll();
+  }
+
   private Regra regraConfigurada(String regra) {
     Regra configurada = limites.regras().get(regra);
     if (configurada == null) {
