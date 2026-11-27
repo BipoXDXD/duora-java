@@ -3,6 +3,7 @@ package bipotheking.net.duora.conta.infra;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import java.net.URI;
+import java.util.concurrent.atomic.AtomicBoolean;
 import org.junit.jupiter.api.Assumptions;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
@@ -25,18 +26,25 @@ class TurnstileChavesDeTesteIT {
     Assumptions.assumeTrue("chromium".equals(System.getProperty("navegador", "chromium")));
   }
 
-  private static TurnstileVerificacao com(String segredo) {
-    return TurnstileVerificacao.comTimeouts(
-        RestClient.builder(), new TurnstileConfig("1x00000000000000000000AA", segredo, URL));
+  /** Monta como a produção: builder do Boot (Jackson estrito) passando por {@code comTimeouts}. */
+  private static boolean verificarCom(String segredo) {
+    AtomicBoolean resultado = new AtomicBoolean();
+    TurnstileComBuilderDoBootTest.CONTEXTO.run(contexto ->
+        resultado.set(
+            TurnstileVerificacao.comTimeouts(
+                    contexto.getBean(RestClient.Builder.class),
+                    new TurnstileConfig("1x00000000000000000000AA", segredo, URL))
+                .verificar(TOKEN_FALSO, IP)));
+    return resultado.get();
   }
 
   @Test
   void segredoQueSempreAceitaDevolveTrue() {
-    assertThat(com("1x0000000000000000000000000000000AA").verificar(TOKEN_FALSO, IP)).isTrue();
+    assertThat(verificarCom("1x0000000000000000000000000000000AA")).isTrue();
   }
 
   @Test
   void segredoQueSempreRecusaDevolveFalse() {
-    assertThat(com("2x0000000000000000000000000000000AA").verificar(TOKEN_FALSO, IP)).isFalse();
+    assertThat(verificarCom("2x0000000000000000000000000000000AA")).isFalse();
   }
 }

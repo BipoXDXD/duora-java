@@ -1,7 +1,12 @@
 package bipotheking.net.duora.conta.infra;
 
 import bipotheking.net.duora.conta.dominio.VerificacaoHumana;
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
+import com.fasterxml.jackson.annotation.JsonProperty;
 import java.time.Duration;
+import java.util.List;
+import java.util.Set;
+import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.boot.http.client.ClientHttpRequestFactoryBuilder;
@@ -24,6 +29,9 @@ class TurnstileVerificacao implements VerificacaoHumana {
 
   /** Limite documentado pela Cloudflare para o token do widget. */
   private static final int TAMANHO_MAXIMO_DO_TOKEN = 2048;
+
+  private static final Set<String> ERROS_DE_CONFIGURACAO =
+      Set.of("missing-input-secret", "invalid-input-secret");
 
   private static final Duration TIMEOUT_DE_CONEXAO = Duration.ofSeconds(3);
   private static final Duration TIMEOUT_DE_LEITURA = Duration.ofSeconds(5);
@@ -48,14 +56,16 @@ class TurnstileVerificacao implements VerificacaoHumana {
   }
 
   @Override
-  public boolean verificar(String token, String ip) {
-    if (token.isBlank() || token.length() > TAMANHO_MAXIMO_DO_TOKEN) {
+  public boolean verificar(@Nullable String token, @Nullable String ip) {
+    if (token == null || token.isBlank() || token.length() > TAMANHO_MAXIMO_DO_TOKEN) {
       return false;
     }
     MultiValueMap<String, String> formulario = new LinkedMultiValueMap<>();
     formulario.add("secret", config.segredo());
     formulario.add("response", token);
-    formulario.add("remoteip", ip);
+    if (ip != null && !ip.isBlank()) {
+      formulario.add("remoteip", ip);
+    }
     try {
       RespostaSiteverify resposta =
           cliente
@@ -65,7 +75,11 @@ class TurnstileVerificacao implements VerificacaoHumana {
               .body(formulario)
               .retrieve()
               .body(RespostaSiteverify.class);
-      return resposta != null && resposta.success();
+      if (resposta == null) {
+        return false;
+      }
+      avisarSeOSegredoFoiRecusado(resposta);
+      return resposta.success();
     } catch (RestClientResponseException e) {
       LOG.warn("Turnstile respondeu {}: verificação humana recusada", e.getStatusCode().value());
       return false;
@@ -77,6 +91,26 @@ class TurnstileVerificacao implements VerificacaoHumana {
     }
   }
 
-  /** Só o campo que decide; os demais ({@code error-codes}, {@code hostname}…) são ignorados. */
-  record RespostaSiteverify(boolean success) {}
+  /** Segredo ausente ou inválido é erro de configuração, não de robô: merece aviso. */
+  private static void avisarSeOSegredoFoiRecusado(RespostaSiteverify resposta) {
+    List<String> deConfiguracao =
+        resposta.codigosDeErro().stream().filter(ERROS_DE_CONFIGURACAO::contains).toList();
+    if (!deConfiguracao.isEmpty()) {
+      LOG.warn("Turnstile recusou o segredo {}: confira duora.turnstile.segredo", deConfiguracao);
+    }
+  }
+
+  /**
+   * Só os campos que interessam. A resposta real traz {@code challenge_ts}, {@code hostname},
+   * {@code action} e {@code cdata}, e o Jackson da aplicação recusa campo desconhecido.
+   */
+  @JsonIgnoreProperties(ignoreUnknown = true)
+  record RespostaSiteverify(
+      boolean success, @JsonProperty("error-codes") List<String> codigosDeErro) {
+
+    /** {@code error-codes} ausente vira lista vazia. */
+    RespostaSiteverify {
+      codigosDeErro = codigosDeErro == null ? List.of() : List.copyOf(codigosDeErro);
+    }
+  }
 }

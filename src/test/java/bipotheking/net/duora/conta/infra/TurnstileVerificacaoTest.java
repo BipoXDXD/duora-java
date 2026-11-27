@@ -21,10 +21,14 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.NullAndEmptySource;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.boot.test.system.CapturedOutput;
 import org.springframework.boot.test.system.OutputCaptureExtension;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.MediaType;
+import org.springframework.mock.http.client.MockClientHttpRequest;
 import org.springframework.test.web.client.MockRestServiceServer;
 import org.springframework.web.client.RestClient;
 
@@ -90,15 +94,53 @@ class TurnstileVerificacaoTest {
 
   @Test
   void corpoTemSecretResponseERemoteip() {
+    String tokenComReservados = "a+b&c=d/e";
     server
         .expect(requestTo(URL))
         .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_FORM_URLENCODED))
         .andExpect(
             content()
-                .formDataContains(Map.of("secret", SEGREDO, "response", TOKEN, "remoteip", IP)))
+                .formDataContains(
+                    Map.of("secret", SEGREDO, "response", tokenComReservados, "remoteip", IP)))
         .andRespond(withSuccess("{\"success\": true}", MediaType.APPLICATION_JSON));
 
-    verificacao.verificar(TOKEN, IP);
+    verificacao.verificar(tokenComReservados, IP);
+    server.verify();
+  }
+
+  @ParameterizedTest
+  @NullAndEmptySource
+  @ValueSource(strings = " ")
+  void ipAusenteOmiteRemoteip(String ip) {
+    server
+        .expect(requestTo(URL))
+        .andExpect(content().formDataContains(Map.of("secret", SEGREDO, "response", TOKEN)))
+        .andExpect(pedido ->
+            assertThat(((MockClientHttpRequest) pedido).getBodyAsString())
+                .doesNotContain("remoteip"))
+        .andRespond(withSuccess("{\"success\": true}", MediaType.APPLICATION_JSON));
+
+    assertThat(verificacao.verificar(TOKEN, ip)).isTrue();
+    server.verify();
+  }
+
+  @Test
+  void segredoInvalidoLogaWarnDeConfiguracao(CapturedOutput saida) {
+    responder(
+        """
+        {"success": false, "error-codes": ["invalid-input-secret"]}
+        """);
+
+    assertThat(verificacao.verificar(TOKEN, IP)).isFalse();
+    assertThat(saida.getOut())
+        .contains("WARN")
+        .contains("duora.turnstile.segredo")
+        .doesNotContain(SEGREDO);
+  }
+
+  @Test
+  void tokenNuloNaoFazRequisicao() {
+    assertThat(verificacao.verificar(null, IP)).isFalse();
     server.verify();
   }
 
@@ -115,8 +157,8 @@ class TurnstileVerificacaoTest {
   }
 
   @Test
-  void respostaQueDemora6sViraFalseEmMenosDe6s() throws IOException {
-    Duration atraso = Duration.ofSeconds(6);
+  void respostaQueDemora10sViraFalseEmMenosDe8s() throws IOException {
+    Duration atraso = Duration.ofSeconds(10);
     ExecutorService threads = Executors.newCachedThreadPool();
     HttpServer lento =
         HttpServer.create(new InetSocketAddress(InetAddress.getLoopbackAddress(), 0), 0);
@@ -146,7 +188,7 @@ class TurnstileVerificacaoTest {
       Duration decorrido = Duration.ofNanos(System.nanoTime() - inicio);
 
       assertThat(resultado).isFalse();
-      assertThat(decorrido).isLessThan(atraso);
+      assertThat(decorrido).isLessThan(Duration.ofSeconds(8));
     } finally {
       lento.stop(0);
       threads.shutdownNow();

@@ -4,12 +4,14 @@ import bipotheking.net.duora.conta.dominio.VerificacaoHumana;
 import java.time.Duration;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
+import org.jspecify.annotations.Nullable;
 import org.springframework.context.annotation.Primary;
 import org.springframework.stereotype.Component;
 
 /**
  * Dublê da verificação humana nos testes Spring, sem rede: aceita todo token menos {@code falha}
- * (inclusive o {@code XXXX.DUMMY.TOKEN.XXXX} do widget de teste do front).
+ * (inclusive o {@code XXXX.DUMMY.TOKEN.XXXX} do widget de teste do front). Token nulo, em branco ou
+ * com mais de 2048 caracteres é recusado, como no real.
  */
 @Component
 @Primary
@@ -17,13 +19,21 @@ public class VerificacaoHumanaDeTeste implements VerificacaoHumana {
 
   public static final String TOKEN_RECUSADO = "falha";
 
+  /**
+   * As mesmas pré-checagens do {@code TurnstileVerificacao}, para não aceitar o que o real recusa.
+   */
+  private static final int TAMANHO_MAXIMO_DO_TOKEN = 2048;
+
   private final AtomicInteger chamadas = new AtomicInteger();
   private final AtomicReference<Duration> atraso = new AtomicReference<>(Duration.ZERO);
 
   @Override
-  public boolean verificar(String token, String ip) {
+  public boolean verificar(@Nullable String token, @Nullable String ip) {
     chamadas.incrementAndGet();
     esperar();
+    if (token == null || token.isBlank() || token.length() > TAMANHO_MAXIMO_DO_TOKEN) {
+      return false;
+    }
     return !TOKEN_RECUSADO.equals(token);
   }
 
