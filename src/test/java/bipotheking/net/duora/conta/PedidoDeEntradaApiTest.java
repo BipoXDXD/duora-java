@@ -23,7 +23,6 @@ import java.time.OffsetDateTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
-import java.util.concurrent.Callable;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -182,35 +181,37 @@ class PedidoDeEntradaApiTest extends BancoDeTeste {
     assertThat(verificacaoHumana.chamadas()).isOne();
   }
 
+  /**
+   * O dublê segura o primeiro toque dentro do Turnstile; o segundo chega com a reserva ainda
+   * aberta.
+   */
   @Test
   void duploToqueSimultaneoUmTurnstile() throws Exception {
     String email = emailNovo();
     String chave = chaveNova();
-    verificacaoHumana.atrasar(Duration.ofMillis(300));
-    Callable<MockHttpServletResponse> toque =
-        () -> entrarComChave(email, chave).andReturn().getResponse();
+    verificacaoHumana.segurar();
 
-    List<MockHttpServletResponse> respostas = new ArrayList<>();
-    try (ExecutorService threads = Executors.newFixedThreadPool(2)) {
-      List<Future<MockHttpServletResponse>> toques = threads.invokeAll(List.of(toque, toque));
-      for (Future<MockHttpServletResponse> resultado : toques) {
-        respostas.add(resultado.get());
+    MockHttpServletResponse primeiro;
+    try (ExecutorService threads = Executors.newSingleThreadExecutor()) {
+      Future<MockHttpServletResponse> primeiroToque =
+          threads.submit(() -> entrarComChave(email, chave).andReturn().getResponse());
+      try {
+        assertThat(verificacaoHumana.aguardarChamada(ESPERA)).isTrue();
+        entrarComChave(email, chave)
+            .andExpect(status().isConflict())
+            .andExpect(jsonPath("$.codigo").value("REQUISICAO_EM_ANDAMENTO"))
+            .andExpect(header().string(HttpHeaders.RETRY_AFTER, "1"));
+      } finally {
+        verificacaoHumana.liberar();
       }
+      primeiro = primeiroToque.get();
     }
 
+    assertThat(primeiro.getStatus()).isEqualTo(202);
+    assertThat(primeiro.getContentAsString()).contains(MENSAGEM);
     assertThat(verificacaoHumana.chamadas()).isOne();
     assertThat(links()).isOne();
     assertThat(mensagens()).isOne();
-    assertThat(respostas).anySatisfy(resposta -> assertThat(resposta.getStatus()).isEqualTo(202));
-    for (MockHttpServletResponse resposta : respostas) {
-      if (resposta.getStatus() == 202) {
-        assertThat(resposta.getContentAsString()).contains(MENSAGEM);
-      } else {
-        assertThat(resposta.getStatus()).isEqualTo(409);
-        assertThat(resposta.getContentAsString()).contains("REQUISICAO_EM_ANDAMENTO");
-        assertThat(resposta.getHeader(HttpHeaders.RETRY_AFTER)).isEqualTo("1");
-      }
-    }
   }
 
   /**
