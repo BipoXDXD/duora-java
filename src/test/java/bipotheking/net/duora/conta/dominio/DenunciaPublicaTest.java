@@ -41,6 +41,52 @@ class DenunciaPublicaTest {
   }
 
   @Test
+  void construtorRecusaDescricaoForaDaFormaNormalizada() {
+    assertThatThrownBy(
+            () -> new DenunciaPublica(MotivoDeDenunciaPublica.GOLPE, " " + DESCRICAO, null, null))
+        .isInstanceOf(ErroDeNegocio.class)
+        .hasMessage("Conte o que aconteceu em 10 a 2000 caracteres.");
+  }
+
+  @Test
+  void construtorRecusaDescricaoCurta() {
+    assertThatThrownBy(
+            () -> new DenunciaPublica(MotivoDeDenunciaPublica.GOLPE, "curta", null, null))
+        .isInstanceOf(ErroDeNegocio.class)
+        .hasMessage("Conte o que aconteceu em 10 a 2000 caracteres.");
+  }
+
+  @Test
+  void construtorRecusaReferenciaEmBranco() {
+    assertThatThrownBy(
+            () -> new DenunciaPublica(MotivoDeDenunciaPublica.GOLPE, DESCRICAO, "", null))
+        .isInstanceOf(ErroDeNegocio.class)
+        .hasMessage("Use até 200 caracteres no apelido ou link.");
+  }
+
+  /** O Postgres não guarda o caractere nulo em {@code text}: sem esta recusa, viraria 500. */
+  @Test
+  void caractereNuloNaDescricaoRecusado() {
+    assertThatThrownBy(() -> DenunciaPublica.de("GOLPE", DESCRICAO + "\0", null, null))
+        .isInstanceOf(ErroDeNegocio.class)
+        .hasMessage("Conte o que aconteceu em 10 a 2000 caracteres.");
+  }
+
+  @Test
+  void caractereNuloNaReferenciaRecusado() {
+    assertThatThrownBy(() -> DenunciaPublica.de("GOLPE", DESCRICAO, "ape\0lido", null))
+        .isInstanceOf(ErroDeNegocio.class)
+        .hasMessage("Use até 200 caracteres no apelido ou link.");
+  }
+
+  @Test
+  void caractereNuloNoEmailDeContatoRecusado() {
+    assertThatThrownBy(() -> DenunciaPublica.de("GOLPE", DESCRICAO, null, "ana\0@exemplo.com"))
+        .isInstanceOf(ErroDeNegocio.class)
+        .hasMessage("Confira o e-mail para resposta.");
+  }
+
+  @Test
   void toStringSoMostraOMotivo() {
     DenunciaPublica denuncia =
         DenunciaPublica.de("ASSEDIO", DESCRICAO, "apelido-secreto", "ana@exemplo.com");

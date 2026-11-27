@@ -78,9 +78,10 @@ class DenunciaPublicaApiTest extends BancoDeTeste {
     assertThat(mensagens()).isZero();
   }
 
+  /** A 6ª é barrada antes do Turnstile: um token não se gasta em pedido que não passa. */
   @Test
   void sextaNaHoraRecebe429() throws Exception {
-    RequestPostProcessor mesmoIp = OrigemDeTeste.ip("10.40.50.60");
+    RequestPostProcessor mesmoIp = OrigemDeTeste.ipAleatorio();
     for (int denuncia = 1; denuncia <= 5; denuncia++) {
       denunciar(corpo("GOLPE", DESCRICAO, null, null, TOKEN_BOM), mesmoIp)
           .andExpect(status().isAccepted());
@@ -91,6 +92,21 @@ class DenunciaPublicaApiTest extends BancoDeTeste {
         .andExpect(jsonPath("$.codigo").value("LIMITE_DE_TAXA"))
         .andExpect(header().exists(HttpHeaders.RETRY_AFTER));
     assertThat(situacoes()).hasSize(5);
+    assertThat(verificacaoHumana.chamadas()).isEqualTo(5);
+  }
+
+  /** O limite vem antes do parse e o parse antes do Turnstile: a recusa gasta ficha, não token. */
+  @Test
+  void denunciaInvalidaGastaOLimiteSemChamarOTurnstile() throws Exception {
+    RequestPostProcessor mesmoIp = OrigemDeTeste.ipAleatorio();
+    for (int denuncia = 1; denuncia <= 5; denuncia++) {
+      denunciar(corpo("SPAM", DESCRICAO, null, null, TOKEN_BOM), mesmoIp)
+          .andExpect(status().isUnprocessableContent());
+    }
+
+    denunciar(corpo("GOLPE", DESCRICAO, null, null, TOKEN_BOM), mesmoIp)
+        .andExpect(status().isTooManyRequests());
+    assertThat(verificacaoHumana.chamadas()).isZero();
   }
 
   @Test
@@ -147,6 +163,17 @@ class DenunciaPublicaApiTest extends BancoDeTeste {
         .andExpect(status().isUnprocessableContent())
         .andExpect(jsonPath("$.codigo").value("DENUNCIA_PUBLICA_INVALIDA"))
         .andExpect(jsonPath("$.mensagem").value("Confira o e-mail para resposta."));
+
+    assertThat(situacoes()).isEmpty();
+  }
+
+  /** O Postgres não guarda o caractere nulo em {@code text}: sem a recusa, viraria 500. */
+  @Test
+  void caractereNuloNaDescricaoRecebe422() throws Exception {
+    denunciar(corpo("GOLPE", DESCRICAO + "\\u0000", null, null, TOKEN_BOM))
+        .andExpect(status().isUnprocessableContent())
+        .andExpect(jsonPath("$.codigo").value("DENUNCIA_PUBLICA_INVALIDA"))
+        .andExpect(jsonPath("$.mensagem").value("Conte o que aconteceu em 10 a 2000 caracteres."));
 
     assertThat(situacoes()).isEmpty();
   }
@@ -209,7 +236,7 @@ class DenunciaPublicaApiTest extends BancoDeTeste {
             .with(ip));
   }
 
-  /** Os valores do teste não têm aspas nem barras: dispensam escape no JSON. */
+  /** Os valores do teste não têm aspas: vão crus no JSON, inclusive com escapes do próprio JSON. */
   private static String corpo(
       String motivo,
       String descricao,
