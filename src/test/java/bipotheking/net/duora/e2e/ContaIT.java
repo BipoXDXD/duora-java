@@ -10,7 +10,6 @@ import com.microsoft.playwright.Page;
 import com.microsoft.playwright.options.AriaRole;
 import java.time.LocalDate;
 import java.util.List;
-import java.util.UUID;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 
@@ -38,7 +37,7 @@ class ContaIT extends ContaE2eBase {
     conta.confirmarEntrada();
     conta.concluirCadastro(NASCIMENTO_DE_ADULTO);
 
-    assertThat(heading(conta.page(), "Cadastro recebido")).isVisible();
+    assertThat(conta.heading("Cadastro recebido")).isVisible();
   }
 
   @Test
@@ -64,7 +63,7 @@ class ContaIT extends ContaE2eBase {
     String link = linkRecebido(email);
     conta.abrirLink(link);
     conta.confirmarEntrada();
-    assertThat(heading(conta.page(), "Falta pouco")).isVisible();
+    assertThat(conta.heading("Falta pouco")).isVisible();
 
     conta.abrirLink(link);
     conta.confirmarEntrada();
@@ -86,7 +85,7 @@ class ContaIT extends ContaE2eBase {
     assertThat(nomesDosCookies(conta.page())).contains(COOKIE_DA_SESSAO);
     conta.page().reload();
     assertThat(conta.page()).hasURL(raiz() + "aguardando");
-    assertThat(heading(conta.page(), "Cadastro recebido")).isVisible();
+    assertThat(conta.heading("Cadastro recebido")).isVisible();
   }
 
   @Test
@@ -107,16 +106,8 @@ class ContaIT extends ContaE2eBase {
     return ContaPagina.de(pagina);
   }
 
-  private static String emailNovo() {
-    return "conta-" + UUID.randomUUID() + "@exemplo.com";
-  }
-
   private static List<String> nomesDosCookies(Page page) {
     return page.context().cookies().stream().map(cookie -> cookie.name).toList();
-  }
-
-  private static Locator heading(Page page, String nome) {
-    return page.getByRole(AriaRole.HEADING, new Page.GetByRoleOptions().setName(nome));
   }
 
   private static Locator linkDoTopo(Page page, String nome) {

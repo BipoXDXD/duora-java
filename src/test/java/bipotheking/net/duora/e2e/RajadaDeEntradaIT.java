@@ -3,7 +3,6 @@ package bipotheking.net.duora.e2e;
 import static com.microsoft.playwright.assertions.PlaywrightAssertions.assertThat;
 
 import bipotheking.net.duora.e2e.NavegadorExtension.Participantes;
-import java.util.UUID;
 import org.junit.jupiter.api.Test;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
@@ -26,7 +25,7 @@ class RajadaDeEntradaIT extends ContaE2eBase {
     TerracoPagina pagina = participantes.novo();
     TurnstileFalso.instalar(pagina.page());
     ContaPagina conta = ContaPagina.de(pagina).abrir(raiz() + "entrar");
-    String email = "conta-" + UUID.randomUUID() + "@exemplo.com";
+    String email = emailNovo();
 
     for (int pedido = 0; pedido < PEDIDOS_ACIMA_DO_LIMITE; pedido++) {
       conta.pedirLink(email);

@@ -6,6 +6,7 @@ import bipotheking.net.duora.notificacao.infra.EmailNoLog;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.Optional;
+import java.util.UUID;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -45,6 +46,11 @@ abstract class ContaE2eBase {
   @DynamicPropertySource
   static void cookieDaSessao(DynamicPropertyRegistry registro) {
     registro.add("duora.sessao.cookie-seguro", () -> !"webkit".equals(Navegador.NOME));
+  }
+
+  /** Endereço fictício e único: cada teste parte de um e-mail sem conta nem limite gasto. */
+  protected static String emailNovo() {
+    return "conta-" + UUID.randomUUID() + "@exemplo.com";
   }
 
   protected String raiz() {

@@ -79,11 +79,12 @@ final class ContaPagina {
     abrirLink(link.apply(email));
     confirmarEntrada();
     concluirCadastro(nascimento);
-    assertThat(
-            page.getByRole(
-                AriaRole.HEADING, new Page.GetByRoleOptions().setName("Cadastro recebido")))
-        .isVisible();
+    assertThat(heading("Cadastro recebido")).isVisible();
     return this;
+  }
+
+  Locator heading(String nome) {
+    return page.getByRole(AriaRole.HEADING, new Page.GetByRoleOptions().setName(nome));
   }
 
   private Locator botao(String nome) {
