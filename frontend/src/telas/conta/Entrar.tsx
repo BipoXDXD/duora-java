@@ -10,6 +10,7 @@ import {
   ENTRADA_DE_TEXTO,
   ROTULO,
   TEXTO_SECUNDARIO,
+  TITULO_DA_CASCA,
 } from "../../componentes/estilos";
 import { carregarTurnstile, Turnstile, type ApiTurnstile, type ControleDoTurnstile } from "../../componentes/Turnstile";
 import { ENTRAR, textoDeEspera } from "./textos";
@@ -119,7 +120,7 @@ export function Entrar({ carregarTurnstile: carregar = carregarTurnstile }: Prop
   return (
     <>
       <title>{ENTRAR.tituloDaAba}</title>
-      <h1 className="m-0 font-titulo font-semibold text-[2rem] leading-[1.15] tracking-[-0.01em]">{ENTRAR.titulo}</h1>
+      <h1 className={TITULO_DA_CASCA}>{ENTRAR.titulo}</h1>
       <form className="mt-(--e-6) grid gap-(--e-4)" onSubmit={enviar}>
         <div className={CAMPO}>
           <label className={ROTULO} htmlFor="entrar-email">
