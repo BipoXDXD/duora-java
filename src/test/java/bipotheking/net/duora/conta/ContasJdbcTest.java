@@ -87,6 +87,14 @@ class ContasJdbcTest extends BancoDeTeste {
         .isInstanceOf(DataIntegrityViolationException.class);
   }
 
+  /** A lápide da conta excluída não guarda a data de nascimento. */
+  @Test
+  void checkRecusaExcluidaComNascimento() {
+    assertThatThrownBy(() -> inserir(EstadoConta.EXCLUIDA, null, NASCIMENTO, null, AGORA))
+        .isInstanceOf(DataIntegrityViolationException.class)
+        .hasMessageContaining("conta_excluida_sem_nascimento_check");
+  }
+
   @Test
   void checkRecusaExcluidaEmForaDeExcluida() {
     assertThatThrownBy(() -> inserir(EstadoConta.PENDENTE, OUTRO_EMAIL, null, null, AGORA))

@@ -28,6 +28,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.system.CapturedOutput;
 import org.springframework.boot.test.system.OutputCaptureExtension;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.ResultActions;
 import org.springframework.transaction.IllegalTransactionStateException;
@@ -136,6 +137,21 @@ class RegistroDeAcessosTest extends BancoDeTeste {
     assertThatThrownBy(() -> registro.registrar(Optional.empty(), origem, EventoDeAcesso.LOGIN))
         .isInstanceOf(IllegalTransactionStateException.class);
     assertThat(linhas()).isEmpty();
+  }
+
+  /** O Marco Civil exige a porta de origem: o banco recusa o registro sem ela. */
+  @Test
+  void bancoRecusaRegistroSemPorta() {
+    assertThatThrownBy(() ->
+            jdbc.sql(
+                    """
+                    insert into registro_acesso (id, conta_id, ip, porta, instante, evento)
+                    values (gen_random_uuid(), null, '198.51.100.1', null, :instante, 'LOGIN')
+                    """)
+                .param("instante", OffsetDateTime.ofInstant(INICIO, ZoneOffset.UTC))
+                .update())
+        .isInstanceOf(DataIntegrityViolationException.class)
+        .hasMessageContaining("null value in column \"porta\"");
   }
 
   @Test
