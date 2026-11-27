@@ -20,6 +20,15 @@ class LinksJdbc implements RepositorioDeLinks {
     this.jdbc = jdbc;
   }
 
+  /** Trava advisory de transação: some sozinha no commit ou no rollback. */
+  @Override
+  public void travarEmail(String resumoDoEmail) {
+    jdbc.sql("select pg_advisory_xact_lock(hashtext(:resumo))")
+        .param("resumo", resumoDoEmail)
+        .query((rs, linha) -> Boolean.TRUE)
+        .single();
+  }
+
   @Override
   public void invalidarAbertos(Email email, Instant agora) {
     jdbc.sql(

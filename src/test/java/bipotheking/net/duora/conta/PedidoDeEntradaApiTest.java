@@ -22,11 +22,13 @@ import java.time.Duration;
 import java.time.OffsetDateTime;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
-import java.util.concurrent.Callable;
+import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
 import java.util.random.RandomGenerator;
 import org.jspecify.annotations.Nullable;
 import org.junit.jupiter.api.BeforeEach;
@@ -54,6 +56,7 @@ class PedidoDeEntradaApiTest extends BancoDeTeste {
   private static final String TRECHO_DO_LINK = "/entrar/confirmar#t=";
   private static final String CHAVE_DE_IDEMPOTENCIA = "Idempotency-Key";
   private static final String DOMINIO_DESCARTAVEL = "0-mail.com";
+  private static final Duration ESPERA = Duration.ofSeconds(5);
 
   @Autowired private VerificacaoHumanaDeTeste verificacaoHumana;
   @Autowired private EmailNoLog emailNoLog;
@@ -179,35 +182,110 @@ class PedidoDeEntradaApiTest extends BancoDeTeste {
     assertThat(verificacaoHumana.chamadas()).isOne();
   }
 
+  /**
+   * O dublê segura o primeiro toque dentro do Turnstile; o segundo chega com a reserva ainda
+   * aberta.
+   */
   @Test
   void duploToqueSimultaneoUmTurnstile() throws Exception {
     String email = emailNovo();
     String chave = chaveNova();
-    verificacaoHumana.atrasar(Duration.ofMillis(300));
-    Callable<MockHttpServletResponse> toque =
-        () -> entrarComChave(email, chave).andReturn().getResponse();
+    verificacaoHumana.segurar();
 
-    List<MockHttpServletResponse> respostas = new ArrayList<>();
-    try (ExecutorService threads = Executors.newFixedThreadPool(2)) {
-      List<Future<MockHttpServletResponse>> toques = threads.invokeAll(List.of(toque, toque));
-      for (Future<MockHttpServletResponse> resultado : toques) {
-        respostas.add(resultado.get());
+    MockHttpServletResponse primeiro;
+    try (ExecutorService threads = Executors.newSingleThreadExecutor()) {
+      Future<MockHttpServletResponse> primeiroToque =
+          threads.submit(() -> entrarComChave(email, chave).andReturn().getResponse());
+      try {
+        assertThat(verificacaoHumana.aguardarChamada(ESPERA)).isTrue();
+        entrarComChave(email, chave)
+            .andExpect(status().isConflict())
+            .andExpect(jsonPath("$.codigo").value("REQUISICAO_EM_ANDAMENTO"))
+            .andExpect(header().string(HttpHeaders.RETRY_AFTER, "1"));
+      } finally {
+        verificacaoHumana.liberar();
       }
+      primeiro = primeiroToque.get();
     }
 
+    assertThat(primeiro.getStatus()).isEqualTo(202);
+    assertThat(primeiro.getContentAsString()).contains(MENSAGEM);
     assertThat(verificacaoHumana.chamadas()).isOne();
     assertThat(links()).isOne();
     assertThat(mensagens()).isOne();
-    assertThat(respostas).anySatisfy(resposta -> assertThat(resposta.getStatus()).isEqualTo(202));
-    for (MockHttpServletResponse resposta : respostas) {
-      if (resposta.getStatus() == 202) {
-        assertThat(resposta.getContentAsString()).contains(MENSAGEM);
-      } else {
-        assertThat(resposta.getStatus()).isEqualTo(409);
-        assertThat(resposta.getContentAsString()).contains("REQUISICAO_EM_ANDAMENTO");
-        assertThat(resposta.getHeader(HttpHeaders.RETRY_AFTER)).isEqualTo("1");
+  }
+
+  /**
+   * O primeiro pedido grava o link e segura a transação aberta; o segundo, do mesmo e-mail, precisa
+   * esperar a trava em vez de gravar um segundo link aberto ao lado (write skew).
+   */
+  @Test
+  void pedidosSimultaneosDoMesmoEmailDeixamUmLinkAberto() throws Exception {
+    Email email = Email.de(emailNovo());
+    TransactionTemplate transacao = new TransactionTemplate(transacoes);
+    CountDownLatch primeiroGravou = new CountDownLatch(1);
+    CountDownLatch soltarPrimeiro = new CountDownLatch(1);
+
+    boolean segundoEsperou;
+    try (ExecutorService threads = Executors.newFixedThreadPool(2)) {
+      Future<?> primeiro =
+          threads.submit(() ->
+              transacao.executeWithoutResult(status -> {
+                pedidoDeEntrada.gravarLinkEMensagem(email, Token.novo(aleatorio));
+                primeiroGravou.countDown();
+                aguardar(soltarPrimeiro);
+              }));
+      Future<?> segundo;
+      try {
+        assertThat(primeiroGravou.await(ESPERA.toMillis(), TimeUnit.MILLISECONDS)).isTrue();
+        segundo =
+            threads.submit(() ->
+                transacao.executeWithoutResult(
+                    status -> pedidoDeEntrada.gravarLinkEMensagem(email, Token.novo(aleatorio))));
+        segundoEsperou = travaEmEspera();
+      } finally {
+        soltarPrimeiro.countDown();
       }
+      primeiro.get();
+      segundo.get();
     }
+
+    assertThat(segundoEsperou).as("o segundo pedido esperou a trava do e-mail").isTrue();
+    assertThat(
+            jdbc.sql(
+                    "select count(*) from link_de_entrada where email = :email and usado_em is null")
+                .param("email", email.valor())
+                .query(Long.class)
+                .single())
+        .isOne();
+  }
+
+  /**
+   * A falha vem no commit, depois do {@code concluir}: a resposta gravada volta atrás com o efeito,
+   * a chave é liberada e a mesma chave funciona na tentativa seguinte.
+   */
+  @Test
+  void falhaNaTransacaoDesfazAConclusaoELiberaAChave() throws Exception {
+    String email = emailNovo();
+    String chave = chaveNova();
+
+    falharNoCommitDaOutboxPara(email);
+    try {
+      assertThatThrownBy(
+              () -> pedidoDeEntrada.pedir(email, TOKEN_BOM, "10.9.9.9", Optional.of(chave)))
+          .isInstanceOf(RuntimeException.class);
+    } finally {
+      removerFalhaNoCommit();
+    }
+
+    assertThat(links()).isZero();
+    assertThat(mensagens()).isZero();
+    assertThat(jdbc.sql("select count(*) from chave_de_idempotencia").query(Long.class).single())
+        .isZero();
+    entrarComChave(email, chave)
+        .andExpect(status().isAccepted())
+        .andExpect(content().json("{\"mensagem\":\"" + MENSAGEM + "\"}", JsonCompareMode.STRICT));
+    assertThat(links()).isOne();
   }
 
   @Test
@@ -344,6 +422,65 @@ class PedidoDeEntradaApiTest extends BancoDeTeste {
       requisicao.header(CHAVE_DE_IDEMPOTENCIA, chave);
     }
     return mvc.perform(requisicao);
+  }
+
+  /**
+   * Gatilho adiado: o INSERT na outbox passa e a exceção sobe no commit, depois de todo o resto da
+   * transação. Só para o e-mail do teste.
+   */
+  private void falharNoCommitDaOutboxPara(String email) {
+    jdbc.sql(
+            """
+            create or replace function teste_falhar_no_commit() returns trigger
+            language plpgsql as $$
+            begin
+              if new.carga->>'para' = '%s' then
+                raise exception 'falha forçada no commit';
+              end if;
+              return null;
+            end $$
+            """
+                .formatted(email))
+        .update();
+    jdbc.sql(
+            """
+            create constraint trigger teste_falhar_no_commit after insert on outbox
+            deferrable initially deferred for each row execute function teste_falhar_no_commit()
+            """)
+        .update();
+  }
+
+  private void removerFalhaNoCommit() {
+    jdbc.sql("drop trigger if exists teste_falhar_no_commit on outbox").update();
+    jdbc.sql("drop function if exists teste_falhar_no_commit()").update();
+  }
+
+  /** Espera alguma conexão ficar presa numa trava advisory, até o limite. */
+  private boolean travaEmEspera() throws InterruptedException {
+    long limite = System.nanoTime() + ESPERA.toNanos();
+    while (System.nanoTime() < limite) {
+      long esperando =
+          jdbc.sql("select count(*) from pg_locks where locktype = 'advisory' and not granted")
+              .query(Long.class)
+              .single();
+      if (esperando > 0) {
+        return true;
+      }
+      Thread.sleep(10);
+    }
+    return false;
+  }
+
+  private static void aguardar(CountDownLatch trinco) {
+    try {
+      // Folga maior que a da sondagem da trava, para a falha sair na asserção, não aqui.
+      if (!trinco.await(ESPERA.multipliedBy(3).toMillis(), TimeUnit.MILLISECONDS)) {
+        throw new IllegalStateException("O teste não soltou a transação a tempo");
+      }
+    } catch (InterruptedException e) {
+      Thread.currentThread().interrupt();
+      throw new IllegalStateException(e);
+    }
   }
 
   private void bloquear(String email) {

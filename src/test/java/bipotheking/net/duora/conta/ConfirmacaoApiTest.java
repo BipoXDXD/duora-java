@@ -75,7 +75,7 @@ class ConfirmacaoApiTest extends BancoDeTeste {
                         containsString("; Secure"),
                         containsString("; SameSite=Lax"),
                         containsString("; Path=/;"),
-                        containsString("; Max-Age=2592000"))));
+                        containsString("; Max-Age=2592000;"))));
 
     assertThat(estadoDaConta(email)).isEqualTo("PENDENTE");
     assertThat(sessoesAbertas()).isOne();
@@ -229,6 +229,24 @@ class ConfirmacaoApiTest extends BancoDeTeste {
         .andExpect(header().doesNotExist(HttpHeaders.SET_COOKIE));
 
     assertThat(contasCriadas()).isZero();
+    assertThat(sessoesAbertas()).isZero();
+  }
+
+  @Test
+  void linkAntigoNaoReativaContaPendenteDeEmailBloqueado() throws Exception {
+    ContaDeTeste conta = contas.criar(EstadoConta.PENDENTE, null);
+    sessoes.revogarTodas(conta.id());
+    String email = emailDe(conta);
+    String token = pedirLink(email);
+    bloqueios.bloquear(resumoDeEmail.de(Email.de(email)), "MENOR", INICIO);
+
+    confirmar(token)
+        .andExpect(status().isUnprocessableContent())
+        .andExpect(jsonPath("$.codigo").value(LINK_INVALIDO))
+        .andExpect(header().doesNotExist(HttpHeaders.SET_COOKIE));
+
+    assertThat(contasCriadas()).isOne();
+    assertThat(estadoDaConta(email)).isEqualTo("PENDENTE");
     assertThat(sessoesAbertas()).isZero();
   }
 

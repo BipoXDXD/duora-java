@@ -2,6 +2,7 @@ package bipotheking.net.duora.conta;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.assertj.core.api.Assertions.catchThrowable;
 
 import bipotheking.net.duora.conta.dominio.Conta;
 import bipotheking.net.duora.conta.dominio.Email;
@@ -35,6 +36,22 @@ class ContasJdbcTest extends BancoDeTeste {
 
     assertThatThrownBy(() -> repositorio.criarPendente(EMAIL))
         .isInstanceOf(DuplicateKeyException.class);
+  }
+
+  /**
+   * O PgJDBC poria {@code Detail: Key (email)=(...)} na mensagem, e o tratamento de erros loga a
+   * exceção inesperada: o e-mail iria para o log. O datasource desliga esse detalhe.
+   */
+  @Test
+  void violacaoDeUnicoNaoPoeOEmailNaMensagem() {
+    repositorio.criarPendente(EMAIL);
+
+    Throwable erro = catchThrowable(() -> repositorio.criarPendente(EMAIL));
+
+    assertThat(erro).isInstanceOf(DuplicateKeyException.class);
+    for (Throwable causa = erro; causa != null; causa = causa.getCause()) {
+      assertThat(String.valueOf(causa.getMessage())).doesNotContain(EMAIL.valor());
+    }
   }
 
   @Test

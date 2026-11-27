@@ -1,11 +1,12 @@
-import { render, screen } from "@testing-library/react";
+import { cleanup, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { Topo } from "./Topo";
 
 function renderizar(mudancas: Partial<Parameters<typeof Topo>[0]> = {}) {
   const props = {
     mostrarSair: true,
+    mostrarLinkDaConta: true,
     nomeParceiro: "Bruno",
     confirmando: true,
     enviandoSaida: false,
@@ -18,7 +19,28 @@ function renderizar(mudancas: Partial<Parameters<typeof Topo>[0]> = {}) {
   return props;
 }
 
+afterEach(() => {
+  vi.unstubAllGlobals();
+});
+
 describe("Topo", () => {
+  it("linkDaContaApareceSoSemOSair", async () => {
+    const fetchFalso = vi.fn<typeof fetch>(() => Promise.resolve(new Response(null, { status: 204 })));
+    vi.stubGlobal("fetch", fetchFalso);
+
+    renderizar({ mostrarSair: false, confirmando: false });
+    expect(await screen.findByRole("link", { name: "Entrar" })).toHaveAttribute("href", "/entrar");
+    cleanup();
+    fetchFalso.mockClear();
+
+    renderizar({ confirmando: false });
+    await new Promise((resolver) => setTimeout(resolver, 0));
+
+    expect(screen.getByRole("button", { name: "Sair" })).toBeVisible();
+    expect(screen.queryByRole("link")).not.toBeInTheDocument();
+    expect(fetchFalso).not.toHaveBeenCalled();
+  });
+
   it("Esc no grupo da confirmação fecha a confirmação sem subir até o documento", async () => {
     const noDocumento = vi.fn();
     document.addEventListener("keydown", noDocumento);

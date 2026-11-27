@@ -122,14 +122,17 @@ public class PedidoDeEntrada {
 
   /**
    * Grava o link novo, depois de invalidar os abertos do e-mail, e registra o e-mail com o link na
-   * outbox. Precisa de uma transação aberta: separado de {@link #pedir} para o teste de
-   * atomicidade.
+   * outbox. Precisa de uma transação aberta: separado de {@link #pedir} para os testes de
+   * atomicidade e de concorrência. A trava do e-mail vem primeiro: sem ela, dois pedidos
+   * simultâneos não veem o link um do outro e deixam dois abertos (write skew).
    */
   void gravarLinkEMensagem(Email email, Token token) {
+    String resumo = resumoDeEmail.hex(email);
+    links.travarEmail(resumo);
     Instant agora = relogio.instant();
     links.invalidarAbertos(email, agora);
     links.gravar(geradorDeIds.novo(), email, token.resumo(), agora, agora.plus(VALIDADE_DO_LINK));
-    outbox.registrar(Outbox.EMAIL, resumoDeEmail.hex(email), mensagens.link(email, token.valor()));
+    outbox.registrar(Outbox.EMAIL, resumo, mensagens.link(email, token.valor()));
   }
 
   /** Qualquer falha depois da reserva libera a chave, para a mesma chave tentar de novo. */
