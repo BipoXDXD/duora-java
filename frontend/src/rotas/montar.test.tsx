@@ -1,4 +1,5 @@
 import { act, screen } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import type { Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { ErroHttp } from "../api/http";
@@ -36,6 +37,14 @@ async function montarEm(url: string): Promise<void> {
   });
 }
 
+/** Como o Voltar e o Avançar: muda a URL e avisa o roteador pelo popstate. */
+function navegarNoCliente(caminho: string): void {
+  act(() => {
+    history.pushState(null, "", caminho);
+    dispatchEvent(new PopStateEvent("popstate"));
+  });
+}
+
 describe("montarCasca", () => {
   it("rotaDesconhecidaMostraNaoEncontrada", async () => {
     await montarEm("/qualquer/coisa");
@@ -67,6 +76,119 @@ describe("montarCasca", () => {
 
     expect(await screen.findByRole("heading", { level: 1, name: "Entrar no Duora" })).toBeInTheDocument();
     expect(document.title).toBe("Entrar · Duora");
+  });
+
+  it("tokenSobreviveAoStrictMode", async () => {
+    const corpos: unknown[] = [];
+    vi.stubGlobal(
+      "fetch",
+      vi.fn<typeof fetch>((_entrada, opcoes) => {
+        corpos.push(typeof opcoes?.body === "string" ? JSON.parse(opcoes.body) : null);
+        return Promise.resolve(new Response(null, { status: 503 }));
+      }),
+    );
+
+    await montarEm("/entrar/confirmar#t=abc");
+
+    expect(location.hash).toBe("");
+    await userEvent.click(await screen.findByRole("button", { name: "Entrar" }));
+    await vi.waitFor(() => {
+      expect(corpos).toEqual([{ token: "abc" }]);
+    });
+  });
+
+  it("tokenGastoNaoVoltaAoRemontarATela", async () => {
+    await montarEm("/entrar/confirmar#t=abc");
+    await screen.findByRole("button", { name: "Entrar" });
+
+    navegarNoCliente("/qualquer");
+    await screen.findByRole("heading", { name: "Página não encontrada" });
+    navegarNoCliente("/entrar/confirmar");
+
+    expect(await screen.findByText(/Não encontramos o código do link/)).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Entrar" })).not.toBeInTheDocument();
+  });
+
+  describe("rotasQueExigemConta", () => {
+    /** Responde o GET da conta com `conta` e o que as telas leem ao abrir. */
+    function prepararConta(status: number, corpo?: unknown) {
+      const respostas: Record<string, () => Response> = {
+        "/api/conta": () =>
+          corpo === undefined
+            ? new Response(null, { status })
+            : new Response(JSON.stringify(corpo), { status, headers: { "Content-Type": "application/json" } }),
+        "/api/conta/configuracao": () =>
+          new Response(JSON.stringify({ chaveDoSiteTurnstile: "1x00000000000000000000AA" }), {
+            headers: { "Content-Type": "application/json" },
+          }),
+        "/api/legal/versoes": () =>
+          new Response(
+            JSON.stringify({
+              termos: { versao: "2026-11-23" },
+              privacidade: { versao: "2026-11-23" },
+              contato: "support@meetduora.com",
+              encarregado: { nome: "o responsável pelo Duora", email: "encarregado@exemplo.invalid" },
+            }),
+            { headers: { "Content-Type": "application/json" } },
+          ),
+      };
+      vi.stubGlobal(
+        "fetch",
+        vi.fn<typeof fetch>((entrada) => {
+          const resposta = typeof entrada === "string" ? respostas[entrada] : undefined;
+          return resposta ? Promise.resolve(resposta()) : Promise.reject(new Error("pedido inesperado"));
+        }),
+      );
+    }
+
+    function contaNoEstado(estado: string) {
+      return { estado, cadastroConcluido: false, verificada: false };
+    }
+
+    it("cadastroSemSessaoVaiParaEntrar", async () => {
+      prepararConta(204);
+
+      await montarEm("/cadastro");
+
+      expect(await screen.findByRole("heading", { level: 1, name: "Entrar no Duora" })).toBeInTheDocument();
+      expect(location.pathname).toBe("/entrar");
+    });
+
+    it("cadastroDaContaPendenteAbreATela", async () => {
+      prepararConta(200, contaNoEstado("PENDENTE"));
+
+      await montarEm("/cadastro");
+
+      expect(await screen.findByRole("heading", { level: 1, name: "Falta pouco" })).toBeInTheDocument();
+      expect(document.title).toBe("Cadastro · Duora");
+    });
+
+    it("aguardandoDaContaPendenteVaiParaCadastro", async () => {
+      prepararConta(200, contaNoEstado("PENDENTE"));
+
+      await montarEm("/aguardando");
+
+      expect(await screen.findByRole("heading", { level: 1, name: "Falta pouco" })).toBeInTheDocument();
+      expect(location.pathname).toBe("/cadastro");
+    });
+
+    it("aguardandoAbreParaQuemAguardaVerificacao", async () => {
+      prepararConta(200, contaNoEstado("AGUARDANDO_VERIFICACAO"));
+
+      await montarEm("/aguardando");
+
+      expect(await screen.findByRole("heading", { level: 1, name: "Cadastro recebido" })).toBeInTheDocument();
+    });
+
+    it("contaIndisponivelMostraAMensagemSemVirarAnonimo", async () => {
+      prepararConta(403, { codigo: "CONTA_INDISPONIVEL", mensagem: "Esta conta não está disponível." });
+
+      await montarEm("/cadastro");
+
+      expect(await screen.findByRole("heading", { level: 1, name: "Conta indisponível" })).toBeInTheDocument();
+      expect(screen.getByText("Esta conta não está disponível.")).toBeInTheDocument();
+      expect(location.pathname).toBe("/cadastro");
+    });
   });
 
   it("telaFicaNoMainDoLayout", async () => {

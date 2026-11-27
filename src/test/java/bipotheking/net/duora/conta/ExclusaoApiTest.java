@@ -13,6 +13,7 @@ import bipotheking.net.duora.conta.ContasDeTeste.ContaDeTeste;
 import bipotheking.net.duora.conta.GanchoDeExclusaoDeTeste.Chamada;
 import bipotheking.net.duora.conta.dominio.Email;
 import bipotheking.net.duora.conta.dominio.RepositorioDeAceites;
+import bipotheking.net.duora.conta.dominio.RepositorioDeContas;
 import bipotheking.net.duora.conta.dominio.Token;
 import bipotheking.net.duora.notificacao.MensagemDeEmail;
 import bipotheking.net.duora.notificacao.infra.DespachanteDaOutbox;
@@ -30,13 +31,17 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.system.CapturedOutput;
+import org.springframework.boot.test.system.OutputCaptureExtension;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.ResultActions;
 import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.TransactionDefinition;
 import org.springframework.transaction.support.TransactionTemplate;
 
 class ExclusaoApiTest extends BancoDeTeste {
@@ -49,6 +54,7 @@ class ExclusaoApiTest extends BancoDeTeste {
   @Autowired private GanchoDeExclusaoDeTeste gancho;
   @Autowired private ExclusaoDeConta exclusao;
   @Autowired private RepositorioDeAceites aceites;
+  @Autowired private RepositorioDeContas repositorio;
   @Autowired private DocumentosLegais documentos;
   @Autowired private Sessoes sessoes;
   @Autowired private PedidoDeEntrada pedidoDeEntrada;
@@ -130,8 +136,13 @@ class ExclusaoApiTest extends BancoDeTeste {
     assertThat(gancho.chamadas()).containsExactly(new Chamada(conta.id(), true));
   }
 
+  /**
+   * O gancho de teste revoga as sessões antes de lançar: a sessão viva prova que a falha desfez o
+   * que o gancho gravou, não só que a exclusão parou antes de começar.
+   */
   @Test
-  void falhaNoGanchoDesfazTudo() throws Exception {
+  @ExtendWith(OutputCaptureExtension.class)
+  void falhaNoGanchoDesfazTudo(CapturedOutput saida) throws Exception {
     ContaDeTeste conta = contas.criarAtiva();
     aceitar(conta);
     pedirLink(emailDe(conta));
@@ -143,10 +154,14 @@ class ExclusaoApiTest extends BancoDeTeste {
     assertThat(linha.get("estado")).isEqualTo("ATIVA");
     assertThat(linha.get("email")).isEqualTo(emailDe(conta));
     assertThat(linha.get("excluida_em")).isNull();
-    assertThat(sessoesDa(conta)).isOne();
+    assertThat(sessoesDa(conta)).as("a revogação do gancho foi desfeita").isOne();
     assertThat(aceitesDa(conta)).isEqualTo(2);
     assertThat(linksDo(emailDe(conta))).isOne();
     mvc.perform(get("/api/teste/so-ativa").cookie(cookieDe(conta))).andExpect(status().isOk());
+    assertThat(saida.getOut())
+        .contains("Falha inesperada ao atender a requisição")
+        .contains("Falha simulada no gancho de exclusão")
+        .doesNotContain(emailDe(conta));
   }
 
   @Test
@@ -234,6 +249,57 @@ class ExclusaoApiTest extends BancoDeTeste {
     assertThat(linhaDa(conta).get("estado")).isEqualTo("BANIDA");
     assertThat(linhaDa(conta).get("email")).isEqualTo(emailDe(conta));
     assertThat(gancho.chamadas()).isEmpty();
+  }
+
+  /**
+   * Dois envios simultâneos: o outro commita a exclusão enquanto os ganchos deste rodam. Este vê a
+   * conta já excluída e desfaz o que fez (os ganchos repetidos e a limpeza), sem erro.
+   */
+  @Test
+  void exclusaoConcorrenteJaCommitadaDesfazEstaSemErro() {
+    ContaDeTeste conta = contas.criarAtiva();
+    gancho.naProxima(id -> {
+      sessoes.revogarTodas(id);
+      emOutraTransacao(() -> repositorio.excluir(id, INICIO));
+    });
+
+    exclusao.excluir(conta.id(), true);
+
+    assertThat(linhaDa(conta).get("estado")).isEqualTo("EXCLUIDA");
+    assertThat(sessoesDa(conta)).as("a revogação do gancho foi desfeita").isOne();
+  }
+
+  /**
+   * A suspensão commita enquanto os ganchos rodam. Excluir a conta suspensa liberaria o e-mail e
+   * contornaria a suspensão: a exclusão recusa e desfaz tudo.
+   */
+  @Test
+  void suspensaoDuranteOsGanchosRecusaEDesfazTudo() {
+    ContaDeTeste conta = contas.criarAtiva();
+    gancho.naProxima(id -> {
+      sessoes.revogarTodas(id);
+      emOutraTransacao(() ->
+          jdbc.sql("update conta set estado = 'SUSPENSA' where id = :id")
+              .param("id", id.valor())
+              .update());
+    });
+
+    assertThatThrownBy(() -> exclusao.excluir(conta.id(), true))
+        .isInstanceOfSatisfying(
+            ErroDeNegocio.class,
+            erro -> assertThat(erro.codigo()).isEqualTo(CodigoSessao.CONTA_INDISPONIVEL));
+
+    Map<String, Object> linha = linhaDa(conta);
+    assertThat(linha.get("estado")).isEqualTo("SUSPENSA");
+    assertThat(linha.get("email")).isEqualTo(emailDe(conta));
+    assertThat(sessoesDa(conta)).as("a revogação do gancho foi desfeita").isOne();
+  }
+
+  /** Roda e commita numa transação própria, como outra requisição concorrente. */
+  private void emOutraTransacao(Runnable acao) {
+    TransactionTemplate outra = new TransactionTemplate(transacoes);
+    outra.setPropagationBehavior(TransactionDefinition.PROPAGATION_REQUIRES_NEW);
+    outra.executeWithoutResult(status -> acao.run());
   }
 
   private ResultActions excluir(ContaDeTeste conta, String corpo) throws Exception {

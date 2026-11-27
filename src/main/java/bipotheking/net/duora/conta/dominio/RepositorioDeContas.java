@@ -27,10 +27,13 @@ public interface RepositorioDeContas {
   boolean marcarAguardandoVerificacao(ContaId id, LocalDate nascimento);
 
   /**
-   * Leva a conta a {@code EXCLUIDA}, apagando o e-mail e a data de nascimento. Repetir não muda o
-   * instante da exclusão, de onde conta o prazo de retenção. Só mexe na linha da conta: aceites,
-   * sessões, links e outbox ficam a cargo do chamador. Excluir uma conta {@code BANIDA} libera o
-   * e-mail para um cadastro novo, então o chamador bloqueia o e-mail antes.
+   * Leva a conta a {@code EXCLUIDA}, apagando o e-mail e a data de nascimento, num UPDATE
+   * condicional: só sai dos estados disponíveis ({@code PENDENTE}, {@code AGUARDANDO_VERIFICACAO},
+   * {@code ATIVA}). Excluir a suspensa ou a banida liberaria o e-mail para um cadastro novo;
+   * repetir a exclusão mudaria o instante de onde conta o prazo de retenção. Só mexe na linha da
+   * conta: aceites, sessões, links e outbox ficam a cargo do chamador.
+   *
+   * @return se a conta estava num estado disponível e foi excluída
    */
-  void excluir(ContaId id, Instant agora);
+  boolean excluir(ContaId id, Instant agora);
 }

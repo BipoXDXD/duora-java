@@ -15,6 +15,8 @@ import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
 import org.jspecify.annotations.Nullable;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.EnumSource;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.dao.DuplicateKeyException;
@@ -130,6 +132,33 @@ class ContasJdbcTest extends BancoDeTeste {
                 .single()
                 .toInstant())
         .isEqualTo(INICIO);
+  }
+
+  /** Excluir a suspensa ou a banida liberaria o e-mail para uma conta nova. */
+  @ParameterizedTest
+  @EnumSource(
+      value = EstadoConta.class,
+      names = {"SUSPENSA", "BANIDA"})
+  void excluirNaoSaiDeContaIndisponivel(EstadoConta estado) {
+    ContaId conta = repositorio.criarPendente(EMAIL);
+    jdbc.sql(
+            """
+            update conta set estado = :estado, data_nascimento = :nascimento,
+                ativada_em = criada_em
+            where id = :id
+            """)
+        .param("estado", estado.name())
+        .param("nascimento", LocalDate.of(1990, 5, 10))
+        .param("id", conta.valor())
+        .update();
+
+    assertThat(repositorio.excluir(conta, INICIO)).isFalse();
+
+    assertThat(repositorio.porId(conta))
+        .hasValueSatisfying(linha -> {
+          assertThat(linha.estado()).isEqualTo(estado);
+          assertThat(linha.email()).isEqualTo(EMAIL);
+        });
   }
 
   /** Insere direto, para testar os checks do esquema: cada caso viola uma regra só. */

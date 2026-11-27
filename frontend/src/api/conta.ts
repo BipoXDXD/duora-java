@@ -54,3 +54,59 @@ export async function pedirLink(
   }
   return { mensagem: resposta.dados.mensagem };
 }
+
+export interface RespostaDaConfirmacao {
+  cadastroConcluido: boolean;
+}
+
+function ehRespostaDaConfirmacao(dados: unknown): dados is RespostaDaConfirmacao {
+  if (typeof dados !== "object" || dados === null) {
+    return false;
+  }
+  return typeof (dados as Partial<Record<keyof RespostaDaConfirmacao, unknown>>).cadastroConcluido === "boolean";
+}
+
+/**
+ * Troca o token do link mágico por uma sessão (C6); o cookie chega no Set-Cookie da resposta. O token
+ * é de uso único: quem chama garante um POST só por clique.
+ */
+export async function confirmarEntrada(token: string): Promise<RespostaDaConfirmacao> {
+  const resposta = await requisitarHttp("POST", "/conta/confirmar", { corpo: { token } });
+  if (!ehRespostaDaConfirmacao(resposta.dados)) {
+    throw new ErroHttp({ status: resposta.status, codigo: "RESPOSTA_INVALIDA" });
+  }
+  return { cadastroConcluido: resposta.dados.cadastroConcluido };
+}
+
+export interface DadosDoCadastro {
+  /** AAAA-MM-DD, como o input type=date entrega. */
+  dataDeNascimento: string;
+  versaoTermos: string;
+  versaoPrivacidade: string;
+  aceito: true;
+}
+
+export interface RespostaDoCadastro {
+  cadastroConcluido: false;
+  proximoPasso: "VERIFICACAO";
+}
+
+function ehRespostaDoCadastro(dados: unknown): dados is RespostaDoCadastro {
+  if (typeof dados !== "object" || dados === null) {
+    return false;
+  }
+  const campos = dados as Partial<Record<keyof RespostaDoCadastro, unknown>>;
+  return campos.cadastroConcluido === false && campos.proximoPasso === "VERIFICACAO";
+}
+
+/**
+ * Conclui o cadastro da conta da sessão (C7) com as versões legais lidas do servidor. A recusa por
+ * idade (422 MENOR_DE_IDADE) já chega com a conta excluída e o cookie expirado.
+ */
+export async function concluirCadastro(dados: DadosDoCadastro): Promise<RespostaDoCadastro> {
+  const resposta = await requisitarHttp("POST", "/conta/cadastro", { corpo: dados });
+  if (!ehRespostaDoCadastro(resposta.dados)) {
+    throw new ErroHttp({ status: resposta.status, codigo: "RESPOSTA_INVALIDA" });
+  }
+  return { cadastroConcluido: false, proximoPasso: "VERIFICACAO" };
+}

@@ -56,6 +56,13 @@ export default defineConfig([
     },
   },
   {
+    // Só os loaders das rotas redirecionam, e o React Router faz isso lançando a Response de redirect().
+    files: ["src/rotas/**/*.{ts,tsx}"],
+    rules: {
+      "@typescript-eslint/only-throw-error": ["error", { allow: [{ from: "lib", name: "Response" }] }],
+    },
+  },
+  {
     files: ["**/*.js"],
     extends: [js.configs.recommended],
     languageOptions: { globals: globals.node },
