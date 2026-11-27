@@ -11,9 +11,9 @@ export interface ContextoDaCasca {
 
 /**
  * A árvore da casca: o layout de conta por fora e, dentro dele, cada tela com `lazy` (cada uma no
- * seu chunk). O contexto chega aos loaders das telas que precisam do cliente de consulta ou do token.
+ * seu chunk). O contexto chega aos loaders das telas que precisam do cliente de consulta ou do token
+ * (F7 em diante; até lá, _contexto fica sem uso).
  */
-// eslint-disable-next-line @typescript-eslint/no-unused-vars -- _contexto: consumido pelas telas (F7 em diante).
 export function criarRotas(_contexto: ContextoDaCasca): RouteObject[] {
   return [
     {

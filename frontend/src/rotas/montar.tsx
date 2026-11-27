@@ -15,9 +15,9 @@ export function tentarDeNovo(falhas: number, erro: unknown): boolean {
 /**
  * Monta a casca de conta na raiz: React Router no modo de dados e TanStack Query. Carregado por
  * import() a partir do despacho, fora do JS inicial do terraço. Local e história já fazem parte da
- * assinatura do contrato: a F7 lê com eles, uma vez, o #t= do link mágico e limpa a URL.
+ * assinatura do contrato: a F7 lê com eles, uma vez, o #t= do link mágico e limpa a URL (até lá,
+ * _local e _historia ficam sem uso).
  */
-// eslint-disable-next-line @typescript-eslint/no-unused-vars -- _local e _historia: consumidos na F7.
 export function montarCasca(raiz: HTMLElement, _local: Location, _historia: History): Root {
   const clienteDeConsulta = new QueryClient({
     defaultOptions: { queries: { retry: tentarDeNovo } },
