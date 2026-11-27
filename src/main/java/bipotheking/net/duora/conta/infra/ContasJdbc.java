@@ -110,6 +110,21 @@ class ContasJdbc implements RepositorioDeContas {
         == 1;
   }
 
+  @Override
+  public boolean ativar(ContaId id, Instant agora) {
+    return jdbc.sql(
+                """
+                update conta set estado = :ativa, ativada_em = :agora
+                where id = :id and estado = :aguardando
+                """)
+            .param("ativa", EstadoConta.ATIVA.name())
+            .param("agora", OffsetDateTime.ofInstant(agora, ZoneOffset.UTC))
+            .param("id", id.valor())
+            .param("aguardando", EstadoConta.AGUARDANDO_VERIFICACAO.name())
+            .update()
+        == 1;
+  }
+
   private static Conta conta(ResultSet rs) throws SQLException {
     String email = rs.getString("email");
     return new Conta(

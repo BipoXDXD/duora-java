@@ -1,0 +1,260 @@
+package bipotheking.net.duora.conta;
+
+import bipotheking.net.duora.conta.dominio.Conta;
+import bipotheking.net.duora.conta.dominio.CredencialCurta;
+import bipotheking.net.duora.conta.dominio.CredencialDoNavegador;
+import bipotheking.net.duora.conta.dominio.DecisaoDeIdade;
+import bipotheking.net.duora.conta.dominio.FinalidadeDaTentativa;
+import bipotheking.net.duora.conta.dominio.FornecedorIndisponivel;
+import bipotheking.net.duora.conta.dominio.MetodoDeVerificacao;
+import bipotheking.net.duora.conta.dominio.ProvaDeVida;
+import bipotheking.net.duora.conta.dominio.RepositorioDeContas;
+import bipotheking.net.duora.conta.dominio.RepositorioDeVerificacoes;
+import bipotheking.net.duora.conta.dominio.ReservaDeTentativa;
+import bipotheking.net.duora.conta.dominio.ResultadoDaProva;
+import bipotheking.net.duora.conta.dominio.ResultadoDaVerificacao;
+import bipotheking.net.duora.conta.dominio.SessaoDeProva;
+import bipotheking.net.duora.conta.dominio.Tentativa;
+import bipotheking.net.duora.nucleo.ErroDeNegocio;
+import bipotheking.net.duora.web.Idempotencia;
+import bipotheking.net.duora.web.LimiteDeTaxa;
+import java.time.Clock;
+import java.time.Duration;
+import java.time.Instant;
+import java.util.UUID;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.support.TransactionTemplate;
+
+/**
+ * Verificação de idade pela selfie: abre a sessão de prova de vida com a credencial do navegador,
+ * decide pelo resultado e aplica a decisão na conta. Nenhuma chamada ao fornecedor acontece dentro
+ * de transação de banco: a reserva da tentativa e a conclusão rodam cada uma numa transação curta,
+ * antes e depois do fornecedor.
+ */
+@Service
+public class VerificacaoDeIdade {
+
+  private static final String LIMITE_POR_CONTA = "verificacao-conta";
+  private static final String ESCOPO_DO_RESULTADO = "verificacao-resultado";
+
+  /** A janela dos limites e da dúvida: 24 h corridas, a mesma do repositório. */
+  private static final Duration JANELA = Duration.parse("P1D");
+
+  /** O {@code Retry-After} nunca sai zero nem negativo, mesmo com o relógio na borda da janela. */
+  private static final Duration ESPERA_MINIMA = Duration.ofSeconds(1);
+
+  private static final Logger LOG = LoggerFactory.getLogger(VerificacaoDeIdade.class);
+
+  private final LimiteDeTaxa limiteDeTaxa;
+  private final RepositorioDeContas contas;
+  private final RepositorioDeVerificacoes verificacoes;
+  private final ProvaDeVida provaDeVida;
+  private final CredencialDoNavegador credencialDoNavegador;
+  private final LimitesDaVerificacao limites;
+  private final EfeitosDaVerificacao efeitos;
+  private final Idempotencia idempotencia;
+  private final TransactionTemplate transacao;
+  private final Clock relogio;
+
+  VerificacaoDeIdade(
+      LimiteDeTaxa limiteDeTaxa,
+      RepositorioDeContas contas,
+      RepositorioDeVerificacoes verificacoes,
+      ProvaDeVida provaDeVida,
+      CredencialDoNavegador credencialDoNavegador,
+      LimitesDaVerificacao limites,
+      EfeitosDaVerificacao efeitos,
+      Idempotencia idempotencia,
+      TransactionTemplate transacao,
+      Clock relogio) {
+    this.limiteDeTaxa = limiteDeTaxa;
+    this.contas = contas;
+    this.verificacoes = verificacoes;
+    this.provaDeVida = provaDeVida;
+    this.credencialDoNavegador = credencialDoNavegador;
+    this.limites = limites;
+    this.efeitos = efeitos;
+    this.idempotencia = idempotencia;
+    this.transacao = transacao;
+    this.relogio = relogio;
+  }
+
+  /**
+   * Abre uma sessão de prova de vida. Confere, nesta ordem, o limite de taxa, o consentimento, o
+   * estado da conta e, para o documento, a dúvida de selfie nas últimas 24 h; então reserva a
+   * tentativa numa transação curta (a trava da conta serializa as reservas concorrentes) e, já fora
+   * dela, abre a sessão e emite a credencial. Se o fornecedor falhar, a tentativa é descartada e
+   * não conta no limite do dia.
+   *
+   * @throws ErroDeNegocio {@code LIMITE_DE_TAXA}, {@code CONSENTIMENTO_BIOMETRICO_NECESSARIO},
+   *     {@code VERIFICACAO_FORA_DE_ORDEM}, {@link LimiteDeVerificacaoExcedido} ou {@code
+   *     PROVA_DE_VIDA_INDISPONIVEL}
+   */
+  public SessaoDeCaptura iniciar(
+      ContaId conta, FinalidadeDaTentativa finalidade, boolean consentimento) {
+    limiteDeTaxa.consumir(LIMITE_POR_CONTA, conta.toString());
+    if (!consentimento) {
+      throw CodigoVerificacao.CONSENTIMENTO_BIOMETRICO_NECESSARIO.erro();
+    }
+    exigirAguardando(conta(conta));
+    Instant agora = relogio.instant();
+    if (finalidade == FinalidadeDaTentativa.DOCUMENTO
+        && !verificacoes.duvidaDeSelfieDesde(conta, agora.minus(JANELA))) {
+      throw CodigoVerificacao.VERIFICACAO_FORA_DE_ORDEM.erro();
+    }
+    UUID tentativa = reservar(conta, finalidade, agora);
+    try {
+      SessaoDeProva sessao = provaDeVida.criarSessao(tentativa);
+      CredencialCurta credencial = credencialDoNavegador.emitir(tentativa);
+      verificacoes.associarSessao(tentativa, sessao.id());
+      return new SessaoDeCaptura(sessao.id(), sessao.regiao(), provaDeVida.modo(), credencial);
+    } catch (FornecedorIndisponivel e) {
+      verificacoes.descartar(tentativa);
+      LOG.warn("Prova de vida indisponível ao abrir sessão da conta {}: {}", conta, e.getMessage());
+      throw CodigoVerificacao.PROVA_DE_VIDA_INDISPONIVEL.erro();
+    } catch (RuntimeException e) {
+      verificacoes.descartar(tentativa);
+      throw e;
+    }
+  }
+
+  /**
+   * Decide a tentativa {@code SELFIE} da sessão e aplica a decisão. A chave de idempotência é o id
+   * da sessão: a repetição devolve o mesmo desfecho sem chamar o fornecedor, e uma chamada
+   * concorrente recebe {@code REQUISICAO_EM_ANDAMENTO}. O resultado é lido fora de transação; a
+   * conclusão da tentativa, os efeitos na conta e a resposta guardada vão juntos numa transação.
+   * Qualquer falha antes do commit libera a chave, e o mesmo id de sessão pode tentar de novo.
+   *
+   * @throws ErroDeNegocio {@code LIMITE_DE_TAXA}, {@code SESSAO_DE_VERIFICACAO_INVALIDA} (sessão
+   *     inexistente, de outra conta, de documento ou já concluída), {@code
+   *     REQUISICAO_EM_ANDAMENTO}, {@code VERIFICACAO_FORA_DE_ORDEM} ou {@code
+   *     PROVA_DE_VIDA_INDISPONIVEL}
+   */
+  public DesfechoDaVerificacao concluirSelfie(ContaId conta, String sessaoId) {
+    limiteDeTaxa.consumir(LIMITE_POR_CONTA, conta.toString());
+    Tentativa tentativa =
+        verificacoes
+            .porSessao(sessaoId)
+            .filter(t -> t.conta().equals(conta) && t.finalidade() == FinalidadeDaTentativa.SELFIE)
+            .orElseThrow(CodigoVerificacao.SESSAO_DE_VERIFICACAO_INVALIDA::erro);
+    Idempotencia.Reserva<DesfechoDaVerificacao> reserva =
+        idempotencia.reservar(
+            ESCOPO_DO_RESULTADO, sessaoId, conta.toString(), DesfechoDaVerificacao.class);
+    return switch (reserva) {
+      case Idempotencia.Reserva.JaRespondida<DesfechoDaVerificacao> respondida ->
+          respondida.resposta();
+      case Idempotencia.Reserva.Tua<DesfechoDaVerificacao> tua ->
+          decidirSelfie(tentativa, sessaoId, tua.dono());
+    };
+  }
+
+  /** A situação da verificação da conta: estado, o que ainda cabe hoje e quem atende a captura. */
+  public SituacaoDaVerificacao situacao(ContaId id) {
+    Conta conta = conta(id);
+    Instant agora = relogio.instant();
+    EstadoDaVerificacao estado =
+        switch (conta.estado()) {
+          case ATIVA -> EstadoDaVerificacao.APROVADA;
+          case AGUARDANDO_VERIFICACAO ->
+              verificacoes.duvidaDeSelfieDesde(id, agora.minus(JANELA))
+                  ? EstadoDaVerificacao.DUVIDA
+                  : EstadoDaVerificacao.AGUARDANDO;
+          default -> throw CodigoVerificacao.VERIFICACAO_FORA_DE_ORDEM.erro();
+        };
+    return new SituacaoDaVerificacao(
+        estado,
+        restantes(id, FinalidadeDaTentativa.SELFIE, agora),
+        restantes(id, FinalidadeDaTentativa.DOCUMENTO, agora),
+        provaDeVida.modo());
+  }
+
+  private UUID reservar(ContaId conta, FinalidadeDaTentativa finalidade, Instant agora) {
+    ReservaDeTentativa reserva =
+        transacao.execute(
+            status -> verificacoes.reservar(conta, finalidade, limites.limite(finalidade), agora));
+    return switch (reserva) {
+      case ReservaDeTentativa.Feita feita -> feita.tentativa();
+      case ReservaDeTentativa.Esgotada esgotada ->
+          throw new LimiteDeVerificacaoExcedido(ateLiberar(agora, esgotada.liberaEm()));
+      case null -> throw new IllegalStateException("A reserva da tentativa não devolveu nada");
+    };
+  }
+
+  private DesfechoDaVerificacao decidirSelfie(Tentativa tentativa, String sessaoId, UUID dono) {
+    boolean concluida = false;
+    try {
+      Conta conta = conta(tentativa.conta());
+      exigirAguardando(conta);
+      ResultadoDaVerificacao resultado = DecisaoDeIdade.pelaSelfie(lerResultado(sessaoId, conta));
+      DesfechoDaVerificacao desfecho =
+          transacao.execute(status -> {
+            Instant agora = relogio.instant();
+            if (!verificacoes.concluir(tentativa.id(), resultado, agora)) {
+              throw CodigoVerificacao.SESSAO_DE_VERIFICACAO_INVALIDA.erro();
+            }
+            efeitos.aplicar(conta, resultado, MetodoDeVerificacao.ESTIMATIVA_FACIAL, agora);
+            DesfechoDaVerificacao novo = desfecho(conta.id(), resultado, agora);
+            idempotencia.concluir(ESCOPO_DO_RESULTADO, sessaoId, dono, novo);
+            return novo;
+          });
+      if (desfecho == null) {
+        throw new IllegalStateException("A transação da verificação não devolveu desfecho");
+      }
+      concluida = true;
+      LOG.info(
+          "Verificação de idade da conta {}: {} por {}",
+          conta.id(),
+          resultado,
+          MetodoDeVerificacao.ESTIMATIVA_FACIAL);
+      return desfecho;
+    } finally {
+      if (!concluida) {
+        idempotencia.liberar(ESCOPO_DO_RESULTADO, sessaoId, dono);
+      }
+    }
+  }
+
+  private ResultadoDaProva lerResultado(String sessaoId, Conta conta) {
+    try {
+      return provaDeVida.resultado(sessaoId);
+    } catch (FornecedorIndisponivel e) {
+      LOG.warn(
+          "Prova de vida indisponível no resultado da conta {}: {}", conta.id(), e.getMessage());
+      throw CodigoVerificacao.PROVA_DE_VIDA_INDISPONIVEL.erro();
+    }
+  }
+
+  private DesfechoDaVerificacao desfecho(
+      ContaId conta, ResultadoDaVerificacao resultado, Instant agora) {
+    int envios = restantes(conta, FinalidadeDaTentativa.DOCUMENTO, agora);
+    return new DesfechoDaVerificacao(
+        resultado,
+        resultado == ResultadoDaVerificacao.DUVIDA && envios > 0,
+        restantes(conta, FinalidadeDaTentativa.SELFIE, agora),
+        envios);
+  }
+
+  private int restantes(ContaId conta, FinalidadeDaTentativa finalidade, Instant agora) {
+    int usadas = verificacoes.contarDesde(conta, finalidade, agora.minus(JANELA));
+    return Math.max(0, limites.limite(finalidade) - usadas);
+  }
+
+  private Conta conta(ContaId id) {
+    return contas
+        .porId(id)
+        .orElseThrow(() -> new IllegalStateException("Sessão de conta inexistente: " + id));
+  }
+
+  private static void exigirAguardando(Conta conta) {
+    if (conta.estado() != EstadoConta.AGUARDANDO_VERIFICACAO) {
+      throw CodigoVerificacao.VERIFICACAO_FORA_DE_ORDEM.erro();
+    }
+  }
+
+  private static Duration ateLiberar(Instant agora, Instant liberaEm) {
+    Duration espera = Duration.between(agora, liberaEm);
+    return espera.compareTo(ESPERA_MINIMA) < 0 ? ESPERA_MINIMA : espera;
+  }
+}
