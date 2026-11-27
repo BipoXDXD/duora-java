@@ -54,14 +54,12 @@ class ContaController {
       return ResponseEntity.noContent().build();
     }
     EstadoConta estado = sessao.get().estado();
-    if (estado == EstadoConta.SUSPENSA
-        || estado == EstadoConta.BANIDA
-        || estado == EstadoConta.EXCLUIDA) {
+    if (!estado.disponivel()) {
       throw ExigeSessao.recusa(CodigoSessao.CONTA_INDISPONIVEL);
     }
     boolean verificada =
         contas.porId(sessao.get().conta()).map(ContaResumo::verificada).orElse(false);
-    return ResponseEntity.ok(new EstadoDaConta(estado, estado == EstadoConta.ATIVA, verificada));
+    return ResponseEntity.ok(new EstadoDaConta(estado, estado.cadastroConcluido(), verificada));
   }
 
   /**

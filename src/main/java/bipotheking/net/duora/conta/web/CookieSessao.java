@@ -6,6 +6,7 @@ import java.time.Duration;
 import java.util.Arrays;
 import java.util.Optional;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.core.env.Environment;
 import org.springframework.http.ResponseCookie;
 import org.springframework.stereotype.Component;
 
@@ -22,7 +23,12 @@ class CookieSessao {
 
   private final boolean seguro;
 
-  CookieSessao(@Value("${duora.sessao.cookie-seguro:true}") boolean seguro) {
+  /** Em {@code prod} o cookie sem {@code Secure} derruba o boot: ele viajaria em http aberto. */
+  CookieSessao(@Value("${duora.sessao.cookie-seguro:true}") boolean seguro, Environment ambiente) {
+    if (!seguro && ambiente.matchesProfiles("prod")) {
+      throw new IllegalStateException(
+          "duora.sessao.cookie-seguro=false não é aceito no perfil prod");
+    }
     this.seguro = seguro;
   }
 

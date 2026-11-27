@@ -15,6 +15,8 @@ import jakarta.servlet.http.Cookie;
 import java.time.Duration;
 import java.time.LocalDate;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.EnumSource;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
@@ -80,6 +82,43 @@ class SessaoApiTest extends BancoDeTeste {
         .andExpect(status().isForbidden())
         .andExpect(jsonPath("$.codigo").value("CONTA_INDISPONIVEL"))
         .andExpect(jsonPath("$.mensagem").value("Esta conta não está disponível."));
+  }
+
+  @ParameterizedTest
+  @EnumSource(
+      value = EstadoConta.class,
+      names = {"BANIDA", "EXCLUIDA"})
+  void indisponivelRecebe403EmGetContaENaRotaProtegida(EstadoConta estado) throws Exception {
+    ContaDeTeste conta = contas.criar(estado, estado == EstadoConta.EXCLUIDA ? null : NASCIMENTO);
+
+    obterConta(cookieDe(conta))
+        .andExpect(status().isForbidden())
+        .andExpect(jsonPath("$.codigo").value("CONTA_INDISPONIVEL"));
+    mvc.perform(get("/api/teste/so-ativa").cookie(cookieDe(conta)))
+        .andExpect(status().isForbidden())
+        .andExpect(jsonPath("$.codigo").value("CONTA_INDISPONIVEL"))
+        .andExpect(jsonPath("$.mensagem").value("Esta conta não está disponível."));
+  }
+
+  @Test
+  void ativaNaRotaSoAtivaRecebeAPropriaConta() throws Exception {
+    ContaDeTeste conta = contas.criarAtiva();
+
+    mvc.perform(get("/api/teste/so-ativa").cookie(cookieDe(conta)))
+        .andExpect(status().isOk())
+        .andExpect(content().string(conta.id().toString()));
+  }
+
+  @ParameterizedTest
+  @EnumSource(
+      value = EstadoConta.class,
+      names = {"PENDENTE", "AGUARDANDO_VERIFICACAO"})
+  void cadastroPorConcluirConsegueSair(EstadoConta estado) throws Exception {
+    ContaDeTeste conta = contas.criar(estado, estado == EstadoConta.PENDENTE ? null : NASCIMENTO);
+
+    mvc.perform(post("/api/conta/sair").header(MesmaOrigem.CABECALHO, "1").cookie(cookieDe(conta)))
+        .andExpect(status().isNoContent())
+        .andExpect(header().string(HttpHeaders.SET_COOKIE, containsString("Max-Age=0")));
   }
 
   @Test

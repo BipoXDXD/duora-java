@@ -2,6 +2,7 @@ package bipotheking.net.duora.conta.web;
 
 import bipotheking.net.duora.conta.CodigoSessao;
 import bipotheking.net.duora.conta.ContaAtual;
+import bipotheking.net.duora.conta.EstadoConta;
 import bipotheking.net.duora.conta.RotasPublicas;
 import bipotheking.net.duora.conta.SessaoAtiva;
 import bipotheking.net.duora.nucleo.ErroDeNegocio;
@@ -11,10 +12,10 @@ import jakarta.servlet.http.HttpServletResponse;
 import java.util.Arrays;
 import java.util.List;
 import org.springframework.http.server.PathContainer;
-import org.springframework.http.server.RequestPath;
 import org.springframework.stereotype.Component;
 import org.springframework.web.method.HandlerMethod;
 import org.springframework.web.servlet.HandlerInterceptor;
+import org.springframework.web.util.ServletRequestPathUtils;
 import org.springframework.web.util.pattern.PathPattern;
 import org.springframework.web.util.pattern.PathPatternParser;
 
@@ -51,25 +52,24 @@ class ExigeSessao implements HandlerInterceptor {
         sessaoDaRequisicao
             .ler(request, response)
             .orElseThrow(() -> new ErroDeNegocio(CodigoWeb.NAO_AUTENTICADO, NAO_AUTENTICADO));
-    switch (sessao.estado()) {
-      case SUSPENSA, BANIDA, EXCLUIDA -> throw recusa(CodigoSessao.CONTA_INDISPONIVEL);
-      case PENDENTE, AGUARDANDO_VERIFICACAO -> {
-        if (exigeCadastroConcluido(handler)) {
-          throw recusa(CodigoSessao.CADASTRO_INCOMPLETO);
-        }
-      }
-      case ATIVA -> {
-        // Conta ativa segue para qualquer rota protegida.
-      }
+    EstadoConta estado = sessao.estado();
+    if (!estado.disponivel()) {
+      throw recusa(CodigoSessao.CONTA_INDISPONIVEL);
+    }
+    if (!estado.cadastroConcluido() && exigeCadastroConcluido(handler)) {
+      throw recusa(CodigoSessao.CADASTRO_INCOMPLETO);
     }
     request.setAttribute(ATRIBUTO_CONTA, sessao.conta());
     return true;
   }
 
+  /**
+   * Casa o caminho que o {@code DispatcherServlet} já analisou: o mesmo, decodificado e sem
+   * parâmetros de segmento, que o handler mapping usa para achar o handler.
+   */
   private boolean publica(HttpServletRequest request) {
     PathContainer caminho =
-        RequestPath.parse(request.getRequestURI(), request.getContextPath())
-            .pathWithinApplication();
+        ServletRequestPathUtils.getParsedRequestPath(request).pathWithinApplication();
     return publicas.stream().anyMatch(padrao -> padrao.matches(caminho));
   }
 

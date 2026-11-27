@@ -63,6 +63,76 @@ class RotasProtegidasTest extends BancoDeTeste {
     }
   }
 
+  /**
+   * As rotas reais que a lista pública deixa passar. Uma rota nova sob um padrão com {@code **}
+   * (como {@code /api/sala/**} ou {@code /api/legal/**}) fica pública sem ninguém decidir: este
+   * teste obriga a decisão a aparecer aqui.
+   */
+  @Test
+  void rotasPublicasReaisSaoExatamenteAsDecididas() {
+    assertThat(rotasDaApi().stream().filter(Rota::publica).map(Rota::toString))
+        .containsExactlyInAnyOrder(
+            "GET /api/conta",
+            "POST /api/salas",
+            "POST /api/salas/entrar",
+            "GET /api/sala",
+            "POST /api/sala/pecas",
+            "POST /api/sala/sinal",
+            "POST /api/sala/pronto",
+            "POST /api/sala/ajustar",
+            "POST /api/sala/ajustar/recusar",
+            "POST /api/sala/abertura",
+            "POST /api/sala/sair");
+  }
+
+  /**
+   * Variações de caminho que um casamento por texto cru confundiria com uma rota pública ou
+   * deixaria fora de {@code /api/**}. Sem sessão, nenhuma chega a um handler protegido.
+   */
+  @ParameterizedTest
+  @ValueSource(
+      strings = {
+        "/api/conta/",
+        "/api//conta/sair",
+        "/api/conta/%73air",
+        "/api/legal/../conta",
+        "/api/legal/../conta/sair",
+        "/API/conta",
+        "//api/conta",
+        "/api/teste/so-ativa;x"
+      })
+  void caminhoDisfarcadoSemSessaoNuncaEhAtendido(String caminho) throws Exception {
+    for (HttpMethod metodo : List.of(HttpMethod.GET, HttpMethod.POST)) {
+      MockHttpServletResponse resposta =
+          mvc.perform(
+                  request(metodo, "/")
+                      .header(MesmaOrigem.CABECALHO, "1")
+                      .contentType(MediaType.APPLICATION_JSON)
+                      .content("{}")
+                      .with(requisicao -> {
+                        requisicao.setRequestURI(caminho);
+                        return requisicao;
+                      }))
+              .andReturn()
+              .getResponse();
+      assertThat(resposta.getStatus())
+          .as(metodo + " " + caminho)
+          .matches(codigo -> codigo < 200 || codigo >= 300, "fora de 2xx");
+    }
+  }
+
+  @Test
+  void rotaProtegidaComParametroDeSegmentoRecebe401() throws Exception {
+    mvc.perform(
+            get("/")
+                .with(requisicao -> {
+                  requisicao.setRequestURI("/api/teste/so-ativa;x");
+                  return requisicao;
+                }))
+        .andExpect(status().isUnauthorized())
+        .andExpect(jsonPath("$.codigo").value(NAO_AUTENTICADO));
+  }
+
   @ParameterizedTest
   @ValueSource(strings = {"/api/qualquer", "/api/conta/qualquer"})
   void rotaInexistenteRecebe401(String caminho) throws Exception {
