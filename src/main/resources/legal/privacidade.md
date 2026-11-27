@@ -8,7 +8,7 @@ Esta política explica quais dados pessoais o Duora trata, por quê, por quanto 
 
 ## Controlador e contato
 
-O controlador dos dados é o responsável pelo Duora. Para dúvidas e pedidos sobre seus dados, escreva para {{contato}}.
+O controlador dos dados é o responsável pelo Duora. Para dúvidas e pedidos sobre seus dados, escreva para <{{contato}}>.
 
 ## O que tratamos e por quê
 
@@ -30,7 +30,7 @@ O controlador dos dados é o responsável pelo Duora. Para dúvidas e pedidos so
 - A imagem do seu rosto é um dado biométrico, portanto sensível. Nós a tratamos com seu consentimento específico, só para verificar a idade. Ela nunca é guardada nem usada para outra coisa.
 - Guardamos só o resultado (aprovado ou recusado), a data e o método usado.
 - Quem tem menos de 18 anos tem o cadastro bloqueado.
-- Para contestar o resultado, escreva ao encarregado: {{encarregado}}.
+- Para contestar o resultado, escreva ao encarregado: <{{encarregado}}>.
 
 ## Por quanto tempo guardamos
 
@@ -73,12 +73,12 @@ Quando um fornecedor fica fora do Brasil, o tratamento também acontece fora do 
 ## Transferência internacional
 
 - A Amazon Web Services e a Resend tratam dados nos Estados Unidos.
-- A Didit trata dados só na faixa de dúvida da verificação de idade, no país de processamento definido no acordo de tratamento de dados da Didit.
+- A Didit trata dados só na faixa de dúvida da verificação de idade, na Irlanda, dentro da União Europeia, conforme o acordo de tratamento de dados e a documentação da Didit.
 - O Cloudflare Turnstile pode tratar sinais do seu navegador fora do Brasil.
 
 ## Cookies
 
-Usamos só dois cookies, ambos essenciais: o da sessão, que mantém você conectado, e o do terraço, que guarda seu lugar no encontro. Não usamos cookies de publicidade nem de análise.
+Usamos só dois cookies, ambos essenciais: o da sessão, que mantém sua sessão aberta, e o do terraço, que guarda seu lugar no encontro. Não usamos cookies de publicidade nem de análise.
 
 ## Canal de denúncia sem conta
 
@@ -86,12 +86,12 @@ Qualquer pessoa, mesmo sem conta, pode denunciar um perfil ou um conteúdo na p�
 
 ## Encarregado
 
-O encarregado pelo tratamento de dados pessoais é o responsável pelo Duora. Fale com o encarregado pelo e-mail {{encarregado}}.
+O encarregado pelo tratamento de dados pessoais é {{nome-do-encarregado}}. Fale com o encarregado pelo e-mail <{{encarregado}}>.
 
 ## Seus direitos
 
 - O botão Excluir conta, em Minha conta, apaga seus dados pessoais na hora. O que precisa ficar para a moderação fica sem identificação direta.
-- Para pedir acesso ou correção dos seus dados, escreva para {{contato}}.
+- Para pedir acesso ou correção dos seus dados, escreva para <{{contato}}>.
 
 ## Alterações
 

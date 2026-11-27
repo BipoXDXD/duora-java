@@ -14,7 +14,7 @@ import org.springframework.validation.annotation.Validated;
  */
 @ConfigurationProperties("duora.encarregado")
 @Validated
-public record EncarregadoDeDados(@NotBlank String nome, @NotBlank @Email String email) {
+public record EncarregadoDeDados(@NotBlank String nome, @Email String email) {
 
   public EncarregadoDeDados {
     if (email == null || email.isBlank() || email.startsWith("${")) {

@@ -14,7 +14,7 @@ class DocumentosLegaisTest {
 
   /** Calculado uma vez com {@code shasum -a 256} sobre o arquivo com os marcadores trocados. */
   private static final String RESUMO_DOS_TERMOS_VALIDOS =
-      "c6dae5b6054ef91a70bd1f9536f39df529d8d8d6b8e5bce1d2dad4e7d42f31fb";
+      "f68937acb5e70d23070a2d939655d7cd2bc8b842ec6378b284cbe8e85e875d1a";
 
   private static DocumentosLegais de(String cenario) {
     return new DocumentosLegais(
@@ -35,7 +35,16 @@ class DocumentosLegaisTest {
   void trocaMarcadoresDeContatoEEncarregado() {
     String html = de("valido").html(DocumentoLegal.TERMOS);
 
-    assertThat(html).contains(CONTATO, "dpo@exemplo.invalid").doesNotContain("{{");
+    assertThat(html)
+        .contains(CONTATO, "Pessoa encarregada", "dpo@exemplo.invalid")
+        .doesNotContain("{{");
+  }
+
+  @Test
+  void autolinkDeEmailViraMailtoMesmoComHtmlEscapado() {
+    String html = de("valido").html(DocumentoLegal.TERMOS);
+
+    assertThat(html).contains("href=\"mailto:teste@exemplo.com\">teste@exemplo.com</a>");
   }
 
   @Test
@@ -78,7 +87,7 @@ class DocumentosLegaisTest {
     assertThatThrownBy(() -> de("marcador-desconhecido"))
         .isInstanceOf(IllegalStateException.class)
         .hasMessageContaining("marcador-desconhecido/termos.md")
-        .hasMessageContaining("telefone");
+        .hasMessageContaining("{{encarregado.nome}}");
   }
 
   @Test

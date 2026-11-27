@@ -21,9 +21,10 @@ import org.springframework.core.io.ResourceLoader;
 
 /**
  * Termos e privacidade publicados: lê os Markdown de {@code <diretorio>/<caminho>.md} uma vez, na
- * construção, troca os marcadores {@code {{contato}}} e {@code {{encarregado}}} e guarda a versão
- * do front matter, o SHA-256 do texto já trocado e o HTML. Qualquer arquivo inválido derruba o
- * boot, porque um aceite precisa apontar para um texto exato.
+ * construção, troca os marcadores {@code {{contato}}}, {@code {{encarregado}}} (e-mail) e {@code
+ * {{nome-do-encarregado}}} e guarda a versão do front matter, o SHA-256 do texto já trocado e o
+ * HTML. Qualquer arquivo inválido derruba o boot, porque um aceite precisa apontar para um texto
+ * exato.
  */
 public class DocumentosLegais {
 
@@ -40,7 +41,11 @@ public class DocumentosLegais {
       ResourceLoader carregador, String diretorio, String contato, EncarregadoDeDados encarregado) {
     this.contato = contato;
     this.encarregado = encarregado;
-    Map<String, String> marcadores = Map.of("contato", contato, "encarregado", encarregado.email());
+    Map<String, String> marcadores =
+        Map.of(
+            "contato", contato,
+            "encarregado", encarregado.email(),
+            "nome-do-encarregado", encarregado.nome());
     Parser parser = Parser.builder().extensions(EXTENSOES).build();
     HtmlRenderer renderer =
         HtmlRenderer.builder().extensions(EXTENSOES).escapeHtml(true).sanitizeUrls(true).build();

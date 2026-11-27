@@ -25,7 +25,7 @@ Nos primeiros 7 dias depois de ativar a conta, há um limite diário de mensagen
 
 ## Conta
 
-- Você entra pelo link que enviamos ao seu e-mail. Não há código para decorar nem para guardar.
+- Você entra pelo link que enviamos ao seu e-mail. Você não precisa criar nem lembrar de nada para entrar.
 - Use um e-mail que só você acessa e não repasse os links de entrada.
 - Não use a conta de outra pessoa nem deixe outra pessoa usar a sua.
 
@@ -33,7 +33,7 @@ Nos primeiros 7 dias depois de ativar a conta, há um limite diário de mensagen
 
 - Cada encontro dura 30 minutos.
 - Qualquer pessoa pode sair quando quiser, sem precisar explicar.
-- Encerrar o encontro antes do tempo para os dois exige o acordo dos dois.
+- Encerrar o encontro antes do tempo só acontece se as duas pessoas concordarem.
 - No fim, cada pessoa decide em particular se quer continuar a conversa. Um "não" nunca é revelado à outra pessoa.
 
 ## Conteúdo proibido
@@ -66,4 +66,4 @@ Cada versão destes termos tem uma data. No cadastro, guardamos qual versão voc
 
 ## Contato
 
-Dúvidas sobre estes termos: {{contato}}.
+Dúvidas sobre estes termos: <{{contato}}>.

@@ -10,13 +10,14 @@ class ConteudoLegalTest {
 
   private static final String CONTATO = "support@meetduora.com";
   private static final String EMAIL_DO_ENCARREGADO = "encarregado@exemplo.invalid";
+  private static final String NOME_DO_ENCARREGADO = "Pessoa Encarregada de Teste";
 
   private static final DocumentosLegais DOCUMENTOS =
       new DocumentosLegais(
           new DefaultResourceLoader(),
           "classpath:legal/",
           CONTATO,
-          new EncarregadoDeDados("o responsável pelo Duora", EMAIL_DO_ENCARREGADO));
+          new EncarregadoDeDados(NOME_DO_ENCARREGADO, EMAIL_DO_ENCARREGADO));
 
   private static String texto(DocumentoLegal documento) {
     return DOCUMENTOS.html(documento).replaceAll("<[^>]+>", " ");
@@ -53,7 +54,19 @@ class ConteudoLegalTest {
             "RG ou da CNH",
             "6 meses",
             "encarregado",
+            NOME_DO_ENCARREGADO,
             EMAIL_DO_ENCARREGADO);
+  }
+
+  @Test
+  void contatosViramLinksDeEmail() {
+    assertThat(DOCUMENTOS.html(DocumentoLegal.TERMOS)).contains(mailto(CONTATO));
+    assertThat(DOCUMENTOS.html(DocumentoLegal.PRIVACIDADE))
+        .contains(mailto(CONTATO), mailto(EMAIL_DO_ENCARREGADO));
+  }
+
+  private static String mailto(String email) {
+    return "href=\"mailto:" + email + "\"";
   }
 
   @Test

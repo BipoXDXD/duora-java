@@ -30,7 +30,7 @@ class LegalController {
         new Versao(documentos.atual(DocumentoLegal.TERMOS).versao()),
         new Versao(documentos.atual(DocumentoLegal.PRIVACIDADE).versao()),
         documentos.contato(),
-        documentos.encarregado());
+        Encarregado.de(documentos.encarregado()));
   }
 
   @GetMapping("/{documento}")
@@ -44,8 +44,15 @@ class LegalController {
 
   record Versao(String versao) {}
 
-  record Versoes(
-      Versao termos, Versao privacidade, String contato, EncarregadoDeDados encarregado) {}
+  record Versoes(Versao termos, Versao privacidade, String contato, Encarregado encarregado) {}
+
+  /** Forma pública do encarregado, separada do record de configuração. */
+  record Encarregado(String nome, String email) {
+
+    static Encarregado de(EncarregadoDeDados configurado) {
+      return new Encarregado(configurado.nome(), configurado.email());
+    }
+  }
 
   record Documento(String versao, String html) {}
 }
