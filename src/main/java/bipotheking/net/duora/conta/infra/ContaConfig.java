@@ -1,7 +1,11 @@
 package bipotheking.net.duora.conta.infra;
 
+import bipotheking.net.duora.conta.ConsultaDeContas;
+import bipotheking.net.duora.conta.ContaResumo;
 import bipotheking.net.duora.conta.ResumoDeEmail;
+import bipotheking.net.duora.conta.dominio.Conta;
 import bipotheking.net.duora.conta.dominio.DominiosDescartaveis;
+import bipotheking.net.duora.conta.dominio.RepositorioDeContas;
 import bipotheking.net.duora.conta.dominio.VerificacaoHumana;
 import java.io.BufferedReader;
 import java.io.IOException;
@@ -32,6 +36,16 @@ class ContaConfig {
   @Bean
   ResumoDeEmail resumoDeEmail(@Value("${duora.segredo-email}") String segredo) {
     return new ResumoDeEmail(segredo);
+  }
+
+  /**
+   * A consulta é o repositório visto de fora: a conta inteira reduzida ao {@link ContaResumo}. Fica
+   * fora do {@code ContasJdbc} porque as duas portas têm {@code porId(ContaId)} com retornos
+   * diferentes, e uma classe Java não implementa as duas.
+   */
+  @Bean
+  ConsultaDeContas consultaDeContas(RepositorioDeContas contas) {
+    return id -> contas.porId(id).map(Conta::resumo);
   }
 
   @Bean
