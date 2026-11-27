@@ -83,23 +83,27 @@ public final class RegrasDeArquitetura {
 
   /** O {@code dominio/} de cada módulo é Java puro: só JDK e o próprio projeto. */
   public static ArchRule dominioJavaPuro(String raiz) {
-    return javaPuro(raiz + "..dominio..", raiz + "..");
+    return javaPuro(
+        raiz + "..dominio..",
+        resideInAPackage(raiz + "..")
+            .and(DescribedPredicate.not(resideInAnyPackage("..infra..", "..web.."))));
   }
 
   /** O {@code nucleo} é Java puro: só JDK e ele mesmo. */
   public static ArchRule nucleoJavaPuro(String raiz) {
-    return javaPuro(raiz + ".nucleo..", raiz + ".nucleo..");
+    return javaPuro(raiz + ".nucleo..", resideInAPackage(raiz + ".nucleo.."));
   }
 
-  private static ArchRule javaPuro(String pacotes, String projetoPermitido) {
+  private static ArchRule javaPuro(String pacotes, DescribedPredicate<JavaClass> projetoPermitido) {
     return classes()
         .that()
         .resideInAPackage(pacotes)
         .should()
         .onlyDependOnClassesThat(
             // org.jspecify: anotações de nulidade, sem comportamento (o nucleo já usa @Nullable).
-            resideInAnyPackage("java..", "org.jspecify..", projetoPermitido)
-                .and(DescribedPredicate.not(resideInAPackage("java.sql.."))))
+            resideInAnyPackage("java..", "org.jspecify..")
+                .and(DescribedPredicate.not(resideInAPackage("java.sql..")))
+                .or(projetoPermitido))
         .allowEmptyShould(false);
   }
 
