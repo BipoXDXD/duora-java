@@ -31,9 +31,12 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.system.CapturedOutput;
+import org.springframework.boot.test.system.OutputCaptureExtension;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.ResultActions;
@@ -133,8 +136,13 @@ class ExclusaoApiTest extends BancoDeTeste {
     assertThat(gancho.chamadas()).containsExactly(new Chamada(conta.id(), true));
   }
 
+  /**
+   * O gancho de teste revoga as sessões antes de lançar: a sessão viva prova que a falha desfez o
+   * que o gancho gravou, não só que a exclusão parou antes de começar.
+   */
   @Test
-  void falhaNoGanchoDesfazTudo() throws Exception {
+  @ExtendWith(OutputCaptureExtension.class)
+  void falhaNoGanchoDesfazTudo(CapturedOutput saida) throws Exception {
     ContaDeTeste conta = contas.criarAtiva();
     aceitar(conta);
     pedirLink(emailDe(conta));
@@ -146,10 +154,14 @@ class ExclusaoApiTest extends BancoDeTeste {
     assertThat(linha.get("estado")).isEqualTo("ATIVA");
     assertThat(linha.get("email")).isEqualTo(emailDe(conta));
     assertThat(linha.get("excluida_em")).isNull();
-    assertThat(sessoesDa(conta)).isOne();
+    assertThat(sessoesDa(conta)).as("a revogação do gancho foi desfeita").isOne();
     assertThat(aceitesDa(conta)).isEqualTo(2);
     assertThat(linksDo(emailDe(conta))).isOne();
     mvc.perform(get("/api/teste/so-ativa").cookie(cookieDe(conta))).andExpect(status().isOk());
+    assertThat(saida.getOut())
+        .contains("Falha inesperada ao atender a requisição")
+        .contains("Falha simulada no gancho de exclusão")
+        .doesNotContain(emailDe(conta));
   }
 
   @Test

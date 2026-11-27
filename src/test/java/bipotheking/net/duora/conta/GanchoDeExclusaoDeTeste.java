@@ -10,16 +10,22 @@ import org.springframework.transaction.support.TransactionSynchronizationManager
 /**
  * Gancho de exclusão que registra as chamadas, para os testes verem se a exclusão o chama e na
  * transação dela. {@link #naProxima} faz a próxima chamada rodar uma ação no meio da exclusão;
- * {@link #falharNaProxima()} faz a próxima chamada lançar, como um módulo que falha.
+ * {@link #falharNaProxima()} faz a próxima chamada gravar e lançar, como um módulo que falha depois
+ * de mexer no banco.
  */
 @Component
-public class GanchoDeExclusaoDeTeste implements AoExcluirConta {
+class GanchoDeExclusaoDeTeste implements AoExcluirConta {
 
   /** Uma chamada do gancho: a conta e se havia transação aberta. */
-  public record Chamada(ContaId conta, boolean emTransacao) {}
+  record Chamada(ContaId conta, boolean emTransacao) {}
 
   private final List<Chamada> chamadas = new CopyOnWriteArrayList<>();
   private final AtomicReference<Consumer<ContaId>> proxima = new AtomicReference<>();
+  private final Sessoes sessoes;
+
+  GanchoDeExclusaoDeTeste(Sessoes sessoes) {
+    this.sessoes = sessoes;
+  }
 
   @Override
   public void excluir(ContaId conta) {
@@ -31,23 +37,27 @@ public class GanchoDeExclusaoDeTeste implements AoExcluirConta {
   }
 
   /** A próxima chamada roda a ação, na transação da exclusão. */
-  public void naProxima(Consumer<ContaId> acao) {
+  void naProxima(Consumer<ContaId> acao) {
     proxima.set(acao);
   }
 
-  /** A próxima chamada lança. */
-  public void falharNaProxima() {
+  /**
+   * A próxima chamada revoga as sessões da conta e lança: se as sessões sobrevivem, a exclusão
+   * desfez o que o gancho gravou.
+   */
+  void falharNaProxima() {
     naProxima(conta -> {
+      sessoes.revogarTodas(conta);
       throw new IllegalStateException("Falha simulada no gancho de exclusão");
     });
   }
 
-  public List<Chamada> chamadas() {
+  List<Chamada> chamadas() {
     return List.copyOf(chamadas);
   }
 
   /** Esquece as chamadas e a ação pendente: o contexto é dividido entre os testes. */
-  public void esquecer() {
+  void esquecer() {
     chamadas.clear();
     proxima.set(null);
   }
