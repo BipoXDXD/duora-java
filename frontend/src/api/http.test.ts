@@ -122,6 +122,28 @@ describe("requisitarHttp", () => {
     expect(erro).toMatchObject({ status: 503, codigo: "SERVIDOR", mensagem: null, corpo: null });
     expect(erro.transitorio).toBe(true);
   });
+
+  it("formularioVaiSemContentTypeEComXDuora", async () => {
+    const fetchFalso = responder(200);
+    const formulario = new FormData();
+    formulario.append("sessaoId", "abc");
+
+    await requisitarHttp("POST", "/conta/verificacao/documento", { formulario });
+
+    const [, init] = fetchFalso.mock.calls[0] ?? [];
+    expect(init?.body).toBe(formulario);
+    expect(cabecalhosEnviados(fetchFalso)["X-Duora"]).toBe("1");
+    expect(Object.keys(cabecalhosEnviados(fetchFalso)).map((nome) => nome.toLowerCase())).not.toContain("content-type");
+  });
+
+  it("corpoEFormularioJuntosLancamTypeError", async () => {
+    const fetchFalso = responder(200);
+
+    await expect(
+      requisitarHttp("POST", "/conta/verificacao/documento", { corpo: {}, formulario: new FormData() }),
+    ).rejects.toBeInstanceOf(TypeError);
+    expect(fetchFalso).not.toHaveBeenCalled();
+  });
 });
 
 describe("novaChaveDeIdempotencia", () => {

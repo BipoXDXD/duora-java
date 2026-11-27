@@ -44,7 +44,10 @@ export class ErroHttp extends Error {
 }
 
 export interface OpcoesDaRequisicao {
+  /** Vai como JSON. Exclusivo com `formulario`. */
   corpo?: unknown;
+  /** Vai como multipart/form-data; o navegador escreve o Content-Type com o boundary. */
+  formulario?: FormData;
   cabecalhos?: Record<string, string>;
   etag?: string | null;
 }
@@ -101,8 +104,11 @@ function erroDaResposta(resposta: Response, dados: unknown): ErroHttp {
 export async function requisitarHttp(
   metodo: "GET" | "POST",
   caminho: string,
-  { corpo, cabecalhos = {}, etag }: OpcoesDaRequisicao = {},
+  { corpo, formulario, cabecalhos = {}, etag }: OpcoesDaRequisicao = {},
 ): Promise<RespostaHttp> {
+  if (corpo !== undefined && formulario !== undefined) {
+    throw new TypeError("corpo e formulario são exclusivos");
+  }
   const enviados: Record<string, string> = {
     "X-Duora": "1",
     Accept: "application/json, application/problem+json",
@@ -122,7 +128,7 @@ export async function requisitarHttp(
       headers: enviados,
       credentials: "same-origin",
       cache: "no-store",
-      body: corpo === undefined ? undefined : JSON.stringify(corpo),
+      body: formulario ?? (corpo === undefined ? undefined : JSON.stringify(corpo)),
     });
   } catch (causa) {
     throw new ErroHttp({ status: 0, codigo: "REDE", detalhe: causa instanceof Error ? causa.message : String(causa) });
