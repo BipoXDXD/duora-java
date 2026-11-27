@@ -12,7 +12,10 @@ public interface PoliticaDeRetencao {
   /** Nome único em kebab-case ({@code links-de-acesso}), usado no log e nas métricas. */
   String nome();
 
-  /** Quanto tempo o dado vive depois do instante de referência da política. Positivo. */
+  /**
+   * Quanto tempo o dado vive depois do instante de referência da política. Zero ou positivo: zero
+   * serve quando o instante de referência já é o fim da vida (o {@code expira_em} das sessões).
+   */
   Duration prazo();
 
   /**

@@ -114,12 +114,21 @@ class ExpiracaoDeDadosTest {
   }
 
   @Test
-  void prazoQueNaoEPositivoFalhaNaConstrucao() {
+  void prazoNegativoFalhaNaConstrucao() {
     PoliticaFalsa politica = new PoliticaFalsa("links", Duration.ofDays(-1));
 
     assertThatThrownBy(() -> expiracao(politica))
         .isInstanceOf(IllegalStateException.class)
         .hasMessageContaining("links");
+  }
+
+  @Test
+  void prazoZeroUsaOProprioAgoraComoLimite() {
+    PoliticaFalsa politica = new PoliticaFalsa("sessoes-expiradas", Duration.ZERO);
+
+    expiracao(politica).executar();
+
+    assertThat(politica.limites()).containsExactly(AGORA);
   }
 
   @Test
@@ -201,7 +210,12 @@ class ExpiracaoDeDadosTest {
                 .falhandoCom(new IllegalStateException("falhou para " + CANARIO)))
         .executar();
 
-    assertThat(saida.getAll()).contains("com-canario").contains("4").doesNotContain(CANARIO);
+    assertThat(saida.getAll().lines())
+        .anyMatch(l -> l.endsWith("Política de retenção com-canario removeu 4 itens"))
+        .anyMatch(l ->
+            l.endsWith(
+                "Política de retenção falha-com-canario falhou (java.lang.IllegalStateException)"));
+    assertThat(saida.getAll()).doesNotContain(CANARIO);
   }
 
   @Test
@@ -216,6 +230,17 @@ class ExpiracaoDeDadosTest {
     assertThat(ids).hasSize(2).doesNotHaveDuplicates();
     assertThat(ids).allSatisfy(id -> assertThat(UUID.fromString(id).version()).isEqualTo(7));
     assertThat(MDC.get(Correlacao.CHAVE_MDC)).isNull();
+  }
+
+  @Test
+  void correlationIdAnteriorVoltaAoMdc() {
+    PoliticaFalsa politica = new PoliticaFalsa("links");
+    MDC.put(Correlacao.CHAVE_MDC, "req-de-fora");
+
+    expiracao(politica).executar();
+
+    assertThat(politica.correlationIds()).doesNotContain("req-de-fora");
+    assertThat(MDC.get(Correlacao.CHAVE_MDC)).isEqualTo("req-de-fora");
   }
 
   @Test

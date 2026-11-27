@@ -29,8 +29,12 @@ import org.springframework.transaction.support.TransactionSynchronizationManager
  * Cada execução tem um correlation ID próprio no MDC. O log leva só nome, contagem e a classe do
  * erro: a mensagem de uma exceção pode trazer dado pessoal.
  *
- * <p>Pública porque o agendamento, os testes de contrato (P11) e a exclusão de conta (C12) a
- * chamam.
+ * <p>Uma falha no meio do laço de lotes de uma política devolve {@code removidos = 0} e não conta
+ * os lotes já commitados (eles ficam apagados): o resultado e o contador {@code removidos} medem só
+ * execuções completas, e o gauge {@code tamanho} mostra o que de fato sobrou.
+ *
+ * <p>Pública porque o agendamento e os testes de contrato (P11) chamam {@link #executar()}, e o
+ * canal público de denúncia (C12) lê {@link #prazos()}.
  */
 @Component
 public class ExpiracaoDeDados {
@@ -46,7 +50,8 @@ public class ExpiracaoDeDados {
 
   /**
    * @throws IllegalStateException se dois nomes se repetem, se um nome não é kebab-case ou se um
-   *     prazo não é positivo (zero ou negativo apagaria dado vivo)
+   *     prazo é nulo ou negativo (negativo apagaria dado vivo); zero vale, para dado cujo instante
+   *     de referência já é o fim da vida, como o {@code expira_em} das sessões
    */
   public ExpiracaoDeDados(
       List<PoliticaDeRetencao> politicas,
@@ -125,8 +130,8 @@ public class ExpiracaoDeDados {
         throw new IllegalStateException("Nome de política fora de kebab-case: " + nome);
       }
       Duration prazo = politica.prazo();
-      if (prazo.isZero() || prazo.isNegative()) {
-        throw new IllegalStateException("Prazo da política " + nome + " não é positivo: " + prazo);
+      if (prazo == null || prazo.isNegative()) {
+        throw new IllegalStateException("Prazo da política " + nome + " inválido: " + prazo);
       }
     }
   }

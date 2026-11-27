@@ -12,10 +12,10 @@ Espalhar um `@Scheduled` por módulo daria N horários, N jeitos de logar e de m
 
 ## Decisão
 
-- **Cada módulo registra o que apaga.** Um bean de `retencao.PoliticaDeRetencao` por tipo de dado, no módulo dono: `nome()` em kebab-case único, `prazo()` positivo, `expirar(Instant limite)` apaga o que é anterior a `limite` (estrito) e devolve quantos, `tamanho()` diz quanto há acumulado. A política é idempotente e roda fora de transação.
+- **Cada módulo registra o que apaga.** Um bean de `retencao.PoliticaDeRetencao` por tipo de dado, no módulo dono: `nome()` em kebab-case único, `prazo()` zero ou positivo (zero quando o instante de referência já é o fim da vida, como o `expira_em` das sessões), `expirar(Instant limite)` apaga o que é anterior a `limite` (estrito) e devolve quantos, `tamanho()` diz quanto há acumulado. A política é idempotente e roda fora de transação.
 - **Lotes de até 1000 linhas, cada um na própria transação.** A política fornece só o `DELETE` de um lote, num `TransactionTemplate`; o laço é `Lotes.apagarAteAcabar`, que chama o lote até ele devolver zero. Nenhuma política repete o laço, e nenhuma segura lock de tabela por minutos. Arquivos saem só depois do commit de cada lote.
 - **Um job diário único.** `ExpiracaoDeDados.executar()` roda todas as políticas em ordem de nome, com `limite = agora - prazo`, às 03:30 de São Paulo (`duora.retencao.cron`, `AgendamentoDaRetencao`). O agendamento obedece a `duora.agendamentos.habilitados`, como o da outbox; os testes chamam `executar()` direto. Execuções simultâneas são serializadas (`synchronized`), e chamar dentro de uma transação falha na hora, porque uma transação de fora juntaria todos os lotes numa só.
-- **Falha isolada.** Uma exceção numa política vira `ResultadoDaExpiracao(nome, 0, true)` e log ERROR com o nome e a classe do erro; as outras seguem. O que ela já apagou em lotes anteriores fica apagado, e o resto sai na execução seguinte.
+- **Falha isolada.** Uma exceção numa política vira `ResultadoDaExpiracao(nome, 0, true)` e log ERROR com o nome e a classe do erro; as outras seguem. O que ela já apagou em lotes anteriores fica apagado, e o resto sai na execução seguinte. Esses lotes parciais não entram no resultado nem em `duora.retencao.removidos` (escolha mais simples que propagar o parcial de `Lotes`): o contador mede execuções completas, e o gauge `tamanho` mostra o que sobrou.
 - **Métrica por política.** Gauge `duora.retencao.tamanho{politica}` sobre `tamanho()` e contadores `duora.retencao.removidos{politica}` e `duora.retencao.falhas{politica}`. Um acúmulo que cresce ou uma falha que se repete aparecem sem ler log.
 - **Log sem dado pessoal.** Cada execução tem um correlation ID próprio (UUID v7) no MDC. O log leva só nome, contagem e classe do erro, nunca a mensagem da exceção, que pode trazer e-mail ou token.
 - **`retencao/` é só a raiz, sem web nem JDBC.** O pacote tem a interface, o laço e o job; o `DELETE` mora na `infra/` de cada módulo. O `ArquiteturaTest` trava as duas coisas: `retencaoSoNaRaiz` e a regra geral `dominioSemWebNemJdbc`.
@@ -24,7 +24,8 @@ Espalhar um `@Scheduled` por módulo daria N horários, N jeitos de logar e de m
 ## Consequências
 
 - Os módulos da Etapa 2a (links, sessões, outbox, chaves de idempotência, registros de acesso) e os das Etapas 3, 5 e 6 implementam `PoliticaDeRetencao`; o teste de contrato (P11) confere os prazos por `prazos()`.
-- Um prazo zero ou negativo, um nome repetido ou fora de kebab-case derrubam o boot, em vez de apagar dado vivo ou misturar métricas.
+- Um prazo nulo ou negativo, um nome repetido ou fora de kebab-case derrubam o boot, em vez de apagar dado vivo ou misturar métricas.
+- No desligamento, o `shutdown()` do agendador não interrompe a retenção em andamento: ela segue até os 30 s de espera, e com o pool de conexões já fechado as políticas restantes falham, deixando ERRORs no log e falhas contadas. Nada se perde, porque os lotes commitados ficam e o resto sai no dia seguinte.
 - Cada `tamanho()` roda um `count` a cada leitura do gauge; com índice no instante de referência, é barato no volume do piloto.
 - Com várias instâncias, cada uma rodaria o job; como as políticas são idempotentes e apagam em lotes curtos, o pior caso é trabalho repetido. Um lock distribuído entra se o volume pedir (Etapa 10).
 

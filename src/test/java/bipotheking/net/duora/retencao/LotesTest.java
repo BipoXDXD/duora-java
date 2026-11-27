@@ -55,4 +55,22 @@ class LotesTest {
     assertThatThrownBy(() -> Lotes.apagarAteAcabar(lotes))
         .isInstanceOf(IllegalStateException.class);
   }
+
+  @Test
+  void loteQueLancaParaOLaco() {
+    int[] chamadas = {0};
+    IntSupplier lotes =
+        () -> {
+          chamadas[0]++;
+          if (chamadas[0] == 2) {
+            throw new IllegalStateException("banco");
+          }
+          return 1000;
+        };
+
+    assertThatThrownBy(() -> Lotes.apagarAteAcabar(lotes))
+        .isInstanceOf(IllegalStateException.class)
+        .hasMessage("banco");
+    assertThat(chamadas[0]).isEqualTo(2);
+  }
 }
