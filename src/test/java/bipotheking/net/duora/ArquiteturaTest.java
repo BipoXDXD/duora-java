@@ -32,11 +32,9 @@ class ArquiteturaTest {
 
   @ArchTest static final ArchRule webSemJdbc = RegrasDeArquitetura.webSemJdbc(RAIZ);
 
-  // Nenhum módulo tem dominio/ ainda (o primeiro é conta/dominio, na trilha C): até lá a regra
-  // aceita um conjunto vazio. As fábricas seguem com allowEmptyShould(false) nos exemplos.
   @ArchTest
   static final ArchRule dominioJavaPuro =
-      RegrasDeArquitetura.dominioJavaPuro(RAIZ).allowEmptyShould(true);
+      RegrasDeArquitetura.dominioJavaPuro(RAIZ).allowEmptyShould(false);
 
   /** Mais forte que "sem Spring": o núcleo só usa o JDK (e anotações de nulidade). */
   @ArchTest static final ArchRule nucleoSemSpring = RegrasDeArquitetura.nucleoJavaPuro(RAIZ);
