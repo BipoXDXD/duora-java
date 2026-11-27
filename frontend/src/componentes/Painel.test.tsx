@@ -6,6 +6,7 @@ import type { AcoesDaSessao } from "../sessao/sessao";
 import type { EstadoDaSessao } from "../sessao/tipos";
 import { renderComCenario } from "../teste/comCenario";
 import { Painel } from "./Painel";
+import { stubarFetch } from "../teste/fetchFalso";
 
 const ENCERRADO: EstadoDaSessao = {
   tela: "encerrado",
@@ -80,12 +81,9 @@ function desenharMontagem(abertura: VisaoAbertura | null) {
   );
 }
 
-// O rodapé da entrada pede o contato ao servidor: aqui o pedido fica sem resposta.
+// O rodapé da entrada pede o contato ao servidor: o fetch falso responde.
 beforeEach(() => {
-  vi.stubGlobal(
-    "fetch",
-    vi.fn<typeof fetch>(() => new Promise<Response>(() => {})),
-  );
+  stubarFetch();
 });
 
 afterEach(() => {
