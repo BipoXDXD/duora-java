@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { obterConfiguracao, pedirLink } from "./conta";
+import { confirmarEntrada, obterConfiguracao, pedirLink } from "./conta";
 import { ErroHttp } from "./http";
 
 function responder(corpo: unknown, status = 200) {
@@ -57,5 +57,25 @@ describe("pedirLink", () => {
     await expect(pedirLink("ana@exemplo.com", "t", "chave-0001")).rejects.toMatchObject({
       codigo: "RESPOSTA_INVALIDA",
     });
+  });
+});
+
+describe("confirmarEntrada", () => {
+  it("enviaOTokenEDevolveSeOCadastroEstaConcluido", async () => {
+    const fetchFalso = responder({ cadastroConcluido: false });
+
+    await expect(confirmarEntrada("token-do-link")).resolves.toEqual({ cadastroConcluido: false });
+
+    const [url, opcoes] = fetchFalso.mock.calls[0] ?? [];
+    expect(url).toBe("/api/conta/confirmar");
+    expect(opcoes?.method).toBe("POST");
+    expect(opcoes?.body).toBe(JSON.stringify({ token: "token-do-link" }));
+    expect(new Headers(opcoes?.headers).get("X-Duora")).toBe("1");
+  });
+
+  it("respostaSemCadastroConcluidoViraRespostaInvalida", async () => {
+    responder({});
+
+    await expect(confirmarEntrada("token-do-link")).rejects.toMatchObject({ codigo: "RESPOSTA_INVALIDA" });
   });
 });

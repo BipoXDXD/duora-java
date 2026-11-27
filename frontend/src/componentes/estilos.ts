@@ -61,6 +61,15 @@ export const ENTRADA_DE_TEXTO = [
 export const DICA = "dica m-0 text-[0.875rem] leading-[1.45] text-texto-3 max-w-[40ch]";
 export const TEXTO_SECUNDARIO = "m-0 text-texto-2";
 
+/** Título das telas da casca de conta. */
+export const TITULO_DA_CASCA = "m-0 font-titulo font-semibold text-[2rem] leading-[1.15] tracking-[-0.01em]";
+
+/** Link para o próximo passo numa tela da casca; sem margem, que cada tela dá a sua. */
+export const LINK_DE_ACAO = [
+  "inline-flex items-center min-h-[44px] text-ambar text-[1.0625rem] font-semibold underline underline-offset-4",
+  "hover:text-ambar-claro [transition:color_var(--transicao)]",
+].join(" ");
+
 /** Um botão indisponível fica no foco e na leitura, mas ignora o clique. */
 export function seDisponivel(indisponivel: boolean, acao: () => void): () => void {
   return () => {

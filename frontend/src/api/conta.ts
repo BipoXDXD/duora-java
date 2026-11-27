@@ -54,3 +54,26 @@ export async function pedirLink(
   }
   return { mensagem: resposta.dados.mensagem };
 }
+
+export interface RespostaDaConfirmacao {
+  cadastroConcluido: boolean;
+}
+
+function ehRespostaDaConfirmacao(dados: unknown): dados is RespostaDaConfirmacao {
+  if (typeof dados !== "object" || dados === null) {
+    return false;
+  }
+  return typeof (dados as Partial<Record<keyof RespostaDaConfirmacao, unknown>>).cadastroConcluido === "boolean";
+}
+
+/**
+ * Troca o token do link mágico por uma sessão (C6); o cookie chega no Set-Cookie da resposta. O token
+ * é de uso único: quem chama garante um POST só por clique.
+ */
+export async function confirmarEntrada(token: string): Promise<RespostaDaConfirmacao> {
+  const resposta = await requisitarHttp("POST", "/conta/confirmar", { corpo: { token } });
+  if (!ehRespostaDaConfirmacao(resposta.dados)) {
+    throw new ErroHttp({ status: resposta.status, codigo: "RESPOSTA_INVALIDA" });
+  }
+  return { cadastroConcluido: resposta.dados.cadastroConcluido };
+}

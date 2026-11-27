@@ -19,7 +19,8 @@ import org.springframework.test.annotation.DirtiesContext;
 
 /**
  * A casca de conta na primeira carga: o Spring encaminha a rota ao index.html, o despacho baixa o
- * chunk {@code casca-de-conta} só fora do terraço e não toca no fragmento do link mágico.
+ * chunk {@code casca-de-conta} só fora do terraço sem tocar no fragmento, e a casca lê o token do
+ * link mágico e o tira da URL.
  */
 @DirtiesContext(classMode = DirtiesContext.ClassMode.AFTER_CLASS)
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
@@ -37,8 +38,9 @@ class CascaDeContaIT {
   @Value("${local.server.port}")
   private int porta;
 
+  /** O botão Entrar só aparece com o token em mãos; sem ele, a tela explica que falta o código. */
   @Test
-  void linkDeConfirmarCarregaACascaSemPerderOFragmento(Participantes participantes) {
+  void linkDeConfirmarEntregaOTokenATelaETiraODaUrl(Participantes participantes) {
     Page page = participantes.novo().page();
 
     Response chunk =
@@ -49,7 +51,36 @@ class CascaDeContaIT {
     assertThat(page.getByRole(AriaRole.MAIN)).isVisible();
     assertThat(page.locator("#raiz")).not().hasAttribute("aria-busy", "true");
 
-    assertThat(page.url()).isEqualTo(raiz(porta) + "entrar/confirmar#t=abc");
+    assertThat(page.getByRole(AriaRole.BUTTON, new Page.GetByRoleOptions().setName("Entrar")))
+        .isVisible();
+    assertThat(page.url()).isEqualTo(raiz(porta) + "entrar/confirmar");
+  }
+
+  @Test
+  void confirmarEntradaSemViolacoes(Participantes participantes) {
+    Page page = participantes.novo().abrir(raiz(porta) + "entrar/confirmar#t=abc").page();
+
+    assertThat(
+            page.getByRole(
+                AriaRole.HEADING, new Page.GetByRoleOptions().setName("Confirmar entrada")))
+        .isVisible();
+
+    assertSemViolacoes(page, "confirmar entrada");
+  }
+
+  /** Token que nunca existiu: o servidor de verdade responde LINK_INVALIDO, a recusa final. */
+  @Test
+  void linkInvalidoSemViolacoes(Participantes participantes) {
+    Page page = participantes.novo().abrir(raiz(porta) + "entrar/confirmar#t=abc").page();
+
+    page.getByRole(AriaRole.BUTTON, new Page.GetByRoleOptions().setName("Entrar")).click();
+
+    assertThat(page.getByText("Este link expirou ou já foi usado. Peça um novo.")).isFocused();
+    assertThat(
+            page.getByRole(AriaRole.LINK, new Page.GetByRoleOptions().setName("Pedir novo link")))
+        .isVisible();
+
+    assertSemViolacoes(page, "link inválido na confirmação");
   }
 
   /** O MockMvc só registra o forward; aqui o servidor de verdade o executa. */

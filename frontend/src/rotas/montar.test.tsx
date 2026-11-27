@@ -1,4 +1,5 @@
 import { act, screen } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import type { Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { ErroHttp } from "../api/http";
@@ -36,6 +37,14 @@ async function montarEm(url: string): Promise<void> {
   });
 }
 
+/** Como o Voltar e o Avançar: muda a URL e avisa o roteador pelo popstate. */
+function navegarNoCliente(caminho: string): void {
+  act(() => {
+    history.pushState(null, "", caminho);
+    dispatchEvent(new PopStateEvent("popstate"));
+  });
+}
+
 describe("montarCasca", () => {
   it("rotaDesconhecidaMostraNaoEncontrada", async () => {
     await montarEm("/qualquer/coisa");
@@ -67,6 +76,37 @@ describe("montarCasca", () => {
 
     expect(await screen.findByRole("heading", { level: 1, name: "Entrar no Duora" })).toBeInTheDocument();
     expect(document.title).toBe("Entrar · Duora");
+  });
+
+  it("tokenSobreviveAoStrictMode", async () => {
+    const corpos: unknown[] = [];
+    vi.stubGlobal(
+      "fetch",
+      vi.fn<typeof fetch>((_entrada, opcoes) => {
+        corpos.push(typeof opcoes?.body === "string" ? JSON.parse(opcoes.body) : null);
+        return Promise.resolve(new Response(null, { status: 503 }));
+      }),
+    );
+
+    await montarEm("/entrar/confirmar#t=abc");
+
+    expect(location.hash).toBe("");
+    await userEvent.click(await screen.findByRole("button", { name: "Entrar" }));
+    await vi.waitFor(() => {
+      expect(corpos).toEqual([{ token: "abc" }]);
+    });
+  });
+
+  it("tokenGastoNaoVoltaAoRemontarATela", async () => {
+    await montarEm("/entrar/confirmar#t=abc");
+    await screen.findByRole("button", { name: "Entrar" });
+
+    navegarNoCliente("/qualquer");
+    await screen.findByRole("heading", { name: "Página não encontrada" });
+    navegarNoCliente("/entrar/confirmar");
+
+    expect(await screen.findByText(/Não encontramos o código do link/)).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Entrar" })).not.toBeInTheDocument();
   });
 
   it("telaFicaNoMainDoLayout", async () => {
