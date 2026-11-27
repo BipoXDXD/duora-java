@@ -7,10 +7,13 @@ import {
   INDISPONIVEL_EM_ALTO_CONTRASTE,
   seDisponivel,
 } from "./estilos";
+import { LinkDaConta } from "./LinkDaConta";
 
 interface PropsTopo {
-  /** O Sair só existe no convite e na montagem. */
+  /** O Sair só existe no convite e na montagem; fora deles, o lugar dele é do link da conta. */
   mostrarSair: boolean;
+  /** Fora do carregando: lá o Sair pode surgir a qualquer instante, e o link piscaria no lugar dele. */
+  mostrarLinkDaConta: boolean;
   /** Nome do parceiro, ou null antes de ele entrar: muda o aviso e a ação da confirmação. */
   nomeParceiro: string | null;
   confirmando: boolean;
@@ -37,6 +40,7 @@ const CLASSES_DO_TOPO = [
 
 export function Topo({
   mostrarSair,
+  mostrarLinkDaConta,
   nomeParceiro,
   confirmando,
   enviandoSaida,
@@ -73,6 +77,8 @@ export function Topo({
       >
         Sair
       </button>
+      {/* Só um dos dois por vez: com o Sair e o link juntos, o topo do celular quebraria linha. */}
+      {mostrarLinkDaConta && !mostrarSair && <LinkDaConta />}
       <div
         className="confirmar-saida flex-[1_0_100%] grid gap-(--e-3) p-(--e-4) border border-ceu-600 rounded-(--raio) bg-noite-900"
         id={ID_CONFIRMACAO}

@@ -1,4 +1,4 @@
-import { render, waitFor } from "@testing-library/react";
+import { render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { Resposta } from "./api/cliente";
 import type { Visao } from "./dominio/visao";
@@ -37,6 +37,7 @@ vi.mock("./cena/ceu", async (original) => {
 });
 
 const { App } = await import("./App");
+const { ErroApi } = await import("./api/cliente");
 
 beforeEach(() => {
   // O jsdom não implementa matchMedia; a cena só lê prefers-reduced-motion.
@@ -53,7 +54,37 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
+/** fetch falso que responde 204 a tudo; o App só o usa para GET /api/conta (obterSala é mock). */
+function espionarFetch() {
+  const fetchFalso = vi.fn<typeof fetch>(() => Promise.resolve(new Response(null, { status: 204 })));
+  vi.stubGlobal("fetch", fetchFalso);
+  return fetchFalso;
+}
+
 describe("App", () => {
+  it("durante o carregando não há link da conta nem consulta da conta", async () => {
+    const fetchFalso = espionarFetch();
+    obterSala.mockReturnValue(new Promise<Resposta>(() => {}));
+    render(<App convite={null} cenario={cenarioDoTerraco()} />);
+
+    await waitFor(() => {
+      expect(obterSala).toHaveBeenCalled();
+    });
+    await new Promise((resolver) => setTimeout(resolver, 0));
+
+    expect(screen.queryByRole("link")).not.toBeInTheDocument();
+    expect(fetchFalso).not.toHaveBeenCalled();
+  });
+
+  it("depois do carregando, sem sala, a entrada mostra o link da conta", async () => {
+    const fetchFalso = espionarFetch();
+    obterSala.mockRejectedValue(new ErroApi({ status: 401, codigo: "SEM_ASSENTO" }));
+    render(<App convite={null} cenario={cenarioDoTerraco()} />);
+
+    expect(await screen.findByRole("link", { name: "Entrar" })).toHaveAttribute("href", "/entrar");
+    expect(fetchFalso.mock.calls[0]?.[0]).toBe("/api/conta");
+  });
+
   it("erro fora da API esvazia #pecas e #lugares, como o cena.limpar() de antes", async () => {
     obterSala
       .mockResolvedValueOnce({ naoMudou: false, visao: VISAO, etag: '"v1"' })
