@@ -105,14 +105,14 @@ export function Cadastro(): ReactElement {
     }
     switch (erro.codigo) {
       case "MENOR_DE_IDADE":
-        clienteDeConsulta.removeQueries({ queryKey: consultaDaConta.queryKey });
+        clienteDeConsulta.removeQueries({ queryKey: consultaDaConta.queryKey, exact: true });
         setFinal(CADASTRO.menorDeIdade);
         return;
       case "CONTA_INDISPONIVEL":
         setFinal(erro.mensagem ?? CONFIRMAR.contaIndisponivel);
         return;
       case "NAO_AUTENTICADO":
-        clienteDeConsulta.removeQueries({ queryKey: consultaDaConta.queryKey });
+        clienteDeConsulta.removeQueries({ queryKey: consultaDaConta.queryKey, exact: true });
         void navegar("/entrar", { replace: true });
         return;
       case "CADASTRO_JA_CONCLUIDO":
@@ -158,7 +158,8 @@ export function Cadastro(): ReactElement {
 
   function concluir(evento: SubmitEvent<HTMLFormElement>) {
     evento.preventDefault();
-    if (enviando.current || !versoes.data) {
+    // Com as versões a caminho (depois do TERMOS_DESATUALIZADOS), o envio espera a versão nova.
+    if (enviando.current || !versoes.data || versoes.isFetching) {
       return;
     }
     const dataDeNascimento = campoDaData.current?.value ?? "";
@@ -187,11 +188,12 @@ export function Cadastro(): ReactElement {
   }
 
   const ocupado = cadastro.isPending || cadastro.isSuccess;
+  const indisponivel = ocupado || versoes.isFetching;
 
   return (
     <>
       <title>{CADASTRO.tituloDaAba}</title>
-      <h1 className={TITULO_DA_CASCA}>{CADASTRO.titulo}</h1>
+      <h1 className={TITULO_DA_CASCA}>{final === null ? CADASTRO.titulo : CADASTRO.tituloNaoConcluido}</h1>
       {final !== null ? (
         <>
           <p
@@ -215,9 +217,7 @@ export function Cadastro(): ReactElement {
           </button>
         </div>
       ) : versoes.data === undefined ? (
-        <p className={`mt-(--e-6) ${TEXTO_SECUNDARIO}`} role="status">
-          {CADASTRO.carregandoTermos}
-        </p>
+        <p className={`mt-(--e-6) ${TEXTO_SECUNDARIO}`}>{CADASTRO.carregandoTermos}</p>
       ) : (
         <form className="mt-(--e-6) grid gap-(--e-5)" noValidate onSubmit={concluir}>
           <div className={CAMPO}>
@@ -262,7 +262,7 @@ export function Cadastro(): ReactElement {
           <button
             type="submit"
             className={`w-full ${BOTAO_PRIMARIO}`}
-            aria-disabled={ocupado ? true : undefined}
+            aria-disabled={indisponivel ? true : undefined}
             aria-describedby={falha?.campo === null ? ID_DO_ERRO : undefined}
           >
             {ocupado ? CADASTRO.concluindo : CADASTRO.concluir}

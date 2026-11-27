@@ -7,8 +7,9 @@ import { CONFIRMAR, ERRO_DA_CONTA } from "../telas/conta/textos";
 const PARAGRAFO = "mt-(--e-4) mb-0 text-texto-2 text-[1.125rem] leading-[1.5]";
 
 /**
- * Falha do guarda de uma rota que exige conta. A conta indisponível (403) tem a mensagem dela, sem
- * cair no fluxo do anônimo; o resto (rede, servidor) oferece outra tentativa do loader.
+ * Falha de uma rota que exige conta: o guarda, o download da tela ou o render dela. A conta
+ * indisponível (403) tem a mensagem dela, sem cair no fluxo do anônimo; o resto oferece outra
+ * tentativa (revalidar refaz o loader e, se a tela não veio, o lazy).
  */
 export function ErroDaConta(): ReactElement {
   const erro = useRouteError();

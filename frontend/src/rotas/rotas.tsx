@@ -18,8 +18,9 @@ export interface ContextoDaCasca {
 /**
  * A árvore da casca: o layout de conta por fora e, dentro dele, cada tela com `lazy` (cada uma no
  * seu chunk). O contexto chega às telas que precisam do cliente de consulta ou do token do link. As
- * rotas que exigem conta têm o guarda no loader, fora do chunk da tela: o redirect sai antes de
- * baixá-la.
+ * rotas que exigem conta têm o guarda no loader, fora do chunk da tela. O React Router roda o loader
+ * e o `lazy` em paralelo: o chunk pode baixar mesmo quando o guarda redireciona, mas a tela só
+ * aparece depois que o guarda a libera.
  */
 export function criarRotas({ clienteDeConsulta, tomarTokenDoLink }: ContextoDaCasca): RouteObject[] {
   return [

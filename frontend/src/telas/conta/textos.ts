@@ -34,6 +34,8 @@ export const CONFIRMAR = {
 
 export const CADASTRO = {
   titulo: "Falta pouco",
+  /** No desfecho sem volta (menor de idade, conta indisponível). */
+  tituloNaoConcluido: "Cadastro não concluído",
   tituloDaAba: "Cadastro · Duora",
   rotuloDaData: "Data de nascimento",
   ajudaDaData: "Não dá para mudar depois.",
@@ -71,9 +73,10 @@ export const AGUARDANDO = {
 export const ERRO_DA_CONTA = {
   tituloIndisponivel: "Conta indisponível",
   tituloDaAbaIndisponivel: "Conta indisponível · Duora",
-  titulo: "Página fora do ar",
-  tituloDaAba: "Página fora do ar · Duora",
-  falha: "Não conseguimos carregar sua conta. Tente de novo em instantes.",
+  titulo: "Não conseguimos abrir esta página",
+  tituloDaAba: "Página indisponível · Duora",
+  /** Vale para a leitura da conta, o download da tela e erro ao desenhá-la. */
+  falha: "Pode ter sido a conexão ou uma falha nossa. Tente de novo em instantes.",
   tentarDeNovo: "Tentar de novo",
   voltarAoTerraco: "Voltar ao terraço",
 } as const;
