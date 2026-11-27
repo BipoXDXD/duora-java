@@ -23,3 +23,34 @@ export async function obterConfiguracao(): Promise<ConfiguracaoDaConta> {
   }
   return { chaveDoSiteTurnstile: resposta.dados.chaveDoSiteTurnstile };
 }
+
+export interface RespostaDoPedidoDeLink {
+  mensagem: string;
+}
+
+function ehRespostaDoPedido(dados: unknown): dados is RespostaDoPedidoDeLink {
+  if (typeof dados !== "object" || dados === null) {
+    return false;
+  }
+  const mensagem = (dados as Partial<Record<keyof RespostaDoPedidoDeLink, unknown>>).mensagem;
+  return typeof mensagem === "string" && mensagem !== "";
+}
+
+/**
+ * Pede o link mágico (C5); a resposta é a mesma exista ou não a conta. A `chave` vai no
+ * Idempotency-Key: repetir com a mesma chave e o mesmo corpo não gasta outro token do Turnstile.
+ */
+export async function pedirLink(
+  email: string,
+  tokenVerificacao: string,
+  chave: string,
+): Promise<RespostaDoPedidoDeLink> {
+  const resposta = await requisitarHttp("POST", "/conta/entrar", {
+    corpo: { email, tokenVerificacao },
+    cabecalhos: { "Idempotency-Key": chave },
+  });
+  if (!ehRespostaDoPedido(resposta.dados)) {
+    throw new ErroHttp({ status: resposta.status, codigo: "RESPOSTA_INVALIDA" });
+  }
+  return { mensagem: resposta.dados.mensagem };
+}
