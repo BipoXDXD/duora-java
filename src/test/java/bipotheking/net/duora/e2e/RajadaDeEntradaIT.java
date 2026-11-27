@@ -3,6 +3,9 @@ package bipotheking.net.duora.e2e;
 import static com.microsoft.playwright.assertions.PlaywrightAssertions.assertThat;
 
 import bipotheking.net.duora.e2e.NavegadorExtension.Participantes;
+import com.microsoft.playwright.Locator;
+import com.microsoft.playwright.options.AriaRole;
+import java.util.regex.Pattern;
 import org.junit.jupiter.api.Test;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
@@ -13,7 +16,11 @@ import org.springframework.test.context.DynamicPropertySource;
  */
 class RajadaDeEntradaIT extends ContaE2eBase {
 
-  private static final int PEDIDOS_ACIMA_DO_LIMITE = 4;
+  /** A regra {@code entrar-email} aceita 3 pedidos por e-mail a cada 15 min. */
+  private static final int PEDIDOS_DENTRO_DO_LIMITE = 3;
+
+  private static final Pattern AVISO_DE_ESPERA =
+      Pattern.compile("^Muitas tentativas\\. Tente de novo em \\d+ minutos?\\.$");
 
   @DynamicPropertySource
   static void limitesDaRegra(DynamicPropertyRegistry registro) {
@@ -27,10 +34,24 @@ class RajadaDeEntradaIT extends ContaE2eBase {
     ContaPagina conta = ContaPagina.de(pagina).abrir(raiz() + "entrar");
     String email = emailNovo();
 
-    for (int pedido = 0; pedido < PEDIDOS_ACIMA_DO_LIMITE; pedido++) {
+    for (int pedido = 0; pedido < PEDIDOS_DENTRO_DO_LIMITE; pedido++) {
       conta.pedirLink(email);
+      // Durante um pedido o status fica vazio; o texto volta só se este pedido deu certo.
+      assertThat(status(conta))
+          .hasText("Enviamos um link para o seu e-mail. Ele vale por 15 minutos.");
+      assertThat(alerta(conta)).isEmpty();
     }
 
-    assertThat(conta.page().getByText("Muitas tentativas. Tente de novo em")).isVisible();
+    conta.pedirLink(email);
+
+    assertThat(alerta(conta)).hasText(AVISO_DE_ESPERA);
+  }
+
+  private static Locator status(ContaPagina conta) {
+    return conta.page().getByRole(AriaRole.STATUS);
+  }
+
+  private static Locator alerta(ContaPagina conta) {
+    return conta.page().getByRole(AriaRole.ALERT);
   }
 }

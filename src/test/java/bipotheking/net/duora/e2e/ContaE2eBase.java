@@ -5,10 +5,14 @@ import bipotheking.net.duora.notificacao.infra.DespachanteDaOutbox;
 import bipotheking.net.duora.notificacao.infra.EmailNoLog;
 import java.time.Duration;
 import java.time.Instant;
+import java.util.HashMap;
+import java.util.Locale;
+import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import org.jspecify.annotations.Nullable;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
@@ -39,6 +43,9 @@ abstract class ContaE2eBase {
   @Autowired private DespachanteDaOutbox despachante;
   @Autowired private EmailNoLog emails;
 
+  /** Último token devolvido por e-mail; o JUnit cria uma instância por teste. */
+  private final Map<String, String> tokensDevolvidos = new HashMap<>();
+
   /**
    * O WebKit não guarda cookie {@code Secure} recebido por http, nem em 127.0.0.1; os outros
    * motores tratam o endereço local como seguro e guardam o cookie de produção.
@@ -58,29 +65,41 @@ abstract class ContaE2eBase {
   }
 
   /**
-   * O link de entrada do e-mail mais recente para o endereço, apontado para o servidor do teste.
-   * Despacha a outbox na hora em vez de esperar o agendador; a reserva da mensagem impede que os
-   * dois a enviem.
+   * O link de entrada mais novo para o endereço que este teste ainda não recebeu, apontado para o
+   * servidor do teste. Despacha a outbox na hora em vez de esperar o agendador (a reserva da
+   * mensagem impede que os dois a enviem) e espera até 5 s por um link diferente do último
+   * devolvido: um segundo pedido para o mesmo e-mail traz o link do segundo pedido.
    */
   protected String linkRecebido(String email) {
     despachante.despacharAgora();
-    MensagemDeEmail mensagem = esperarEmail(email);
+    String chave = email.toLowerCase(Locale.ROOT);
+    String anterior = tokensDevolvidos.get(chave);
+    Instant limite = Instant.now().plus(ESPERA_DO_EMAIL);
+    Optional<String> token = tokenNovo(email, anterior);
+    while (token.isEmpty() && Instant.now().isBefore(limite)) {
+      pausar();
+      token = tokenNovo(email, anterior);
+    }
+    String novo =
+        token.orElseThrow(
+            () -> new AssertionError("nenhum link novo para " + email + " em " + ESPERA_DO_EMAIL));
+    tokensDevolvidos.put(chave, novo);
+    return raiz() + "entrar/confirmar#t=" + novo;
+  }
+
+  private Optional<String> tokenNovo(String email, @Nullable String anterior) {
+    return emails
+        .ultimaPara(email)
+        .map(mensagem -> tokenDo(mensagem, email))
+        .filter(token -> !token.equals(anterior));
+  }
+
+  private static String tokenDo(MensagemDeEmail mensagem, String email) {
     Matcher link = LINK_DE_ENTRADA.matcher(mensagem.texto());
     if (!link.find()) {
       throw new AssertionError("o e-mail para " + email + " não traz o link de entrada");
     }
-    return raiz() + "entrar/confirmar#t=" + link.group(1);
-  }
-
-  private MensagemDeEmail esperarEmail(String email) {
-    Instant limite = Instant.now().plus(ESPERA_DO_EMAIL);
-    Optional<MensagemDeEmail> mensagem = emails.ultimaPara(email);
-    while (mensagem.isEmpty() && Instant.now().isBefore(limite)) {
-      pausar();
-      mensagem = emails.ultimaPara(email);
-    }
-    return mensagem.orElseThrow(
-        () -> new AssertionError("nenhum e-mail para " + email + " em " + ESPERA_DO_EMAIL));
+    return link.group(1);
   }
 
   private static void pausar() {

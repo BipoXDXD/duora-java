@@ -50,7 +50,8 @@ class ContaIT extends ContaE2eBase {
     conta.confirmarEntrada();
     conta.concluirCadastro(NASCIMENTO_DE_MENOR);
 
-    assertThat(conta.page().getByText("O Duora é só para maiores de 18 anos.")).isVisible();
+    assertThat(conta.page().getByText("O Duora é só para maiores de 18 anos. Não criamos a conta."))
+        .isVisible();
     conta.abrir(raiz() + "conta");
     assertThat(conta.page()).hasURL(raiz() + "entrar");
   }
@@ -75,6 +76,19 @@ class ContaIT extends ContaE2eBase {
         .isVisible();
   }
 
+  /** O helper da base entrega o link de cada pedido, não o do pedido anterior. */
+  @Test
+  void segundoPedidoTrazLinkNovo(Participantes participantes) {
+    ContaPagina conta = novaConta(participantes);
+    String email = emailNovo();
+    conta.abrir(raiz() + "entrar").pedirLink(email);
+    String primeiro = linkRecebido(email);
+
+    conta.pedirLink(email);
+
+    assertThat(linkRecebido(email)).isNotEqualTo(primeiro);
+  }
+
   /** No WebKit a flag de cookie seguro está desligada; quem prova o {@code Secure} é a API (C4). */
   @Test
   void sessaoSobreviveARecarga(Participantes participantes) {
@@ -97,7 +111,9 @@ class ContaIT extends ContaE2eBase {
     semSessao.abrir(raiz());
 
     assertThat(linkDoTopo(comSessao.page(), "Minha conta")).isVisible();
+    assertThat(linkDoTopo(comSessao.page(), "Entrar")).hasCount(0);
     assertThat(linkDoTopo(semSessao.page(), "Entrar")).isVisible();
+    assertThat(linkDoTopo(semSessao.page(), "Minha conta")).hasCount(0);
   }
 
   private static ContaPagina novaConta(Participantes participantes) {
