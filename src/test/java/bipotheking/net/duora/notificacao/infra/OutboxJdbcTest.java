@@ -126,4 +126,25 @@ class OutboxJdbcTest extends BancoDeTeste {
                 .single())
         .isEqualTo(1);
   }
+
+  @Test
+  void esquecerTitularLimpaUltimoErroDasTerminais() {
+    registrar("titular-a");
+    registrar("titular-b");
+    jdbc.sql(
+            """
+            update outbox set carga = null, falhou_em = :agora,
+                ultimo_erro = 'IllegalStateException: ana@exemplo.invalid recusado'
+            """)
+        .param("agora", OffsetDateTime.parse("2026-11-22T11:00:00Z"))
+        .update();
+
+    int esquecidas = outbox.esquecerTitular("titular-a");
+
+    assertThat(esquecidas).isZero();
+    assertThat(
+            jdbc.sql("select ultimo_erro from outbox order by titular").query(String.class).list())
+        .containsExactly(
+            OutboxJdbc.TITULAR_ESQUECIDO, "IllegalStateException: ana@exemplo.invalid recusado");
+  }
 }

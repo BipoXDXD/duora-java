@@ -2,8 +2,10 @@ package bipotheking.net.duora.notificacao.infra;
 
 import bipotheking.net.duora.notificacao.ProcessadorDeOutbox;
 import bipotheking.net.duora.nucleo.Correlacao;
+import bipotheking.net.duora.nucleo.GeradorDeIds;
 import io.micrometer.core.instrument.Gauge;
 import io.micrometer.core.instrument.MeterRegistry;
+import java.io.Serial;
 import java.sql.Types;
 import java.time.Clock;
 import java.time.Duration;
@@ -14,6 +16,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.UUID;
 import java.util.function.Function;
+import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
@@ -21,14 +24,16 @@ import org.slf4j.LoggerFactory;
 import org.slf4j.MDC;
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.stereotype.Component;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 import org.springframework.transaction.support.TransactionTemplate;
+import tools.jackson.core.JacksonException;
 import tools.jackson.databind.json.JsonMapper;
 
 /**
  * Entrega as mensagens pendentes da outbox em lotes. A reserva do lote é uma transação curta com
  * {@code FOR UPDATE SKIP LOCKED}, segura com várias instâncias; o processamento roda fora dela, com
  * o correlation ID da mensagem no MDC. Falha agenda nova tentativa com {@link Backoff}; na décima,
- * a mensagem falha de vez e a carga é apagada. Nunca loga a carga.
+ * ou se a carga não pode ser lida, a mensagem falha de vez e a carga é apagada. Nunca loga a carga.
  *
  * <p>Pública porque os testes de outros módulos e o e2e chamam {@link #despacharAgora()}.
  */
@@ -43,10 +48,13 @@ public class DespachanteDaOutbox {
   private static final int MAXIMO_DE_TENTATIVAS = 10;
   private static final int TAMANHO_MAXIMO_DO_ERRO = 200;
   private static final String SEM_PROCESSADOR = "sem-processador";
+  private static final Pattern EMAIL = Pattern.compile("[^\\s@<>\"']+@[^\\s@<>\"']+");
+  private static final String EMAIL_MASCARADO = "***@***";
 
   private final JdbcClient jdbc;
   private final TransactionTemplate transacao;
   private final Clock relogio;
+  private final GeradorDeIds geradorDeIds;
   private final Map<String, ProcessadorDeOutbox<?>> processadores;
   private final Backoff backoff;
   private final JsonMapper json;
@@ -55,6 +63,7 @@ public class DespachanteDaOutbox {
       JdbcClient jdbc,
       TransactionTemplate transacao,
       Clock relogio,
+      GeradorDeIds geradorDeIds,
       List<ProcessadorDeOutbox<?>> processadores,
       Backoff backoff,
       JsonMapper json,
@@ -62,6 +71,7 @@ public class DespachanteDaOutbox {
     this.jdbc = jdbc;
     this.transacao = transacao;
     this.relogio = relogio;
+    this.geradorDeIds = geradorDeIds;
     this.processadores =
         processadores.stream()
             .collect(Collectors.toUnmodifiableMap(ProcessadorDeOutbox::tipo, Function.identity()));
@@ -78,15 +88,24 @@ public class DespachanteDaOutbox {
   }
 
   /**
-   * Reserva um lote de até cinco mensagens vencidas e tenta entregá-las.
+   * Reserva um lote de até cinco mensagens vencidas e tenta entregá-las. Para no meio do lote se a
+   * thread for interrompida (desligamento); o resto volta à fila quando a reserva vencer.
    *
    * @return quantas foram enviadas
+   * @throws IllegalStateException se chamado dentro de uma transação: o processamento chama
+   *     serviços externos, que nunca rodam com transação de banco aberta
    */
   public int despacharAgora() {
+    if (TransactionSynchronizationManager.isActualTransactionActive()) {
+      throw new IllegalStateException("O despacho da outbox não pode rodar dentro de transação");
+    }
     OffsetDateTime agora = agora();
     List<Mensagem> lote = Objects.requireNonNull(transacao.execute(status -> reservar(agora)));
     int enviadas = 0;
     for (Mensagem mensagem : lote) {
+      if (Thread.currentThread().isInterrupted()) {
+        break;
+      }
       if (despachar(mensagem)) {
         enviadas++;
       }
@@ -120,38 +139,65 @@ public class DespachanteDaOutbox {
         .list();
   }
 
-  /** Processa a mensagem com o correlation ID dela no MDC e devolve se foi enviada. */
+  /**
+   * Processa a mensagem com o correlation ID dela no MDC (ou um novo, se ela veio sem) e devolve se
+   * foi enviada. O MDC volta ao que era no fim, mesmo em erro.
+   */
   private boolean despachar(Mensagem mensagem) {
     String anterior = MDC.get(Correlacao.CHAVE_MDC);
-    colocarNoMdc(mensagem.correlationId());
+    String correlationId = mensagem.correlationId();
+    MDC.put(
+        Correlacao.CHAVE_MDC,
+        correlationId == null ? geradorDeIds.novo().toString() : correlationId);
     try {
-      ProcessadorDeOutbox<?> processador = processadores.get(mensagem.tipo());
-      if (processador == null) {
-        falharDeVez(mensagem, mensagem.tentativas() + 1, SEM_PROCESSADOR, SEM_PROCESSADOR);
-        return false;
-      }
-      try {
-        processar(processador, mensagem);
-      } catch (RuntimeException erro) {
-        registrarFalha(mensagem, erro);
-        return false;
-      }
-      marcarEnviada(mensagem);
-      return true;
+      return despacharNoMdc(mensagem);
     } finally {
-      colocarNoMdc(anterior);
+      if (anterior == null) {
+        MDC.remove(Correlacao.CHAVE_MDC);
+      } else {
+        MDC.put(Correlacao.CHAVE_MDC, anterior);
+      }
     }
   }
 
-  private <T> void processar(ProcessadorDeOutbox<T> processador, Mensagem mensagem) {
-    T carga = json.readValue(mensagem.carga(), processador.tipoDaCarga());
+  private boolean despacharNoMdc(Mensagem mensagem) {
+    int tentativas = mensagem.tentativas() + 1;
+    ProcessadorDeOutbox<?> processador = processadores.get(mensagem.tipo());
+    if (processador == null) {
+      falharDeVez(mensagem, tentativas, SEM_PROCESSADOR, SEM_PROCESSADOR);
+      return false;
+    }
+    try {
+      processar(processador, mensagem);
+    } catch (CargaIlegivel ilegivel) {
+      // Determinístico: tentar de novo daria o mesmo erro.
+      RuntimeException causa = ilegivel.causa();
+      falharDeVez(mensagem, tentativas, causa.getClass().getName(), resumir(causa));
+      return false;
+    } catch (RuntimeException erro) {
+      registrarFalha(mensagem, erro);
+      return false;
+    }
+    marcarEnviada(mensagem);
+    return true;
+  }
+
+  private <T> void processar(ProcessadorDeOutbox<T> processador, Mensagem mensagem)
+      throws CargaIlegivel {
+    T carga;
+    try {
+      carga = json.readValue(mensagem.carga(), processador.tipoDaCarga());
+    } catch (JacksonException erro) {
+      throw new CargaIlegivel(erro);
+    }
     processador.processar(carga, mensagem.id());
   }
 
   private void marcarEnviada(Mensagem mensagem) {
     jdbc.sql(
             """
-            update outbox set carga = null, reservada_ate = null, enviada_em = :agora
+            update outbox
+            set carga = null, reservada_ate = null, ultimo_erro = null, enviada_em = :agora
             where id = :id and carga is not null
             """)
         .param("agora", agora())
@@ -211,22 +257,21 @@ public class DespachanteDaOutbox {
         causa);
   }
 
-  /** Classe e mensagem da exceção, cortadas: vai para o banco, nunca para o log. */
+  /**
+   * Classe e mensagem da exceção, com o que parece e-mail mascarado e cortadas: vai para o banco,
+   * nunca para o log.
+   */
   private static String resumir(RuntimeException erro) {
     String mensagem = erro.getMessage();
     String resumo =
-        mensagem == null ? erro.getClass().getName() : erro.getClass().getName() + ": " + mensagem;
+        mensagem == null
+            ? erro.getClass().getName()
+            : erro.getClass().getName()
+                + ": "
+                + EMAIL.matcher(mensagem).replaceAll(EMAIL_MASCARADO);
     return resumo.length() <= TAMANHO_MAXIMO_DO_ERRO
         ? resumo
         : resumo.substring(0, TAMANHO_MAXIMO_DO_ERRO);
-  }
-
-  private static void colocarNoMdc(@Nullable String correlationId) {
-    if (correlationId == null) {
-      MDC.remove(Correlacao.CHAVE_MDC);
-    } else {
-      MDC.put(Correlacao.CHAVE_MDC, correlationId);
-    }
   }
 
   private static double contarPendentes(JdbcClient jdbc) {
@@ -253,4 +298,21 @@ public class DespachanteDaOutbox {
   /** O que o despacho precisa da linha reservada. */
   private record Mensagem(
       UUID id, String tipo, String carga, @Nullable String correlationId, int tentativas) {}
+
+  /** A carga gravada não vira o tipo do processador: falha definitiva, sem retry. */
+  private static final class CargaIlegivel extends Exception {
+
+    @Serial private static final long serialVersionUID = 1L;
+
+    private final RuntimeException causa;
+
+    CargaIlegivel(RuntimeException causa) {
+      super(causa);
+      this.causa = causa;
+    }
+
+    RuntimeException causa() {
+      return causa;
+    }
+  }
 }

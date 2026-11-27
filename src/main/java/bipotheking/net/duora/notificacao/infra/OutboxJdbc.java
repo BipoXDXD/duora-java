@@ -57,6 +57,15 @@ class OutboxJdbc implements Outbox {
   @Override
   @Transactional
   public int esquecerTitular(String titular) {
+    // As terminais já não têm carga, mas o último erro pode citar o titular (D-1).
+    jdbc.sql(
+            """
+            update outbox set ultimo_erro = :erro
+            where titular = :titular and carga is null and ultimo_erro is not null
+            """)
+        .param("erro", TITULAR_ESQUECIDO)
+        .param("titular", titular)
+        .update();
     return jdbc.sql(
             """
             update outbox

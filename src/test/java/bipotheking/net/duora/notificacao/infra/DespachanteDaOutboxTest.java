@@ -1,12 +1,14 @@
 package bipotheking.net.duora.notificacao.infra;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.assertj.core.api.Assertions.tuple;
 
 import bipotheking.net.duora.notificacao.Outbox;
 import bipotheking.net.duora.notificacao.infra.ProcessadorFalso.CargaFalsa;
 import bipotheking.net.duora.notificacao.infra.ProcessadorFalso.Chamada;
 import bipotheking.net.duora.nucleo.Correlacao;
+import bipotheking.net.duora.nucleo.GeradorDeIds;
 import bipotheking.net.duora.web.BancoDeTeste;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import java.sql.Timestamp;
@@ -14,7 +16,6 @@ import java.time.Duration;
 import java.time.Instant;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -23,6 +24,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.random.RandomGenerator;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
@@ -45,6 +47,7 @@ class DespachanteDaOutboxTest extends BancoDeTeste {
   @Autowired private TransactionTemplate transacao;
   @Autowired private JsonMapper json;
   @Autowired private ApplicationContext contexto;
+  @Autowired private GeradorDeIds geradorDeIds;
 
   private final SimpleMeterRegistry metricas = new SimpleMeterRegistry();
 
@@ -56,7 +59,14 @@ class DespachanteDaOutboxTest extends BancoDeTeste {
   /** Jitter neutro (fator 1,0): a 1ª espera é de 2 s exatos. */
   private DespachanteDaOutbox despachante(ProcessadorFalso falso) {
     return new DespachanteDaOutbox(
-        jdbc, transacao, relogio, List.of(falso), new Backoff(meio()), json, metricas);
+        jdbc,
+        transacao,
+        relogio,
+        geradorDeIds,
+        List.of(falso),
+        new Backoff(meio()),
+        json,
+        metricas);
   }
 
   private UUID registrar(String tipo, String titular) {
@@ -176,34 +186,111 @@ class DespachanteDaOutboxTest extends BancoDeTeste {
 
   @Test
   void reservaImpedeEnvioDuplo() throws Exception {
-    for (int i = 0; i < 10; i++) {
+    for (int i = 0; i < 3; i++) {
       registrar();
     }
-    ProcessadorFalso falso = new ProcessadorFalso();
+    CountDownLatch processando = new CountDownLatch(1);
+    CountDownLatch liberar = new CountDownLatch(1);
+    AtomicBoolean primeira = new AtomicBoolean(true);
+    ProcessadorFalso falso =
+        ProcessadorFalso.comGancho(() -> {
+          if (primeira.getAndSet(false)) {
+            processando.countDown();
+            aguardar(liberar);
+          }
+        });
     DespachanteDaOutbox despachante = despachante(falso);
-    CountDownLatch largada = new CountDownLatch(1);
-    List<Future<Integer>> resultados = new ArrayList<>();
-    try (ExecutorService threads = Executors.newFixedThreadPool(2)) {
-      for (int i = 0; i < 2; i++) {
-        resultados.add(
-            threads.submit(() -> {
-              largada.await(5, TimeUnit.SECONDS);
-              return despachante.despacharAgora();
-            }));
+    int segundo;
+    int primeiro;
+    try (ExecutorService thread = Executors.newSingleThreadExecutor()) {
+      Future<Integer> emAndamento = thread.submit(despachante::despacharAgora);
+      assertThat(processando.await(5, TimeUnit.SECONDS)).isTrue();
+      try {
+        // O lote do primeiro já foi reservado e a transação da reserva já fechou: sem locks.
+        segundo = despachante.despacharAgora();
+      } finally {
+        liberar.countDown();
       }
-      largada.countDown();
+      primeiro = emAndamento.get(5, TimeUnit.SECONDS);
     }
-    int enviadas = 0;
-    for (Future<Integer> resultado : resultados) {
-      enviadas += resultado.get();
-    }
-    enviadas += despachante.despacharAgora();
 
-    assertThat(enviadas).isEqualTo(10);
+    assertThat(segundo).isZero();
+    assertThat(primeiro).isEqualTo(3);
     assertThat(falso.chamadas())
         .extracting(Chamada::idDaMensagem)
-        .hasSize(10)
+        .hasSize(3)
         .doesNotHaveDuplicates();
+  }
+
+  @Test
+  void enviadaDepoisDeFalhaLimpaUltimoErro() {
+    DespachanteDaOutbox despachante = despachante(new ProcessadorFalso(1));
+    UUID id = registrar();
+    despachante.despacharAgora();
+    relogio.avancar(Duration.ofSeconds(2));
+
+    assertThat(despachante.despacharAgora()).isEqualTo(1);
+
+    assertThat(linha(id).get("ultimo_erro")).isNull();
+  }
+
+  @Test
+  void ultimoErroMascaraEmail() {
+    UUID id = registrar();
+
+    despachante(ProcessadorFalso.falhandoCom("destinatário ana.souza+x@exemplo.invalid recusado"))
+        .despacharAgora();
+
+    assertThat(linha(id).get("ultimo_erro"))
+        .isEqualTo("java.lang.IllegalStateException: destinatário ***@*** recusado");
+  }
+
+  @Test
+  void cargaIlegivelFalhaDeVez() {
+    ProcessadorFalso falso = new ProcessadorFalso();
+    UUID id = registrar();
+    jdbc.sql(
+            """
+            update outbox set carga = '{"para":"x","texto":"y","campoNovo":1}'::jsonb
+            where id = :id
+            """)
+        .param("id", id)
+        .update();
+
+    assertThat(despachante(falso).despacharAgora()).isZero();
+
+    var linha = linha(id);
+    assertThat(linha.get("falhou_em")).isNotNull();
+    assertThat(linha.get("carga")).isNull();
+    assertThat(linha.get("tentativas")).isEqualTo(1);
+    assertThat(falso.chamadas()).isEmpty();
+  }
+
+  @Test
+  void despacharDentroDeTransacaoFalha() {
+    ProcessadorFalso falso = new ProcessadorFalso();
+    DespachanteDaOutbox despachante = despachante(falso);
+    UUID id = registrar();
+
+    assertThatThrownBy(() -> transacao.executeWithoutResult(s -> despachante.despacharAgora()))
+        .isInstanceOf(IllegalStateException.class);
+
+    assertThat(falso.chamadas()).isEmpty();
+    assertThat(linha(id).get("reservada_ate")).isNull();
+  }
+
+  @Test
+  void semCorrelationIdGeraUmNovo() {
+    registrar();
+    ProcessadorFalso falso = new ProcessadorFalso();
+
+    despachante(falso).despacharAgora();
+
+    assertThat(falso.chamadas())
+        .singleElement()
+        .extracting(Chamada::correlationId)
+        .satisfies(id -> assertThat(UUID.fromString(String.valueOf(id))).isNotNull());
+    assertThat(MDC.get(Correlacao.CHAVE_MDC)).isNull();
   }
 
   @Test
@@ -285,6 +372,17 @@ class DespachanteDaOutboxTest extends BancoDeTeste {
   void agendamentoDesligadoNoTeste() {
     assertThat(contexto.getBeansOfType(AgendamentoDaOutbox.class)).isEmpty();
     assertThat(contexto.getBeansOfType(DespachanteDaOutbox.class)).hasSize(1);
+  }
+
+  private static void aguardar(CountDownLatch trava) {
+    try {
+      if (!trava.await(5, TimeUnit.SECONDS)) {
+        throw new IllegalStateException("A trava não abriu a tempo");
+      }
+    } catch (InterruptedException erro) {
+      Thread.currentThread().interrupt();
+      throw new IllegalStateException(erro);
+    }
   }
 
   /** {@code nextDouble} = 0,5, fator de jitter 1,0. */

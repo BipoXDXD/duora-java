@@ -21,7 +21,8 @@ public interface Outbox {
   <T> void registrar(String tipo, String titular, T carga);
 
   /**
-   * Apaga a carga das mensagens pendentes do titular, que passam a falhadas sem entrega.
+   * Apaga a carga das mensagens pendentes do titular, que passam a falhadas sem entrega, e o último
+   * erro das já terminadas, que pode citá-lo.
    *
    * @return quantas mensagens pendentes foram esquecidas
    */

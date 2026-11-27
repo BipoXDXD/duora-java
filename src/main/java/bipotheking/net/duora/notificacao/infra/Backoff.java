@@ -22,7 +22,7 @@ class Backoff {
     this.aleatorio = aleatorio;
   }
 
-  public Duration proxima(int tentativas) {
+  Duration proxima(int tentativas) {
     if (tentativas < 0) {
       throw new IllegalArgumentException("tentativas negativas: " + tentativas);
     }
