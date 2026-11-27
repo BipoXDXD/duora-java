@@ -76,6 +76,13 @@ function alertaGeral(): HTMLElement {
   return screen.getByRole("alert");
 }
 
+/** A região de status só para leitor de tela que repete o erro de campo, se tiver exatamente o texto. */
+function regiaoDeStatusCom(texto: string): HTMLElement | undefined {
+  return screen
+    .getAllByRole("status")
+    .find((regiao) => regiao.classList.contains("sr-only") && regiao.textContent === texto);
+}
+
 /**
  * O erro fica junto do campo: no mesmo bloco (o do campo, ou o fieldset dos motivos), na descrição
  * acessível dele, e fora do alerta geral.
@@ -140,6 +147,7 @@ describe("DenunciarPublico", () => {
     expect(grupoDosMotivos()).toHaveAccessibleDescription("Escolha o que aconteceu.");
     for (const motivo of screen.getAllByRole("radio")) {
       expect(motivo).toHaveAttribute("aria-invalid", "true");
+      expect(motivo).toHaveAccessibleDescription("Escolha o que aconteceu.");
     }
     expect(corpos).toHaveLength(0);
   });
@@ -323,6 +331,37 @@ describe("DenunciarPublico", () => {
     expect(email).toHaveAttribute("aria-invalid", "true");
     expect(email).toHaveAccessibleDescription("Confira o e-mail para resposta.");
     esperarErroJuntoDo(email, "Confira o e-mail para resposta.");
+  });
+
+  it("recusaComOFocoNoCampoAnunciaOErro", async () => {
+    const { widget } = await renderizar([
+      { status: 422, corpo: { codigo: "DENUNCIA_PUBLICA_INVALIDA", mensagem: "Confira o e-mail para resposta." } },
+      { status: 422, corpo: { codigo: "DENUNCIA_PUBLICA_INVALIDA", mensagem: "Confira o e-mail para resposta." } },
+    ]);
+    widget.resolverDesafio("token-1");
+    await escolherMotivo();
+    escreverDescricao(DESCRICAO);
+    const email = screen.getByRole("textbox", { name: "Seu e-mail para resposta (opcional)" });
+
+    await userEvent.type(email, "ana@exemplo{Enter}");
+
+    expect(email).toHaveFocus();
+    await vi.waitFor(() => {
+      expect(regiaoDeStatusCom("Confira o e-mail para resposta.")).toBeDefined();
+    });
+
+    await vi.waitFor(() => {
+      expect(widget.reiniciar).toHaveBeenCalledTimes(1);
+    });
+    widget.resolverDesafio("token-2");
+    await userEvent.type(email, "{Enter}");
+
+    await vi.waitFor(() => {
+      expect(regiaoDeStatusCom("")).toBeDefined();
+    });
+    await vi.waitFor(() => {
+      expect(regiaoDeStatusCom("Confira o e-mail para resposta.")).toBeDefined();
+    });
   });
 
   it("limiteMostraAEspera", async () => {

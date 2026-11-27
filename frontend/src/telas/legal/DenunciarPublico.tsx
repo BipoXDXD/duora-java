@@ -34,6 +34,8 @@ const ID_DO_EMAIL = "denunciar-email";
 const ID_DO_MOTIVO_DO_BOTAO = "denunciar-motivo-do-botao";
 const ID_DA_FALHA_DA_VERIFICACAO = "denunciar-falha-verificacao";
 const ID_DO_ERRO = "denunciar-erro";
+/** A pausa entre limpar e reescrever o anúncio, para o leitor de tela repetir a mesma recusa. */
+const PAUSA_DO_ANUNCIO_MS = 100;
 
 type Campo = "motivo" | "descricao" | "referencia" | "email";
 
@@ -130,13 +132,26 @@ export function DenunciarPublico({ carregarTurnstile: carregar }: PropsDeDenunci
   const mensagemDeSucesso = useRef<HTMLParagraphElement>(null);
   const [descricao, setDescricao] = useState("");
   const [falha, setFalha] = useState<Falha | null>(null);
+  const [anuncio, setAnuncio] = useState("");
+
+  /** Toda troca de falha limpa o anúncio; o efeito abaixo o reescreve, se a falha for de um campo. */
+  function trocarFalha(nova: Falha | null) {
+    setAnuncio("");
+    setFalha(nova);
+  }
 
   // O foco vai depois do commit: o campo já tem o aria-invalid e o erro na descrição quando o leitor
-  // de tela o anuncia. Cada falha é um objeto novo, então a mesma recusa repetida volta a focar.
+  // de tela o anuncia. Cada falha é um objeto novo, então a mesma recusa repetida volta a focar. Se o
+  // campo já tinha o foco (Enter no e-mail), o focus() não anuncia nada: a região de status repete o
+  // erro, reescrita depois de uma pausa para valer também na recusa repetida.
   useEffect(() => {
     if (falha?.campo == null) {
       return;
     }
+    const texto = falha.texto;
+    const reescrita = window.setTimeout(() => {
+      setAnuncio(texto);
+    }, PAUSA_DO_ANUNCIO_MS);
     const campos: Record<Campo, { current: HTMLElement | null }> = {
       motivo: primeiroMotivo,
       descricao: campoDaDescricao,
@@ -144,6 +159,9 @@ export function DenunciarPublico({ carregarTurnstile: carregar }: PropsDeDenunci
       email: campoDoEmail,
     };
     campos[falha.campo].current?.focus();
+    return () => {
+      window.clearTimeout(reescrita);
+    };
   }, [falha]);
 
   const denuncia = useMutation({
@@ -155,7 +173,7 @@ export function DenunciarPublico({ carregarTurnstile: carregar }: PropsDeDenunci
       setDescricao("");
     },
     onError: (erro) => {
-      setFalha(falhaDoEnvio(erro));
+      trocarFalha(falhaDoEnvio(erro));
     },
     onSettled: verificacao.liberar,
   });
@@ -182,22 +200,22 @@ export function DenunciarPublico({ carregarTurnstile: carregar }: PropsDeDenunci
     const referencia = texto(dados.get("referencia"));
     const emailContato = texto(dados.get("emailContato"));
     if (!ehMotivo(motivo)) {
-      setFalha({ texto: DENUNCIAR.semMotivo, campo: "motivo" });
+      trocarFalha({ texto: DENUNCIAR.semMotivo, campo: "motivo" });
       return;
     }
     if (!cabe(descricaoLimpa, DESCRICAO_MINIMA, DESCRICAO_MAXIMA)) {
-      setFalha({ texto: DENUNCIAR.descricaoForaDoTamanho, campo: "descricao" });
+      trocarFalha({ texto: DENUNCIAR.descricaoForaDoTamanho, campo: "descricao" });
       return;
     }
     if (referencia !== "" && !cabe(referencia, 1, REFERENCIA_MAXIMA)) {
-      setFalha({ texto: DENUNCIAR.referenciaLonga, campo: "referencia" });
+      trocarFalha({ texto: DENUNCIAR.referenciaLonga, campo: "referencia" });
       return;
     }
     const tokenDoEnvio = verificacao.tomar();
     if (tokenDoEnvio === null) {
       return;
     }
-    setFalha(null);
+    trocarFalha(null);
     const nova: DenunciaPublica = { motivo, descricao: descricaoLimpa, tokenVerificacao: tokenDoEnvio };
     if (referencia !== "") {
       nova.referencia = referencia;
@@ -231,7 +249,8 @@ export function DenunciarPublico({ carregarTurnstile: carregar }: PropsDeDenunci
       <p className={`mt-(--e-4) ${TEXTO_SECUNDARIO} text-[1.0625rem] leading-[1.5]`}>{DENUNCIAR.introducao}</p>
       <form ref={formulario} className="mt-(--e-6) grid gap-(--e-5)" noValidate onSubmit={enviar}>
         <fieldset
-          className={`m-0 p-0 min-w-0 ${invalido("motivo") ? "border-0 border-l-4 border-coral pl-(--e-3)" : "border-0"}`}
+          // A barra fica sempre, transparente: no erro só a cor muda, sem deslocar o layout.
+          className={`m-0 p-0 min-w-0 border-0 border-l-4 pl-(--e-3) ${invalido("motivo") ? "border-coral" : "border-transparent"}`}
           aria-describedby={descricaoDo("motivo")}
         >
           <legend className={`${ROTULO} p-0 mb-(--e-2)`}>{DENUNCIAR.rotuloDoMotivo}</legend>
@@ -244,6 +263,7 @@ export function DenunciarPublico({ carregarTurnstile: carregar }: PropsDeDenunci
                 name="motivo"
                 value={valor}
                 aria-invalid={invalido("motivo")}
+                aria-describedby={descricaoDo("motivo")}
               />
               {rotulo}
             </label>
@@ -354,6 +374,9 @@ export function DenunciarPublico({ carregarTurnstile: carregar }: PropsDeDenunci
       </p>
       <p className="mt-(--e-2) mb-0 text-[0.9375rem] leading-[1.45] text-coral" id={ID_DO_ERRO} role="alert">
         {erroGeral}
+      </p>
+      <p className="sr-only" role="status">
+        {anuncio}
       </p>
     </>
   );
