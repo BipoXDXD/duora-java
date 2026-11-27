@@ -40,8 +40,13 @@ class DenunciaPublicaIT extends ContaE2eBase {
     assertThat(enviar).not().hasAttribute("aria-disabled", "true");
     enviar.click();
 
-    assertThat(page.getByRole(AriaRole.STATUS))
-        .hasText(Pattern.compile("^Recebemos sua denúncia\\."));
+    // A tela tem mais de um role=status (o anúncio sr-only do erro de campo): ancora pelo texto.
+    assertThat(
+            page.getByRole(AriaRole.STATUS)
+                .filter(
+                    new Locator.FilterOptions()
+                        .setHasText(Pattern.compile("^Recebemos sua denúncia\\."))))
+        .isVisible();
     assertThat(page.context().cookies())
         .extracting(cookie -> cookie.name)
         .doesNotContain(COOKIE_DA_SESSAO);
