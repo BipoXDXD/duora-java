@@ -2,6 +2,7 @@ package bipotheking.net.duora.conta.web;
 
 import bipotheking.net.duora.conta.PedidoDeEntrada;
 import bipotheking.net.duora.conta.PedidoDeEntrada.RespostaDeEntrada;
+import bipotheking.net.duora.nucleo.EmailMascarado;
 import bipotheking.net.duora.web.OrigemDaRequisicao;
 import jakarta.servlet.http.HttpServletRequest;
 import java.util.Optional;
@@ -36,7 +37,18 @@ class PedidoDeEntradaController {
     this.chaveDoSiteTurnstile = chaveDoSiteTurnstile;
   }
 
-  record PedidoDeEntradaJson(@Nullable String email, @Nullable String tokenVerificacao) {}
+  /**
+   * O Spring MVC registra o corpo em DEBUG: o {@code toString} mascara o e-mail e esconde o token.
+   */
+  record PedidoDeEntradaJson(@Nullable String email, @Nullable String tokenVerificacao) {
+
+    @Override
+    public String toString() {
+      return "PedidoDeEntradaJson[email="
+          + EmailMascarado.mascarar(email)
+          + ", tokenVerificacao=***]";
+    }
+  }
 
   record Configuracao(String chaveDoSiteTurnstile) {}
 
