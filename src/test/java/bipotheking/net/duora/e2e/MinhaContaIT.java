@@ -45,8 +45,10 @@ class MinhaContaIT extends ContaE2eBase {
         .getByRole(AriaRole.BUTTON, new Locator.GetByRoleOptions().setName("Excluir conta"))
         .click();
 
-    assertThat(conta.heading("Conta excluída")).isVisible();
-    conta.abrir(raiz() + "entrar").pedirLink(email);
+    assertThat(conta.heading("Conta excluída")).isFocused();
+    conta.abrir(raiz() + "conta");
+    assertThat(conta.page()).hasURL(raiz() + "entrar");
+    conta.pedirLink(email);
     conta.abrirLink(linkRecebido(email));
     conta.confirmarEntrada();
     assertThat(conta.page()).hasURL(raiz() + "cadastro");

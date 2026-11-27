@@ -1,3 +1,4 @@
 -- V1: fundação do banco do Duora (Etapa 2a). Sem tabelas: marca o início do histórico do Flyway.
--- Ordem das próximas: V2 idempotência, V3 outbox, V4–V10 contas e legal; V11–V12 para a 2b;
--- V13–V19 para correções. Uma migração menor nunca entra depois de uma maior.
+-- Ordem: V2 idempotência, V3 outbox, V4–V10 contas e legal. Toda migração nova, de etapa ou de
+-- correção, usa o próximo número livre: com out-of-order desligado, uma migração menor nunca entra
+-- depois de uma maior.

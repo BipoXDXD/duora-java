@@ -71,11 +71,8 @@ export const PASSOS = Object.freeze([
   'capturarAguardando',
 ]);
 
-/**
- * Os passos de PASSOS que a rodada pedida em `args` executa, na mesma ordem. O conta-check ainda
- * não tem variante de rodada: todos os passos rodam sempre.
- */
-export function passosDaRodada(_args) {
+/** Os passos que a rodada executa, na ordem de PASSOS. O conta-check não tem variante de rodada. */
+export function passosDaRodada() {
   return [...PASSOS];
 }
 
@@ -311,7 +308,7 @@ async function main() {
     resultado.chrome = (await cdp.enviar('Browser.getVersion').catch(() => ({}))).product;
     const pagina = await abrirPagina(cdp);
     let contexto = { args, adb, base, resultado, pagina };
-    for (const passo of passosDaRodada(args)) {
+    for (const passo of passosDaRodada()) {
       log(`passo: ${passo}`);
       contexto = { ...contexto, ...(await EXECUTORES[passo](contexto)) };
     }

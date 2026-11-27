@@ -123,4 +123,20 @@ describe("Turnstile", () => {
     expect(scripts[0]?.src).toBe("https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit");
     expect(scripts[0]?.async).toBe(true);
   });
+
+  it("scriptSemAApiTentaDeNovoNaProximaChamada", async () => {
+    // O documento avulso não tem janela: o script "carrega", mas a API turnstile não aparece.
+    const documento = document.implementation.createHTMLDocument();
+    const carregar = criarCarregadorDoTurnstile(documento);
+    const primeira = carregar();
+    const [scriptQueFalhou] = documento.querySelectorAll("script");
+
+    scriptQueFalhou?.dispatchEvent(new Event("load"));
+    await expect(primeira).rejects.toThrow("sem a API turnstile");
+    const segunda = carregar();
+
+    expect(segunda).not.toBe(primeira);
+    expect(scriptQueFalhou?.isConnected).toBe(false);
+    expect(documento.querySelectorAll("script")).toHaveLength(1);
+  });
 });

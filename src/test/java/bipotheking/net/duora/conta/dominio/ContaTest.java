@@ -130,6 +130,15 @@ class ContaTest {
         .isInstanceOf(ResultadoDoCadastro.Concluido.class);
   }
 
+  @Test
+  void toStringSoTrazIdEEstado() {
+    Conta ativa = conta(EstadoConta.ATIVA, EMAIL, NASCIMENTO, AGORA);
+
+    assertThat(ativa.toString())
+        .isEqualTo("Conta[id=" + ID + ", estado=ATIVA]")
+        .doesNotContain("1990", "ana@");
+  }
+
   private static Conta pendente() {
     return conta(EstadoConta.PENDENTE, EMAIL, null, null);
   }

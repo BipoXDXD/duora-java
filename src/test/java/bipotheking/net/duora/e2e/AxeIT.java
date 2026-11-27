@@ -17,7 +17,6 @@ import static bipotheking.net.duora.e2e.TerracoPagina.Peca.TELESCOPIO;
 import static com.microsoft.playwright.assertions.PlaywrightAssertions.assertThat;
 
 import bipotheking.net.duora.e2e.NavegadorExtension.Participantes;
-import com.microsoft.playwright.Page;
 import com.microsoft.playwright.Route;
 import com.microsoft.playwright.options.AriaRole;
 import org.junit.jupiter.api.Test;
@@ -27,10 +26,10 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.annotation.DirtiesContext;
 
 /**
- * Varredura automática do axe-core (WCAG 2.0, 2.1 e 2.2, níveis A e AA) em quatro estados da
- * jornada, na tela de erro do cenário e nas telas públicas de denúncia e do encarregado, pelo
- * {@link Axe}. Complementa os ITs de acessibilidade escritos à mão. Os participantes usam movimento
- * reduzido, como o {@link Axe} exige.
+ * Varredura automática do axe-core (WCAG 2.0, 2.1 e 2.2, níveis A e AA) no terraço: quatro estados
+ * da jornada e a tela de erro do cenário, pelo {@link Axe}. As telas de conta e as públicas ficam
+ * no {@link AxeContaIT}. Complementa os ITs de acessibilidade escritos à mão. Os participantes usam
+ * movimento reduzido, como o {@link Axe} exige.
  */
 // Aplicação nova por classe: as salas de um IT não somam com as de outro no limite de 20 salas
 // ativas (LimitesSala), que é de produção e não muda nos testes.
@@ -118,30 +117,5 @@ class AxeIT {
     assertThat(ana.page().getByRole(AriaRole.ALERT)).isVisible();
 
     assertSemViolacoes(ana.page(), "erro de cenário");
-  }
-
-  @Test
-  void denunciarPublicoSemViolacoes(Participantes participantes) {
-    TerracoPagina ana =
-        participantes.novo(Cenarios::turnstileSemToken).abrir(raiz(porta) + "denunciar");
-    assertThat(
-            ana.page()
-                .getByRole(AriaRole.BUTTON, new Page.GetByRoleOptions().setName("Enviar denúncia")))
-        .hasAttribute("aria-disabled", "true");
-
-    assertSemViolacoes(ana.page(), "denunciar");
-  }
-
-  @Test
-  void encarregadoSemViolacoes(Participantes participantes) {
-    TerracoPagina ana = participantes.novo().abrir(raiz(porta) + "encarregado");
-    assertThat(
-            ana.page()
-                .getByRole(
-                    AriaRole.LINK,
-                    new Page.GetByRoleOptions().setName("encarregado@exemplo.invalid")))
-        .isVisible();
-
-    assertSemViolacoes(ana.page(), "encarregado");
   }
 }

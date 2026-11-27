@@ -4,6 +4,7 @@ import static com.microsoft.playwright.assertions.PlaywrightAssertions.assertTha
 
 import com.microsoft.playwright.Locator;
 import com.microsoft.playwright.Page;
+import com.microsoft.playwright.Response;
 import com.microsoft.playwright.options.AriaRole;
 import java.time.LocalDate;
 import java.util.function.Function;
@@ -33,14 +34,14 @@ final class ContaPagina {
   }
 
   /**
-   * Preenche o e-mail e envia quando o Turnstile libera o botão; espera a resposta do servidor,
-   * qualquer que seja (o pedido acima do limite volta 429).
+   * Preenche o e-mail e envia quando o Turnstile libera o botão; espera e devolve a resposta do
+   * servidor, qualquer que seja (o pedido acima do limite volta 429).
    */
-  void pedirLink(String email) {
+  Response pedirLink(String email) {
     page.getByLabel("Seu e-mail").fill(email);
     Locator enviar = botao("Enviar link");
     assertThat(enviar).not().hasAttribute("aria-disabled", "true");
-    page.waitForResponse(
+    return page.waitForResponse(
         resposta ->
             resposta.url().endsWith(PEDIDO_DE_LINK) && "POST".equals(resposta.request().method()),
         enviar::click);

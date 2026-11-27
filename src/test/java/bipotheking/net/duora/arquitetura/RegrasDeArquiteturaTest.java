@@ -47,6 +47,25 @@ class RegrasDeArquiteturaTest {
         .anySatisfy(v -> assertThat(v).contains("UsaSpring").contains("StringUtils"));
   }
 
+  @Test
+  void dominioJavaPuroMordeDependenciaDaInfra() {
+    assertThat(violacoes(RegrasDeArquitetura.dominioJavaPuro(RAIZ)))
+        .anySatisfy(v -> assertThat(v).contains("UsaInfra").contains("infra.Repositorio"));
+  }
+
+  @Test
+  void dominioJavaPuroMordeDependenciaDaWeb() {
+    assertThat(violacoes(RegrasDeArquitetura.dominioJavaPuro(RAIZ)))
+        .anySatisfy(v -> assertThat(v).contains("UsaWeb").contains("web.Controlador"));
+  }
+
+  @Test
+  void semCiclosEntreModulosMorde() {
+    assertThat(violacoes(RegrasDeArquitetura.semCiclosEntreModulos(RAIZ)))
+        .isNotEmpty()
+        .allSatisfy(v -> assertThat(v).contains("modulod.Ida", "moduloe.Volta"));
+  }
+
   private List<String> violacoes(ArchRule regra) {
     return regra.evaluate(exemplos).getFailureReport().getDetails();
   }

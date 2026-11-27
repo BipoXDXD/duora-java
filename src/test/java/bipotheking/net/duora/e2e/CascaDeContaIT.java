@@ -1,6 +1,5 @@
 package bipotheking.net.duora.e2e;
 
-import static bipotheking.net.duora.e2e.Axe.assertSemViolacoes;
 import static bipotheking.net.duora.e2e.Cenarios.raiz;
 import static com.microsoft.playwright.assertions.PlaywrightAssertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -13,6 +12,7 @@ import com.microsoft.playwright.Page;
 import com.microsoft.playwright.Response;
 import com.microsoft.playwright.options.AriaRole;
 import java.time.LocalDate;
+import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.List;
 import org.junit.jupiter.api.Test;
@@ -25,7 +25,8 @@ import org.springframework.test.annotation.DirtiesContext;
 /**
  * A casca de conta na primeira carga: o Spring encaminha a rota ao index.html, o despacho baixa o
  * chunk {@code casca-de-conta} só fora do terraço sem tocar no fragmento, e a casca lê o token do
- * link mágico e o tira da URL.
+ * link mágico e o tira da URL. Também a guarda que leva quem não entrou a {@code /entrar} e o foco
+ * na recusa e no diálogo de exclusão. O axe dessas telas fica no {@link AxeContaIT}.
  */
 @DirtiesContext(classMode = DirtiesContext.ClassMode.AFTER_CLASS)
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
@@ -44,6 +45,10 @@ class CascaDeContaIT {
   private int porta;
 
   private static final LocalDate NASCIMENTO_DE_ADULTO = LocalDate.of(1990, 5, 10);
+
+  /** Data relativa: uma data fixa deixaria de ser de menor com o passar dos anos. */
+  private static final LocalDate NASCIMENTO_DE_MENOR =
+      LocalDate.now(ZoneId.of("America/Sao_Paulo")).minusYears(10);
 
   @Autowired private ContasDeTeste contas;
 
@@ -65,21 +70,9 @@ class CascaDeContaIT {
     assertThat(page.url()).isEqualTo(raiz(porta) + "entrar/confirmar");
   }
 
-  @Test
-  void confirmarEntradaSemViolacoes(Participantes participantes) {
-    Page page = participantes.novo().abrir(raiz(porta) + "entrar/confirmar#t=abc").page();
-
-    assertThat(
-            page.getByRole(
-                AriaRole.HEADING, new Page.GetByRoleOptions().setName("Confirmar entrada")))
-        .isVisible();
-
-    assertSemViolacoes(page, "confirmar entrada");
-  }
-
   /** Token que nunca existiu: o servidor de verdade responde LINK_INVALIDO, a recusa final. */
   @Test
-  void linkInvalidoSemViolacoes(Participantes participantes) {
+  void linkInvalidoLevaOFocoAoAviso(Participantes participantes) {
     Page page = participantes.novo().abrir(raiz(porta) + "entrar/confirmar#t=abc").page();
 
     page.getByRole(AriaRole.BUTTON, new Page.GetByRoleOptions().setName("Entrar")).click();
@@ -88,8 +81,6 @@ class CascaDeContaIT {
     assertThat(
             page.getByRole(AriaRole.LINK, new Page.GetByRoleOptions().setName("Pedir novo link")))
         .isVisible();
-
-    assertSemViolacoes(page, "link inválido na confirmação");
   }
 
   /** O MockMvc só registra o forward; aqui o servidor de verdade o executa. */
@@ -122,7 +113,7 @@ class CascaDeContaIT {
    * /conta} agora leva o anônimo a {@code /entrar}.
    */
   @Test
-  void naoEncontradaSemViolacoes(Participantes participantes) {
+  void navegacaoNoClienteForaDasRotasMostraNaoEncontrada(Participantes participantes) {
     Page page = participantes.novo().abrir(raiz(porta) + "entrar/confirmar").page();
     assertThat(page.getByRole(AriaRole.MAIN)).isVisible();
 
@@ -135,8 +126,6 @@ class CascaDeContaIT {
             page.getByRole(
                 AriaRole.HEADING, new Page.GetByRoleOptions().setName("Página não encontrada")))
         .isVisible();
-
-    assertSemViolacoes(page, "página não encontrada da casca");
   }
 
   @Test
@@ -150,38 +139,13 @@ class CascaDeContaIT {
     assertThat(page).hasURL(raiz(porta) + "entrar");
   }
 
-  @Test
-  void cadastroSemViolacoes(Participantes participantes) {
-    Page page = logado(participantes, EstadoConta.PENDENTE);
-    page.navigate(raiz(porta) + "cadastro");
-
-    assertThat(page.getByRole(AriaRole.HEADING, new Page.GetByRoleOptions().setName("Falta pouco")))
-        .isVisible();
-    assertThat(page.getByLabel("Data de nascimento")).isVisible();
-
-    assertSemViolacoes(page, "cadastro");
-  }
-
-  @Test
-  void aguardandoSemViolacoes(Participantes participantes) {
-    Page page = logado(participantes, EstadoConta.AGUARDANDO_VERIFICACAO);
-    page.navigate(raiz(porta) + "aguardando");
-
-    assertThat(
-            page.getByRole(
-                AriaRole.HEADING, new Page.GetByRoleOptions().setName("Cadastro recebido")))
-        .isVisible();
-
-    assertSemViolacoes(page, "aguardando verificação");
-  }
-
   /** A recusa exclui a conta e encerra a sessão: voltar ao cadastro leva a quem não entrou. */
   @Test
   void recusaPorIdadeNaoDeixaSessao(Participantes participantes) {
     Page page = logado(participantes, EstadoConta.PENDENTE);
     page.navigate(raiz(porta) + "cadastro");
 
-    page.getByLabel("Data de nascimento").fill("2015-01-01");
+    page.getByLabel("Data de nascimento").fill(NASCIMENTO_DE_MENOR.toString());
     page.getByRole(
             AriaRole.CHECKBOX,
             new Page.GetByRoleOptions()
@@ -192,7 +156,6 @@ class CascaDeContaIT {
 
     assertThat(page.getByText("O Duora é só para maiores de 18 anos. Não criamos a conta."))
         .isFocused();
-    assertSemViolacoes(page, "recusa por idade");
 
     page.navigate(raiz(porta) + "cadastro");
     assertThat(page).hasURL(raiz(porta) + "entrar");
@@ -200,65 +163,23 @@ class CascaDeContaIT {
 
   /** O diálogo nativo: foco inicial no Cancelar, Esc fecha e o foco volta ao botão de origem. */
   @Test
-  void minhaContaEDialogoSemViolacoes(Participantes participantes) {
+  void dialogoDeExclusaoFocaCancelarEEscDevolveOFoco(Participantes participantes) {
     Page page = logado(participantes, EstadoConta.ATIVA);
     page.navigate(raiz(porta) + "conta");
+    Locator excluir =
+        page.getByRole(AriaRole.REGION, new Page.GetByRoleOptions().setName("Excluir conta"))
+            .getByRole(AriaRole.BUTTON, new Locator.GetByRoleOptions().setName("Excluir conta"));
 
-    assertThat(page.getByRole(AriaRole.HEADING, new Page.GetByRoleOptions().setName("Minha conta")))
-        .isVisible();
-    assertSemViolacoes(page, "minha conta");
-
-    Locator excluir = botaoExcluirDaSecao(page);
     excluir.click();
     Locator dialogo =
         page.getByRole(AriaRole.DIALOG, new Page.GetByRoleOptions().setName("Excluir sua conta?"));
     assertThat(
             dialogo.getByRole(AriaRole.BUTTON, new Locator.GetByRoleOptions().setName("Cancelar")))
         .isFocused();
-    assertSemViolacoes(page, "diálogo de exclusão");
-
     page.keyboard().press("Escape");
+
     assertThat(dialogo).isHidden();
     assertThat(excluir).isFocused();
-  }
-
-  @Test
-  void sairEncerraASessao(Participantes participantes) {
-    Page page = logado(participantes, EstadoConta.AGUARDANDO_VERIFICACAO);
-    page.navigate(raiz(porta) + "conta");
-
-    page.getByRole(AriaRole.BUTTON, new Page.GetByRoleOptions().setName("Sair da conta")).click();
-
-    assertThat(
-            page.getByRole(
-                AriaRole.HEADING, new Page.GetByRoleOptions().setName("Entrar no Duora")))
-        .isVisible();
-    page.navigate(raiz(porta) + "conta");
-    assertThat(page).hasURL(raiz(porta) + "entrar");
-  }
-
-  @Test
-  void excluirApagaAContaEEncerraASessao(Participantes participantes) {
-    Page page = logado(participantes, EstadoConta.ATIVA);
-    page.navigate(raiz(porta) + "conta");
-
-    botaoExcluirDaSecao(page).click();
-    page.getByRole(AriaRole.DIALOG)
-        .getByRole(AriaRole.BUTTON, new Locator.GetByRoleOptions().setName("Excluir conta"))
-        .click();
-
-    assertThat(
-            page.getByRole(AriaRole.HEADING, new Page.GetByRoleOptions().setName("Conta excluída")))
-        .isFocused();
-    assertSemViolacoes(page, "conta excluída");
-    page.navigate(raiz(porta) + "conta");
-    assertThat(page).hasURL(raiz(porta) + "entrar");
-  }
-
-  /** O botão da seção; com o diálogo aberto há outro com o mesmo nome. */
-  private static Locator botaoExcluirDaSecao(Page page) {
-    return page.getByRole(AriaRole.REGION, new Page.GetByRoleOptions().setName("Excluir conta"))
-        .getByRole(AriaRole.BUTTON, new Locator.GetByRoleOptions().setName("Excluir conta"));
   }
 
   /**

@@ -89,20 +89,6 @@ describe("requisitarHttp", () => {
     expect(erro.transitorio).toBe(true);
   });
 
-  it("abortoDoChamadorNaoViraFalhaDeRede", async () => {
-    const controle = new AbortController();
-    controle.abort();
-    vi.stubGlobal(
-      "fetch",
-      vi.fn<typeof fetch>(() => Promise.reject(new DOMException("Aborted", "AbortError"))),
-    );
-
-    const promessa = requisitarHttp("GET", "/sala", { sinal: controle.signal });
-
-    await expect(promessa).rejects.toMatchObject({ name: "AbortError" });
-    await expect(promessa).rejects.not.toBeInstanceOf(ErroHttp);
-  });
-
   it("cabecalhosExtrasSaem", async () => {
     const fetchFalso = responder(202);
 

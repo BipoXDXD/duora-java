@@ -4,15 +4,13 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import java.net.URI;
 import java.util.concurrent.atomic.AtomicBoolean;
-import org.junit.jupiter.api.Assumptions;
-import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.springframework.web.client.RestClient;
 
 /**
- * Fala com a Cloudflare de verdade usando as chaves de teste públicas dela. Fica fora do failsafe
- * padrão: roda só com {@code -Dit.test=TurnstileChavesDeTesteIT}, e uma vez por execução (só no
- * chromium).
+ * Fala com a Cloudflare de verdade usando as chaves de teste públicas dela. É manual e fica fora da
+ * CI: o {@code <exclude>} do failsafe o tira do e2e, e ele roda só quando pedido com {@code
+ * -Dit.test=TurnstileChavesDeTesteIT}.
  */
 class TurnstileChavesDeTesteIT {
 
@@ -20,11 +18,6 @@ class TurnstileChavesDeTesteIT {
       URI.create("https://challenges.cloudflare.com/turnstile/v0/siteverify");
   private static final String TOKEN_FALSO = "XXXX.DUMMY.TOKEN.XXXX";
   private static final String IP = "203.0.113.7";
-
-  @BeforeAll
-  static void soNoChromium() {
-    Assumptions.assumeTrue("chromium".equals(System.getProperty("navegador", "chromium")));
-  }
 
   /** Monta como a produção: builder do Boot (Jackson estrito) passando por {@code comTimeouts}. */
   private static boolean verificarCom(String segredo) {

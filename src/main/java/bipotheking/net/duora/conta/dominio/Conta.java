@@ -15,7 +15,8 @@ import org.jspecify.annotations.Nullable;
 /**
  * Conta como o banco a guarda, com as mesmas invariantes do esquema: só a excluída fica sem e-mail;
  * a data de nascimento existe de {@code AGUARDANDO_VERIFICACAO} a {@code BANIDA}; a ativa tem
- * {@code ativadaEm}. Não logue: o {@code toString} traz o e-mail e a data de nascimento.
+ * {@code ativadaEm}. O {@code toString} traz só o id e o estado: o e-mail e a data de nascimento
+ * ficam fora dos logs.
  */
 public record Conta(
     ContaId id,
@@ -78,5 +79,10 @@ public record Conta(
   /** O que outros módulos podem ver. Ainda não há selo de verificação: sai sempre falso. */
   public ContaResumo resumo() {
     return new ContaResumo(id, estado, dataDeNascimento, false, ativadaEm);
+  }
+
+  @Override
+  public String toString() {
+    return "Conta[id=" + id + ", estado=" + estado + "]";
   }
 }

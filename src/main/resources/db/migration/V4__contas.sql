@@ -16,5 +16,8 @@ create table conta (
            or data_nascimento is not null),
     -- Suspensa e banida podem não ter ativada_em: a moderação bane até conta pendente.
     check (estado <> 'ATIVA' or ativada_em is not null),
-    check ((estado = 'EXCLUIDA') = (excluida_em is not null))
+    check ((estado = 'EXCLUIDA') = (excluida_em is not null)),
+    -- A lápide não guarda dado pessoal: sem e-mail (acima) e sem data de nascimento.
+    constraint conta_excluida_sem_nascimento_check
+        check (estado <> 'EXCLUIDA' or data_nascimento is null)
 );

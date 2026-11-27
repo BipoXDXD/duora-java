@@ -135,8 +135,6 @@ export function Cadastro(): ReactElement {
 
   const cadastro = useMutation({
     mutationFn: concluirCadastro,
-    // Sem pausa fora do ar: a falha de rede vira o aviso, e o botão volta a valer.
-    networkMode: "always",
     onSuccess: async () => {
       // A trava segue fechada até a navegação: o cadastro já foi aceito.
       await clienteDeConsulta.invalidateQueries({ queryKey: consultaDaConta.queryKey, exact: true });

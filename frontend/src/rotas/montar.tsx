@@ -25,8 +25,13 @@ export function montarCasca(raiz: HTMLElement, local: Location, historia: Histor
     tokenDoLink = null;
     return token;
   };
+  // Sem pausa fora do ar: o navigator.onLine erra (portal cativo, VPN), e uma consulta ou envio
+  // pausado deixaria o guarda ou o botão parados. A falha de rede vira o aviso ou a repetição.
   const clienteDeConsulta = new QueryClient({
-    defaultOptions: { queries: { retry: tentarDeNovo } },
+    defaultOptions: {
+      queries: { retry: tentarDeNovo, networkMode: "always" },
+      mutations: { networkMode: "always" },
+    },
   });
   const roteador = createBrowserRouter(criarRotas({ clienteDeConsulta, tomarTokenDoLink }));
   const root = createRoot(raiz);

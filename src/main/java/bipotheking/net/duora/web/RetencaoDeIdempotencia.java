@@ -2,6 +2,7 @@ package bipotheking.net.duora.web;
 
 import bipotheking.net.duora.retencao.Lotes;
 import bipotheking.net.duora.retencao.PoliticaDeRetencao;
+import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
 import java.time.OffsetDateTime;
@@ -23,10 +24,12 @@ class RetencaoDeIdempotencia implements PoliticaDeRetencao {
 
   private final JdbcClient jdbc;
   private final TransactionTemplate transacao;
+  private final Clock relogio;
 
-  RetencaoDeIdempotencia(JdbcClient jdbc, TransactionTemplate transacao) {
+  RetencaoDeIdempotencia(JdbcClient jdbc, TransactionTemplate transacao, Clock relogio) {
     this.jdbc = jdbc;
     this.transacao = transacao;
+    this.relogio = relogio;
   }
 
   @Override
@@ -59,6 +62,9 @@ class RetencaoDeIdempotencia implements PoliticaDeRetencao {
 
   @Override
   public long tamanho() {
-    return jdbc.sql("select count(*) from chave_de_idempotencia").query(Long.class).single();
+    return jdbc.sql("select count(*) from chave_de_idempotencia where criada_em < :limite")
+        .param("limite", OffsetDateTime.ofInstant(relogio.instant().minus(PRAZO), ZoneOffset.UTC))
+        .query(Long.class)
+        .single();
   }
 }

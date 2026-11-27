@@ -1,7 +1,6 @@
 package bipotheking.net.duora;
 
 import static com.tngtech.archunit.lang.syntax.ArchRuleDefinition.classes;
-import static com.tngtech.archunit.library.dependencies.SlicesRuleDefinition.slices;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import bipotheking.net.duora.arquitetura.RegrasDeArquitetura;
@@ -22,8 +21,7 @@ class ArquiteturaTest {
   static final String RAIZ = "bipotheking.net.duora";
 
   @ArchTest
-  static final ArchRule semCiclosEntreModulos =
-      slices().matching(RAIZ + ".(*)..").should().beFreeOfCycles().allowEmptyShould(false);
+  static final ArchRule semCiclosEntreModulos = RegrasDeArquitetura.semCiclosEntreModulos(RAIZ);
 
   @ArchTest
   static final ArchRule moduloSoUsaAApiPublicaDeOutro = RegrasDeArquitetura.apiPublica(RAIZ);

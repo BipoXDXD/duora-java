@@ -5,7 +5,7 @@ create table registro_acesso (
     id       uuid        primary key,
     conta_id uuid        references conta (id),
     ip       inet        not null,
-    porta    int         check (porta between 0 and 65535),
+    porta    int         not null check (porta between 0 and 65535),
     instante timestamptz not null,
     evento   text        not null check (evento in ('LOGIN', 'RENOVACAO'))
 );

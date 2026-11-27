@@ -62,8 +62,6 @@ export function MinhaConta(): ReactElement {
 
   const saida = useMutation({
     mutationFn: sairDaConta,
-    // Sem pausa fora do ar: a falha de rede vira o aviso, e o botão volta a valer.
-    networkMode: "always",
     // A trava segue fechada até a navegação.
     onSuccess: irParaEntrar,
     onError: (erro) => {
@@ -79,7 +77,6 @@ export function MinhaConta(): ReactElement {
 
   const exclusao = useMutation({
     mutationFn: excluirConta,
-    networkMode: "always",
     // O 204 já expirou o cookie; a trava segue fechada, a tela muda de vez.
     onSuccess: () => {
       esquecerAConta();

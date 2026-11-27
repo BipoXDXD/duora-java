@@ -64,8 +64,6 @@ export function Entrar({ carregarTurnstile: carregar }: PropsDeEntrar): ReactEle
     mutationFn: ({ email, token: tokenVerificacao, chave }: PedidoDeLink) => pedirLink(email, tokenVerificacao, chave),
     retry: valeRepetir,
     retryDelay: esperaAntesDeRepetir,
-    // Sem pausa fora do ar: a falha de rede vira a repetição, e depois o aviso.
-    networkMode: "always",
     onError: (erro) => {
       if (erroDoEmail(erro)) {
         campoDoEmail.current?.focus();

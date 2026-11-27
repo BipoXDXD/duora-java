@@ -3,7 +3,7 @@ import type { RouteObject } from "react-router";
 import type { DadosDaConfirmacao } from "../telas/conta/ConfirmarEntrada";
 import { ErroDaConta } from "./ErroDaConta";
 import { exigirConta } from "./guardas";
-import { LARGURA_DE_LEITURA, LayoutDeConta } from "./LayoutDeConta";
+import { CarregandoDaCasca, LARGURA_DE_LEITURA, LayoutDeConta } from "./LayoutDeConta";
 import { NaoEncontrada } from "./NaoEncontrada";
 
 export interface ContextoDaCasca {
@@ -17,7 +17,9 @@ export interface ContextoDaCasca {
 
 /**
  * A árvore da casca: o layout de conta por fora e, dentro dele, cada tela com `lazy` (cada uma no
- * seu chunk). O contexto chega às telas que precisam do cliente de consulta ou do token do link. As
+ * seu chunk). A raiz responde pelas bordas de todas as rotas: o `HydrateFallback` mostra a moldura
+ * com o aviso de espera enquanto a primeira tela (guarda e chunk) chega, e o `ErrorBoundary` cobre
+ * a falha de qualquer rota (guarda, download do chunk ou render da tela), também na moldura. O contexto chega às telas que precisam do cliente de consulta ou do token do link. As
  * rotas que exigem conta têm o guarda no loader, fora do chunk da tela. O React Router roda o loader
  * e o `lazy` em paralelo: o chunk pode baixar mesmo quando o guarda redireciona, mas a tela só
  * aparece depois que o guarda a libera.
@@ -27,11 +29,12 @@ export function criarRotas({ clienteDeConsulta, tomarTokenDoLink }: ContextoDaCa
     {
       path: "/",
       Component: LayoutDeConta,
+      HydrateFallback: CarregandoDaCasca,
+      ErrorBoundary: ErroDaConta,
       children: [
         {
           path: "entrar",
           lazy: async () => ({ Component: (await import("../telas/conta/Entrar")).Entrar }),
-          ErrorBoundary: ErroDaConta,
         },
         {
           path: "entrar/confirmar",
@@ -48,26 +51,21 @@ export function criarRotas({ clienteDeConsulta, tomarTokenDoLink }: ContextoDaCa
           path: "cadastro",
           loader: () => exigirConta(clienteDeConsulta, ["PENDENTE"]),
           lazy: async () => ({ Component: (await import("../telas/conta/Cadastro")).Cadastro }),
-          ErrorBoundary: ErroDaConta,
         },
         {
           path: "aguardando",
           loader: () => exigirConta(clienteDeConsulta, ["AGUARDANDO_VERIFICACAO"]),
           lazy: async () => ({ Component: (await import("../telas/conta/Aguardando")).Aguardando }),
-          ErrorBoundary: ErroDaConta,
         },
         {
           path: "conta",
           loader: () => exigirConta(clienteDeConsulta, ["AGUARDANDO_VERIFICACAO", "ATIVA"]),
           lazy: async () => ({ Component: (await import("../telas/conta/MinhaConta")).MinhaConta }),
-          ErrorBoundary: ErroDaConta,
         },
         {
           path: "termos",
           handle: LARGURA_DE_LEITURA,
           lazy: async () => ({ Component: (await import("../telas/legal/DocumentoLegalPagina")).TermosDeUso }),
-          // Também cobre a falha ao baixar o chunk da tela.
-          ErrorBoundary: ErroDaConta,
         },
         {
           path: "privacidade",
@@ -75,17 +73,14 @@ export function criarRotas({ clienteDeConsulta, tomarTokenDoLink }: ContextoDaCa
           lazy: async () => ({
             Component: (await import("../telas/legal/DocumentoLegalPagina")).PoliticaDePrivacidade,
           }),
-          ErrorBoundary: ErroDaConta,
         },
         {
           path: "denunciar",
           lazy: async () => ({ Component: (await import("../telas/legal/DenunciarPublico")).DenunciarPublico }),
-          ErrorBoundary: ErroDaConta,
         },
         {
           path: "encarregado",
           lazy: async () => ({ Component: (await import("../telas/legal/Encarregado")).Encarregado }),
-          ErrorBoundary: ErroDaConta,
         },
         { path: "*", Component: NaoEncontrada },
       ],

@@ -30,7 +30,8 @@ export default defineConfig([
     },
     rules: {
       "@typescript-eslint/switch-exhaustiveness-check": "error",
-      // Parâmetro com _ é parte da assinatura de um contrato e ainda não tem uso (ex.: montarCasca).
+      // Parâmetro com _ é parte da assinatura de um contrato e não tem uso (ex.: o fetch falso que
+      // ignora a URL, o caso nomeado de um it.each).
       "@typescript-eslint/no-unused-vars": ["error", { argsIgnorePattern: "^_" }],
       // Avisos e confirmações são do próprio app, acessíveis; nunca a caixa do navegador.
       "no-alert": "error",

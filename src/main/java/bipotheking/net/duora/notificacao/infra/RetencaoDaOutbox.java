@@ -2,6 +2,7 @@ package bipotheking.net.duora.notificacao.infra;
 
 import bipotheking.net.duora.retencao.Lotes;
 import bipotheking.net.duora.retencao.PoliticaDeRetencao;
+import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
 import java.time.OffsetDateTime;
@@ -21,13 +22,17 @@ import org.springframework.transaction.support.TransactionTemplate;
 class RetencaoDaOutbox {
 
   @Bean
-  PoliticaDeRetencao retencaoDaOutboxEnviada(JdbcClient jdbc, TransactionTemplate transacao) {
-    return new PorInstante("outbox-enviada", Duration.parse("P7D"), "enviada_em", jdbc, transacao);
+  PoliticaDeRetencao retencaoDaOutboxEnviada(
+      JdbcClient jdbc, TransactionTemplate transacao, Clock relogio) {
+    return new PorInstante(
+        "outbox-enviada", Duration.parse("P7D"), "enviada_em", jdbc, transacao, relogio);
   }
 
   @Bean
-  PoliticaDeRetencao retencaoDaOutboxFalhada(JdbcClient jdbc, TransactionTemplate transacao) {
-    return new PorInstante("outbox-falhada", Duration.parse("P30D"), "falhou_em", jdbc, transacao);
+  PoliticaDeRetencao retencaoDaOutboxFalhada(
+      JdbcClient jdbc, TransactionTemplate transacao, Clock relogio) {
+    return new PorInstante(
+        "outbox-falhada", Duration.parse("P30D"), "falhou_em", jdbc, transacao, relogio);
   }
 
   /** Apaga as mensagens cujo instante terminal ({@code coluna}) é anterior ao limite. */
@@ -41,6 +46,7 @@ class RetencaoDaOutbox {
     private final String contar;
     private final JdbcClient jdbc;
     private final TransactionTemplate transacao;
+    private final Clock relogio;
 
     /** {@code coluna} é uma constante desta classe, nunca entrada externa. */
     PorInstante(
@@ -48,7 +54,8 @@ class RetencaoDaOutbox {
         Duration prazo,
         String coluna,
         JdbcClient jdbc,
-        TransactionTemplate transacao) {
+        TransactionTemplate transacao,
+        Clock relogio) {
       this.nome = nome;
       this.prazo = prazo;
       this.apagarLote =
@@ -57,9 +64,10 @@ class RetencaoDaOutbox {
               select id from outbox where %1$s < :limite limit %2$d)
           """
               .formatted(coluna, LOTE);
-      this.contar = "select count(*) from outbox where %s is not null".formatted(coluna);
+      this.contar = "select count(*) from outbox where %s < :limite".formatted(coluna);
       this.jdbc = jdbc;
       this.transacao = transacao;
+      this.relogio = relogio;
     }
 
     @Override
@@ -82,7 +90,9 @@ class RetencaoDaOutbox {
 
     @Override
     public long tamanho() {
-      return jdbc.sql(contar).query(Long.class).single();
+      OffsetDateTime limite =
+          OffsetDateTime.ofInstant(relogio.instant().minus(prazo), ZoneOffset.UTC);
+      return jdbc.sql(contar).param("limite", limite).query(Long.class).single();
     }
   }
 }

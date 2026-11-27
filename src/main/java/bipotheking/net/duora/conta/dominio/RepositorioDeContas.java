@@ -9,10 +9,10 @@ import java.util.Optional;
 public interface RepositorioDeContas {
 
   /**
-   * Cria a conta {@code PENDENTE} com o e-mail. Se o e-mail já tem conta, o banco recusa (no
-   * Spring, {@code DuplicateKeyException}).
+   * Cria a conta {@code PENDENTE} com o e-mail. Vazio quando o e-mail já tem conta, inclusive a
+   * criada por uma transação concorrente: o insert espera o commit dela e não grava nada.
    */
-  ContaId criarPendente(Email email);
+  Optional<ContaId> criarPendente(Email email);
 
   Optional<Conta> porEmail(Email email);
 

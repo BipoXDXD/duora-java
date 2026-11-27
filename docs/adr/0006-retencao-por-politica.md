@@ -23,10 +23,10 @@ Espalhar um `@Scheduled` por módulo daria N horários, N jeitos de logar e de m
 
 ## Consequências
 
-- Os módulos da Etapa 2a (links, sessões, outbox, chaves de idempotência, registros de acesso) e os das Etapas 3, 5 e 6 implementam `PoliticaDeRetencao`; o teste de contrato (P11) confere os prazos por `prazos()`.
+- Os módulos da Etapa 2a (links, sessões, outbox, chaves de idempotência, registros de acesso, uso de conta nova e denúncias públicas: `uso-conta-nova` e `denuncias-publicas`) e os das Etapas 3, 5 e 6 implementam `PoliticaDeRetencao`; o teste de contrato (P11) confere os prazos por `prazos()`, e um teste lê a tabela da política de privacidade e a compara com eles.
 - Um prazo nulo ou negativo, um nome repetido ou fora de kebab-case derrubam o boot, em vez de apagar dado vivo ou misturar métricas.
 - No desligamento, o `shutdown()` do agendador não interrompe a retenção em andamento: ela segue até os 30 s de espera, e com o pool de conexões já fechado as políticas restantes falham, deixando ERRORs no log e falhas contadas. Nada se perde, porque os lotes commitados ficam e o resto sai no dia seguinte.
-- Cada `tamanho()` roda um `count` a cada leitura do gauge; com índice no instante de referência, é barato no volume do piloto.
+- O gauge `duora.retencao.tamanho` mede só os itens vencidos além do prazo (instante de referência anterior a `agora − prazo`): o que a próxima rodada deve apagar. Fora do zero por mais de um dia, a retenção está atrasada ou falhando. Cada `tamanho()` roda um `count` a cada leitura do gauge; com índice no instante de referência, é barato no volume do piloto.
 - Com várias instâncias, cada uma rodaria o job; como as políticas são idempotentes e apagam em lotes curtos, o pior caso é trabalho repetido. Um lock distribuído entra se o volume pedir (Etapa 10).
 
 ## Alternativas consideradas

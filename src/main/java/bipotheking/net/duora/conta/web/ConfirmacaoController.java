@@ -31,7 +31,14 @@ class ConfirmacaoController {
     this.origem = origem;
   }
 
-  record PedidoDeConfirmacaoJson(@Nullable String token) {}
+  /** O Spring MVC registra o corpo em DEBUG: o {@code toString} esconde o token do link. */
+  record PedidoDeConfirmacaoJson(@Nullable String token) {
+
+    @Override
+    public String toString() {
+      return "PedidoDeConfirmacaoJson[token=***]";
+    }
+  }
 
   record RespostaDeConfirmacao(boolean cadastroConcluido) {}
 

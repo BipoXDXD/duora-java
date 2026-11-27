@@ -27,8 +27,8 @@ interface JanelaComTurnstile {
 
 /**
  * Carregador com um único <script> por documento: as chamadas seguintes reaproveitam a mesma
- * promessa. Se o script falhar (rede, bloqueio), ele sai do documento e a próxima chamada tenta de
- * novo.
+ * promessa. Se o script falhar (rede, bloqueio) ou carregar sem a API, ele sai do documento e a
+ * próxima chamada tenta de novo.
  */
 export function criarCarregadorDoTurnstile(documento: Document): () => Promise<ApiTurnstile> {
   let carregando: Promise<ApiTurnstile> | null = null;
@@ -37,18 +37,22 @@ export function criarCarregadorDoTurnstile(documento: Document): () => Promise<A
       const script = documento.createElement("script");
       script.src = URL_DO_SCRIPT;
       script.async = true;
+      // Tira o script do documento e esquece a promessa: a próxima chamada tenta de novo.
+      const desistir = (motivo: string) => {
+        script.remove();
+        carregando = null;
+        rejeitar(new Error(motivo));
+      };
       script.addEventListener("load", () => {
         const api = (documento.defaultView as JanelaComTurnstile | null)?.turnstile;
         if (api) {
           resolver(api);
         } else {
-          rejeitar(new Error("o script do Turnstile carregou sem a API turnstile"));
+          desistir("o script do Turnstile carregou sem a API turnstile");
         }
       });
       script.addEventListener("error", () => {
-        script.remove();
-        carregando = null;
-        rejeitar(new Error("o script do Turnstile não carregou"));
+        desistir("o script do Turnstile não carregou");
       });
       documento.head.append(script);
     });

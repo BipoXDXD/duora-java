@@ -71,8 +71,15 @@ class RetencaoDeIdempotenciaTest extends BancoDeTeste {
   }
 
   @Test
-  void tamanhoContaTodasAsChaves() {
+  void tamanhoNaoContaChaveDentroDoPrazo() {
     inserirChave(INICIO.minus(Duration.ofHours(1)), null);
+
+    assertThat(chaves().tamanho()).isZero();
+  }
+
+  @Test
+  void tamanhoContaChaveVencidaAlemDoPrazo() {
+    inserirChave(INICIO.minus(Duration.ofHours(25)), null);
 
     assertThat(chaves().tamanho()).isOne();
   }

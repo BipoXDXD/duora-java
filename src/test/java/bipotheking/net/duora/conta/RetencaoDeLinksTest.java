@@ -80,8 +80,9 @@ class RetencaoDeLinksTest extends BancoDeTeste {
   }
 
   @Test
-  void tamanhoContaVencidos() {
+  void tamanhoContaSoOsVencidosAlemDoPrazo() {
     inserirLinks(3, INICIO.minus(Duration.ofDays(2)));
+    inserirLinks(2, INICIO.minus(Duration.ofHours(2)));
     inserirLinks(1, INICIO.plus(Duration.ofMinutes(15)));
 
     assertThat(links().tamanho()).isEqualTo(3);

@@ -110,8 +110,20 @@ public class ConfirmacaoDeEntrada {
       conta = existente.get().id();
       estado = existente.get().estado();
     } else {
-      conta = contas.criarPendente(email);
-      estado = EstadoConta.PENDENTE;
+      Optional<ContaId> criada = contas.criarPendente(email);
+      if (criada.isPresent()) {
+        conta = criada.get();
+        estado = EstadoConta.PENDENTE;
+      } else {
+        // Outra confirmação do mesmo e-mail criou a conta entre a leitura e o insert: usa a dela.
+        Conta concorrente =
+            contas
+                .porEmail(email)
+                .orElseThrow(
+                    () -> new IllegalStateException("A conta criada em paralelo sumiu do banco"));
+        conta = concorrente.id();
+        estado = concorrente.estado();
+      }
     }
     if (!estado.disponivel()) {
       throw new ErroDeNegocio(

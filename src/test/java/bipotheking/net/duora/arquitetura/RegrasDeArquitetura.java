@@ -4,6 +4,7 @@ import static com.tngtech.archunit.core.domain.JavaClass.Predicates.resideInAPac
 import static com.tngtech.archunit.core.domain.JavaClass.Predicates.resideInAnyPackage;
 import static com.tngtech.archunit.lang.syntax.ArchRuleDefinition.classes;
 import static com.tngtech.archunit.lang.syntax.ArchRuleDefinition.noClasses;
+import static com.tngtech.archunit.library.dependencies.SlicesRuleDefinition.slices;
 
 import com.tngtech.archunit.base.DescribedPredicate;
 import com.tngtech.archunit.core.domain.Dependency;
@@ -22,6 +23,11 @@ import java.util.Optional;
 public final class RegrasDeArquitetura {
 
   private RegrasDeArquitetura() {}
+
+  /** Nenhum ciclo de dependência entre módulos ({@code raiz.A} usa {@code raiz.B}, que usa A). */
+  public static ArchRule semCiclosEntreModulos(String raiz) {
+    return slices().matching(raiz + ".(*)..").should().beFreeOfCycles().allowEmptyShould(false);
+  }
 
   /** Uma classe de {@code raiz.A..} só usa, de outro módulo {@code B}, o pacote {@code raiz.B}. */
   public static ArchRule apiPublica(String raiz) {
@@ -77,23 +83,27 @@ public final class RegrasDeArquitetura {
 
   /** O {@code dominio/} de cada módulo é Java puro: só JDK e o próprio projeto. */
   public static ArchRule dominioJavaPuro(String raiz) {
-    return javaPuro(raiz + "..dominio..", raiz + "..");
+    return javaPuro(
+        raiz + "..dominio..",
+        resideInAPackage(raiz + "..")
+            .and(DescribedPredicate.not(resideInAnyPackage("..infra..", "..web.."))));
   }
 
   /** O {@code nucleo} é Java puro: só JDK e ele mesmo. */
   public static ArchRule nucleoJavaPuro(String raiz) {
-    return javaPuro(raiz + ".nucleo..", raiz + ".nucleo..");
+    return javaPuro(raiz + ".nucleo..", resideInAPackage(raiz + ".nucleo.."));
   }
 
-  private static ArchRule javaPuro(String pacotes, String projetoPermitido) {
+  private static ArchRule javaPuro(String pacotes, DescribedPredicate<JavaClass> projetoPermitido) {
     return classes()
         .that()
         .resideInAPackage(pacotes)
         .should()
         .onlyDependOnClassesThat(
             // org.jspecify: anotações de nulidade, sem comportamento (o nucleo já usa @Nullable).
-            resideInAnyPackage("java..", "org.jspecify..", projetoPermitido)
-                .and(DescribedPredicate.not(resideInAPackage("java.sql.."))))
+            resideInAnyPackage("java..", "org.jspecify..")
+                .and(DescribedPredicate.not(resideInAPackage("java.sql..")))
+                .or(projetoPermitido))
         .allowEmptyShould(false);
   }
 
