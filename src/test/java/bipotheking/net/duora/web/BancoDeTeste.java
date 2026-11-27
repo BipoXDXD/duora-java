@@ -29,8 +29,13 @@ public abstract class BancoDeTeste {
   @Autowired protected MockMvc mvc;
   @Autowired protected JdbcClient jdbc;
   @Autowired protected RelogioDeTeste relogio;
+  @Autowired private LimiteDeTaxa limiteDeTaxa;
 
-  /** Esvazia todas as tabelas de {@code public}, menos o histórico do Flyway, e volta o relógio. */
+  /**
+   * Esvazia todas as tabelas de {@code public}, menos o histórico do Flyway, volta o relógio e
+   * enche de novo os baldes de limite de taxa (com o relógio de volta, eles nunca recarregariam
+   * sozinhos).
+   */
   @BeforeEach
   protected void limpar() {
     List<String> tabelas =
@@ -46,5 +51,6 @@ public abstract class BancoDeTeste {
       jdbc.sql("truncate table " + String.join(", ", tabelas) + " cascade").update();
     }
     relogio.ajustar(INICIO);
+    limiteDeTaxa.esquecerBaldes();
   }
 }
