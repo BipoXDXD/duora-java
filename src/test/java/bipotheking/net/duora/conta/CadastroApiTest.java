@@ -18,6 +18,7 @@ import bipotheking.net.duora.notificacao.infra.EmailNoLog;
 import bipotheking.net.duora.web.BancoDeTeste;
 import bipotheking.net.duora.web.MesmaOrigem;
 import jakarta.servlet.http.Cookie;
+import java.time.Duration;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.OffsetDateTime;
@@ -26,9 +27,11 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.Callable;
+import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
 import java.util.random.RandomGenerator;
 import org.jspecify.annotations.Nullable;
 import org.junit.jupiter.api.Test;
@@ -46,6 +49,7 @@ class CadastroApiTest extends BancoDeTeste {
   private static final String MAIOR = "1990-05-10";
   private static final String MENOR = "2010-03-15";
   private static final String COOKIE_EXPIRADO = "Max-Age=0";
+  private static final Duration ESPERA = Duration.ofSeconds(5);
 
   @Autowired private ContasDeTeste contas;
   @Autowired private DocumentosLegais documentos;
@@ -145,6 +149,47 @@ class CadastroApiTest extends BancoDeTeste {
         jdbc.sql("select carga, ultimo_erro from outbox").query().singleRow();
     assertThat(mensagem.get("carga")).isNull();
     assertThat(mensagem.get("ultimo_erro")).isEqualTo("titular-esquecido");
+  }
+
+  /**
+   * Um pedido de link do mesmo e-mail, com link e mensagem ainda sem commit, segura a trava do
+   * e-mail: a recusa por idade espera por ele e, depois, invalida o link e esquece a mensagem. Sem
+   * a trava, a recusa terminaria antes e o link e a carga ficariam vivos.
+   */
+  @Test
+  void recusaPorIdadeEsperaPedidoDeLinkEmAndamento() throws Exception {
+    ContaDeTeste conta = pendente();
+    Email email = Email.de(emailDe(conta));
+    CountDownLatch pedidoGravou = new CountDownLatch(1);
+    CountDownLatch soltarPedido = new CountDownLatch(1);
+
+    boolean recusaEsperou;
+    int statusDaRecusa;
+    try (ExecutorService threads = Executors.newFixedThreadPool(2)) {
+      Future<?> pedido =
+          threads.submit(() ->
+              new TransactionTemplate(transacoes)
+                  .executeWithoutResult(status -> {
+                    pedidoDeEntrada.gravarLinkEMensagem(email, Token.novo(aleatorio));
+                    pedidoGravou.countDown();
+                    aguardar(soltarPedido);
+                  }));
+      Future<MockHttpServletResponse> recusa;
+      try {
+        assertThat(pedidoGravou.await(ESPERA.toMillis(), TimeUnit.MILLISECONDS)).isTrue();
+        recusa = threads.submit(() -> cadastrar(conta, corpo(MENOR)).andReturn().getResponse());
+        recusaEsperou = travaEmEspera();
+      } finally {
+        soltarPedido.countDown();
+      }
+      pedido.get();
+      statusDaRecusa = recusa.get().getStatus();
+    }
+
+    assertThat(recusaEsperou).as("a recusa esperou a trava do e-mail").isTrue();
+    assertThat(statusDaRecusa).isEqualTo(422);
+    assertThat(contar("select count(*) from link_de_entrada where usado_em is null")).isZero();
+    assertThat(contar("select count(*) from outbox where carga is not null")).isZero();
   }
 
   @Test
@@ -372,6 +417,34 @@ class CadastroApiTest extends BancoDeTeste {
 
   private static Aceite aceite(DocumentoLegal documento, VersaoDeDocumento versao) {
     return new Aceite(documento.name(), versao.versao(), versao.resumoSha256(), INICIO);
+  }
+
+  /** Espera alguma conexão ficar presa numa trava advisory, até o limite. */
+  private boolean travaEmEspera() throws InterruptedException {
+    long limite = System.nanoTime() + ESPERA.toNanos();
+    while (System.nanoTime() < limite) {
+      long esperando =
+          jdbc.sql("select count(*) from pg_locks where locktype = 'advisory' and not granted")
+              .query(Long.class)
+              .single();
+      if (esperando > 0) {
+        return true;
+      }
+      Thread.sleep(10);
+    }
+    return false;
+  }
+
+  private static void aguardar(CountDownLatch trinco) {
+    try {
+      // Folga maior que a da sondagem da trava, para a falha sair na asserção, não aqui.
+      if (!trinco.await(ESPERA.multipliedBy(3).toMillis(), TimeUnit.MILLISECONDS)) {
+        throw new IllegalStateException("O teste não soltou a transação a tempo");
+      }
+    } catch (InterruptedException e) {
+      Thread.currentThread().interrupt();
+      throw new IllegalStateException(e);
+    }
   }
 
   private long contar(String sql) {
