@@ -9,8 +9,11 @@ import java.util.Set;
 import org.springframework.core.Ordered;
 import org.springframework.core.annotation.Order;
 import org.springframework.http.HttpHeaders;
+import org.springframework.http.server.RequestPath;
 import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
+import org.springframework.web.util.pattern.PathPattern;
+import org.springframework.web.util.pattern.PathPatternParser;
 import tools.jackson.databind.json.JsonMapper;
 
 /**
@@ -25,7 +28,7 @@ public class MesmaOrigem extends OncePerRequestFilter {
   public static final String SEC_FETCH_SITE = "Sec-Fetch-Site";
   private static final String VALOR_ESPERADO = "1";
   private static final String MESMA_ORIGEM = "same-origin";
-  private static final String PREFIXO_API = "/api/";
+  private static final PathPattern API = PathPatternParser.defaultInstance.parse("/api/**");
   private static final Set<String> METODOS_SEGUROS = Set.of("GET", "HEAD", "OPTIONS");
 
   private final JsonMapper json;
@@ -34,8 +37,14 @@ public class MesmaOrigem extends OncePerRequestFilter {
     this.json = json;
   }
 
+  /**
+   * Casa o caminho como o handler mapping o vê (decodificado, sem parâmetros de segmento), não o
+   * texto cru: {@code /%61pi/salas} e {@code /api;x/salas} também são a API.
+   */
   static boolean ehApi(HttpServletRequest request) {
-    return request.getRequestURI().startsWith(PREFIXO_API);
+    return API.matches(
+        RequestPath.parse(request.getRequestURI(), request.getContextPath())
+            .pathWithinApplication());
   }
 
   @Override
