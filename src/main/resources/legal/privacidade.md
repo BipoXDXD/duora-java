@@ -73,7 +73,7 @@ Quando um fornecedor fica fora do Brasil, o tratamento também acontece fora do 
 ## Transferência internacional
 
 - A Amazon Web Services e a Resend tratam dados nos Estados Unidos.
-- A Didit trata dados só na faixa de dúvida da verificação de idade, na Irlanda, dentro da União Europeia, conforme o acordo de tratamento de dados e a documentação da Didit.
+- A Didit trata dados só na faixa de dúvida da verificação de idade, no Espaço Econômico Europeu (hoje, na Irlanda), conforme o acordo de tratamento de dados da Didit.
 - O Cloudflare Turnstile pode tratar sinais do seu navegador fora do Brasil.
 
 ## Cookies

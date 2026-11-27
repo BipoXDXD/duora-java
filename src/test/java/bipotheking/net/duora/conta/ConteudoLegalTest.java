@@ -59,6 +59,16 @@ class ConteudoLegalTest {
   }
 
   @Test
+  void controladorLiteralENomeDoEncarregadoSoNoPapelDeEncarregado() {
+    String privacidade = texto(DocumentoLegal.PRIVACIDADE);
+
+    assertThat(privacidade)
+        .contains("O controlador dos dados é o responsável pelo Duora.")
+        .containsOnlyOnce(NOME_DO_ENCARREGADO)
+        .contains("O encarregado pelo tratamento de dados pessoais é " + NOME_DO_ENCARREGADO + ".");
+  }
+
+  @Test
   void contatosViramLinksDeEmail() {
     assertThat(DOCUMENTOS.html(DocumentoLegal.TERMOS)).contains(mailto(CONTATO));
     assertThat(DOCUMENTOS.html(DocumentoLegal.PRIVACIDADE))
