@@ -4,7 +4,7 @@ import assert from 'node:assert/strict';
 import { test } from 'node:test';
 
 import {
-  PASSOS, comandosParaRestaurar, escolherVariante, expressaoDoTerraco, passosDaRodada, prepararChrome,
+  Falha, PASSOS, abrirSessao, comandosParaRestaurar, escolherVariante, expressaoDoTerraco, passosDaRodada, prepararChrome,
 } from './pwa-check.mjs';
 
 /** adb falso: registra os comandos de shell, responde o SDK e falha nos comandos pedidos. */
@@ -93,4 +93,57 @@ test('semInstalarParaDepoisDasCapturasNoNavegador', () => {
 
 test('rodadaCompletaRodaTodosOsPassos', () => {
   assert.deepEqual(passosDaRodada({ 'sem-instalar': false }), [...PASSOS]);
+});
+
+/** WebSocket falso: o teste dispara a abertura e a queda e lê o que a sessão enviou. */
+function webSocketFalso() {
+  const ws = { enviados: [], send(texto) { ws.enviados.push(JSON.parse(texto)); }, close() {} };
+  return ws;
+}
+
+async function sessaoAberta() {
+  const ws = webSocketFalso();
+  const aberta = abrirSessao('ws://cdp-falso', { criarWebSocket: () => ws });
+  ws.onopen();
+  return { ws, cdp: await aberta };
+}
+
+test('quedaDoCdpRejeitaOsComandosPendentes', async () => {
+  const { ws, cdp } = await sessaoAberta();
+  const pendente = cdp.enviar('Runtime.evaluate');
+
+  ws.onclose();
+
+  await assert.rejects(pendente, (e) => e instanceof Falha && /fechou a conexão/.test(e.message));
+  await assert.rejects(cdp.enviar('Page.navigate'), Falha);
+});
+
+test('erroNoCdpRejeitaOsComandosPendentes', async () => {
+  const { ws, cdp } = await sessaoAberta();
+  const pendente = cdp.enviar('Runtime.evaluate');
+
+  ws.onerror();
+
+  await assert.rejects(pendente, (e) => e instanceof Falha && /falha na conexão/.test(e.message));
+});
+
+test('comandoSemRespostaFalhaEm15s', async (t) => {
+  t.mock.timers.enable({ apis: ['setTimeout'] });
+  const { cdp } = await sessaoAberta();
+  const pendente = cdp.enviar('Runtime.evaluate');
+
+  t.mock.timers.tick(15000);
+
+  await assert.rejects(pendente, (e) => e instanceof Falha && /sem resposta em 15s/.test(e.message));
+});
+
+test('respostaAntesDoPrazoResolveOComando', async (t) => {
+  t.mock.timers.enable({ apis: ['setTimeout'] });
+  const { ws, cdp } = await sessaoAberta();
+  const pendente = cdp.enviar('Browser.getVersion');
+
+  ws.onmessage({ data: JSON.stringify({ id: ws.enviados[0].id, result: { product: 'Chrome/124' } }) });
+  t.mock.timers.tick(15000);
+
+  assert.deepEqual(await pendente, { product: 'Chrome/124' });
 });
