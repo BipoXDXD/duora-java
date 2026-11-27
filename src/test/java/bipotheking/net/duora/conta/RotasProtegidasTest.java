@@ -82,7 +82,9 @@ class RotasProtegidasTest extends BancoDeTeste {
             "POST /api/sala/ajustar",
             "POST /api/sala/ajustar/recusar",
             "POST /api/sala/abertura",
-            "POST /api/sala/sair");
+            "POST /api/sala/sair",
+            "GET /api/legal/versoes",
+            "GET /api/legal/{documento}");
   }
 
   /**
