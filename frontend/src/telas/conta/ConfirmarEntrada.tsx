@@ -1,6 +1,6 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useRef, type ReactElement } from "react";
-import { Link, useNavigate } from "react-router";
+import { Link, useLoaderData, useNavigate } from "react-router";
 import { confirmarEntrada } from "../../api/conta";
 import type { Conta } from "../../api/estadoDaConta";
 import { ErroHttp } from "../../api/http";
@@ -14,17 +14,19 @@ interface PropsDeConfirmarEntrada {
   navegarParaPagina?: (url: string) => void;
 }
 
+/** O que o loader da rota entrega: o token do link, tomado uma vez só. */
+export interface DadosDaConfirmacao {
+  token: string | null;
+}
+
 /** Para onde seguir depois da entrada: uma rota da casca ou uma página inteira. */
 type Destino = { rota: string } | { pagina: string };
 
 /** A sessão abriu, mas a leitura seguinte falhou: o token já foi gasto e não vale repetir o POST. */
 class FalhaDepoisDaEntrada extends Error {
-  readonly causa: unknown;
-
-  constructor(causa: unknown) {
-    super("A entrada foi confirmada, mas a conta não pôde ser lida");
+  constructor(cause: unknown) {
+    super("A entrada foi confirmada, mas a conta não pôde ser lida", { cause });
     this.name = "FalhaDepoisDaEntrada";
-    this.causa = causa;
   }
 }
 
@@ -44,8 +46,8 @@ function recusaDaContaIndisponivel(erro: ErroHttp): Recusa {
 /** Pelo código do contrato (C6); o que não tem código conhecido é falha sem resposta conclusiva. */
 function recusaDo(erro: Error): Recusa {
   if (erro instanceof FalhaDepoisDaEntrada) {
-    return erro.causa instanceof ErroHttp && erro.causa.codigo === CONTA_INDISPONIVEL
-      ? recusaDaContaIndisponivel(erro.causa)
+    return erro.cause instanceof ErroHttp && erro.cause.codigo === CONTA_INDISPONIVEL
+      ? recusaDaContaIndisponivel(erro.cause)
       : { texto: CONFIRMAR.falhaDepoisDaEntrada, repetivel: false, saida: "terraco" };
   }
   if (erro instanceof ErroHttp) {
@@ -100,7 +102,8 @@ export function ConfirmarEntrada({
         return { pagina: "/" };
       }
       try {
-        await clienteDeConsulta.invalidateQueries({ queryKey: consultaDaConta.queryKey });
+        // Só a conta: ["conta", "configuracao"] não muda com a sessão.
+        await clienteDeConsulta.invalidateQueries({ queryKey: consultaDaConta.queryKey, exact: true });
         return destinoDa(await clienteDeConsulta.query(consultaDaConta));
       } catch (causa) {
         throw causa instanceof FalhaDepoisDaEntrada ? causa : new FalhaDepoisDaEntrada(causa);
@@ -192,4 +195,10 @@ export function ConfirmarEntrada({
       )}
     </>
   );
+}
+
+/** A tela na rota /entrar/confirmar: o token vem do loader, que o toma da casca uma vez só. */
+export function ConfirmarEntradaDaRota(): ReactElement {
+  const { token } = useLoaderData<DadosDaConfirmacao>();
+  return <ConfirmarEntrada token={token} />;
 }

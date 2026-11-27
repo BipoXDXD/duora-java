@@ -68,6 +68,21 @@ class CascaDeContaIT {
     assertSemViolacoes(page, "confirmar entrada");
   }
 
+  /** Token que nunca existiu: o servidor de verdade responde LINK_INVALIDO, a recusa final. */
+  @Test
+  void linkInvalidoSemViolacoes(Participantes participantes) {
+    Page page = participantes.novo().abrir(raiz(porta) + "entrar/confirmar#t=abc").page();
+
+    page.getByRole(AriaRole.BUTTON, new Page.GetByRoleOptions().setName("Entrar")).click();
+
+    assertThat(page.getByText("Este link expirou ou já foi usado. Peça um novo.")).isFocused();
+    assertThat(
+            page.getByRole(AriaRole.LINK, new Page.GetByRoleOptions().setName("Pedir novo link")))
+        .isVisible();
+
+    assertSemViolacoes(page, "link inválido na confirmação");
+  }
+
   /** O MockMvc só registra o forward; aqui o servidor de verdade o executa. */
   @Test
   void rotaEncaminhadaChegaSemCache(Participantes participantes) {
