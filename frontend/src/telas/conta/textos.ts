@@ -9,8 +9,8 @@ export const ENTRAR = {
   aguardeAVerificacao: "Aguarde a verificação de segurança acima.",
   falhaDaVerificacao: "Não conseguimos carregar a verificação de segurança.",
   tentarDeNovo: "Tentar de novo",
-  /** Falha sem mensagem do servidor (rede ou servidor fora do ar, mesmo depois da repetição). */
-  falhaNoEnvio: "Não conseguimos enviar o link agora. Tente de novo em instantes.",
+  /** Falha sem resposta conclusiva (rede, servidor fora do ar, 409): o link pode ter saído. */
+  falhaNoEnvio: "Não conseguimos confirmar o envio do link. Tente de novo em instantes.",
 } as const;
 
 /** Texto do 429: o Retry-After em segundos vira minutos inteiros, arredondados para cima, nunca menos de 1. */

@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { act, render, screen } from "@testing-library/react";
+import { act, fireEvent, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { ApiTurnstile, OpcoesDoWidget } from "../../componentes/Turnstile";
@@ -196,6 +196,9 @@ describe("Entrar", () => {
     expect(pedidos).toHaveLength(2);
     expect(pedidos[1]).toEqual(pedidos[0]);
     expect(widget.reiniciar).toHaveBeenCalledOnce();
+    expect(screen.getByRole("alert")).toHaveTextContent(
+      "Não conseguimos confirmar o envio do link. Tente de novo em instantes.",
+    );
   });
 
   it.each<[string, RespostaFalsa]>([
@@ -217,6 +220,57 @@ describe("Entrar", () => {
     });
     expect(pedidos[1]?.corpo).toEqual({ email: EMAIL, tokenVerificacao: "token-2" });
     expect(pedidos[1]?.chave).not.toBe(pedidos[0]?.chave);
+  });
+
+  it("duploToqueEnviaUmPedido", async () => {
+    const { pedidos, widget } = await renderizar();
+    await vi.waitFor(() => {
+      expect(widget.desenhar).toHaveBeenCalled();
+    });
+    widget.resolverDesafio("token-1");
+    fireEvent.change(screen.getByLabelText("Seu e-mail"), { target: { value: EMAIL } });
+
+    const botao = botaoEnviar();
+    fireEvent.click(botao);
+    fireEvent.click(botao);
+
+    await screen.findByText(MENSAGEM);
+    expect(pedidos).toHaveLength(1);
+  });
+
+  it("erroDeEmailLevaOFocoAoCampo", async () => {
+    const { widget } = await renderizar([
+      { status: 422, corpo: { codigo: "EMAIL_INVALIDO", mensagem: "Confira o e-mail." } },
+    ]);
+
+    await enviar(widget, "token-1");
+
+    await screen.findByText("Confira o e-mail.");
+    const campo = screen.getByLabelText("Seu e-mail");
+    expect(campo).toHaveFocus();
+    expect(campo).toHaveAttribute("aria-invalid", "true");
+    expect(campo).toHaveAccessibleDescription("Confira o e-mail.");
+  });
+
+  it("erroQueNaoEDeEmailNaoDescreveOCampo", async () => {
+    const { widget } = await renderizar([
+      { status: 429, corpo: { codigo: "LIMITE_DE_TAXA" }, cabecalhos: { "Retry-After": "60" } },
+    ]);
+
+    await enviar(widget, "token-1");
+
+    await screen.findByText("Muitas tentativas. Tente de novo em 1 minuto.");
+    expect(screen.getByLabelText("Seu e-mail")).not.toHaveAttribute("aria-describedby");
+  });
+
+  it("sucessoTiraADicaDaVistaEMantemOMotivo", async () => {
+    const { widget } = await renderizar();
+
+    await enviar(widget, "token-1");
+
+    await screen.findByText(MENSAGEM);
+    expect(screen.getByText("Aguarde a verificação de segurança acima.")).toHaveClass("sr-only");
+    expect(botaoEnviar()).toHaveAccessibleDescription("Aguarde a verificação de segurança acima.");
   });
 
   it("sucessoMostraAMensagemDoServidor", async () => {

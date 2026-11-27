@@ -72,6 +72,9 @@ export function Entrar({ carregarTurnstile: carregar = carregarTurnstile }: Prop
   const campoDoEmail = useRef<HTMLInputElement>(null);
   const [token, setToken] = useState<string | null>(null);
   const [widgetFalhou, setWidgetFalhou] = useState(false);
+  // Trava síncrona: o isPending só chega no render seguinte, e um duplo toque nessa janela mandaria
+  // outro pedido com o mesmo token (já gasto) e chave nova.
+  const enviando = useRef(false);
 
   const pedido = useMutation({
     mutationFn: ({ email, token: tokenVerificacao, chave }: PedidoDeLink) => pedirLink(email, tokenVerificacao, chave),
@@ -79,7 +82,13 @@ export function Entrar({ carregarTurnstile: carregar = carregarTurnstile }: Prop
     retryDelay: esperaAntesDeRepetir,
     // Sem pausa fora do ar: a falha de rede vira a repetição, e depois o aviso.
     networkMode: "always",
+    onError: (erro) => {
+      if (erroDoEmail(erro)) {
+        campoDoEmail.current?.focus();
+      }
+    },
     onSettled: () => {
+      enviando.current = false;
       setToken(null);
       turnstile.current?.reiniciar();
     },
@@ -87,12 +96,14 @@ export function Entrar({ carregarTurnstile: carregar = carregarTurnstile }: Prop
 
   const verificacaoFalhou = widgetFalhou || configuracao.isError;
   const indisponivel = token === null || pedido.isPending;
+  const emailRecusado = erroDoEmail(pedido.error);
 
   function enviar(evento: SubmitEvent<HTMLFormElement>) {
     evento.preventDefault();
-    if (token === null || pedido.isPending) {
+    if (token === null || enviando.current) {
       return;
     }
+    enviando.current = true;
     const email = campoDoEmail.current?.value.trim() ?? "";
     pedido.mutate({ email, token, chave: novaChaveDeIdempotencia() });
   }
@@ -123,8 +134,8 @@ export function Entrar({ carregarTurnstile: carregar = carregarTurnstile }: Prop
             autoComplete="email"
             spellCheck={false}
             required
-            aria-describedby="entrar-erro"
-            aria-invalid={erroDoEmail(pedido.error) ? true : undefined}
+            aria-describedby={emailRecusado ? "entrar-erro" : undefined}
+            aria-invalid={emailRecusado ? true : undefined}
           />
         </div>
         <div className="min-h-[65px]">
@@ -172,7 +183,8 @@ export function Entrar({ carregarTurnstile: carregar = carregarTurnstile }: Prop
           {pedido.isPending ? ENTRAR.enviando : ENTRAR.enviar}
         </button>
         {token === null && !verificacaoFalhou && (
-          <p className={DICA} id="entrar-motivo">
+          // Com a mensagem de sucesso na tela, a dica sai da vista, mas segue como motivo do botão.
+          <p className={pedido.isSuccess ? "sr-only" : DICA} id="entrar-motivo">
             {ENTRAR.aguardeAVerificacao}
           </p>
         )}
