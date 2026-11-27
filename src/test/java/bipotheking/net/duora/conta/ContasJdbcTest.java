@@ -1,0 +1,122 @@
+package bipotheking.net.duora.conta;
+
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+
+import bipotheking.net.duora.conta.dominio.Conta;
+import bipotheking.net.duora.conta.dominio.Email;
+import bipotheking.net.duora.conta.dominio.RepositorioDeContas;
+import bipotheking.net.duora.nucleo.GeradorDeIds;
+import bipotheking.net.duora.web.BancoDeTeste;
+import java.time.LocalDate;
+import java.time.OffsetDateTime;
+import java.time.ZoneOffset;
+import org.jspecify.annotations.Nullable;
+import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.dao.DuplicateKeyException;
+
+class ContasJdbcTest extends BancoDeTeste {
+
+  private static final Email EMAIL = new Email("ana@teste.duora.invalid");
+  private static final String OUTRO_EMAIL = "bia@teste.duora.invalid";
+  private static final LocalDate NASCIMENTO = LocalDate.of(1990, 5, 10);
+  private static final OffsetDateTime AGORA = INICIO.atOffset(ZoneOffset.UTC);
+
+  @Autowired private RepositorioDeContas repositorio;
+  @Autowired private ConsultaDeContas consulta;
+  @Autowired private ContasDeTeste contas;
+  @Autowired private GeradorDeIds geradorDeIds;
+
+  @Test
+  void emailUnicoNoBanco() {
+    repositorio.criarPendente(EMAIL);
+
+    assertThatThrownBy(() -> repositorio.criarPendente(EMAIL))
+        .isInstanceOf(DuplicateKeyException.class);
+  }
+
+  @Test
+  void excluidaSemEmailNaoColide() {
+    inserir(EstadoConta.EXCLUIDA, null, null, null, AGORA);
+    inserir(EstadoConta.EXCLUIDA, null, null, null, AGORA);
+
+    Integer excluidas =
+        jdbc.sql("select count(*) from conta where estado = 'EXCLUIDA' and email is null")
+            .query(Integer.class)
+            .single();
+    assertThat(excluidas).isEqualTo(2);
+  }
+
+  @Test
+  void checkRecusaAtivaSemNascimento() {
+    assertThatThrownBy(() -> inserir(EstadoConta.ATIVA, OUTRO_EMAIL, null, AGORA, null))
+        .isInstanceOf(DataIntegrityViolationException.class);
+  }
+
+  @Test
+  void checkRecusaAtivaSemAtivadaEm() {
+    assertThatThrownBy(() -> inserir(EstadoConta.ATIVA, OUTRO_EMAIL, NASCIMENTO, null, null))
+        .isInstanceOf(DataIntegrityViolationException.class);
+  }
+
+  @Test
+  void checkRecusaExcluidaSemExcluidaEm() {
+    assertThatThrownBy(() -> inserir(EstadoConta.EXCLUIDA, null, null, null, null))
+        .isInstanceOf(DataIntegrityViolationException.class);
+  }
+
+  @Test
+  void checkRecusaExcluidaEmForaDeExcluida() {
+    assertThatThrownBy(() -> inserir(EstadoConta.PENDENTE, OUTRO_EMAIL, null, null, AGORA))
+        .isInstanceOf(DataIntegrityViolationException.class);
+  }
+
+  @Test
+  void porIdDevolveResumo() {
+    ContaId id = contas.criarAtiva().id();
+
+    assertThat(consulta.porId(id))
+        .contains(new ContaResumo(id, EstadoConta.ATIVA, NASCIMENTO, false, INICIO));
+  }
+
+  @Test
+  void porEmailDevolveAContaPendente() {
+    ContaId id = repositorio.criarPendente(EMAIL);
+
+    assertThat(repositorio.porEmail(EMAIL))
+        .contains(new Conta(id, EMAIL, EstadoConta.PENDENTE, null, INICIO, null));
+  }
+
+  @Test
+  void porIdDesconhecidoVemVazio() {
+    ContaId desconhecida = new ContaId(geradorDeIds.novo());
+
+    assertThat(repositorio.porId(desconhecida)).isEmpty();
+    assertThat(consulta.porId(desconhecida)).isEmpty();
+  }
+
+  /** Insere direto, para testar os checks do esquema: cada caso viola uma regra só. */
+  private void inserir(
+      EstadoConta estado,
+      @Nullable String email,
+      @Nullable LocalDate dataDeNascimento,
+      @Nullable OffsetDateTime ativadaEm,
+      @Nullable OffsetDateTime excluidaEm) {
+    jdbc.sql(
+            """
+            insert into conta
+                (id, email, estado, data_nascimento, criada_em, ativada_em, excluida_em)
+            values (:id, :email, :estado, :nascimento, :agora, :ativadaEm, :excluidaEm)
+            """)
+        .param("id", geradorDeIds.novo())
+        .param("email", email)
+        .param("estado", estado.name())
+        .param("nascimento", dataDeNascimento)
+        .param("agora", AGORA)
+        .param("ativadaEm", ativadaEm)
+        .param("excluidaEm", excluidaEm)
+        .update();
+  }
+}
