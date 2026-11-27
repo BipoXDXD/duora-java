@@ -32,6 +32,11 @@ class ConfiguracaoDeProdTest {
     assertThat(carregar().getProperty("spring.docker.compose.enabled")).isEqualTo("false");
   }
 
+  @Test
+  void logEmEcs() throws IOException {
+    assertThat(carregar().getProperty("logging.structured.format.console")).isEqualTo("ecs");
+  }
+
   private static Properties carregar() throws IOException {
     try (InputStream entrada =
         ConfiguracaoDeProdTest.class.getResourceAsStream("/application-prod.properties")) {
