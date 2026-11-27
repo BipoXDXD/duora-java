@@ -22,6 +22,7 @@ import java.time.Duration;
 import java.time.OffsetDateTime;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
@@ -259,6 +260,34 @@ class PedidoDeEntradaApiTest extends BancoDeTeste {
         .isOne();
   }
 
+  /**
+   * A falha vem no commit, depois do {@code concluir}: a resposta gravada volta atrás com o efeito,
+   * a chave é liberada e a mesma chave funciona na tentativa seguinte.
+   */
+  @Test
+  void falhaNaTransacaoDesfazAConclusaoELiberaAChave() throws Exception {
+    String email = emailNovo();
+    String chave = chaveNova();
+
+    falharNoCommitDaOutboxPara(email);
+    try {
+      assertThatThrownBy(
+              () -> pedidoDeEntrada.pedir(email, TOKEN_BOM, "10.9.9.9", Optional.of(chave)))
+          .isInstanceOf(RuntimeException.class);
+    } finally {
+      removerFalhaNoCommit();
+    }
+
+    assertThat(links()).isZero();
+    assertThat(mensagens()).isZero();
+    assertThat(jdbc.sql("select count(*) from chave_de_idempotencia").query(Long.class).single())
+        .isZero();
+    entrarComChave(email, chave)
+        .andExpect(status().isAccepted())
+        .andExpect(content().json("{\"mensagem\":\"" + MENSAGEM + "\"}", JsonCompareMode.STRICT));
+    assertThat(links()).isOne();
+  }
+
   @Test
   void mesmaChaveOutroEmailRecusada() throws Exception {
     String chave = chaveNova();
@@ -393,6 +422,37 @@ class PedidoDeEntradaApiTest extends BancoDeTeste {
       requisicao.header(CHAVE_DE_IDEMPOTENCIA, chave);
     }
     return mvc.perform(requisicao);
+  }
+
+  /**
+   * Gatilho adiado: o INSERT na outbox passa e a exceção sobe no commit, depois de todo o resto da
+   * transação. Só para o e-mail do teste.
+   */
+  private void falharNoCommitDaOutboxPara(String email) {
+    jdbc.sql(
+            """
+            create or replace function teste_falhar_no_commit() returns trigger
+            language plpgsql as $$
+            begin
+              if new.carga->>'para' = '%s' then
+                raise exception 'falha forçada no commit';
+              end if;
+              return null;
+            end $$
+            """
+                .formatted(email))
+        .update();
+    jdbc.sql(
+            """
+            create constraint trigger teste_falhar_no_commit after insert on outbox
+            deferrable initially deferred for each row execute function teste_falhar_no_commit()
+            """)
+        .update();
+  }
+
+  private void removerFalhaNoCommit() {
+    jdbc.sql("drop trigger if exists teste_falhar_no_commit on outbox").update();
+    jdbc.sql("drop function if exists teste_falhar_no_commit()").update();
   }
 
   /** Espera alguma conexão ficar presa numa trava advisory, até o limite. */
