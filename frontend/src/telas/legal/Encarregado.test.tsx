@@ -58,9 +58,9 @@ describe("Encarregado", () => {
     vi.stubGlobal("fetch", fetchDasVersoes);
 
     montar();
-    expect(
-      await screen.findByText("Não conseguimos carregar o contato. Tente de novo em instantes."),
-    ).toBeInTheDocument();
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "Não conseguimos carregar o contato. Tente de novo em instantes.",
+    );
     await userEvent.click(screen.getByRole("button", { name: "Tentar de novo" }));
 
     expect(await screen.findByText(VERSOES_LEGAIS.encarregado.nome)).toBeInTheDocument();

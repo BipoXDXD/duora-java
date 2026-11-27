@@ -15,9 +15,10 @@ import type { ApiTurnstile } from "../../componentes/Turnstile";
 import { CaixaDaVerificacao } from "../conta/CaixaDaVerificacao";
 import { textoDeEspera, VERIFICACAO } from "../conta/textos";
 import { useVerificacaoHumana } from "../conta/useVerificacaoHumana";
+import { aparar } from "./aparar";
 import { DENUNCIAR, textoDoContador } from "./textos";
 
-/** Os limites do servidor (C12), em caracteres (code points), depois de tirar os espaços das pontas. */
+/** Os limites do servidor (C12), em caracteres (code points), depois do `strip` (ver `aparar`). */
 const DESCRICAO_MINIMA = 10;
 const DESCRICAO_MAXIMA = 2000;
 const REFERENCIA_MAXIMA = 200;
@@ -35,6 +36,13 @@ const ID_DA_FALHA_DA_VERIFICACAO = "denunciar-falha-verificacao";
 const ID_DO_ERRO = "denunciar-erro";
 
 type Campo = "motivo" | "descricao" | "referencia" | "email";
+
+function idDoErroDo(campo: Campo): string {
+  return `denunciar-erro-${campo}`;
+}
+
+/** A borda mais grossa marca o campo recusado sem depender só da cor. */
+const ENTRADA = `${ENTRADA_DE_TEXTO} aria-invalid:border-2`;
 
 /** O erro na tela e o campo a que ele pertence (null: erro do envio, sem campo). */
 interface Falha {
@@ -68,7 +76,7 @@ function ehMotivo(valor: FormDataEntryValue | null): valor is MotivoDaDenuncia {
 }
 
 function texto(valor: FormDataEntryValue | null): string {
-  return typeof valor === "string" ? valor.trim() : "";
+  return typeof valor === "string" ? aparar(valor) : "";
 }
 
 function falhaDoEnvio(erro: Error): Falha {
@@ -83,13 +91,32 @@ function falhaDoEnvio(erro: Error): Falha {
   return { texto: DENUNCIAR.falha, campo: null };
 }
 
+/** O erro sob o campo: texto, ícone e barra à esquerda, para não depender só da cor. */
+function ErroDoCampo({ campo, texto }: { campo: Campo; texto: string }): ReactElement {
+  return (
+    <p
+      className="m-0 flex items-start gap-(--e-2) border-l-4 border-coral pl-(--e-2) text-[0.9375rem] leading-[1.45] font-semibold text-coral"
+      id={idDoErroDo(campo)}
+    >
+      <svg aria-hidden="true" className="mt-[0.15em] size-4 flex-none" viewBox="0 0 16 16" fill="currentColor">
+        <path
+          fillRule="evenodd"
+          d="M8 1a7 7 0 1 0 0 14A7 7 0 0 0 8 1Zm-.75 3.5h1.5v5h-1.5v-5Zm0 6.5h1.5v1.5h-1.5V11Z"
+        />
+      </svg>
+      {texto}
+    </p>
+  );
+}
+
 interface PropsDeDenunciarPublico {
   carregarTurnstile?: () => Promise<ApiTurnstile>;
 }
 
 /**
  * Denúncia sem conta. O envio só fica disponível com um token do Turnstile; a tela confere os campos
- * antes, com as mesmas regras e mensagens do servidor, e leva o foco ao primeiro campo recusado. Toda
+ * antes, com as mesmas regras e mensagens do servidor, mostra o erro sob o campo e leva o foco a ele.
+ * O alerta geral fica para o que não é de um campo (limite, verificação humana, falha do envio). Toda
  * resposta gasta o token: o widget reinicia e pede outro. No sucesso, o formulário volta ao início e o
  * foco vai para a mensagem do servidor. Nada do que a pessoa escreve vai para o console.
  */
@@ -104,19 +131,20 @@ export function DenunciarPublico({ carregarTurnstile: carregar }: PropsDeDenunci
   const [descricao, setDescricao] = useState("");
   const [falha, setFalha] = useState<Falha | null>(null);
 
-  const campos: Record<Campo, { current: HTMLElement | null }> = {
-    motivo: primeiroMotivo,
-    descricao: campoDaDescricao,
-    referencia: campoDaReferencia,
-    email: campoDoEmail,
-  };
-
-  function mostrar(nova: Falha) {
-    setFalha(nova);
-    if (nova.campo !== null) {
-      campos[nova.campo].current?.focus();
+  // O foco vai depois do commit: o campo já tem o aria-invalid e o erro na descrição quando o leitor
+  // de tela o anuncia. Cada falha é um objeto novo, então a mesma recusa repetida volta a focar.
+  useEffect(() => {
+    if (falha?.campo == null) {
+      return;
     }
-  }
+    const campos: Record<Campo, { current: HTMLElement | null }> = {
+      motivo: primeiroMotivo,
+      descricao: campoDaDescricao,
+      referencia: campoDaReferencia,
+      email: campoDoEmail,
+    };
+    campos[falha.campo].current?.focus();
+  }, [falha]);
 
   const denuncia = useMutation({
     mutationFn: enviarDenuncia,
@@ -127,7 +155,7 @@ export function DenunciarPublico({ carregarTurnstile: carregar }: PropsDeDenunci
       setDescricao("");
     },
     onError: (erro) => {
-      mostrar(falhaDoEnvio(erro));
+      setFalha(falhaDoEnvio(erro));
     },
     onSettled: verificacao.liberar,
   });
@@ -140,7 +168,7 @@ export function DenunciarPublico({ carregarTurnstile: carregar }: PropsDeDenunci
 
   const { token, falhou: verificacaoFalhou } = verificacao;
   const indisponivel = token === null || denuncia.isPending;
-  const descricaoLimpa = descricao.trim();
+  const descricaoLimpa = aparar(descricao);
   const caracteresDaDescricao = caracteres(descricaoLimpa);
 
   function enviar(evento: SubmitEvent<HTMLFormElement>) {
@@ -154,15 +182,15 @@ export function DenunciarPublico({ carregarTurnstile: carregar }: PropsDeDenunci
     const referencia = texto(dados.get("referencia"));
     const emailContato = texto(dados.get("emailContato"));
     if (!ehMotivo(motivo)) {
-      mostrar({ texto: DENUNCIAR.semMotivo, campo: "motivo" });
+      setFalha({ texto: DENUNCIAR.semMotivo, campo: "motivo" });
       return;
     }
     if (!cabe(descricaoLimpa, DESCRICAO_MINIMA, DESCRICAO_MAXIMA)) {
-      mostrar({ texto: DENUNCIAR.descricaoForaDoTamanho, campo: "descricao" });
+      setFalha({ texto: DENUNCIAR.descricaoForaDoTamanho, campo: "descricao" });
       return;
     }
     if (referencia !== "" && !cabe(referencia, 1, REFERENCIA_MAXIMA)) {
-      mostrar({ texto: DENUNCIAR.referenciaLonga, campo: "referencia" });
+      setFalha({ texto: DENUNCIAR.referenciaLonga, campo: "referencia" });
       return;
     }
     const tokenDoEnvio = verificacao.tomar();
@@ -180,13 +208,20 @@ export function DenunciarPublico({ carregarTurnstile: carregar }: PropsDeDenunci
     denuncia.mutate(nova);
   }
 
+  const erroDoCampo = falha?.campo == null ? null : { campo: falha.campo, texto: falha.texto };
+  const erroGeral = falha?.campo === null ? falha.texto : "";
+
   function descricaoDo(campo: Campo, ...base: string[]): string | undefined {
-    const ids = falha?.campo === campo ? [...base, ID_DO_ERRO] : base;
+    const ids = erroDoCampo?.campo === campo ? [...base, idDoErroDo(campo)] : base;
     return ids.length > 0 ? ids.join(" ") : undefined;
   }
 
   function invalido(campo: Campo): true | undefined {
-    return falha?.campo === campo ? true : undefined;
+    return erroDoCampo?.campo === campo ? true : undefined;
+  }
+
+  function erroSob(campo: Campo): ReactElement | null {
+    return erroDoCampo?.campo === campo ? <ErroDoCampo campo={campo} texto={erroDoCampo.texto} /> : null;
   }
 
   return (
@@ -195,7 +230,10 @@ export function DenunciarPublico({ carregarTurnstile: carregar }: PropsDeDenunci
       <h1 className={TITULO_DA_CASCA}>{DENUNCIAR.titulo}</h1>
       <p className={`mt-(--e-4) ${TEXTO_SECUNDARIO} text-[1.0625rem] leading-[1.5]`}>{DENUNCIAR.introducao}</p>
       <form ref={formulario} className="mt-(--e-6) grid gap-(--e-5)" noValidate onSubmit={enviar}>
-        <fieldset className="m-0 p-0 border-0 min-w-0" aria-describedby={descricaoDo("motivo")}>
+        <fieldset
+          className={`m-0 p-0 min-w-0 ${invalido("motivo") ? "border-0 border-l-4 border-coral pl-(--e-3)" : "border-0"}`}
+          aria-describedby={descricaoDo("motivo")}
+        >
           <legend className={`${ROTULO} p-0 mb-(--e-2)`}>{DENUNCIAR.rotuloDoMotivo}</legend>
           {DENUNCIAR.motivos.map(([valor, rotulo], indice) => (
             <label key={valor} className="flex items-center gap-(--e-3) min-h-[44px] leading-[1.45] cursor-pointer">
@@ -205,10 +243,12 @@ export function DenunciarPublico({ carregarTurnstile: carregar }: PropsDeDenunci
                 type="radio"
                 name="motivo"
                 value={valor}
+                aria-invalid={invalido("motivo")}
               />
               {rotulo}
             </label>
           ))}
+          {erroSob("motivo")}
         </fieldset>
         <div className={CAMPO}>
           <label className={ROTULO} htmlFor={ID_DA_DESCRICAO}>
@@ -217,7 +257,7 @@ export function DenunciarPublico({ carregarTurnstile: carregar }: PropsDeDenunci
           {/* Sem maxLength: ele conta unidades de UTF-16, e o limite do servidor é em caracteres. */}
           <textarea
             ref={campoDaDescricao}
-            className={`${ENTRADA_DE_TEXTO} resize-y`}
+            className={`${ENTRADA} resize-y`}
             id={ID_DA_DESCRICAO}
             name="descricao"
             rows={6}
@@ -239,6 +279,7 @@ export function DenunciarPublico({ carregarTurnstile: carregar }: PropsDeDenunci
               {textoDoContador(caracteresDaDescricao, DESCRICAO_MAXIMA)}
             </p>
           </div>
+          {erroSob("descricao")}
         </div>
         <div className={CAMPO}>
           <label className={ROTULO} htmlFor={ID_DA_REFERENCIA}>
@@ -246,7 +287,7 @@ export function DenunciarPublico({ carregarTurnstile: carregar }: PropsDeDenunci
           </label>
           <input
             ref={campoDaReferencia}
-            className={ENTRADA_DE_TEXTO}
+            className={ENTRADA}
             id={ID_DA_REFERENCIA}
             name="referencia"
             type="text"
@@ -258,6 +299,7 @@ export function DenunciarPublico({ carregarTurnstile: carregar }: PropsDeDenunci
           <p className={DICA} id={ID_DA_DICA_DA_REFERENCIA}>
             {DENUNCIAR.dicaDaReferencia}
           </p>
+          {erroSob("referencia")}
         </div>
         <div className={CAMPO}>
           <label className={ROTULO} htmlFor={ID_DO_EMAIL}>
@@ -265,7 +307,7 @@ export function DenunciarPublico({ carregarTurnstile: carregar }: PropsDeDenunci
           </label>
           <input
             ref={campoDoEmail}
-            className={ENTRADA_DE_TEXTO}
+            className={ENTRADA}
             id={ID_DO_EMAIL}
             name="emailContato"
             type="email"
@@ -274,6 +316,7 @@ export function DenunciarPublico({ carregarTurnstile: carregar }: PropsDeDenunci
             aria-describedby={descricaoDo("email")}
             aria-invalid={invalido("email")}
           />
+          {erroSob("email")}
         </div>
         <CaixaDaVerificacao verificacao={verificacao} idDaFalha={ID_DA_FALHA_DA_VERIFICACAO} carregar={carregar} />
         <div className="grid gap-(--e-2)">
@@ -286,7 +329,7 @@ export function DenunciarPublico({ carregarTurnstile: carregar }: PropsDeDenunci
                 ? verificacaoFalhou
                   ? ID_DA_FALHA_DA_VERIFICACAO
                   : ID_DO_MOTIVO_DO_BOTAO
-                : falha?.campo === null
+                : erroGeral !== ""
                   ? ID_DO_ERRO
                   : undefined
             }
@@ -310,7 +353,7 @@ export function DenunciarPublico({ carregarTurnstile: carregar }: PropsDeDenunci
         {denuncia.isSuccess ? denuncia.data.mensagem : ""}
       </p>
       <p className="mt-(--e-2) mb-0 text-[0.9375rem] leading-[1.45] text-coral" id={ID_DO_ERRO} role="alert">
-        {falha?.texto ?? ""}
+        {erroGeral}
       </p>
     </>
   );

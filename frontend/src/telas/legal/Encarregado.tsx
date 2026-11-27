@@ -37,7 +37,9 @@ export function Encarregado(): ReactElement {
         </dl>
       ) : versoes.isError ? (
         <div className="mt-(--e-6) grid gap-(--e-3)">
-          <p className={TEXTO_SECUNDARIO}>{ENCARREGADO.falha}</p>
+          <p className={TEXTO_SECUNDARIO} role="alert">
+            {ENCARREGADO.falha}
+          </p>
           <button
             type="button"
             className={BOTAO_SECUNDARIO_SEM_MARGEM}

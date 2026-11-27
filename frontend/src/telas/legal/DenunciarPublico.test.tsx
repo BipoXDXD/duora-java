@@ -68,6 +68,26 @@ async function escolherMotivo(nome = "Golpe") {
   await userEvent.click(screen.getByRole("radio", { name: nome }));
 }
 
+function grupoDosMotivos(): HTMLElement {
+  return screen.getByRole("group", { name: "O que aconteceu" });
+}
+
+function alertaGeral(): HTMLElement {
+  return screen.getByRole("alert");
+}
+
+/**
+ * O erro fica junto do campo: no mesmo bloco (o do campo, ou o fieldset dos motivos), na descrição
+ * acessível dele, e fora do alerta geral.
+ */
+function esperarErroJuntoDo(campo: HTMLElement, texto: string) {
+  const erro = screen.getByText(texto);
+  expect(erro.id).not.toBe("");
+  expect(campo.getAttribute("aria-describedby")?.split(" ")).toContain(erro.id);
+  expect(erro.closest(".campo, fieldset")).toBe(campo.closest(".campo, fieldset"));
+  expect(alertaGeral().textContent).toBe("");
+}
+
 describe("DenunciarPublico", () => {
   afterEach(() => {
     vi.unstubAllGlobals();
@@ -115,11 +135,12 @@ describe("DenunciarPublico", () => {
 
     await userEvent.click(botaoEnviar());
 
-    expect(screen.getByRole("alert")).toHaveTextContent("Escolha o que aconteceu.");
+    esperarErroJuntoDo(grupoDosMotivos(), "Escolha o que aconteceu.");
     expect(screen.getByRole("radio", { name: "Parece menor de idade" })).toHaveFocus();
-    expect(screen.getByRole("group", { name: "O que aconteceu" })).toHaveAccessibleDescription(
-      "Escolha o que aconteceu.",
-    );
+    expect(grupoDosMotivos()).toHaveAccessibleDescription("Escolha o que aconteceu.");
+    for (const motivo of screen.getAllByRole("radio")) {
+      expect(motivo).toHaveAttribute("aria-invalid", "true");
+    }
     expect(corpos).toHaveLength(0);
   });
 
@@ -131,7 +152,7 @@ describe("DenunciarPublico", () => {
 
     await userEvent.click(botaoEnviar());
 
-    expect(screen.getByRole("alert")).toHaveTextContent("Conte o que aconteceu em 10 a 2000 caracteres.");
+    esperarErroJuntoDo(campoDaDescricao(), "Conte o que aconteceu em 10 a 2000 caracteres.");
     expect(campoDaDescricao()).toHaveFocus();
     expect(campoDaDescricao()).toHaveAttribute("aria-invalid", "true");
     expect(corpos).toHaveLength(0);
@@ -145,7 +166,37 @@ describe("DenunciarPublico", () => {
 
     await userEvent.click(botaoEnviar());
 
-    expect(screen.getByRole("alert")).toHaveTextContent("Conte o que aconteceu em 10 a 2000 caracteres.");
+    esperarErroJuntoDo(campoDaDescricao(), "Conte o que aconteceu em 10 a 2000 caracteres.");
+    expect(corpos).toHaveLength(0);
+  });
+
+  it("separadorDeUnidadeNasPontasSaiComoNoServidor", async () => {
+    const { corpos, widget } = await renderizar();
+    widget.resolverDesafio("token-1");
+    await escolherMotivo();
+    escreverDescricao(`\u001F${DESCRICAO}\u001F`);
+    fireEvent.change(screen.getByRole("textbox", { name: "Apelido ou link, se souber" }), {
+      target: { value: "\u001F@golpista\u001F" },
+    });
+
+    expect(screen.getByText(`${String(DESCRICAO.length)} de 2000`)).toBeInTheDocument();
+    await userEvent.click(botaoEnviar());
+
+    await screen.findByText(MENSAGEM);
+    expect(corpos).toEqual([
+      { motivo: "GOLPE", descricao: DESCRICAO, referencia: "@golpista", tokenVerificacao: "token-1" },
+    ]);
+  });
+
+  it("separadorDeUnidadeNaoContaParaOMinimo", async () => {
+    const { corpos, widget } = await renderizar();
+    widget.resolverDesafio("token-1");
+    await escolherMotivo();
+    escreverDescricao("\u001F123456789\u001F");
+
+    await userEvent.click(botaoEnviar());
+
+    esperarErroJuntoDo(campoDaDescricao(), "Conte o que aconteceu em 10 a 2000 caracteres.");
     expect(corpos).toHaveLength(0);
   });
 
@@ -178,7 +229,7 @@ describe("DenunciarPublico", () => {
     await userEvent.click(botaoEnviar());
 
     expect(screen.getByText("2001 de 2000")).toBeInTheDocument();
-    expect(screen.getByRole("alert")).toHaveTextContent("Conte o que aconteceu em 10 a 2000 caracteres.");
+    esperarErroJuntoDo(campoDaDescricao(), "Conte o que aconteceu em 10 a 2000 caracteres.");
     expect(corpos).toHaveLength(0);
   });
 
@@ -192,8 +243,9 @@ describe("DenunciarPublico", () => {
 
     await userEvent.click(botaoEnviar());
 
-    expect(screen.getByRole("alert")).toHaveTextContent("Use até 200 caracteres no apelido ou link.");
+    esperarErroJuntoDo(referencia, "Use até 200 caracteres no apelido ou link.");
     expect(referencia).toHaveFocus();
+    expect(referencia).toHaveAttribute("aria-invalid", "true");
     expect(corpos).toHaveLength(0);
   });
 
@@ -243,6 +295,7 @@ describe("DenunciarPublico", () => {
     await vi.waitFor(() => {
       expect(widget.reiniciar).toHaveBeenCalledExactlyOnceWith("widget-1");
     });
+    expect(alertaGeral()).toHaveTextContent("Tente de novo.");
     expect(botaoEnviar()).toHaveAttribute("aria-disabled", "true");
 
     widget.resolverDesafio("token-2");
@@ -269,6 +322,7 @@ describe("DenunciarPublico", () => {
     expect(email).toHaveFocus();
     expect(email).toHaveAttribute("aria-invalid", "true");
     expect(email).toHaveAccessibleDescription("Confira o e-mail para resposta.");
+    esperarErroJuntoDo(email, "Confira o e-mail para resposta.");
   });
 
   it("limiteMostraAEspera", async () => {
@@ -293,7 +347,7 @@ describe("DenunciarPublico", () => {
     await userEvent.click(botaoEnviar());
 
     expect(await screen.findByRole("alert")).toHaveTextContent(
-      "Não conseguimos enviar a denúncia. Tente de novo em instantes.",
+      "Não conseguimos confirmar o envio. Tente de novo em instantes.",
     );
   });
 

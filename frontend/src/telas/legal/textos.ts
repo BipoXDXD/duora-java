@@ -31,7 +31,7 @@ export const DENUNCIAR = {
   referenciaLonga: "Use até 200 caracteres no apelido ou link.",
   emailInvalido: "Confira o e-mail para resposta.",
   /** Falha sem resposta conclusiva (rede, servidor fora do ar). */
-  falha: "Não conseguimos enviar a denúncia. Tente de novo em instantes.",
+  falha: "Não conseguimos confirmar o envio. Tente de novo em instantes.",
 } as const;
 
 /** "12 de 2000": o contador da descrição. */
