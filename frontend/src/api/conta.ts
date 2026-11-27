@@ -118,8 +118,8 @@ export async function sairDaConta(): Promise<void> {
 
 /**
  * Exclui a conta da sessão (C8) com a confirmação explícita. O 204 já chega com as sessões revogadas
- * e o cookie expirado; uma exclusão repetida também responde 204, então repetir depois de uma falha
- * sem resposta é seguro.
+ * e o cookie expirado. Só pedidos concorrentes respondem 204 os dois; uma nova tentativa depois de uma
+ * exclusão que chegou ao servidor recebe 401 NAO_AUTENTICADO (a sessão já foi revogada).
  */
 export async function excluirConta(): Promise<void> {
   await requisitarHttp("POST", "/conta/exclusao", { corpo: { confirmo: true } });
