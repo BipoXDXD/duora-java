@@ -32,6 +32,55 @@ export const CONFIRMAR = {
   continuarNoTerraco: "Continuar no terraço",
 } as const;
 
+export const CADASTRO = {
+  titulo: "Falta pouco",
+  /** No desfecho sem volta (menor de idade, conta indisponível). */
+  tituloNaoConcluido: "Cadastro não concluído",
+  tituloDaAba: "Cadastro · Duora",
+  rotuloDaData: "Data de nascimento",
+  ajudaDaData: "Não dá para mudar depois.",
+  /** O parágrafo dos links; os nomes dos documentos viram links fora do rótulo da caixa. */
+  leiaAntes: "Leia os",
+  termos: "Termos de uso",
+  e: "e a",
+  privacidade: "Política de privacidade",
+  novaAba: "(abre em nova aba)",
+  rotuloDoAceite: "Li e aceito os Termos de uso e a Política de privacidade",
+  concluir: "Concluir cadastro",
+  concluindo: "Concluindo…",
+  semData: "Informe sua data de nascimento.",
+  semAceite: "Marque a caixa para aceitar os termos.",
+  menorDeIdade: "O Duora é só para maiores de 18 anos. Não criamos a conta.",
+  voltarAoTerraco: "Voltar ao terraço",
+  carregandoTermos: "Carregando os termos…",
+  falhaDosTermos: "Não conseguimos carregar os termos. Tente de novo em instantes.",
+  tentarDeNovo: "Tentar de novo",
+  /** Reservas para quando o servidor não manda a mensagem dele (ele sempre manda). */
+  dataInvalida: "Confira a data de nascimento.",
+  termosDesatualizados: "Os termos mudaram. Leia a versão nova e marque a caixa de novo.",
+  /** Falha sem resposta conclusiva (rede, servidor fora do ar). */
+  falha: "Não conseguimos concluir o cadastro. Tente de novo em instantes.",
+} as const;
+
+export const AGUARDANDO = {
+  titulo: "Cadastro recebido",
+  tituloDaAba: "Cadastro recebido · Duora",
+  proximoPasso: "Falta confirmar sua idade. Essa etapa chega em breve.",
+  minhaConta: "Minha conta",
+} as const;
+
+/** Falha do loader de uma rota que exige conta. */
+export const ERRO_DA_CONTA = {
+  tituloIndisponivel: "Conta indisponível",
+  tituloDaAbaIndisponivel: "Conta indisponível · Duora",
+  titulo: "Não conseguimos abrir esta página",
+  tituloDaAba: "Página indisponível · Duora",
+  /** Vale para a leitura da conta, o download da tela e erro ao desenhá-la. */
+  falha: "Pode ter sido a conexão ou uma falha nossa. Tente de novo em instantes.",
+  tentarDeNovo: "Tentar de novo",
+  voltarAoTerraco: "Voltar ao terraço",
+} as const;
+
 /** Texto do 429: o Retry-After em segundos vira minutos inteiros, arredondados para cima, nunca menos de 1. */
 export function textoDeEspera(segundos: number): string {
   const minutos = Math.max(1, Math.ceil(segundos / 60));

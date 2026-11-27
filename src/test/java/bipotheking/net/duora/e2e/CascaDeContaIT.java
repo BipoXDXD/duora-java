@@ -5,14 +5,19 @@ import static bipotheking.net.duora.e2e.Cenarios.raiz;
 import static com.microsoft.playwright.assertions.PlaywrightAssertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThat;
 
+import bipotheking.net.duora.conta.ContasDeTeste;
+import bipotheking.net.duora.conta.EstadoConta;
 import bipotheking.net.duora.e2e.NavegadorExtension.Participantes;
 import com.microsoft.playwright.Page;
 import com.microsoft.playwright.Response;
 import com.microsoft.playwright.options.AriaRole;
+import com.microsoft.playwright.options.Cookie;
+import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.annotation.DirtiesContext;
@@ -37,6 +42,10 @@ class CascaDeContaIT {
 
   @Value("${local.server.port}")
   private int porta;
+
+  private static final LocalDate NASCIMENTO_DE_ADULTO = LocalDate.of(1990, 5, 10);
+
+  @Autowired private ContasDeTeste contas;
 
   /** O botão Entrar só aparece com o token em mãos; sem ele, a tela explica que falta o código. */
   @Test
@@ -127,5 +136,77 @@ class CascaDeContaIT {
         .isVisible();
 
     assertSemViolacoes(page, "página não encontrada da casca");
+  }
+
+  @Test
+  void cadastroSemSessaoVaiParaEntrar(Participantes participantes) {
+    Page page = participantes.novo().abrir(raiz(porta) + "cadastro").page();
+
+    assertThat(
+            page.getByRole(
+                AriaRole.HEADING, new Page.GetByRoleOptions().setName("Entrar no Duora")))
+        .isVisible();
+    assertThat(page).hasURL(raiz(porta) + "entrar");
+  }
+
+  @Test
+  void cadastroSemViolacoes(Participantes participantes) {
+    Page page = logado(participantes, EstadoConta.PENDENTE);
+    page.navigate(raiz(porta) + "cadastro");
+
+    assertThat(page.getByRole(AriaRole.HEADING, new Page.GetByRoleOptions().setName("Falta pouco")))
+        .isVisible();
+    assertThat(page.getByLabel("Data de nascimento")).isVisible();
+
+    assertSemViolacoes(page, "cadastro");
+  }
+
+  @Test
+  void aguardandoSemViolacoes(Participantes participantes) {
+    Page page = logado(participantes, EstadoConta.AGUARDANDO_VERIFICACAO);
+    page.navigate(raiz(porta) + "aguardando");
+
+    assertThat(
+            page.getByRole(
+                AriaRole.HEADING, new Page.GetByRoleOptions().setName("Cadastro recebido")))
+        .isVisible();
+
+    assertSemViolacoes(page, "aguardando verificação");
+  }
+
+  /** A recusa exclui a conta e encerra a sessão: voltar ao cadastro leva a quem não entrou. */
+  @Test
+  void recusaPorIdadeNaoDeixaSessao(Participantes participantes) {
+    Page page = logado(participantes, EstadoConta.PENDENTE);
+    page.navigate(raiz(porta) + "cadastro");
+
+    page.getByLabel("Data de nascimento").fill("2015-01-01");
+    page.getByRole(
+            AriaRole.CHECKBOX,
+            new Page.GetByRoleOptions()
+                .setName("Li e aceito os Termos de uso e a Política de privacidade"))
+        .check();
+    page.getByRole(AriaRole.BUTTON, new Page.GetByRoleOptions().setName("Concluir cadastro"))
+        .click();
+
+    assertThat(page.getByText("O Duora é só para maiores de 18 anos. Não criamos a conta."))
+        .isFocused();
+    assertSemViolacoes(page, "recusa por idade");
+
+    page.navigate(raiz(porta) + "cadastro");
+    assertThat(page).hasURL(raiz(porta) + "entrar");
+  }
+
+  /**
+   * Abre uma conta no estado pedido e põe o cookie da sessão dela no navegador. Só a pendente fica
+   * sem data de nascimento; o esquema exige a data a partir do cadastro.
+   */
+  private Page logado(Participantes participantes, EstadoConta estado) {
+    ContasDeTeste.ContaDeTeste conta =
+        contas.criar(estado, estado == EstadoConta.PENDENTE ? null : NASCIMENTO_DE_ADULTO);
+    String[] cookie = conta.cookie().split("=", 2);
+    Page page = participantes.novo().page();
+    page.context().addCookies(List.of(new Cookie(cookie[0], cookie[1]).setUrl(raiz(porta))));
+    return page;
   }
 }

@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { confirmarEntrada, obterConfiguracao, pedirLink } from "./conta";
+import { concluirCadastro, confirmarEntrada, obterConfiguracao, pedirLink } from "./conta";
 import { ErroHttp } from "./http";
 
 function responder(corpo: unknown, status = 200) {
@@ -77,5 +77,32 @@ describe("confirmarEntrada", () => {
     responder({});
 
     await expect(confirmarEntrada("token-do-link")).rejects.toMatchObject({ codigo: "RESPOSTA_INVALIDA" });
+  });
+});
+
+describe("concluirCadastro", () => {
+  const DADOS = {
+    dataDeNascimento: "2000-01-31",
+    versaoTermos: "2026-11-23",
+    versaoPrivacidade: "2026-11-20",
+    aceito: true,
+  } as const;
+
+  it("enviaOsDadosEDevolveOProximoPasso", async () => {
+    const fetchFalso = responder({ cadastroConcluido: false, proximoPasso: "VERIFICACAO" });
+
+    await expect(concluirCadastro(DADOS)).resolves.toEqual({ cadastroConcluido: false, proximoPasso: "VERIFICACAO" });
+
+    const [url, opcoes] = fetchFalso.mock.calls[0] ?? [];
+    expect(url).toBe("/api/conta/cadastro");
+    expect(opcoes?.method).toBe("POST");
+    expect(opcoes?.body).toBe(JSON.stringify(DADOS));
+    expect(new Headers(opcoes?.headers).get("X-Duora")).toBe("1");
+  });
+
+  it("respostaComOutroPassoViraRespostaInvalida", async () => {
+    responder({ cadastroConcluido: true, proximoPasso: "TERRACO" });
+
+    await expect(concluirCadastro(DADOS)).rejects.toMatchObject({ codigo: "RESPOSTA_INVALIDA" });
   });
 });
