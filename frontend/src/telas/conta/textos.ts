@@ -87,6 +87,7 @@ export const MINHA_CONTA = {
   tituloDaExclusao: "Excluir conta",
   avisoDaExclusao: "Apaga seus dados pessoais. Não dá para desfazer.",
   excluir: "Excluir conta",
+  excluindo: "Excluindo…",
   tituloDoDialogo: "Excluir sua conta?",
   textoDoDialogo: "Apagamos seus dados pessoais agora. Não dá para desfazer.",
   /**

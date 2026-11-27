@@ -1,17 +1,11 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { useEffect, useRef, useState, type ReactElement } from "react";
+import { useEffect, useRef, useState, type MouseEvent, type ReactElement } from "react";
 import { useLoaderData, useNavigate } from "react-router";
 import { excluirConta, sairDaConta } from "../../api/conta";
 import type { Conta } from "../../api/estadoDaConta";
 import { ErroHttp } from "../../api/http";
 import { DialogoDeConfirmacao } from "../../componentes/DialogoDeConfirmacao";
-import {
-  BOTAO_PERIGO,
-  BOTAO_SECUNDARIO_SEM_MARGEM,
-  LINK_DE_ACAO,
-  seDisponivel,
-  TITULO_DA_CASCA,
-} from "../../componentes/estilos";
+import { BOTAO_PERIGO, BOTAO_SECUNDARIO_SEM_MARGEM, LINK_DE_ACAO, TITULO_DA_CASCA } from "../../componentes/estilos";
 import { consultaDaConta } from "../../rotas/consultas";
 import { CONFIRMAR, MINHA_CONTA } from "./textos";
 
@@ -141,6 +135,19 @@ export function MinhaConta(): ReactElement {
   }
 
   const saindo = saida.isPending || saida.isSuccess;
+  const excluindo = exclusao.isPending;
+  // Com o diálogo fechado à força no meio da exclusão, o Sair fica à vista: aparece indisponível.
+  const sairIndisponivel = saindo || excluindo;
+
+  function abrirODialogo(evento: MouseEvent<HTMLButtonElement>) {
+    if (saindo) {
+      return;
+    }
+    // O Safari e o Firefox do macOS não focam o botão no clique; o diálogo devolve o foco a quem o
+    // tinha ao abrir.
+    evento.currentTarget.focus();
+    setDialogoAberto(true);
+  }
 
   return (
     <>
@@ -153,7 +160,7 @@ export function MinhaConta(): ReactElement {
         <button
           type="button"
           className={BOTAO_SECUNDARIO_SEM_MARGEM}
-          aria-disabled={saindo ? true : undefined}
+          aria-disabled={sairIndisponivel ? true : undefined}
           aria-describedby={falhaAoSair === null ? undefined : ID_DA_FALHA_AO_SAIR}
           onClick={sair}
         >
@@ -176,9 +183,7 @@ export function MinhaConta(): ReactElement {
           className={`justify-self-start ${BOTAO_PERIGO}`}
           aria-disabled={saindo ? true : undefined}
           aria-describedby={falhaAoExcluir === null ? undefined : ID_DA_FALHA_AO_EXCLUIR}
-          onClick={seDisponivel(saindo, () => {
-            setDialogoAberto(true);
-          })}
+          onClick={abrirODialogo}
         >
           {MINHA_CONTA.excluir}
         </button>
@@ -190,12 +195,12 @@ export function MinhaConta(): ReactElement {
         aberto={dialogoAberto}
         titulo={MINHA_CONTA.tituloDoDialogo}
         texto={MINHA_CONTA.textoDoDialogo}
-        acao={MINHA_CONTA.excluir}
+        acao={excluindo ? MINHA_CONTA.excluindo : MINHA_CONTA.excluir}
         aoConfirmar={confirmarExclusao}
         aoCancelar={() => {
           setDialogoAberto(false);
         }}
-        enviando={exclusao.isPending}
+        enviando={excluindo}
       />
     </>
   );
