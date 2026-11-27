@@ -55,6 +55,12 @@ export function criarRotas({ clienteDeConsulta, tomarTokenDoLink }: ContextoDaCa
           lazy: async () => ({ Component: (await import("../telas/conta/Aguardando")).Aguardando }),
           ErrorBoundary: ErroDaConta,
         },
+        {
+          path: "conta",
+          loader: () => exigirConta(clienteDeConsulta, ["AGUARDANDO_VERIFICACAO", "ATIVA"]),
+          lazy: async () => ({ Component: (await import("../telas/conta/MinhaConta")).MinhaConta }),
+          ErrorBoundary: ErroDaConta,
+        },
         { path: "*", Component: NaoEncontrada },
       ],
     },

@@ -110,3 +110,17 @@ export async function concluirCadastro(dados: DadosDoCadastro): Promise<Resposta
   }
   return { cadastroConcluido: false, proximoPasso: "VERIFICACAO" };
 }
+
+/** Encerra a sessão deste navegador (C4): o 204 apaga a sessão e expira o cookie. */
+export async function sairDaConta(): Promise<void> {
+  await requisitarHttp("POST", "/conta/sair");
+}
+
+/**
+ * Exclui a conta da sessão (C8) com a confirmação explícita. O 204 já chega com as sessões revogadas
+ * e o cookie expirado; uma exclusão repetida também responde 204, então repetir depois de uma falha
+ * sem resposta é seguro.
+ */
+export async function excluirConta(): Promise<void> {
+  await requisitarHttp("POST", "/conta/exclusao", { corpo: { confirmo: true } });
+}

@@ -69,6 +69,27 @@ export const AGUARDANDO = {
   minhaConta: "Minha conta",
 } as const;
 
+export const MINHA_CONTA = {
+  titulo: "Minha conta",
+  tituloDaAba: "Minha conta · Duora",
+  /** Só com AGUARDANDO_VERIFICACAO; o selo de verificada é da 2b. */
+  proximoPasso: "Falta confirmar sua idade. Essa etapa chega em breve.",
+  sair: "Sair da conta",
+  saindo: "Saindo…",
+  /** Falha sem resposta conclusiva (rede, servidor fora do ar): a sessão pode seguir aberta. */
+  falhaAoSair: "Não conseguimos encerrar a sessão. Tente de novo em instantes.",
+  tituloDaExclusao: "Excluir conta",
+  avisoDaExclusao: "Apaga seus dados pessoais. Não dá para desfazer.",
+  excluir: "Excluir conta",
+  tituloDoDialogo: "Excluir sua conta?",
+  textoDoDialogo: "Apagamos seus dados pessoais agora. Não dá para desfazer.",
+  /** Falha sem resposta conclusiva: repetir é seguro, a exclusão repetida também responde 204. */
+  falhaAoExcluir: "Não conseguimos excluir a conta. Tente de novo em instantes.",
+  tituloExcluida: "Conta excluída",
+  tituloDaAbaExcluida: "Conta excluída · Duora",
+  voltarAoTerraco: "Voltar ao terraço",
+} as const;
+
 /** Falha do loader de uma rota que exige conta. */
 export const ERRO_DA_CONTA = {
   tituloIndisponivel: "Conta indisponível",
