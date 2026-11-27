@@ -37,7 +37,20 @@ class CadastroController {
       @Nullable LocalDate dataDeNascimento,
       @Nullable String versaoTermos,
       @Nullable String versaoPrivacidade,
-      @Nullable Boolean aceito) {}
+      @Nullable Boolean aceito) {
+
+    /** O corpo vai para o log do Spring MVC em DEBUG: a data de nascimento não aparece. */
+    @Override
+    public String toString() {
+      return "PedidoDeCadastroJson[dataDeNascimento=***, versaoTermos="
+          + versaoTermos
+          + ", versaoPrivacidade="
+          + versaoPrivacidade
+          + ", aceito="
+          + aceito
+          + "]";
+    }
+  }
 
   record RespostaDeCadastro(boolean cadastroConcluido, String proximoPasso) {}
 

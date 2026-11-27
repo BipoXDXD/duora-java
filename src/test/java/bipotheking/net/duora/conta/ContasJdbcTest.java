@@ -9,6 +9,7 @@ import bipotheking.net.duora.conta.dominio.Email;
 import bipotheking.net.duora.conta.dominio.RepositorioDeContas;
 import bipotheking.net.duora.nucleo.GeradorDeIds;
 import bipotheking.net.duora.web.BancoDeTeste;
+import java.time.Duration;
 import java.time.LocalDate;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
@@ -112,6 +113,23 @@ class ContasJdbcTest extends BancoDeTeste {
 
     assertThat(repositorio.porId(desconhecida)).isEmpty();
     assertThat(consulta.porId(desconhecida)).isEmpty();
+  }
+
+  /** Repetir a exclusão não desloca o prazo de retenção, que conta de {@code excluida_em}. */
+  @Test
+  void excluirDeNovoMantemOInstanteDaPrimeiraExclusao() {
+    ContaId conta = repositorio.criarPendente(EMAIL);
+    repositorio.excluir(conta, INICIO);
+
+    repositorio.excluir(conta, INICIO.plus(Duration.ofDays(1)));
+
+    assertThat(
+            jdbc.sql("select excluida_em from conta where id = :id")
+                .param("id", conta.valor())
+                .query(OffsetDateTime.class)
+                .single()
+                .toInstant())
+        .isEqualTo(INICIO);
   }
 
   /** Insere direto, para testar os checks do esquema: cada caso viola uma regra só. */

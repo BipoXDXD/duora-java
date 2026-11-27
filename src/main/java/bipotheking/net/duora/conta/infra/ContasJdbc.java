@@ -91,7 +91,8 @@ class ContasJdbc implements RepositorioDeContas {
     jdbc.sql(
             """
             update conta
-            set estado = :excluida, email = null, data_nascimento = null, excluida_em = :agora
+            set estado = :excluida, email = null, data_nascimento = null,
+                excluida_em = coalesce(excluida_em, :agora)
             where id = :id
             """)
         .param("excluida", EstadoConta.EXCLUIDA.name())

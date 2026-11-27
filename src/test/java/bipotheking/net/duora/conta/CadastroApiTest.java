@@ -251,6 +251,42 @@ class CadastroApiTest extends BancoDeTeste {
   }
 
   @Test
+  void versaoAntigaSoDaPrivacidadeRecusada() throws Exception {
+    ContaDeTeste conta = pendente();
+
+    cadastrar(conta, corpo(MAIOR, versao(DocumentoLegal.TERMOS), "2020-01-01", true))
+        .andExpect(status().isUnprocessableContent())
+        .andExpect(jsonPath("$.codigo").value("TERMOS_DESATUALIZADOS"));
+
+    assertThat(estadoDe(conta)).isEqualTo("PENDENTE");
+  }
+
+  /** Decisão: versão ausente não prova a leitura do texto atual, então conta como desatualizada. */
+  @Test
+  void versaoNulaRecusadaComoDesatualizada() throws Exception {
+    ContaDeTeste conta = pendente();
+    String semVersaoDosTermos =
+        "{\"dataDeNascimento\":\"%s\",\"versaoPrivacidade\":\"%s\",\"aceito\":true}"
+            .formatted(MAIOR, versao(DocumentoLegal.PRIVACIDADE));
+
+    cadastrar(conta, semVersaoDosTermos)
+        .andExpect(status().isUnprocessableContent())
+        .andExpect(jsonPath("$.codigo").value("TERMOS_DESATUALIZADOS"));
+
+    assertThat(estadoDe(conta)).isEqualTo("PENDENTE");
+  }
+
+  @Test
+  void contaConcluidaSemDataRecebe409() throws Exception {
+    ContaDeTeste conta = pendente();
+    cadastrar(conta, corpo(MAIOR)).andExpect(status().isOk());
+
+    cadastrar(conta, corpoSemData())
+        .andExpect(status().isConflict())
+        .andExpect(jsonPath("$.codigo").value("CADASTRO_JA_CONCLUIDO"));
+  }
+
+  @Test
   void semAceiteRecusado() throws Exception {
     ContaDeTeste conta = pendente();
 
@@ -267,14 +303,13 @@ class CadastroApiTest extends BancoDeTeste {
   @Test
   void semDataDeNascimentoRecusado() throws Exception {
     ContaDeTeste conta = pendente();
-    String semData =
-        "{\"versaoTermos\":\"%s\",\"versaoPrivacidade\":\"%s\",\"aceito\":true}"
-            .formatted(versao(DocumentoLegal.TERMOS), versao(DocumentoLegal.PRIVACIDADE));
 
-    cadastrar(conta, semData)
+    cadastrar(conta, corpoSemData())
         .andExpect(status().isUnprocessableContent())
         .andExpect(jsonPath("$.codigo").value("DATA_INVALIDA"))
         .andExpect(jsonPath("$.mensagem").value("Confira a data de nascimento."));
+
+    assertThat(estadoDe(conta)).isEqualTo("PENDENTE");
   }
 
   @Test
@@ -346,6 +381,11 @@ class CadastroApiTest extends BancoDeTeste {
 
   private String corpoSemAceite() {
     return corpo(MAIOR, versao(DocumentoLegal.TERMOS), versao(DocumentoLegal.PRIVACIDADE), false);
+  }
+
+  private String corpoSemData() {
+    return "{\"versaoTermos\":\"%s\",\"versaoPrivacidade\":\"%s\",\"aceito\":true}"
+        .formatted(versao(DocumentoLegal.TERMOS), versao(DocumentoLegal.PRIVACIDADE));
   }
 
   private static String corpo(

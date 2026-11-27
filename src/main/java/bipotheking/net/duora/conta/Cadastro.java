@@ -74,8 +74,9 @@ public class Cadastro {
   }
 
   /**
-   * Conclui o cadastro. Confere, nesta ordem, o limite de taxa, o aceite, as versões aceitas e a
-   * data; a idade é contada no dia corrente de São Paulo.
+   * Conclui o cadastro. Confere, nesta ordem, o limite de taxa, o aceite, as versões aceitas, o
+   * estado da conta e a data; a idade é contada no dia corrente de São Paulo. Versão ausente conta
+   * como desatualizada.
    *
    * @throws ErroDeNegocio {@code LIMITE_DE_TAXA}, {@code ACEITE_NECESSARIO}, {@code
    *     TERMOS_DESATUALIZADOS}, {@code DATA_INVALIDA} ou {@code CADASTRO_JA_CONCLUIDO}
@@ -95,9 +96,6 @@ public class Cadastro {
     if (!termos.versao().equals(versaoTermos) || !privacidade.versao().equals(versaoPrivacidade)) {
       throw CodigoCadastro.TERMOS_DESATUALIZADOS.erro();
     }
-    if (nascimento == null) {
-      throw CodigoCadastro.DATA_INVALIDA.erro();
-    }
     ResultadoDoCadastro resultado =
         transacao.execute(status -> efetuar(conta, nascimento, termos, privacidade));
     if (resultado == null) {
@@ -107,7 +105,10 @@ public class Cadastro {
   }
 
   private ResultadoDoCadastro efetuar(
-      ContaId id, LocalDate nascimento, VersaoDeDocumento termos, VersaoDeDocumento privacidade) {
+      ContaId id,
+      @Nullable LocalDate nascimento,
+      VersaoDeDocumento termos,
+      VersaoDeDocumento privacidade) {
     Instant agora = relogio.instant();
     Conta conta =
         contas
@@ -117,7 +118,8 @@ public class Cadastro {
         conta.concluirCadastro(nascimento, LocalDate.ofInstant(agora, FUSO));
     switch (resultado) {
       case ResultadoDoCadastro.Concluido _ -> {
-        if (!contas.marcarAguardandoVerificacao(id, nascimento)) {
+        if (!contas.marcarAguardandoVerificacao(
+            id, Objects.requireNonNull(nascimento, "Concluído sem data"))) {
           throw CodigoCadastro.CADASTRO_JA_CONCLUIDO.erro();
         }
         aceites.gravar(id, DocumentoLegal.TERMOS, termos, agora);

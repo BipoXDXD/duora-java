@@ -91,6 +91,24 @@ class ContaTest {
   }
 
   @Test
+  void pendenteSemDataRecusada() {
+    assertThatThrownBy(() -> pendente().concluirCadastro(null, HOJE))
+        .isInstanceOfSatisfying(
+            ErroDeNegocio.class,
+            erro -> assertThat(erro.codigo()).isEqualTo(CodigoCadastro.DATA_INVALIDA));
+  }
+
+  @Test
+  void aguardandoSemDataRecebeCadastroJaConcluido() {
+    Conta aguardando = conta(EstadoConta.AGUARDANDO_VERIFICACAO, EMAIL, NASCIMENTO, null);
+
+    assertThatThrownBy(() -> aguardando.concluirCadastro(null, HOJE))
+        .isInstanceOfSatisfying(
+            ErroDeNegocio.class,
+            erro -> assertThat(erro.codigo()).isEqualTo(CodigoCadastro.CADASTRO_JA_CONCLUIDO));
+  }
+
+  @Test
   void dataFuturaRecusada() {
     assertThatThrownBy(() -> pendente().concluirCadastro(HOJE.plusDays(1), HOJE))
         .isInstanceOfSatisfying(

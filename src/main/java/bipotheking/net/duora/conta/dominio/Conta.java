@@ -58,15 +58,16 @@ public record Conta(
   /**
    * Decide o cadastro com a data de nascimento declarada, sem gravar nada.
    *
+   * @param nascimento a data declarada; ausente, recusada depois de conferir o estado
    * @param hoje a data corrente no fuso {@code America/Sao_Paulo}
-   * @throws ErroDeNegocio {@code CADASTRO_JA_CONCLUIDO} fora de {@code PENDENTE}; {@code
-   *     DATA_INVALIDA} com data futura ou anterior a 1900-01-01
+   * @throws ErroDeNegocio {@code CADASTRO_JA_CONCLUIDO} fora de {@code PENDENTE}, antes de olhar a
+   *     data; {@code DATA_INVALIDA} sem data, com data futura ou anterior a 1900-01-01
    */
-  public ResultadoDoCadastro concluirCadastro(LocalDate nascimento, LocalDate hoje) {
+  public ResultadoDoCadastro concluirCadastro(@Nullable LocalDate nascimento, LocalDate hoje) {
     if (estado != EstadoConta.PENDENTE) {
       throw CodigoCadastro.CADASTRO_JA_CONCLUIDO.erro();
     }
-    if (nascimento.isAfter(hoje) || nascimento.isBefore(NASCIMENTO_MINIMO)) {
+    if (nascimento == null || nascimento.isAfter(hoje) || nascimento.isBefore(NASCIMENTO_MINIMO)) {
       throw CodigoCadastro.DATA_INVALIDA.erro();
     }
     return Idade.maiorDeIdade(nascimento, hoje)

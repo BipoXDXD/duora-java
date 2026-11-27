@@ -11,6 +11,7 @@ class IdadeTest {
   @ParameterizedTest(name = "hoje {0}, nascimento {1} -> {2}")
   @CsvSource({
     "2026-11-22, 2008-11-22, true",
+    "2026-11-22, 2008-11-21, true",
     "2026-11-22, 2008-11-23, false",
     "2026-11-22, 1990-01-01, true",
     "2026-02-28, 2008-02-29, false",
