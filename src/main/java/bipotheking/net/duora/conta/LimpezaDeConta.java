@@ -58,6 +58,14 @@ class LimpezaDeConta {
     apagar(id, email, titular, agora);
   }
 
+  /**
+   * Trava o e-mail e exclui a conta, sem bloquear o e-mail: um pedido de link que esperava a trava
+   * grava, depois do commit, um link para uma conta nova, sem nada da excluída.
+   */
+  void excluir(ContaId id, Email email, Instant agora) {
+    apagar(id, email, travar(email), agora);
+  }
+
   private String travar(Email email) {
     String titular = resumoDeEmail.hex(email);
     links.travarEmail(titular);

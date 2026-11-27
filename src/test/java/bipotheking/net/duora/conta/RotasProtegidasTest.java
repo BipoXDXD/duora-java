@@ -45,7 +45,7 @@ class RotasProtegidasTest extends BancoDeTeste {
 
     assertThat(protegidas)
         .extracting(Rota::caminho)
-        .contains("/api/conta/sair", "/api/teste/so-ativa");
+        .contains("/api/conta/sair", "/api/conta/exclusao", "/api/teste/so-ativa");
     for (Rota rota : protegidas) {
       MockHttpServletResponse resposta = chamarSemSessao(rota);
       assertThat(resposta.getStatus()).as(rota.toString()).isEqualTo(401);
