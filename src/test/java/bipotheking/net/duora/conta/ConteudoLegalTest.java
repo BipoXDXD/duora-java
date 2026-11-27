@@ -1,0 +1,70 @@
+package bipotheking.net.duora.conta;
+
+import static org.assertj.core.api.Assertions.assertThat;
+
+import org.junit.jupiter.api.Test;
+import org.springframework.core.io.DefaultResourceLoader;
+
+/** Conteúdo obrigatório dos textos publicados, sobre os arquivos reais de {@code legal/}. */
+class ConteudoLegalTest {
+
+  private static final String CONTATO = "support@meetduora.com";
+  private static final String EMAIL_DO_ENCARREGADO = "encarregado@exemplo.invalid";
+
+  private static final DocumentosLegais DOCUMENTOS =
+      new DocumentosLegais(
+          new DefaultResourceLoader(),
+          "classpath:legal/",
+          CONTATO,
+          new EncarregadoDeDados("o responsável pelo Duora", EMAIL_DO_ENCARREGADO));
+
+  private static String texto(DocumentoLegal documento) {
+    return DOCUMENTOS.html(documento).replaceAll("<[^>]+>", " ");
+  }
+
+  private static int palavras(DocumentoLegal documento) {
+    return texto(documento).trim().split("\\s+").length;
+  }
+
+  @Test
+  void termosTrazemOObrigatorio() {
+    assertThat(texto(DocumentoLegal.TERMOS))
+        .contains("18 anos", "verificação de idade", "nudez", "violência explícita", CONTATO);
+  }
+
+  @Test
+  void termosComAte800Palavras() {
+    assertThat(palavras(DocumentoLegal.TERMOS)).isLessThanOrEqualTo(800);
+  }
+
+  @Test
+  void privacidadeTrazOObrigatorio() {
+    assertThat(texto(DocumentoLegal.PRIVACIDADE))
+        .contains(
+            "cerca de 5 km",
+            "30 dias após o fim do encontro",
+            "Resend",
+            "Cloudflare Turnstile",
+            "Excluir conta",
+            "selfie",
+            "Amazon Web Services",
+            "Estados Unidos",
+            "Didit",
+            "RG ou da CNH",
+            "6 meses",
+            "encarregado",
+            EMAIL_DO_ENCARREGADO);
+  }
+
+  @Test
+  void privacidadeComAte1300Palavras() {
+    assertThat(palavras(DocumentoLegal.PRIVACIDADE)).isLessThanOrEqualTo(1300);
+  }
+
+  @Test
+  void nenhumFalaEmSenhaNemSobraMarcador() {
+    for (DocumentoLegal documento : DocumentoLegal.values()) {
+      assertThat(texto(documento)).as(documento.caminho()).doesNotContain("senha", "{{");
+    }
+  }
+}
