@@ -77,6 +77,17 @@ class RetencaoDeSessoesTest extends BancoDeTeste {
   }
 
   @Test
+  void tamanhoContaVencidas() {
+    inserirSessao(INICIO.minusSeconds(1));
+    inserirSessao(INICIO.minus(Duration.ofDays(1)));
+    inserirSessao(INICIO.plus(Duration.ofDays(30)));
+
+    assertThat(sessoes().tamanho()).isEqualTo(2);
+    sessoes().expirar(limite());
+    assertThat(sessoes().tamanho()).isZero();
+  }
+
+  @Test
   void nomeEPrazo() {
     assertThat(sessoes().nome()).isEqualTo("sessoes-expiradas");
     assertThat(sessoes().prazo()).isEqualTo(Duration.parse("PT0S"));
