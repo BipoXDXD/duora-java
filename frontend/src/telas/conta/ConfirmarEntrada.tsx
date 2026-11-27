@@ -109,8 +109,6 @@ export function ConfirmarEntrada({
         throw causa instanceof FalhaDepoisDaEntrada ? causa : new FalhaDepoisDaEntrada(causa);
       }
     },
-    // Sem pausa fora do ar: a falha de rede vira o aviso, e o botão volta a valer.
-    networkMode: "always",
     onSuccess: (destino) => {
       if ("rota" in destino) {
         void navegar(destino.rota, { replace: true });

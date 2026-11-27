@@ -1,3 +1,4 @@
+import { onlineManager } from "@tanstack/react-query";
 import { act, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import type { Root } from "react-dom/client";
@@ -209,6 +210,18 @@ describe("montarCasca", () => {
 
       expect(await screen.findByRole("heading", { level: 1, name: "Falta pouco" })).toBeInTheDocument();
       expect(location.pathname).toBe("/cadastro");
+    });
+
+    it("guardaNaoPausaQuandoONavegadorSeDizOffline", async () => {
+      prepararConta(200, contaNoEstado("PENDENTE"));
+      onlineManager.setOnline(false);
+      try {
+        await montarEm("/cadastro");
+
+        expect(await screen.findByRole("heading", { level: 1, name: "Falta pouco" })).toBeInTheDocument();
+      } finally {
+        onlineManager.setOnline(true);
+      }
     });
 
     it("contaIndisponivelMostraAMensagemSemVirarAnonimo", async () => {

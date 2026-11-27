@@ -166,8 +166,6 @@ export function DenunciarPublico({ carregarTurnstile: carregar }: PropsDeDenunci
 
   const denuncia = useMutation({
     mutationFn: enviarDenuncia,
-    // Sem pausa fora do ar: a falha de rede vira o aviso, e o botão volta a valer com o token novo.
-    networkMode: "always",
     onSuccess: () => {
       formulario.current?.reset();
       setDescricao("");

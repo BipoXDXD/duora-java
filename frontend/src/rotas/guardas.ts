@@ -16,8 +16,9 @@ const TELA_DO_ESTADO = {
 /**
  * Lê a conta da sessão (sempre do servidor: a consulta não tem staleTime) e devolve a conta se o
  * estado dela está em `aceitos`. O anônimo vai para /entrar; os outros estados, para a tela deles.
- * Erro na leitura (403 CONTA_INDISPONIVEL, rede) segue para o ErrorBoundary da rota, nunca para o
- * anônimo.
+ * Erro na leitura (403 CONTA_INDISPONIVEL, rede) segue para o ErrorBoundary da casca, nunca para o
+ * anônimo. A leitura não pausa quando o navegador se diz fora do ar (networkMode "always" do
+ * cliente): a falha de rede chega ao ErrorBoundary.
  */
 export async function exigirConta(cliente: QueryClient, aceitos: readonly EstadoDaConta[]): Promise<Conta> {
   const conta = await cliente.query(consultaDaConta);
