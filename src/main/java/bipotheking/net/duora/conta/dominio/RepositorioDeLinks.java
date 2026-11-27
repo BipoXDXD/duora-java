@@ -7,6 +7,14 @@ import java.util.UUID;
 /** Links mágicos de entrada, achados pelo resumo do token; o token em si nunca é guardado. */
 public interface RepositorioDeLinks {
 
+  /**
+   * Trava, até o fim da transação corrente, a gravação de links do e-mail: dois pedidos simultâneos
+   * do mesmo e-mail passam um de cada vez, e o segundo invalida o link do primeiro.
+   *
+   * @param resumoDoEmail o resumo do e-mail, nunca o e-mail: o SQL pode ir para o log
+   */
+  void travarEmail(String resumoDoEmail);
+
   /** Marca como usados os links ainda não usados do e-mail. */
   void invalidarAbertos(Email email, Instant agora);
 

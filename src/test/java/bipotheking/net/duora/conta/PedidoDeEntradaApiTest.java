@@ -24,9 +24,11 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.Callable;
+import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
 import java.util.random.RandomGenerator;
 import org.jspecify.annotations.Nullable;
 import org.junit.jupiter.api.BeforeEach;
@@ -54,6 +56,7 @@ class PedidoDeEntradaApiTest extends BancoDeTeste {
   private static final String TRECHO_DO_LINK = "/entrar/confirmar#t=";
   private static final String CHAVE_DE_IDEMPOTENCIA = "Idempotency-Key";
   private static final String DOMINIO_DESCARTAVEL = "0-mail.com";
+  private static final Duration ESPERA = Duration.ofSeconds(5);
 
   @Autowired private VerificacaoHumanaDeTeste verificacaoHumana;
   @Autowired private EmailNoLog emailNoLog;
@@ -210,6 +213,51 @@ class PedidoDeEntradaApiTest extends BancoDeTeste {
     }
   }
 
+  /**
+   * O primeiro pedido grava o link e segura a transação aberta; o segundo, do mesmo e-mail, precisa
+   * esperar a trava em vez de gravar um segundo link aberto ao lado (write skew).
+   */
+  @Test
+  void pedidosSimultaneosDoMesmoEmailDeixamUmLinkAberto() throws Exception {
+    Email email = Email.de(emailNovo());
+    TransactionTemplate transacao = new TransactionTemplate(transacoes);
+    CountDownLatch primeiroGravou = new CountDownLatch(1);
+    CountDownLatch soltarPrimeiro = new CountDownLatch(1);
+
+    boolean segundoEsperou;
+    try (ExecutorService threads = Executors.newFixedThreadPool(2)) {
+      Future<?> primeiro =
+          threads.submit(() ->
+              transacao.executeWithoutResult(status -> {
+                pedidoDeEntrada.gravarLinkEMensagem(email, Token.novo(aleatorio));
+                primeiroGravou.countDown();
+                aguardar(soltarPrimeiro);
+              }));
+      Future<?> segundo;
+      try {
+        assertThat(primeiroGravou.await(ESPERA.toMillis(), TimeUnit.MILLISECONDS)).isTrue();
+        segundo =
+            threads.submit(() ->
+                transacao.executeWithoutResult(
+                    status -> pedidoDeEntrada.gravarLinkEMensagem(email, Token.novo(aleatorio))));
+        segundoEsperou = travaEmEspera();
+      } finally {
+        soltarPrimeiro.countDown();
+      }
+      primeiro.get();
+      segundo.get();
+    }
+
+    assertThat(segundoEsperou).as("o segundo pedido esperou a trava do e-mail").isTrue();
+    assertThat(
+            jdbc.sql(
+                    "select count(*) from link_de_entrada where email = :email and usado_em is null")
+                .param("email", email.valor())
+                .query(Long.class)
+                .single())
+        .isOne();
+  }
+
   @Test
   void mesmaChaveOutroEmailRecusada() throws Exception {
     String chave = chaveNova();
@@ -344,6 +392,34 @@ class PedidoDeEntradaApiTest extends BancoDeTeste {
       requisicao.header(CHAVE_DE_IDEMPOTENCIA, chave);
     }
     return mvc.perform(requisicao);
+  }
+
+  /** Espera alguma conexão ficar presa numa trava advisory, até o limite. */
+  private boolean travaEmEspera() throws InterruptedException {
+    long limite = System.nanoTime() + ESPERA.toNanos();
+    while (System.nanoTime() < limite) {
+      long esperando =
+          jdbc.sql("select count(*) from pg_locks where locktype = 'advisory' and not granted")
+              .query(Long.class)
+              .single();
+      if (esperando > 0) {
+        return true;
+      }
+      Thread.sleep(10);
+    }
+    return false;
+  }
+
+  private static void aguardar(CountDownLatch trinco) {
+    try {
+      // Folga maior que a da sondagem da trava, para a falha sair na asserção, não aqui.
+      if (!trinco.await(ESPERA.multipliedBy(3).toMillis(), TimeUnit.MILLISECONDS)) {
+        throw new IllegalStateException("O teste não soltou a transação a tempo");
+      }
+    } catch (InterruptedException e) {
+      Thread.currentThread().interrupt();
+      throw new IllegalStateException(e);
+    }
   }
 
   private void bloquear(String email) {
