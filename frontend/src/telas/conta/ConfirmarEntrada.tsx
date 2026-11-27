@@ -5,6 +5,7 @@ import { confirmarEntrada } from "../../api/conta";
 import type { Conta } from "../../api/estadoDaConta";
 import { ErroHttp } from "../../api/http";
 import { BOTAO_PRIMARIO, LINK_DE_ACAO, TITULO_DA_CASCA } from "../../componentes/estilos";
+import { CAMINHO_DA_VERIFICACAO } from "../../rotas/caminhosDaCasca";
 import { consultaDaConta } from "../../rotas/consultas";
 import { CONFIRMAR, textoDeEspera } from "./textos";
 
@@ -68,7 +69,8 @@ function destinoDa(conta: Conta | null): Destino {
     case "PENDENTE":
       return { rota: "/cadastro" };
     case "AGUARDANDO_VERIFICACAO":
-      return { rota: "/aguardando" };
+      // A verificação vive num documento próprio, com a política de segurança dela.
+      return { pagina: CAMINHO_DA_VERIFICACAO };
     case "ATIVA":
       return { pagina: "/" };
     case undefined:

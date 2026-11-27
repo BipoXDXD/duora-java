@@ -132,22 +132,22 @@ class AxeContaIT extends ContaE2eBase {
   }
 
   @Test
-  void aguardando(Participantes participantes) {
+  void verificacao(Participantes participantes) {
     ContaPagina conta =
         logado(participantes, EstadoConta.AGUARDANDO_VERIFICACAO, NASCIMENTO_DE_ADULTO)
-            .abrir(raiz() + "aguardando");
+            .abrir(raiz() + "verificacao");
 
-    assertThat(conta.heading("Cadastro recebido")).isVisible();
+    assertThat(conta.heading("Confirme sua idade")).isVisible();
 
-    assertSemViolacoes(conta.page(), "aguardando");
+    assertSemViolacoes(conta.page(), "verificação");
   }
 
   @Test
   void minhaConta(Participantes participantes) {
     ContaPagina conta = minhaContaAberta(participantes);
 
-    assertThat(conta.page().getByText("Falta confirmar sua idade. Essa etapa chega em breve."))
-        .isVisible();
+    assertThat(conta.page().getByText("Falta confirmar sua idade.")).isVisible();
+    assertThat(conta.link("Confirmar minha idade")).hasAttribute("href", "/verificacao");
     assertSemViolacoes(conta.page(), "minha conta");
   }
 

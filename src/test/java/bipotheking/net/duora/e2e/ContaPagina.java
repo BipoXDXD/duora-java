@@ -73,8 +73,8 @@ final class ContaPagina {
   }
 
   /**
-   * A jornada inteira de uma conta nova, do pedido do link à tela de cadastro recebido. O {@code
-   * link} entrega o link de entrada recebido pelo e-mail (veja {@code ContaE2eBase#linkRecebido}).
+   * A jornada inteira de uma conta nova, do pedido do link à verificação de idade. O {@code link}
+   * entrega o link de entrada recebido pelo e-mail (veja {@code ContaE2eBase#linkRecebido}).
    */
   ContaPagina cadastrarContaNova(
       String raiz, String email, LocalDate nascimento, Function<String, String> link) {
@@ -82,7 +82,7 @@ final class ContaPagina {
     abrirLink(link.apply(email));
     confirmarEntrada();
     concluirCadastro(nascimento);
-    assertThat(heading("Cadastro recebido")).isVisible();
+    assertThat(heading("Confirme sua idade")).isVisible();
     return this;
   }
 

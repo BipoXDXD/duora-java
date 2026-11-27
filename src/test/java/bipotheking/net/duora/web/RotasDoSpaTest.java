@@ -22,7 +22,8 @@ import org.springframework.test.web.servlet.MockMvc;
 
 /**
  * Cada rota da casca de conta, aberta direto no navegador (link de e-mail, recarga), recebe o
- * index.html sem cache e com a mesma CSP; o resto continua 404.
+ * index.html sem cache e com a CSP do app; só a /verificacao recebe a da prova de vida. O resto
+ * continua 404.
  */
 @SpringBootTest
 @AutoConfigureMockMvc
@@ -37,12 +38,16 @@ class RotasDoSpaTest {
   @ParameterizedTest
   @FieldSource("bipotheking.net.duora.web.RotasDoSpa#CAMINHOS")
   void cadaRotaDoSpaEncaminhaParaOIndex(String caminho) throws Exception {
+    String csp =
+        caminho.equals("/verificacao")
+            ? CabecalhosDeSeguranca.CSP_VERIFICACAO
+            : CabecalhosDeSeguranca.CSP;
     mockMvc
         .perform(get(caminho))
         .andExpect(status().isOk())
         .andExpect(forwardedUrl("/index.html"))
         .andExpect(header().string("Cache-Control", "no-cache"))
-        .andExpect(header().string("Content-Security-Policy", CabecalhosDeSeguranca.CSP));
+        .andExpect(header().string("Content-Security-Policy", csp));
   }
 
   @Test

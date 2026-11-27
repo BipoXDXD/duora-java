@@ -15,7 +15,8 @@ import org.springframework.stereotype.Component;
 /**
  * Cria contas direto no banco, já com uma sessão aberta, para os testes de quem precisa de alguém
  * logado (C4, F e as Etapas 3 e 4). O e-mail é {@code <id>@teste.duora.invalid}; a conta excluída
- * fica sem e-mail, como manda o esquema.
+ * fica sem e-mail, como manda o esquema. Com marcador, o e-mail é {@code
+ * <id>+<marcador>@teste.duora.invalid}, que os falsos da verificação de idade leem.
  */
 @Component
 public class ContasDeTeste {
@@ -47,6 +48,20 @@ public class ContasDeTeste {
    * {@code ativada_em} = agora; excluída sai sem e-mail e com {@code excluida_em} = agora.
    */
   public ContaDeTeste criar(EstadoConta estado, @Nullable LocalDate nascimento) {
+    return inserir(estado, nascimento, "");
+  }
+
+  /**
+   * Conta aguardando verificação com o marcador na parte local do e-mail ({@code
+   * <id>+<marcador>@teste.duora.invalid}): os falsos da prova de vida e do documento respondem por
+   * ele. Vários marcadores se juntam com {@code +}, como em {@code idade19+docmenor}.
+   */
+  public ContaDeTeste criarAguardando(String marcador, LocalDate nascimento) {
+    return inserir(EstadoConta.AGUARDANDO_VERIFICACAO, nascimento, "+" + marcador);
+  }
+
+  private ContaDeTeste inserir(
+      EstadoConta estado, @Nullable LocalDate nascimento, String sufixoDoEmail) {
     UUID id = geradorDeIds.novo();
     OffsetDateTime agora = OffsetDateTime.ofInstant(relogio.instant(), ZoneOffset.UTC);
     boolean excluida = estado == EstadoConta.EXCLUIDA;
@@ -57,7 +72,7 @@ public class ContasDeTeste {
             values (:id, :email, :estado, :nascimento, :agora, :ativadaEm, :excluidaEm)
             """)
         .param("id", id)
-        .param("email", excluida ? null : id + DOMINIO)
+        .param("email", excluida ? null : id + sufixoDoEmail + DOMINIO)
         .param("estado", estado.name())
         .param("nascimento", nascimento)
         .param("agora", agora)

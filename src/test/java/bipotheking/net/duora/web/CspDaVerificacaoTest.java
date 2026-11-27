@@ -55,6 +55,11 @@ class CspDaVerificacaoTest {
   }
 
   @Test
+  void verificacaoTrazUmSoCabecalhoDePermissionsPolicy() throws Exception {
+    assertThat(resposta(VERIFICACAO).getHeaders("Permissions-Policy")).hasSize(1);
+  }
+
+  @Test
   void origensExternasSaoSoOCdnEOStreaming() throws Exception {
     String csp = resposta(VERIFICACAO).getHeader("Content-Security-Policy");
     assertThat(csp).isNotNull();
