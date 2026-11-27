@@ -22,6 +22,13 @@ describe("Rodape", () => {
     expect(screen.getByRole("link", { name: "Privacidade" })).toHaveAttribute("href", "/privacidade");
   });
 
+  it("temDenunciarEEncarregado", () => {
+    render(<Rodape obterContato={() => new Promise<string>(() => {})} />);
+
+    expect(screen.getByRole("link", { name: "Denunciar" })).toHaveAttribute("href", "/denunciar");
+    expect(screen.getByRole("link", { name: "Encarregado de dados" })).toHaveAttribute("href", "/encarregado");
+  });
+
   it("semContatoAindaTemTermosEPrivacidade", async () => {
     vi.spyOn(console, "warn").mockImplementation(() => undefined);
     render(<Rodape obterContato={() => Promise.reject(new ErroHttp({ status: 0, codigo: "REDE" }))} />);
@@ -70,12 +77,14 @@ describe("Rodape", () => {
     expect(await screen.findByRole("link", { name: "Contato" })).toHaveAttribute("href", "mailto:teste@exemplo.com");
     expect(screen.getByRole("link", { name: "Termos de uso" })).toHaveAttribute("href", "/falso/termos");
     expect(screen.getByRole("link", { name: "Privacidade" })).toHaveAttribute("href", "/falso/privacidade");
+    expect(screen.getByRole("link", { name: "Denunciar" })).toHaveAttribute("href", "/falso/denunciar");
+    expect(screen.getByRole("link", { name: "Encarregado de dados" })).toHaveAttribute("href", "/falso/encarregado");
   });
 
   it("antesDaRespostaNaoMostraContato", () => {
     render(<Rodape obterContato={() => new Promise<string>(() => {})} />);
 
-    expect(screen.getAllByRole("link")).toHaveLength(2);
+    expect(screen.getAllByRole("link")).toHaveLength(4);
   });
 
   it("semObterContatoLeOContatoDasVersoesLegais", async () => {

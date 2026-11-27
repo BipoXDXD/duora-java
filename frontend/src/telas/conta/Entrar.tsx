@@ -1,19 +1,12 @@
-import { useMutation, useQuery } from "@tanstack/react-query";
-import { useRef, useState, type ReactElement, type SubmitEvent } from "react";
-import { obterConfiguracao, pedirLink } from "../../api/conta";
+import { useMutation } from "@tanstack/react-query";
+import { useRef, type ReactElement, type SubmitEvent } from "react";
+import { pedirLink } from "../../api/conta";
 import { ErroHttp, novaChaveDeIdempotencia } from "../../api/http";
-import {
-  BOTAO_PRIMARIO,
-  BOTAO_SECUNDARIO_SEM_MARGEM,
-  CAMPO,
-  DICA,
-  ENTRADA_DE_TEXTO,
-  ROTULO,
-  TEXTO_SECUNDARIO,
-  TITULO_DA_CASCA,
-} from "../../componentes/estilos";
-import { carregarTurnstile, Turnstile, type ApiTurnstile, type ControleDoTurnstile } from "../../componentes/Turnstile";
-import { ENTRAR, textoDeEspera } from "./textos";
+import { BOTAO_PRIMARIO, CAMPO, DICA, ENTRADA_DE_TEXTO, ROTULO, TITULO_DA_CASCA } from "../../componentes/estilos";
+import type { ApiTurnstile } from "../../componentes/Turnstile";
+import { CaixaDaVerificacao } from "./CaixaDaVerificacao";
+import { ENTRAR, textoDeEspera, VERIFICACAO } from "./textos";
+import { useVerificacaoHumana } from "./useVerificacaoHumana";
 
 interface PropsDeEntrar {
   carregarTurnstile?: () => Promise<ApiTurnstile>;
@@ -63,19 +56,9 @@ function erroDoEmail(erro: Error | null): boolean {
  * chave de idempotência nova, e a repetição automática (409 em andamento ou falha de rede) reusa a
  * chave e o token. Toda resposta final gasta o token: o widget reinicia e pede outro.
  */
-export function Entrar({ carregarTurnstile: carregar = carregarTurnstile }: PropsDeEntrar): ReactElement {
-  const configuracao = useQuery({
-    queryKey: ["conta", "configuracao"],
-    queryFn: obterConfiguracao,
-    staleTime: Infinity,
-  });
-  const turnstile = useRef<ControleDoTurnstile>(null);
+export function Entrar({ carregarTurnstile: carregar }: PropsDeEntrar): ReactElement {
+  const verificacao = useVerificacaoHumana();
   const campoDoEmail = useRef<HTMLInputElement>(null);
-  const [token, setToken] = useState<string | null>(null);
-  const [widgetFalhou, setWidgetFalhou] = useState(false);
-  // Trava síncrona: o isPending só chega no render seguinte, e um duplo toque nessa janela mandaria
-  // outro pedido com o mesmo token (já gasto) e chave nova.
-  const enviando = useRef(false);
 
   const pedido = useMutation({
     mutationFn: ({ email, token: tokenVerificacao, chave }: PedidoDeLink) => pedirLink(email, tokenVerificacao, chave),
@@ -88,33 +71,21 @@ export function Entrar({ carregarTurnstile: carregar = carregarTurnstile }: Prop
         campoDoEmail.current?.focus();
       }
     },
-    onSettled: () => {
-      enviando.current = false;
-      setToken(null);
-      turnstile.current?.reiniciar();
-    },
+    onSettled: verificacao.liberar,
   });
 
-  const verificacaoFalhou = widgetFalhou || configuracao.isError;
+  const { token, falhou: verificacaoFalhou } = verificacao;
   const indisponivel = token === null || pedido.isPending;
   const emailRecusado = erroDoEmail(pedido.error);
 
   function enviar(evento: SubmitEvent<HTMLFormElement>) {
     evento.preventDefault();
-    if (token === null || enviando.current) {
+    const tokenDoEnvio = verificacao.tomar();
+    if (tokenDoEnvio === null) {
       return;
     }
-    enviando.current = true;
     const email = campoDoEmail.current?.value.trim() ?? "";
-    pedido.mutate({ email, token, chave: novaChaveDeIdempotencia() });
-  }
-
-  /** Sair do aviso monta um widget novo; o carregador tenta o script de novo se ele não veio. */
-  function tentarDeNovo() {
-    setWidgetFalhou(false);
-    if (configuracao.isError) {
-      void configuracao.refetch();
-    }
+    pedido.mutate({ email, token: tokenDoEnvio, chave: novaChaveDeIdempotencia() });
   }
 
   return (
@@ -139,34 +110,7 @@ export function Entrar({ carregarTurnstile: carregar = carregarTurnstile }: Prop
             aria-invalid={emailRecusado ? true : undefined}
           />
         </div>
-        <div className="min-h-[65px]">
-          {verificacaoFalhou ? (
-            <div className="grid gap-(--e-2)">
-              <p className={TEXTO_SECUNDARIO} id="entrar-falha-verificacao">
-                {ENTRAR.falhaDaVerificacao}
-              </p>
-              <button type="button" className={BOTAO_SECUNDARIO_SEM_MARGEM} onClick={tentarDeNovo}>
-                {ENTRAR.tentarDeNovo}
-              </button>
-            </div>
-          ) : (
-            configuracao.data && (
-              <Turnstile
-                ref={turnstile}
-                chaveDoSite={configuracao.data.chaveDoSiteTurnstile}
-                carregar={carregar}
-                aoObterToken={setToken}
-                aoExpirar={() => {
-                  setToken(null);
-                }}
-                aoFalhar={() => {
-                  setToken(null);
-                  setWidgetFalhou(true);
-                }}
-              />
-            )
-          )}
-        </div>
+        <CaixaDaVerificacao verificacao={verificacao} idDaFalha="entrar-falha-verificacao" carregar={carregar} />
         <button
           type="submit"
           className={BOTAO_PRIMARIO}
@@ -186,7 +130,7 @@ export function Entrar({ carregarTurnstile: carregar = carregarTurnstile }: Prop
         {token === null && !verificacaoFalhou && (
           // Com a mensagem de sucesso na tela, a dica sai da vista, mas segue como motivo do botão.
           <p className={pedido.isSuccess ? "sr-only" : DICA} id="entrar-motivo">
-            {ENTRAR.aguardeAVerificacao}
+            {VERIFICACAO.aguarde}
           </p>
         )}
       </form>

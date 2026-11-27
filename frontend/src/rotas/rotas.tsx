@@ -77,6 +77,16 @@ export function criarRotas({ clienteDeConsulta, tomarTokenDoLink }: ContextoDaCa
           }),
           ErrorBoundary: ErroDaConta,
         },
+        {
+          path: "denunciar",
+          lazy: async () => ({ Component: (await import("../telas/legal/DenunciarPublico")).DenunciarPublico }),
+          ErrorBoundary: ErroDaConta,
+        },
+        {
+          path: "encarregado",
+          lazy: async () => ({ Component: (await import("../telas/legal/Encarregado")).Encarregado }),
+          ErrorBoundary: ErroDaConta,
+        },
         { path: "*", Component: NaoEncontrada },
       ],
     },
