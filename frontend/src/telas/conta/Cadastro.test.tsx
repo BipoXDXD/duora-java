@@ -1,5 +1,5 @@
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { focusManager, QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { createMemoryRouter, RouterProvider } from "react-router";
 import { afterEach, describe, expect, it, vi } from "vitest";
@@ -14,6 +14,8 @@ const VERSOES = {
 };
 const NOVAS_VERSOES = { ...VERSOES, termos: { versao: "2026-12-01" } };
 const CONCLUIDO = { status: 200, corpo: { cadastroConcluido: false, proximoPasso: "VERIFICACAO" } };
+/** No lugar das versões: a leitura responde 503. */
+const FALHA = Symbol("falha");
 const RECUSA_POR_IDADE = "O Duora é só para maiores de 18 anos. Não criamos a conta.";
 
 interface RespostaFalsa {
@@ -42,7 +44,7 @@ function prepararFetch(cadastro: RespostaFalsa = CONCLUIDO, versoes: unknown[] =
       if (url === "/api/legal/versoes" && opcoes?.method === "GET") {
         const corpo = versoes[Math.min(leiturasDasVersoes, versoes.length - 1)];
         leiturasDasVersoes += 1;
-        return Promise.resolve(json({ status: 200, corpo }));
+        return Promise.resolve(corpo === FALHA ? json({ status: 503 }) : json({ status: 200, corpo }));
       }
       if (url === "/api/conta/cadastro" && opcoes?.method === "POST") {
         corposDoCadastro.push(typeof opcoes.body === "string" ? JSON.parse(opcoes.body) : null);
@@ -96,6 +98,7 @@ async function preencherEConcluir(): Promise<void> {
 }
 
 afterEach(() => {
+  focusManager.setFocused(undefined);
   vi.useRealTimers();
   vi.unstubAllGlobals();
 });
@@ -260,6 +263,32 @@ describe("Cadastro", () => {
     });
     expect(caixaDoAceite()).not.toBeChecked();
     expect(caixaDoAceite()).toHaveFocus();
+  });
+
+  it("focoDeVoltaNaoReleAsVersoes", async () => {
+    // Quem abre os Termos em nova aba e volta não pode aceitar, sem ler, uma versão que chegou nesse meio-tempo.
+    const { leiturasDasVersoes } = prepararFetch(CONCLUIDO, [VERSOES, NOVAS_VERSOES]);
+    renderizar();
+    await campoDaData();
+
+    act(() => {
+      focusManager.setFocused(false);
+      focusManager.setFocused(true);
+    });
+    await act(() => new Promise((resolver) => setTimeout(resolver, 20)));
+
+    expect(leiturasDasVersoes()).toBe(1);
+  });
+
+  it("releituraQueFalhaMantemOFormulario", async () => {
+    prepararFetch(CONCLUIDO, [VERSOES, FALHA]);
+    const { cliente } = renderizar();
+    fireEvent.change(await campoDaData(), { target: { value: NASCIMENTO } });
+
+    await act(() => cliente.refetchQueries({ queryKey: ["legal", "versoes"] }));
+
+    expect(await campoDaData()).toHaveValue(NASCIMENTO);
+    expect(botaoConcluir()).toBeInTheDocument();
   });
 
   it("contaIndisponivelMostraAMensagem", async () => {
