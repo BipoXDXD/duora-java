@@ -2,7 +2,9 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 
-import { passosDaRodada, ultimoLinkDoLog } from './conta-check.mjs';
+import {
+  cabecalhoDaCsp, linkNaBase, passosDaRodada, ultimoLinkDoLog,
+} from './conta-check.mjs';
 
 const TOKEN_ANTIGO = 'AAAAaaaa_bbbb-cccc';
 const TOKEN_NOVO = 'ZZZZzzzz_yyyy-xxxx';
@@ -38,4 +40,18 @@ test('passosParamNaTelaAguardando', () => {
   for (const captura of ['capturarEntrar', 'capturarCadastro', 'capturarMinhaConta']) {
     assert.ok(passos.indexOf(captura) >= 0, `${captura} fora da rodada: ${passos.join(', ')}`);
   }
+});
+
+test('linkVaiParaABaseDaRodada', () => {
+  assert.equal(linkNaBase(`http://127.0.0.1:8080/entrar/confirmar#t=${TOKEN_NOVO}`, 'http://localhost:8080'),
+    `http://localhost:8080/entrar/confirmar#t=${TOKEN_NOVO}`);
+});
+
+test('cspEmQualquerCaixaDeNome', () => {
+  assert.equal(cabecalhoDaCsp({ 'content-security-policy': "default-src 'self'" }), "default-src 'self'");
+  assert.equal(cabecalhoDaCsp({ 'Content-Security-Policy': "default-src 'self'" }), "default-src 'self'");
+});
+
+test('respostaSemCspDevolveNull', () => {
+  assert.equal(cabecalhoDaCsp({ 'content-type': 'text/html' }), null);
 });

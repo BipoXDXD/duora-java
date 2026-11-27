@@ -8,12 +8,14 @@
 // localhost:<porta> nesta máquina, com a saída do ./mvnw spring-boot:run no arquivo de --log.
 //
 // Passos (PASSOS): adb reverse da porta e abre /entrar no Chrome; liga pelo CDP a escuta do
-// evento securitypolicyviolation e recarrega a tela, para a escuta valer desde o começo; espera o
+// evento securitypolicyviolation e recarrega a tela, para a escuta valer desde o começo, exigindo
+// o Content-Security-Policy na resposta de /entrar (sem ele, a escuta não provaria nada); espera o
 // widget real do Turnstile (chaves de teste do dev) liberar o envio e captura (entrar.png); pede o
-// link com um e-mail novo e lê o link do log do EmailNoLog; abre o link, entra e captura o cadastro
-// (cadastro.png); conclui o cadastro; abre Minha conta (minha-conta.png) e volta à tela Cadastro
-// recebido (aguardando.png), onde para. Resultado e capturas em target/android/. Sai com código 1
-// em qualquer falha, inclusive a cada violação da CSP.
+// link com um e-mail novo (o POST precisa dar 2xx) e lê o link do log do EmailNoLog; abre o
+// link, entra e captura o cadastro (cadastro.png); conclui o cadastro; abre Minha conta
+// (minha-conta.png) e volta à tela Cadastro recebido (aguardando.png), onde para. Resultado e
+// capturas em target/android/. Sai com código 1 em qualquer falha, inclusive a cada violação da
+// CSP; SIGINT e SIGTERM desfazem o reverse e o forward, gravam o resultado e saem com 130 e 143.
 //
 // Variáveis: as do pwa-check.mjs (ANDROID_SDK_ROOT, DUORA_AVD_PORTA, DUORA_CDP_PORTA).
 
@@ -45,6 +47,21 @@ const LINK_DE_ENTRADA = /https?:\/\/[^\s#]+\/entrar\/confirmar#t=[A-Za-z0-9_-]+/
 /** O último link de entrada do log de texto do EmailNoLog, ou null se não houver. */
 export function ultimoLinkDoLog(texto) {
   return [...texto.matchAll(LINK_DE_ENTRADA)].at(-1)?.[0] ?? null;
+}
+
+/**
+ * O link do e-mail apontado para a base da rodada: o e-mail traz a URL pública do dev
+ * (127.0.0.1), não o localhost que o adb reverse leva ao emulador.
+ */
+export function linkNaBase(link, base) {
+  const { pathname, hash } = new URL(link);
+  return `${base}${pathname}${hash}`;
+}
+
+/** O valor do Content-Security-Policy nos cabeçalhos de uma resposta do CDP, ou null. */
+export function cabecalhoDaCsp(cabecalhos) {
+  const nome = Object.keys(cabecalhos ?? {}).find((n) => n.toLowerCase() === 'content-security-policy');
+  return nome ? cabecalhos[nome] : null;
 }
 
 /** Ordem em que o main() roda os passos de EXECUTORES; a rodada para na tela Cadastro recebido. */
@@ -93,13 +110,19 @@ const AJUDANTES = `
 
 /**
  * A sessão da aba, com a escuta da CSP: cada securitypolicyviolation da página chama o binding,
- * e a próxima avaliação falha com a violação.
+ * e a próxima avaliação falha com a violação. Guarda também as respostas de rede, para conferir
+ * cabeçalhos e status.
  */
-async function vigiarCsp(cdp) {
+async function abrirPagina(cdp) {
   const violacoes = [];
+  const respostas = [];
   cdp.ouvir('Runtime.bindingCalled', ({ name, payload }) => {
     if (name === BINDING_DA_CSP) violacoes.push(payload);
   });
+  cdp.ouvir('Network.responseReceived', ({ type, response }) => {
+    respostas.push({ tipo: type, url: response.url, status: response.status, cabecalhos: response.headers });
+  });
+  await cdp.enviar('Network.enable');
   await cdp.enviar('Runtime.enable');
   await cdp.enviar('Page.enable');
   await cdp.enviar('Runtime.addBinding', { name: BINDING_DA_CSP });
@@ -125,6 +148,17 @@ async function vigiarCsp(cdp) {
     async navegar(url) {
       exigirSemViolacao();
       await cdp.enviar('Page.navigate', { url });
+    },
+    /** Marca o ponto a partir do qual esperarResposta procura. */
+    marca: () => respostas.length,
+    async esperarResposta(desde, criterio, descricao) {
+      const limite = Date.now() + ESPERA_DA_TELA_MS;
+      do {
+        const resposta = respostas.slice(desde).find(criterio);
+        if (resposta) return resposta;
+        await esperar(250);
+      } while (Date.now() < limite);
+      throw new Falha(`${descricao} não chegou em ${ESPERA_DA_TELA_MS / 1000}s`);
     },
     exigirSemViolacao,
   };
@@ -158,17 +192,13 @@ async function clicar(pagina, achar, descricao) {
 
 const tamanhoDoLog = (arquivo) => readFileSync(arquivo).length;
 
-/**
- * O link do pedido feito depois de `inicio` (tamanho do log antes do pedido), apontado para a
- * base da rodada: o e-mail traz a URL pública do dev, não o localhost do adb reverse.
- */
+/** O link do pedido feito depois de `inicio` (tamanho do log antes do pedido), na base da rodada. */
 async function esperarLinkNoLog(arquivo, inicio, base) {
   const limite = Date.now() + ESPERA_DO_LINK_MS;
   do {
     const link = ultimoLinkDoLog(readFileSync(arquivo).subarray(inicio).toString('utf8'));
     if (link) {
-      const { pathname, hash } = new URL(link);
-      return `${base}${pathname}${hash}`;
+      return linkNaBase(link, base);
     }
     await esperar(1000);
   } while (Date.now() < limite);
@@ -188,7 +218,14 @@ async function capturar({ adb, pagina, resultado }, nome) {
 // Cada executor recebe o contexto da rodada e pode devolver campos novos para os passos seguintes.
 const EXECUTORES = {
   async abrirEntrar({ pagina, base }) {
+    const desde = pagina.marca();
     await pagina.navegar(`${base}/entrar`);
+    const documento = await pagina.esperarResposta(desde,
+      (r) => r.tipo === 'Document' && new URL(r.url).pathname === '/entrar', 'a resposta de /entrar');
+    // Controle negativo: sem o cabeçalho, nenhuma violação dispara e a escuta passaria em branco.
+    if (!cabecalhoDaCsp(documento.cabecalhos)) {
+      throw new Falha('a resposta de /entrar veio sem Content-Security-Policy: a prova da CSP não vale');
+    }
     await esperarTitulo(pagina, 'Entrar no Duora');
     log('esperando o Turnstile liberar o envio');
     await esperarNaPagina(pagina, "botao('Enviar link')?.getAttribute('aria-disabled') !== 'true'"
@@ -196,10 +233,14 @@ const EXECUTORES = {
   },
   capturarEntrar: (contexto) => capturar(contexto, 'entrar'),
   async pedirLink({ pagina, args, base, resultado }) {
-    const email = `android-${Date.now()}@exemplo.com`;
+    const email = `android-${Date.now()}@exemplo.invalid`;
     const inicio = tamanhoDoLog(args.log);
     await pagina.avaliar(`(() => { preencher(campo('Seu e-mail'), ${JSON.stringify(email)}); return true; })()`);
+    const desde = pagina.marca();
     await clicar(pagina, "botao('Enviar link')", 'botão Enviar link');
+    const { status } = await pagina.esperarResposta(desde,
+      (r) => new URL(r.url).pathname === '/api/conta/entrar', 'a resposta do pedido do link');
+    if (status < 200 || status >= 300) throw new Falha(`o pedido do link voltou ${status}`);
     log(`link pedido para ${email}`);
     resultado.email = email;
     return { link: await esperarLinkNoLog(args.log, inicio, base) };
@@ -268,7 +309,7 @@ async function main() {
     adb.executar(['reverse', `tcp:${args.porta}`, `tcp:${args.porta}`]);
     cdp = await abrirNoChrome(adb, `${base}/entrar`, base);
     resultado.chrome = (await cdp.enviar('Browser.getVersion').catch(() => ({}))).product;
-    const pagina = await vigiarCsp(cdp);
+    const pagina = await abrirPagina(cdp);
     let contexto = { args, adb, base, resultado, pagina };
     for (const passo of passosDaRodada(args)) {
       log(`passo: ${passo}`);
