@@ -80,6 +80,22 @@ describe("despachar", () => {
     expect(raiz.childElementCount).toBe(0);
   });
 
+  it("raizFicaOcupadaEnquantoACascaBaixa", () => {
+    abrir("/conta");
+
+    despachar(location, history, raiz, dependencias());
+
+    expect(raiz).toHaveAttribute("aria-busy", "true");
+  });
+
+  it("terracoNaoMarcaARaizComoOcupada", () => {
+    abrir("/");
+
+    despachar(location, history, raiz, dependencias());
+
+    expect(raiz).not.toHaveAttribute("aria-busy");
+  });
+
   it("cascaCarregadaMontaNaRaiz", async () => {
     abrir("/conta");
     const montarCasca = vi.fn();
@@ -90,6 +106,23 @@ describe("despachar", () => {
     await vi.waitFor(() => {
       expect(montarCasca).toHaveBeenCalledWith(raiz, location, history);
     });
+  });
+
+  it("cascaMontadaLiberaARaiz", async () => {
+    abrir("/conta");
+    const montarCasca = vi.fn();
+
+    despachar(
+      location,
+      history,
+      raiz,
+      dependencias(() => Promise.resolve({ montarCasca })),
+    );
+
+    await vi.waitFor(() => {
+      expect(montarCasca).toHaveBeenCalled();
+    });
+    expect(raiz).not.toHaveAttribute("aria-busy");
   });
 
   it("falhaAoBaixarACascaAvisaNaTela", async () => {
@@ -105,9 +138,10 @@ describe("despachar", () => {
 
     await vi.waitFor(() => {
       expect(raiz.querySelector('[role="alert"]')).toHaveTextContent(
-        "Não foi possível abrir esta página. Confira a conexão e recarregue.",
+        "A página não carregou. Confira a conexão e recarregue.",
       );
     });
+    expect(raiz).not.toHaveAttribute("aria-busy");
     expect(consoleError).toHaveBeenCalled();
   });
 });
