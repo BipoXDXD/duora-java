@@ -3,7 +3,7 @@ import type { RouteObject } from "react-router";
 import type { DadosDaConfirmacao } from "../telas/conta/ConfirmarEntrada";
 import { ErroDaConta } from "./ErroDaConta";
 import { exigirConta } from "./guardas";
-import { LayoutDeConta } from "./LayoutDeConta";
+import { LARGURA_DE_LEITURA, LayoutDeConta } from "./LayoutDeConta";
 import { NaoEncontrada } from "./NaoEncontrada";
 
 export interface ContextoDaCasca {
@@ -53,6 +53,18 @@ export function criarRotas({ clienteDeConsulta, tomarTokenDoLink }: ContextoDaCa
           loader: () => exigirConta(clienteDeConsulta, ["AGUARDANDO_VERIFICACAO"]),
           lazy: async () => ({ Component: (await import("../telas/conta/Aguardando")).Aguardando }),
           ErrorBoundary: ErroDaConta,
+        },
+        {
+          path: "termos",
+          handle: LARGURA_DE_LEITURA,
+          lazy: async () => ({ Component: (await import("../telas/legal/DocumentoLegalPagina")).TermosDeUso }),
+        },
+        {
+          path: "privacidade",
+          handle: LARGURA_DE_LEITURA,
+          lazy: async () => ({
+            Component: (await import("../telas/legal/DocumentoLegalPagina")).PoliticaDePrivacidade,
+          }),
         },
         { path: "*", Component: NaoEncontrada },
       ],

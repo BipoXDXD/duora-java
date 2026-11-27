@@ -1,9 +1,29 @@
-import { render, screen } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { Entrada } from "./Entrada";
 
+// O rodapé da entrada pede o contato ao servidor: aqui o pedido fica sem resposta.
+beforeEach(() => {
+  vi.stubGlobal(
+    "fetch",
+    vi.fn<typeof fetch>(() => new Promise<Response>(() => {})),
+  );
+});
+
+afterEach(() => {
+  vi.unstubAllGlobals();
+});
+
 describe("Entrada", () => {
+  it("entradaMostraORodape", () => {
+    render(<Entrada comConvite={false} enviando={false} erro="" aoEnviar={vi.fn()} aoCorrigir={vi.fn()} />);
+
+    const rodape = screen.getByRole("contentinfo");
+    expect(within(rodape).getByRole("link", { name: "Termos de uso" })).toHaveAttribute("href", "/termos");
+    expect(within(rodape).getByRole("link", { name: "Privacidade" })).toHaveAttribute("href", "/privacidade");
+  });
+
   it("apelido vazio mostra o erro e foca o campo, sem enviar", async () => {
     const aoEnviar = vi.fn();
     render(<Entrada comConvite={false} enviando={false} erro="" aoEnviar={aoEnviar} aoCorrigir={vi.fn()} />);

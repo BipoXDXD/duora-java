@@ -83,7 +83,10 @@ describe("montarCasca", () => {
     vi.stubGlobal(
       "fetch",
       vi.fn<typeof fetch>((_entrada, opcoes) => {
-        corpos.push(typeof opcoes?.body === "string" ? JSON.parse(opcoes.body) : null);
+        // Só os POST: o GET das versões legais (rodapé do layout) não leva corpo nem token.
+        if (opcoes?.method === "POST") {
+          corpos.push(typeof opcoes.body === "string" ? JSON.parse(opcoes.body) : null);
+        }
         return Promise.resolve(new Response(null, { status: 503 }));
       }),
     );
@@ -189,6 +192,28 @@ describe("montarCasca", () => {
       expect(screen.getByText("Esta conta não está disponível.")).toBeInTheDocument();
       expect(location.pathname).toBe("/cadastro");
     });
+  });
+
+  it("termosAbreODocumentoComORodape", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn<typeof fetch>((entrada) =>
+        entrada === "/api/legal/termos"
+          ? Promise.resolve(
+              new Response(JSON.stringify({ versao: "2026-11-22", html: "<h1>Termos de uso</h1>\n<p>Texto.</p>\n" }), {
+                headers: { "Content-Type": "application/json" },
+              }),
+            )
+          : Promise.reject(new Error("sem contato")),
+      ),
+    );
+
+    await montarEm("/termos");
+
+    expect(await screen.findByText("Versão de 22/11/2026")).toBeInTheDocument();
+    expect(screen.getByRole("heading", { level: 1, name: "Termos de uso" })).toBeInTheDocument();
+    expect(screen.getByRole("contentinfo")).not.toBeEmptyDOMElement();
+    expect(document.title).toBe("Termos de uso · Duora");
   });
 
   it("telaFicaNoMainDoLayout", async () => {

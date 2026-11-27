@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { obterVersoesLegais } from "./legal";
+import { obterDocumentoLegal, obterVersoesLegais } from "./legal";
 
 const VERSOES = {
   termos: { versao: "2026-11-23" },
@@ -32,5 +32,26 @@ describe("obterVersoesLegais", () => {
     responder({ ...VERSOES, termos: {} });
 
     await expect(obterVersoesLegais()).rejects.toMatchObject({ codigo: "RESPOSTA_INVALIDA" });
+  });
+});
+
+describe("obterDocumentoLegal", () => {
+  it("documentoTrazVersaoEHtml", async () => {
+    const fetchFalso = responder({ versao: "2026-11-22", html: "<h1>Termos de uso</h1>" });
+
+    await expect(obterDocumentoLegal("termos")).resolves.toEqual({
+      versao: "2026-11-22",
+      html: "<h1>Termos de uso</h1>",
+    });
+    expect(fetchFalso).toHaveBeenCalledWith("/api/legal/termos", expect.objectContaining({ method: "GET" }));
+  });
+
+  it.each([
+    ["sem html", { versao: "2026-11-22" }],
+    ["versão fora do formato", { versao: "22/11/2026", html: "<p>Texto.</p>" }],
+  ])("respostaIncompletaViraRespostaInvalida (%s)", async (_caso, corpo) => {
+    responder(corpo);
+
+    await expect(obterDocumentoLegal("privacidade")).rejects.toMatchObject({ codigo: "RESPOSTA_INVALIDA" });
   });
 });

@@ -1,6 +1,6 @@
 import { render, screen } from "@testing-library/react";
 import { createRef } from "react";
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { Visao, VisaoAbertura } from "../dominio/visao";
 import type { AcoesDaSessao } from "../sessao/sessao";
 import type { EstadoDaSessao } from "../sessao/tipos";
@@ -80,7 +80,27 @@ function desenharMontagem(abertura: VisaoAbertura | null) {
   );
 }
 
+// O rodapé da entrada pede o contato ao servidor: aqui o pedido fica sem resposta.
+beforeEach(() => {
+  vi.stubGlobal(
+    "fetch",
+    vi.fn<typeof fetch>(() => new Promise<Response>(() => {})),
+  );
+});
+
+afterEach(() => {
+  vi.unstubAllGlobals();
+});
+
 describe("Painel", () => {
+  it("montagemSemRodape", () => {
+    desenharMontagem({ ativa: false, voceTocou: false, outroTocou: false, acesa: true });
+
+    expect(screen.getByRole("heading", { name: "Suas peças" })).toBeVisible();
+    expect(screen.queryByRole("link", { name: "Termos de uso" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: "Privacidade" })).not.toBeInTheDocument();
+  });
+
   it("entradaComConviteDizRecebeu", () => {
     renderComCenario(
       <Painel
