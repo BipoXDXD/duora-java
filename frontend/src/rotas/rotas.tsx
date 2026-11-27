@@ -32,13 +32,16 @@ function recarregarODocumento({ request }: LoaderFunctionArgs): never {
  * A verificação vive num documento próprio: só ele recebe a CSP e a Permissions-Policy da prova de
  * vida, e só por ele o detector carrega. Num documento aberto em outro caminho, a navegação pelo
  * roteador até a verificação recarrega o documento; no documento da verificação, a navegação para
- * qualquer outra rota (com ou sem loader) também. O loader de quem fica no documento certo não muda.
+ * qualquer outra rota (com ou sem loader) também. A rota trocada fica só com o path e o loader da
+ * recarga; quem fica no documento certo não muda.
  */
 export function isolarDocumentoDaVerificacao(filhas: RouteObject[], caminhoDaCarga: string): RouteObject[] {
   const cargaNaVerificacao = caminhoDaCarga === CAMINHO_DA_VERIFICACAO;
   return filhas.map((filha) => {
     const ehVerificacao = `/${filha.path ?? ""}` === CAMINHO_DA_VERIFICACAO;
-    return ehVerificacao === cargaNaVerificacao ? filha : { ...filha, loader: recarregarODocumento };
+    // Só o path e o loader: com o lazy, o roteador esperaria o chunk de uma tela que este documento
+    // nunca mostra antes de recarregar, e a falha desse download viraria o erro da casca.
+    return ehVerificacao === cargaNaVerificacao ? filha : { path: filha.path, loader: recarregarODocumento };
   });
 }
 

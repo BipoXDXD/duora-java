@@ -1,6 +1,13 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { render, screen, within } from "@testing-library/react";
-import { createMemoryRouter, type LoaderFunctionArgs, type RouteObject, RouterProvider } from "react-router";
+import {
+  createMemoryRouter,
+  type LoaderFunctionArgs,
+  type RouteObject,
+  RouterProvider,
+  UNSAFE_createMemoryHistory as createMemoryHistory,
+  UNSAFE_createRouter as createRouter,
+} from "react-router";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { stubarFetch } from "../teste/fetchFalso";
 import { CAMINHOS_DA_CASCA } from "./caminhosDaCasca";
@@ -59,6 +66,32 @@ async function redirectDe(promessa: Promise<unknown>): Promise<Response> {
     throw lancado;
   }
   throw new Error("esperava um redirect");
+}
+
+/** O chunk de uma tela que não baixa (deploy novo com a aba velha, rede caída). */
+function chunkQueFalha(): Promise<never> {
+  return Promise.reject(new TypeError("Failed to fetch dynamically imported module"));
+}
+
+/**
+ * Um roteador de dados em `inicial`, com uma janela falsa: o jsdom não deixa espionar
+ * location.assign, e é por ela que o roteador recarrega o documento num redirectDocument.
+ */
+function roteadorComJanela(filhas: RouteObject[], inicial: string) {
+  const recarregar = vi.fn<(destino: string) => void>();
+  const janela = {
+    document: { createElement: () => ({}) },
+    location: { origin: "http://localhost", assign: recarregar, replace: recarregar },
+    sessionStorage: { getItem: () => null, setItem: () => undefined },
+    addEventListener: () => undefined,
+    removeEventListener: () => undefined,
+  };
+  const roteador = createRouter({
+    routes: [{ path: "/", children: filhas }],
+    history: createMemoryHistory({ initialEntries: [inicial] }),
+    window: janela as unknown as Window,
+  }).initialize();
+  return { roteador, recarregar };
 }
 
 function abrirEm(caminho: string): void {
@@ -125,6 +158,38 @@ describe("isolarDocumentoDaVerificacao", () => {
 
     expect(resposta.headers.get("Location")).toBe("/qualquer/coisa");
     expect(resposta.headers.get(RECARGA_DO_DOCUMENTO)).toBe("true");
+  });
+
+  it("recargaSaiMesmoComOChunkDoDestinoFalhando", async () => {
+    const filhas = isolarDocumentoDaVerificacao(
+      [{ path: "conta" }, { path: "verificacao", lazy: chunkQueFalha }],
+      "/conta",
+    );
+    const { roteador, recarregar } = roteadorComJanela(filhas, "/conta");
+
+    await roteador.navigate("/verificacao");
+
+    expect(recarregar).toHaveBeenCalledExactlyOnceWith("/verificacao");
+    expect(roteador.state.errors).toBeNull();
+    roteador.dispose();
+  });
+
+  it("rotaTrocadaSoTemPathELoader", () => {
+    const [verificacao] = isolarDocumentoDaVerificacao(
+      [{ path: "verificacao", id: "v", loader: () => null, lazy: chunkQueFalha, shouldRevalidate: () => true }],
+      "/conta",
+    );
+
+    expect(Object.keys(verificacao ?? {}).sort()).toEqual(["loader", "path"]);
+  });
+
+  it.each(["conta", "cadastro"])("%sNoDocumentoDaVerificacaoNaoLeAConta", async (path) => {
+    const fetchFalso = stubarFetch();
+
+    const resposta = await redirectDe(carregar(filha(rotasDaCasca(CAMINHO_DA_VERIFICACAO), path), `/${path}`));
+
+    expect(resposta.headers.get(RECARGA_DO_DOCUMENTO)).toBe("true");
+    expect(fetchFalso.mock.calls.map(([entrada]) => entrada)).not.toContain("/api/conta");
   });
 
   it("verificacaoNoDocumentoProprioChamaOLoaderOriginal", async () => {
