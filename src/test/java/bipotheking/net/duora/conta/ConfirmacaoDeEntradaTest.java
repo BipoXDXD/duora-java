@@ -66,6 +66,11 @@ class ConfirmacaoDeEntradaTest {
     private int consultas;
 
     @Override
+    public void travarEmail(String resumoDoEmail) {
+      throw new UnsupportedOperationException();
+    }
+
+    @Override
     public void invalidarAbertos(Email email, Instant agora) {
       throw new UnsupportedOperationException();
     }
