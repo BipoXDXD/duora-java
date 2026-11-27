@@ -143,7 +143,14 @@ class CadastroApiTest extends BancoDeTeste {
     assertThat(contar("select count(*) from sessao")).isZero();
     assertThat(contar("select count(*) from aceite_documento")).isZero();
     assertThat(contar("select count(*) from link_de_entrada where usado_em is null"))
-        .as("o link aberto do e-mail foi invalidado")
+        .as("nenhum link aberto sobra")
+        .isZero();
+    assertThat(
+            jdbc.sql("select count(*) from link_de_entrada where email = :email")
+                .param("email", emailDe(conta))
+                .query(Long.class)
+                .single())
+        .as("nenhum link guarda o e-mail do menor")
         .isZero();
     Map<String, Object> mensagem =
         jdbc.sql("select carga, ultimo_erro from outbox").query().singleRow();

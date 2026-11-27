@@ -133,10 +133,10 @@ public class Cadastro {
   }
 
   /**
-   * Trava o e-mail, bloqueia-o, invalida os links abertos dele, apaga a carga das mensagens
-   * pendentes (o link pendente não sai), encerra as sessões e exclui a conta. A trava é a mesma do
-   * pedido de link: um pedido que já gravou termina antes, e o link e a mensagem dele entram na
-   * invalidação e no esquecimento. Um link gravado depois não abre conta: a confirmação recusa
+   * Trava o e-mail, bloqueia-o, apaga os links dele (nenhuma linha guarda o e-mail do menor), apaga
+   * a carga das mensagens pendentes (o link pendente não sai), encerra as sessões e exclui a conta.
+   * A trava é a mesma do pedido de link: um pedido que já gravou termina antes, e o link e a
+   * mensagem dele entram na limpeza. Um link gravado depois não abre conta: a confirmação recusa
    * e-mail bloqueado. A exclusão vem antes de apagar os aceites: se um cadastro concorrente da
    * mesma conta gravou aceites, a trava da linha da conta faz esta transação esperar o commit dele
    * e vê-los.
@@ -145,7 +145,7 @@ public class Cadastro {
     String titular = resumoDeEmail.hex(email);
     links.travarEmail(titular);
     bloqueios.bloquear(resumoDeEmail.de(email), MOTIVO_DO_BLOQUEIO, agora);
-    links.invalidarAbertos(email, agora);
+    links.apagarDoEmail(email);
     outbox.esquecerTitular(titular);
     sessoes.revogarTodas(id);
     contas.excluir(id, agora);
