@@ -1,8 +1,10 @@
 package bipotheking.net.duora.conta.dominio;
 
+import bipotheking.net.duora.conta.CodigoCadastro;
 import bipotheking.net.duora.conta.ContaId;
 import bipotheking.net.duora.conta.ContaResumo;
 import bipotheking.net.duora.conta.EstadoConta;
+import bipotheking.net.duora.nucleo.ErroDeNegocio;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.util.EnumSet;
@@ -31,6 +33,9 @@ public record Conta(
           EstadoConta.SUSPENSA,
           EstadoConta.BANIDA);
 
+  /** Data mais antiga aceita no cadastro. */
+  private static final LocalDate NASCIMENTO_MINIMO = LocalDate.of(1900, 1, 1);
+
   /**
    * @throws IllegalStateException se alguma invariante for violada (a mensagem não traz dados
    *     pessoais)
@@ -48,6 +53,26 @@ public record Conta(
     if (estado == EstadoConta.ATIVA && ativadaEm == null) {
       throw new IllegalStateException("Conta ativa sem instante de ativação");
     }
+  }
+
+  /**
+   * Decide o cadastro com a data de nascimento declarada, sem gravar nada.
+   *
+   * @param nascimento a data declarada; ausente, recusada depois de conferir o estado
+   * @param hoje a data corrente no fuso {@code America/Sao_Paulo}
+   * @throws ErroDeNegocio {@code CADASTRO_JA_CONCLUIDO} fora de {@code PENDENTE}, antes de olhar a
+   *     data; {@code DATA_INVALIDA} sem data, com data futura ou anterior a 1900-01-01
+   */
+  public ResultadoDoCadastro concluirCadastro(@Nullable LocalDate nascimento, LocalDate hoje) {
+    if (estado != EstadoConta.PENDENTE) {
+      throw CodigoCadastro.CADASTRO_JA_CONCLUIDO.erro();
+    }
+    if (nascimento == null || nascimento.isAfter(hoje) || nascimento.isBefore(NASCIMENTO_MINIMO)) {
+      throw CodigoCadastro.DATA_INVALIDA.erro();
+    }
+    return Idade.maiorDeIdade(nascimento, hoje)
+        ? new ResultadoDoCadastro.Concluido()
+        : new ResultadoDoCadastro.RecusadoPorIdade();
   }
 
   /** O que outros módulos podem ver. Ainda não há selo de verificação: sai sempre falso. */

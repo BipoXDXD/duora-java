@@ -17,7 +17,7 @@ export const CONFIRMAR = {
   titulo: "Confirmar entrada",
   tituloDaAba: "Confirmar entrada · Duora",
   /** O POST só sai no clique: um leitor de e-mail que pré-abre o link não gasta o token. */
-  instrucao: "Toque em Entrar para abrir sua sessão neste navegador.",
+  instrucao: "Use o botão Entrar para abrir sua sessão neste navegador.",
   entrar: "Entrar",
   entrando: "Entrando…",
   semToken: "Não encontramos o código do link. Abra o link do e-mail de novo ou peça um novo.",

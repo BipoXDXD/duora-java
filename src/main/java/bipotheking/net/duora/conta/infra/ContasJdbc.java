@@ -71,6 +71,36 @@ class ContasJdbc implements RepositorioDeContas {
         .optional();
   }
 
+  @Override
+  public boolean marcarAguardandoVerificacao(ContaId id, LocalDate nascimento) {
+    return jdbc.sql(
+                """
+                update conta set estado = :aguardando, data_nascimento = :nascimento
+                where id = :id and estado = :pendente
+                """)
+            .param("aguardando", EstadoConta.AGUARDANDO_VERIFICACAO.name())
+            .param("nascimento", nascimento)
+            .param("id", id.valor())
+            .param("pendente", EstadoConta.PENDENTE.name())
+            .update()
+        == 1;
+  }
+
+  @Override
+  public void excluir(ContaId id, Instant agora) {
+    jdbc.sql(
+            """
+            update conta
+            set estado = :excluida, email = null, data_nascimento = null,
+                excluida_em = coalesce(excluida_em, :agora)
+            where id = :id
+            """)
+        .param("excluida", EstadoConta.EXCLUIDA.name())
+        .param("agora", OffsetDateTime.ofInstant(agora, ZoneOffset.UTC))
+        .param("id", id.valor())
+        .update();
+  }
+
   private static Conta conta(ResultSet rs) throws SQLException {
     String email = rs.getString("email");
     return new Conta(

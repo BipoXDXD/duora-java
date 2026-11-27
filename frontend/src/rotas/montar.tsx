@@ -16,14 +16,19 @@ export function tentarDeNovo(falhas: number, erro: unknown): boolean {
 /**
  * Monta a casca de conta na raiz: React Router no modo de dados e TanStack Query. Carregado por
  * import() a partir do despacho, fora do JS inicial do terraço. O #t= do link mágico é lido aqui, uma
- * vez e antes do primeiro render, e sai da URL; a tela de confirmação o recebe pelo contexto da casca.
+ * vez e antes do primeiro render, e sai da URL; a rota de confirmação o toma uma vez só.
  */
 export function montarCasca(raiz: HTMLElement, local: Location, historia: History): Root {
-  const tokenDoLink = lerTokenDoLink(local, historia);
+  let tokenDoLink = lerTokenDoLink(local, historia);
+  const tomarTokenDoLink = () => {
+    const token = tokenDoLink;
+    tokenDoLink = null;
+    return token;
+  };
   const clienteDeConsulta = new QueryClient({
     defaultOptions: { queries: { retry: tentarDeNovo } },
   });
-  const roteador = createBrowserRouter(criarRotas({ clienteDeConsulta, tokenDoLink }));
+  const roteador = createBrowserRouter(criarRotas({ clienteDeConsulta, tomarTokenDoLink }));
   const root = createRoot(raiz);
   root.render(
     <StrictMode>

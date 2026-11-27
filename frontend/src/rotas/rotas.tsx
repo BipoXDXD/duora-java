@@ -1,5 +1,6 @@
 import type { QueryClient } from "@tanstack/react-query";
 import type { RouteObject } from "react-router";
+import type { DadosDaConfirmacao } from "../telas/conta/ConfirmarEntrada";
 import { ErroDaConta } from "./ErroDaConta";
 import { exigirConta } from "./guardas";
 import { LayoutDeConta } from "./LayoutDeConta";
@@ -7,8 +8,11 @@ import { NaoEncontrada } from "./NaoEncontrada";
 
 export interface ContextoDaCasca {
   clienteDeConsulta: QueryClient;
-  /** O #t= do link mágico, lido uma vez antes do primeiro render; null fora de /entrar/confirmar. */
-  tokenDoLink: string | null;
+  /**
+   * Entrega o #t= do link mágico (lido antes do primeiro render) e o esquece: a segunda chamada
+   * devolve null. Fora de /entrar/confirmar, sempre null.
+   */
+  tomarTokenDoLink: () => string | null;
 }
 
 /**
@@ -17,7 +21,7 @@ export interface ContextoDaCasca {
  * rotas que exigem conta têm o guarda no loader, fora do chunk da tela: o redirect sai antes de
  * baixá-la.
  */
-export function criarRotas({ clienteDeConsulta, tokenDoLink }: ContextoDaCasca): RouteObject[] {
+export function criarRotas({ clienteDeConsulta, tomarTokenDoLink }: ContextoDaCasca): RouteObject[] {
   return [
     {
       path: "/",
@@ -29,10 +33,14 @@ export function criarRotas({ clienteDeConsulta, tokenDoLink }: ContextoDaCasca):
         },
         {
           path: "entrar/confirmar",
-          lazy: async () => {
-            const { ConfirmarEntrada } = await import("../telas/conta/ConfirmarEntrada");
-            return { element: <ConfirmarEntrada token={tokenDoLink} /> };
-          },
+          // O loader roda a cada chegada à rota, fora do React: só a primeira recebe o token. Quem
+          // volta à tela pelo histórico (token já gasto ou em uso) cai no "sem token".
+          loader: (): DadosDaConfirmacao => ({ token: tomarTokenDoLink() }),
+          // Sem revalidar: uma nova leitura com a tela aberta trocaria o token por null.
+          shouldRevalidate: () => false,
+          lazy: async () => ({
+            Component: (await import("../telas/conta/ConfirmarEntrada")).ConfirmarEntradaDaRota,
+          }),
         },
         {
           path: "cadastro",

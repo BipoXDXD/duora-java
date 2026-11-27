@@ -269,7 +269,7 @@ class ConfirmacaoApiTest extends BancoDeTeste {
     Token token = Token.novo(aleatorio);
     new TransactionTemplate(transacoes)
         .executeWithoutResult(
-            status -> pedidoDeEntrada.gravarLinkEMensagem(Email.de(email), token));
+            status -> pedidoDeEntrada.registrarNaTransacao(Email.de(email), token));
     return token.valor();
   }
 
