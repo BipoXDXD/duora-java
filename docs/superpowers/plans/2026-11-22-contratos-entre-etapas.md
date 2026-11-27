@@ -62,7 +62,9 @@ Spec: `docs/superpowers/specs/2026-11-21-duora-social-design.md`. Ordem: 0 → 1
   - O e2e continua no Playwright Java (`*IT`), com seletores por papel, rótulo e texto, nunca por classe CSS.
   - Axe em toda tela nova.
 - **Service worker:** a lista do shell sai do manifest do Vite, e a versão do cache sai da impressão digital (guarda criada na Etapa 1). Nunca há cache de `/api`.
-- **CSP:** sem `unsafe-inline` nem `unsafe-eval` no app. Só duas páginas, cada uma com entrada HTML própria e CSP própria, ganham `'wasm-unsafe-eval'`: a do fliperama (9b, `/jogos/fliperama/**`) e a da verificação de idade (Etapa 2, `/verificacao`), que também libera câmera, `https://cdn.liveness.rekognition.amazonaws.com` e `wss://streaming-rekognition.us-east-1.amazonaws.com`. O SPA chega a elas por navegação de página inteira, nunca pelo roteador.
+- **CSP:** sem `unsafe-inline` nem `unsafe-eval` no app. Só duas páginas ganham `'wasm-unsafe-eval'`, cada uma com CSP própria, e o SPA chega a elas por navegação de página inteira, nunca pelo roteador:
+  - o fliperama (9b, `/jogos/fliperama/**`), com entrada HTML própria;
+  - a verificação de idade (Etapa 2b, `/verificacao`). Ela é uma rota da casca de conta (mesmo `index.html`), isolada por navegação de documento: o roteador troca a entrada e a saída por `redirectDocument`. O back serve a CSP e a `Permissions-Policy: camera=(self), microphone=()` só para a URI exata `/verificacao`, com `connect-src` liberando `https://cdn.liveness.rekognition.amazonaws.com` e `wss://streaming-rekognition.us-east-1.amazonaws.com`. Nenhum service worker é registrado nela, e o detector do Amplify só chega por `import()` depois do consentimento. As outras respostas levam `camera=(), microphone=()`. Detalhes em `2026-11-27-etapa-2b-verificacao.md` (F1, F3).
 - **Texto e estilo:** todo texto em pt-BR e com gênero neutro quando se refere à pessoa. O estilo segue `~/.claude/knowledge/ui-design.md` (Refactoring UI).
 
 ## Assets e ferramentas
