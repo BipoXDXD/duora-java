@@ -3,11 +3,8 @@ package bipotheking.net.duora.conta;
 import bipotheking.net.duora.conta.dominio.Conta;
 import bipotheking.net.duora.conta.dominio.Email;
 import bipotheking.net.duora.conta.dominio.RepositorioDeAceites;
-import bipotheking.net.duora.conta.dominio.RepositorioDeBloqueios;
 import bipotheking.net.duora.conta.dominio.RepositorioDeContas;
-import bipotheking.net.duora.conta.dominio.RepositorioDeLinks;
 import bipotheking.net.duora.conta.dominio.ResultadoDoCadastro;
-import bipotheking.net.duora.notificacao.Outbox;
 import bipotheking.net.duora.nucleo.ErroDeNegocio;
 import bipotheking.net.duora.web.LimiteDeTaxa;
 import java.time.Clock;
@@ -40,11 +37,7 @@ public class Cadastro {
   private final DocumentosLegais documentos;
   private final RepositorioDeContas contas;
   private final RepositorioDeAceites aceites;
-  private final RepositorioDeBloqueios bloqueios;
-  private final RepositorioDeLinks links;
-  private final ResumoDeEmail resumoDeEmail;
-  private final Outbox outbox;
-  private final Sessoes sessoes;
+  private final LimpezaDeConta limpeza;
   private final TransactionTemplate transacao;
   private final Clock relogio;
 
@@ -53,22 +46,14 @@ public class Cadastro {
       DocumentosLegais documentos,
       RepositorioDeContas contas,
       RepositorioDeAceites aceites,
-      RepositorioDeBloqueios bloqueios,
-      RepositorioDeLinks links,
-      ResumoDeEmail resumoDeEmail,
-      Outbox outbox,
-      Sessoes sessoes,
+      LimpezaDeConta limpeza,
       TransactionTemplate transacao,
       Clock relogio) {
     this.limiteDeTaxa = limiteDeTaxa;
     this.documentos = documentos;
     this.contas = contas;
     this.aceites = aceites;
-    this.bloqueios = bloqueios;
-    this.links = links;
-    this.resumoDeEmail = resumoDeEmail;
-    this.outbox = outbox;
-    this.sessoes = sessoes;
+    this.limpeza = limpeza;
     this.transacao = transacao;
     this.relogio = relogio;
   }
@@ -127,31 +112,11 @@ public class Cadastro {
         LOG.info("Cadastro concluído para a conta {}", id);
       }
       case ResultadoDoCadastro.RecusadoPorIdade _ -> {
-        recusarPorIdade(id, emailDe(conta), agora);
+        limpeza.excluirEBloquear(id, emailDe(conta), MOTIVO_DO_BLOQUEIO, agora);
         LOG.info("Cadastro recusado por idade; conta {} excluída", id);
       }
     }
     return resultado;
-  }
-
-  /**
-   * Trava o e-mail, bloqueia-o, apaga os links dele (nenhuma linha guarda o e-mail do menor), apaga
-   * a carga das mensagens pendentes (o link pendente não sai), encerra as sessões e exclui a conta.
-   * A trava é a mesma do pedido de link, que a toma antes de checar o bloqueio: um pedido que já
-   * travou termina antes, e o link e a mensagem dele entram na limpeza; um pedido que chega depois
-   * espera este commit e vê o bloqueio, sem gravar link. A exclusão vem antes de apagar os aceites:
-   * se um cadastro concorrente da mesma conta gravou aceites, a trava da linha da conta faz esta
-   * transação esperar o commit dele e vê-los.
-   */
-  private void recusarPorIdade(ContaId id, Email email, Instant agora) {
-    String titular = resumoDeEmail.hex(email);
-    links.travarEmail(titular);
-    bloqueios.bloquear(resumoDeEmail.de(email), MOTIVO_DO_BLOQUEIO, agora);
-    links.apagarDoEmail(email);
-    outbox.esquecerTitular(titular);
-    sessoes.revogarTodas(id);
-    contas.excluir(id, agora);
-    aceites.apagarDaConta(id);
   }
 
   /** A conta pendente sempre tem e-mail: a invariante da {@link Conta} garante. */
