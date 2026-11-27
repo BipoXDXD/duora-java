@@ -31,10 +31,10 @@ import org.springframework.transaction.support.TransactionSynchronizationManager
  *
  * <p>Uma falha no meio do laço de lotes de uma política devolve {@code removidos = 0} e não conta
  * os lotes já commitados (eles ficam apagados): o resultado e o contador {@code removidos} medem só
- * execuções completas, e o gauge {@code tamanho} mostra o que de fato sobrou.
+ * execuções completas, e o gauge {@code tamanho} mostra o vencido que de fato sobrou.
  *
- * <p>Pública porque o agendamento e os testes de contrato (P11) chamam {@link #executar()}, e o
- * canal público de denúncia (C12) lê {@link #prazos()}.
+ * <p>Pública porque o agendamento e os testes de contrato (P11) chamam {@link #executar()}; {@link
+ * #prazos()} só é lido pelos testes, que conferem os prazos contra a política de privacidade.
  */
 @Component
 public class ExpiracaoDeDados {

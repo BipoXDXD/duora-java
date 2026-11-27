@@ -59,11 +59,11 @@ class RetencaoDeLinks implements PoliticaDeRetencao {
         .update();
   }
 
-  /** Os links já vencidos, inclusive os que ainda estão dentro do dia de folga. */
+  /** Os links vencidos há mais de um dia: os que a próxima rodada apaga. */
   @Override
   public long tamanho() {
-    return jdbc.sql("select count(*) from link_de_entrada where expira_em < :agora")
-        .param("agora", OffsetDateTime.ofInstant(relogio.instant(), ZoneOffset.UTC))
+    return jdbc.sql("select count(*) from link_de_entrada where expira_em < :limite")
+        .param("limite", OffsetDateTime.ofInstant(relogio.instant().minus(PRAZO), ZoneOffset.UTC))
         .query(Long.class)
         .single();
   }

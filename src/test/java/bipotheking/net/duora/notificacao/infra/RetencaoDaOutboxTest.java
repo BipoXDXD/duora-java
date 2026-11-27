@@ -149,20 +149,20 @@ class RetencaoDaOutboxTest extends BancoDeTeste {
   }
 
   @Test
-  void tamanhoAntesEDepois() {
+  void tamanhoContaSoAsVencidasAlemDoPrazo() {
     inserirEnviada(INICIO.minus(Duration.ofDays(8)));
     inserirEnviada(INICIO.minus(Duration.ofDays(1)));
     inserirFalhada(INICIO.minus(Duration.ofDays(31)));
     inserirFalhada(INICIO.minus(Duration.ofDays(1)));
     inserirPendente(INICIO.minus(Duration.ofDays(31)));
 
-    assertThat(enviadas().tamanho()).isEqualTo(2);
-    assertThat(falhadas().tamanho()).isEqualTo(2);
+    assertThat(enviadas().tamanho()).isOne();
+    assertThat(falhadas().tamanho()).isOne();
 
     enviadas().expirar(limite(enviadas()));
     falhadas().expirar(limite(falhadas()));
 
-    assertThat(enviadas().tamanho()).isOne();
-    assertThat(falhadas().tamanho()).isOne();
+    assertThat(enviadas().tamanho()).isZero();
+    assertThat(falhadas().tamanho()).isZero();
   }
 }

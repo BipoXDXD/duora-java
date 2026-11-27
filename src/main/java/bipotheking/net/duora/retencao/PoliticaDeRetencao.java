@@ -28,6 +28,9 @@ public interface PoliticaDeRetencao {
    */
   int expirar(Instant limite);
 
-  /** Quantos itens acumulados existem agora; vira o gauge {@code duora.retencao.tamanho}. */
+  /**
+   * Quantos itens já venceram além do prazo (instante de referência anterior a {@code agora −
+   * prazo()}): o que a próxima rodada deve apagar. Vira o gauge {@code duora.retencao.tamanho}.
+   */
   long tamanho();
 }
