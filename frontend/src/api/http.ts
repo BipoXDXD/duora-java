@@ -47,7 +47,6 @@ export interface OpcoesDaRequisicao {
   corpo?: unknown;
   cabecalhos?: Record<string, string>;
   etag?: string | null;
-  sinal?: AbortSignal;
 }
 
 export interface RespostaHttp {
@@ -102,7 +101,7 @@ function erroDaResposta(resposta: Response, dados: unknown): ErroHttp {
 export async function requisitarHttp(
   metodo: "GET" | "POST",
   caminho: string,
-  { corpo, cabecalhos = {}, etag, sinal }: OpcoesDaRequisicao = {},
+  { corpo, cabecalhos = {}, etag }: OpcoesDaRequisicao = {},
 ): Promise<RespostaHttp> {
   const enviados: Record<string, string> = {
     "X-Duora": "1",
@@ -124,13 +123,8 @@ export async function requisitarHttp(
       credentials: "same-origin",
       cache: "no-store",
       body: corpo === undefined ? undefined : JSON.stringify(corpo),
-      signal: sinal,
     });
   } catch (causa) {
-    // Quem abortou pediu para parar: não é falha de rede para tentar de novo.
-    if (sinal?.aborted) {
-      throw causa;
-    }
     throw new ErroHttp({ status: 0, codigo: "REDE", detalhe: causa instanceof Error ? causa.message : String(causa) });
   }
 
