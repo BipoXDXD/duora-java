@@ -121,13 +121,32 @@
             <artifactId>commonmark-ext-yaml-front-matter</artifactId>
             <version>${commonmark.version}</version>
         </dependency>
-        <!-- Verificação de idade (Etapa 2b): Rekognition Face Liveness e STS para a credencial curta
-             do navegador. Cliente HTTP só o url-connection-client do JDK; Apache (4 e 5) e Netty
-             ficam de fora (ClasspathDaAwsTest trava): desde a 2.59 o pom pai dos serviços puxa o
-             apache5-client, não mais o apache-client. Sem textract: o documento vai para a Didit. -->
+        <!-- Verificação de idade (Etapa 2b): Rekognition (Face Liveness e CompareFaces), Textract
+             (data de nascimento do documento) e STS para a credencial curta do navegador. Cliente
+             HTTP só o url-connection-client do JDK; Apache (4 e 5) e Netty ficam de fora
+             (ClasspathDaAwsTest trava): desde a 2.59 o pom pai dos serviços puxa o apache5-client,
+             não mais o apache-client. -->
         <dependency>
             <groupId>software.amazon.awssdk</groupId>
             <artifactId>rekognition</artifactId>
+            <exclusions>
+                <exclusion>
+                    <groupId>software.amazon.awssdk</groupId>
+                    <artifactId>netty-nio-client</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>software.amazon.awssdk</groupId>
+                    <artifactId>apache-client</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>software.amazon.awssdk</groupId>
+                    <artifactId>apache5-client</artifactId>
+                </exclusion>
+            </exclusions>
+        </dependency>
+        <dependency>
+            <groupId>software.amazon.awssdk</groupId>
+            <artifactId>textract</artifactId>
             <exclusions>
                 <exclusion>
                     <groupId>software.amazon.awssdk</groupId>
@@ -426,10 +445,9 @@
                                 <exclude>**/VisualIT.java</exclude>
                                 <!-- Rede real (Cloudflare): roda só com -Dit.test=TurnstileChavesDeTesteIT -->
                                 <exclude>**/TurnstileChavesDeTesteIT.java</exclude>
-                                <!-- Serviços reais (AWS e Didit, com custo): rodam só com
-                                     -Pe2e -DskipUnitTests=true -Dit.test='VerificacaoAwsSmokeIT,DiditSmokeIT' verify -->
+                                <!-- Serviços reais (AWS, com custo): rodam só com
+                                     -Pe2e -DskipUnitTests=true -Dit.test=VerificacaoAwsSmokeIT verify -->
                                 <exclude>**/VerificacaoAwsSmokeIT.java</exclude>
-                                <exclude>**/DiditSmokeIT.java</exclude>
                             </excludes>
                             <systemPropertyVariables>
                                 <navegador>${navegador}</navegador>

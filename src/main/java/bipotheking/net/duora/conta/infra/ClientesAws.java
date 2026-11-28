@@ -11,6 +11,7 @@ import software.amazon.awssdk.regions.Region;
 import software.amazon.awssdk.regions.ServiceMetadata;
 import software.amazon.awssdk.services.rekognition.RekognitionClient;
 import software.amazon.awssdk.services.sts.StsClient;
+import software.amazon.awssdk.services.textract.TextractClient;
 
 /**
  * Monta os clientes síncronos da AWS usados pela verificação de idade. Região fixa {@code
@@ -40,6 +41,15 @@ final class ClientesAws {
 
   static StsClient sts(ConfiguracaoAws configuracao, Optional<URI> endpoint) {
     return sts(configuracao, configuracao.credencial(), endpoint);
+  }
+
+  static TextractClient textract(ConfiguracaoAws configuracao, Optional<URI> endpoint) {
+    return configurar(
+            TextractClient.builder(),
+            configuracao,
+            configuracao.credencial(),
+            endpoint.orElseGet(() -> oficial(TextractClient.serviceMetadata())))
+        .build();
   }
 
   /**

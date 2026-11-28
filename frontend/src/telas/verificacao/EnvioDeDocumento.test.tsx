@@ -75,12 +75,13 @@ describe("EnvioDeDocumento", () => {
     expect(screen.getByRole("heading", { level: 2, name: TEXTOS.titulo })).toHaveFocus();
   });
 
-  it("mencionaADiditEOApagamento", () => {
+  it("mencionaOParceiroEQueAsImagensNaoFicam", () => {
     abrir();
 
     expect(screen.getByText(TEXTOS.texto)).toBeInTheDocument();
-    expect(TEXTOS.texto).toContain("A Didit, empresa de verificação de identidade");
-    expect(TEXTOS.texto).toContain("A Didit apaga as imagens logo depois");
+    expect(TEXTOS.texto).toContain("Nosso parceiro de verificação, a Amazon Web Services (AWS)");
+    expect(TEXTOS.texto).toContain("A AWS não guarda as imagens");
+    expect(TEXTOS.texto).not.toContain("Didit");
   });
 
   it("inputsAceitamJpegPngComCameraTraseira", () => {

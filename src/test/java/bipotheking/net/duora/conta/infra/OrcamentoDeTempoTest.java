@@ -13,8 +13,9 @@ import org.springframework.core.io.ClassPathResource;
 import org.springframework.core.io.support.PropertiesLoaderUtils;
 
 /**
- * Os timeouts padrão dos fornecedores cabem na reserva de idempotência: a AWS faz até duas
- * tentativas no {@code resultado} e a Didit confere documento e rosto no {@code conferir}.
+ * Os timeouts padrão da AWS cabem na reserva de idempotência: duas chamadas no {@code resultado} da
+ * prova de vida e, no {@code conferir} do documento, até três (frente, verso e rosto), cada uma com
+ * as tentativas dentro do teto da chamada.
  */
 class OrcamentoDeTempoTest {
 
@@ -23,20 +24,13 @@ class OrcamentoDeTempoTest {
     Binder vazio = new Binder(new MapConfigurationPropertySource(Map.of()));
     ConfiguracaoAws aws =
         vazio.bindOrCreate("duora.verificacao.aws", Bindable.of(ConfiguracaoAws.class));
-    ConfiguracaoDidit didit =
-        vazio.bindOrCreate("duora.verificacao.didit", Bindable.of(ConfiguracaoDidit.class));
     Duration reservaMaxima =
         Duration.parse(
             PropertiesLoaderUtils.loadProperties(new ClassPathResource("application.properties"))
                 .getProperty("duora.idempotencia.reserva-maxima"));
 
     Duration resultado = aws.chamada().multipliedBy(2);
-    Duration conferir =
-        didit
-            .conexao()
-            .plus(didit.leituraDoDocumento())
-            .plus(didit.conexao())
-            .plus(didit.leituraDoRosto());
+    Duration conferir = aws.chamada().multipliedBy(3);
 
     assertThat(resultado).isLessThanOrEqualTo(Duration.ofSeconds(10));
     assertThat(conferir).isLessThanOrEqualTo(Duration.ofSeconds(15));
