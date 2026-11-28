@@ -19,3 +19,12 @@ export function MarcaDoSelo(): ReactElement {
   );
 }
 
+/** O selo de idade verificada: a marca e a palavra, para não depender do ícone nem da cor. */
+export function SeloVerificado(): ReactElement {
+  return (
+    <span className="inline-flex items-center gap-(--e-1) text-[0.9375rem] font-semibold leading-[1.25] text-verde-agua forced-colors:text-[CanvasText]">
+      <MarcaDoSelo />
+      Verificado
+    </span>
+  );
+}
