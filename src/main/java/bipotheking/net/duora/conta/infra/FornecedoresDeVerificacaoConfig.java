@@ -1,7 +1,5 @@
 package bipotheking.net.duora.conta.infra;
 
-import static bipotheking.net.duora.conta.infra.Exigencias.exigir;
-
 import io.micrometer.core.instrument.MeterRegistry;
 import java.util.Optional;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
@@ -29,11 +27,11 @@ class FornecedoresDeVerificacaoConfig {
   @Bean
   @ConditionalOnProperty(name = "duora.verificacao.provedor", havingValue = "aws")
   ProvaDeVidaAws provaDeVidaAws(ConfiguracaoAws config, MedicaoDeFornecedor medicao) {
-    config.exigirCompleta();
+    String papelCapturaArn = config.exigirCompleta();
     return new ProvaDeVidaAws(
         ClientesAws.rekognition(config, Optional.empty()),
         ClientesAws.sts(config, Optional.empty()),
-        exigir(config.papelCapturaArn(), "duora.verificacao.aws.papel-captura-arn"),
+        papelCapturaArn,
         medicao);
   }
 

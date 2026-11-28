@@ -28,8 +28,11 @@ record ConfiguracaoAws(
   private static final Pattern ARN_DE_PAPEL =
       Pattern.compile("^arn:aws:iam::\\d{12}:role/[\\w+=,.@-]+$");
 
-  /** Recusa chave ausente ou ARN fora do formato; a mensagem cita só a propriedade. */
-  void exigirCompleta() {
+  /**
+   * Recusa chave ausente ou ARN fora do formato; a mensagem cita só a propriedade. Devolve o ARN do
+   * papel de captura já validado.
+   */
+  String exigirCompleta() {
     exigir(accessKeyId, PREFIXO + "access-key-id");
     exigir(secretAccessKey, PREFIXO + "secret-access-key");
     String arn = exigir(papelCapturaArn, PREFIXO + "papel-captura-arn");
@@ -37,6 +40,7 @@ record ConfiguracaoAws(
       throw new IllegalArgumentException(
           PREFIXO + "papel-captura-arn fora do formato arn:aws:iam::<conta>:role/<nome>");
     }
+    return arn;
   }
 
   /** Sem chave, segredo nem ARN (o ARN traz o número da conta). */
