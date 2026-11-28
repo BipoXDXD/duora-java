@@ -181,7 +181,7 @@ O recorte do perfil para uma audiência: público (encontro), completo (conexão
 _Evitar_: DTO, visão
 
 **Foto pendente**:
-Foto enviada que ainda espera a moderação. Não aparece para ninguém além do titular; a aprovada anterior vale até a nova ser aprovada.
+Foto enviada que ainda espera a moderação. Só a pessoa titular e a moderação a veem; a aprovada anterior vale até a nova ser aprovada.
 _Evitar_: foto em análise, rascunho
 
 **Borrada**:

@@ -50,13 +50,13 @@ class PrazosDaPlataformaTest extends BancoDeTeste {
 
   /**
    * Linhas dos dados do perfil que não têm política de retenção: ficam até a pessoa apagar,
-   * desligar ou excluir a conta, e saem pelos ganchos da exclusão. Preferências, namoro e
-   * orientação são tabelas que dependem de {@code perfil}.
+   * desligar ou excluir a conta, e saem pelos ganchos da exclusão. Ajustes de busca (tabela {@code
+   * preferencias}), namoro e orientação dependem de {@code perfil}.
    */
   private static final List<String> LINHAS_SEM_POLITICA_DO_PERFIL =
       List.of(
           "Conta, perfil e foto",
-          "Preferências de pareamento (idade e distância)",
+          "Ajustes de busca (idade e distância)",
           "Gênero e quem você quer conhecer",
           "Orientação");
 
