@@ -769,7 +769,28 @@ describe("VerificacaoPagina", () => {
     }
 
     expect(await screen.findByText(texto)).toHaveAttribute("role", "alert");
-    expect(screen.getByText("Tentativas restantes hoje: 2")).toBeInTheDocument();
+    // Na falha de carregamento, a repetição reaproveita a sessão: não gasta tentativa, não há contagem.
+    if (estado === "carregamento") {
+      expect(screen.queryByText(/Tentativas restantes hoje/)).not.toBeInTheDocument();
+    } else {
+      expect(screen.getByText("Tentativas restantes hoje: 2")).toBeInTheDocument();
+    }
+    expect(screen.getByRole("button", { name: "Tentar de novo" })).toBeInTheDocument();
+  });
+
+  it("carregamentoNaUltimaTentativaNaoMostraOLimiteDoDia", async () => {
+    const usuario = userEvent.setup();
+    vi.spyOn(console, "error").mockImplementation(() => undefined);
+    coreDoAmplify.quebrar = true;
+    abrirAPagina({
+      situacao: { modo: "aws", tentativasRestantesHoje: 1 },
+      sessoes: [json(201, { ...SESSAO_CRIADA, modo: "aws" })],
+    });
+
+    await consentirEComecar(usuario);
+
+    expect(await screen.findByText(VERIFICACAO_DE_IDADE.falhas.carregamento)).toBeInTheDocument();
+    expect(screen.queryByText(VERIFICACAO_DE_IDADE.limiteDoDia)).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Tentar de novo" })).toBeInTheDocument();
   });
 

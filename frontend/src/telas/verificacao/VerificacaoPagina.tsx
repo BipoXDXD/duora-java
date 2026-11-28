@@ -474,7 +474,8 @@ function ConteudoDaEtapa({
       ) : (
         <FalhaComRepeticao
           texto={VERIFICACAO_DE_IDADE.falhas[etapa.falha]}
-          tentativas={tentativas}
+          // Na falha de carregamento, a repetição reaproveita a sessão: não gasta tentativa, não há contagem.
+          {...(etapa.sessao === undefined ? { tentativas } : {})}
           aoRepetir={novaSelfie}
         />
       );
