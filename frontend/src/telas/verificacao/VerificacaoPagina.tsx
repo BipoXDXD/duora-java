@@ -160,11 +160,14 @@ function Etapas({
   const enviando = useRef(false);
   // O multipart em curso; some quando o envio termina, com sucesso ou não.
   const pedidoDeEnvio = useRef<PedidoDeEnvio | null>(null);
+  // Sobe a cada sessão aberta: a releitura das contagens que começou antes dela já não vale.
+  const sessoesAbertas = useRef(0);
 
   const sessao = useMutation({
     mutationFn: async (finalidade: Finalidade) => {
       const criada = await iniciarSessao(finalidade);
       const contador = finalidade === "SELFIE" ? definirTentativas : definirEnvios;
+      sessoesAbertas.current += 1;
       contador((restantes) => Math.max(0, restantes - 1));
       despachar({ tipo: "sessaoCriada", sessao: criada });
     },
@@ -180,18 +183,40 @@ function Etapas({
   const abrirSessao = sessao.mutate;
 
   /**
+   * Relê a situação no servidor e adota as contagens dele. Vale quando a página não sabe o que o
+   * servidor gastou: o 409 da selfie vencida (só a expirada devolve o envio, D14-bis) e o 404 de
+   * sessão. Uma sessão aberta no meio da releitura já descontou a dela, e a releitura é descartada.
+   */
+  const ressincronizarContagens = (): void => {
+    const antes = sessoesAbertas.current;
+    clienteDeConsulta
+      .query({ ...consultaDaVerificacao, staleTime: 0 })
+      .then((atual) => {
+        if (sessoesAbertas.current === antes) {
+          definirTentativas(atual.tentativasRestantesHoje);
+          definirEnvios(atual.enviosDeDocumentoRestantesHoje);
+        }
+      })
+      // Sem a releitura, a página segue com as contagens que já tinha; o servidor ainda decide o limite.
+      .catch(() => undefined);
+  };
+
+  /**
    * A recusa da conferência ou do envio, já decidida pelo redutor (`resultado`). As de recarga vão para
-   * Minha conta; um desfecho, ou o 404 de sessão (que no envio pode ser um reenvio do que o servidor já
-   * concluiu), diz que a situação no servidor mudou; o menor some com a conta lida antes.
+   * Minha conta; um desfecho diz que a situação no servidor mudou; o menor some com a conta lida antes.
+   * O 404 de sessão (no envio, pode ser um reenvio do que o servidor já concluiu ou descartou) e a selfie
+   * vencida relêem as contagens no servidor.
    */
   const tratarRecusa = (erro: unknown, resultado: Etapa, aoRecusar: () => void): void => {
     if (erro instanceof ErroHttp && CODIGOS_DE_RECARGA.includes(erro.codigo)) {
       navegarParaPagina(CAMINHO_DA_CONTA);
       return;
     }
-    const semSessao = erro instanceof ErroHttp && erro.codigo === "SESSAO_DE_VERIFICACAO_INVALIDA";
-    if (resultado.etapa === "desfecho" || semSessao) {
-      if (resultado.etapa === "desfecho" && resultado.tipo === "menor") {
+    const codigo = erro instanceof ErroHttp ? erro.codigo : null;
+    if (codigo === "SESSAO_DE_VERIFICACAO_INVALIDA" || codigo === "REFAZER_PROVA_DE_VIDA") {
+      ressincronizarContagens();
+    } else if (resultado.etapa === "desfecho") {
+      if (resultado.tipo === "menor") {
         clienteDeConsulta.removeQueries({ queryKey: consultaDaConta.queryKey, exact: true });
       }
       void clienteDeConsulta.invalidateQueries({ queryKey: consultaDaVerificacao.queryKey });
@@ -237,10 +262,6 @@ function Etapas({
         return;
       }
       tratarRecusa(erro, recusaDoEnvio(pedido, erro), () => {
-        // A selfie vencida (D14) descarta a tentativa no servidor, sem gastar o envio reservado na sessão.
-        if (erro instanceof ErroHttp && erro.codigo === "REFAZER_PROVA_DE_VIDA") {
-          definirEnvios((restantes) => restantes + 1);
-        }
         despachar({ tipo: "envioRecusado", erro });
       });
     },

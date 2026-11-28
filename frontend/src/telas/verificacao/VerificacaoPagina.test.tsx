@@ -46,6 +46,7 @@ const SITUACAO: SituacaoDaVerificacao = {
 const ROTA_DA_SESSAO = "/api/conta/verificacao/sessao";
 const ROTA_DO_RESULTADO = "/api/conta/verificacao/sessao/abc/resultado";
 const ROTA_DO_DOCUMENTO = "/api/conta/verificacao/documento";
+const ROTA_DA_SITUACAO = "/api/conta/verificacao";
 
 function desfecho(campos: Record<string, unknown> = {}) {
   return json(200, {
@@ -117,6 +118,8 @@ interface OpcoesDaPagina {
   resultados?: Response[];
   /** As respostas do POST do documento, na ordem; sem mais respostas, fica sem resposta. */
   documentos?: Response[];
+  /** As respostas das releituras da situação (GET), na ordem; sem mais respostas, fica sem resposta. */
+  situacoes?: Response[];
   checarCamera?: () => Promise<ResultadoDaCamera>;
   temSuporte?: boolean;
 }
@@ -159,13 +162,19 @@ function abrirAPagina({
   sessoes = [],
   resultados = [],
   documentos = [],
+  situacoes = [],
   checarCamera,
   temSuporte = true,
 }: OpcoesDaPagina = {}) {
   const fila = [...sessoes];
   const filaDeResultados = [...resultados];
   const filaDeDocumentos = [...documentos];
+  const filaDeSituacoes = [...situacoes];
   const fetchFalso = stubarFetch((entrada) => {
+    if (entrada === ROTA_DA_SITUACAO) {
+      const resposta = filaDeSituacoes.shift();
+      return resposta === undefined ? new Promise<Response>(() => undefined) : Promise.resolve(resposta);
+    }
     if (entrada === ROTA_DA_SESSAO) {
       const resposta = fila.shift();
       return resposta === undefined ? new Promise<Response>(() => undefined) : Promise.resolve(resposta);
@@ -1005,41 +1014,71 @@ describe("VerificacaoPagina", () => {
     expect(await screen.findByText("Envios restantes hoje: 1")).toBeInTheDocument();
   });
 
-  it("envioSemSessaoAtualizaASituacao", async () => {
-    const usuario = userEvent.setup();
-    const { clienteDeConsulta } = abrirAPagina({
-      situacao: SITUACAO_DO_DOCUMENTO,
-      sessoes: [json(201, SESSAO_DO_DOCUMENTO)],
-      documentos: [problema(404, "SESSAO_DE_VERIFICACAO_INVALIDA")],
-    });
-    const invalidar = vi.spyOn(clienteDeConsulta, "invalidateQueries");
-
-    await escolherAsFotos(usuario);
-    await fazerASelfieDoDocumento(usuario);
-
-    expect(await screen.findByRole("alert")).toHaveTextContent(DOCUMENTO.selfieVenceu);
-    expect(invalidar).toHaveBeenCalledWith({ queryKey: ["conta", "verificacao"] });
-  });
-
-  it("refazerDevolveOEnvioNaContagem", async () => {
-    const usuario = userEvent.setup();
-    abrirAPagina({
-      situacao: SITUACAO_DO_DOCUMENTO,
-      // A segunda selfie vem com a AWS: o Core falso deixa a falha acontecer.
-      sessoes: [json(201, SESSAO_DO_DOCUMENTO), json(201, { ...SESSAO_DO_DOCUMENTO, sessaoId: "s3", modo: "aws" })],
-      documentos: [problema(409, "REFAZER_PROVA_DE_VIDA")],
-    });
-
-    await escolherAsFotos(usuario);
-    await fazerASelfieDoDocumento(usuario);
-    await screen.findByText(DOCUMENTO.selfieVenceu);
+  /** A segunda selfie do documento falha no detector: a falha mostra os envios que a página conta. */
+  async function falharASegundaSelfieDoDocumento(usuario: ReturnType<typeof userEvent.setup>) {
     await usuario.click(screen.getByRole("button", { name: DOCUMENTO.fazerSelfie }));
     await screen.findByText("detector amplify");
     act(() => {
       coreDoAmplify.onError?.({ state: "TIMEOUT", error: new Error("tempo") });
     });
+  }
+
+  /** A segunda sessão vem com a AWS: o Core falso deixa a falha acontecer. Respostas novas a cada teste. */
+  function duasSessoesDoDocumento(): Response[] {
+    return [json(201, SESSAO_DO_DOCUMENTO), json(201, { ...SESSAO_DO_DOCUMENTO, sessaoId: "s3", modo: "aws" })];
+  }
+
+  it("envioSemSessaoReleOsEnviosNoServidor", async () => {
+    const usuario = userEvent.setup();
+    abrirAPagina({
+      situacao: SITUACAO_DO_DOCUMENTO,
+      sessoes: duasSessoesDoDocumento(),
+      documentos: [problema(404, "SESSAO_DE_VERIFICACAO_INVALIDA")],
+      situacoes: [json(200, { ...SITUACAO, ...SITUACAO_DO_DOCUMENTO, enviosDeDocumentoRestantesHoje: 2 })],
+    });
+
+    await escolherAsFotos(usuario);
+    await fazerASelfieDoDocumento(usuario);
+    expect(await screen.findByRole("alert")).toHaveTextContent(DOCUMENTO.selfieVenceu);
+    await falharASegundaSelfieDoDocumento(usuario);
+
+    // O servidor devolveu o envio: a segunda sessão o gasta, e ainda sobra um.
+    expect(await screen.findByText("Envios restantes hoje: 1")).toBeInTheDocument();
+  });
+
+  it("refazerComOEnvioDevolvidoMantemOEnvioNaContagem", async () => {
+    const usuario = userEvent.setup();
+    abrirAPagina({
+      situacao: SITUACAO_DO_DOCUMENTO,
+      sessoes: duasSessoesDoDocumento(),
+      documentos: [problema(409, "REFAZER_PROVA_DE_VIDA")],
+      situacoes: [json(200, { ...SITUACAO, ...SITUACAO_DO_DOCUMENTO, enviosDeDocumentoRestantesHoje: 2 })],
+    });
+
+    await escolherAsFotos(usuario);
+    await fazerASelfieDoDocumento(usuario);
+    await screen.findByText(DOCUMENTO.selfieVenceu);
+    await falharASegundaSelfieDoDocumento(usuario);
 
     expect(await screen.findByText("Envios restantes hoje: 1")).toBeInTheDocument();
+  });
+
+  it("refazerComOEnvioGastoSegueOServidor", async () => {
+    const usuario = userEvent.setup();
+    abrirAPagina({
+      situacao: SITUACAO_DO_DOCUMENTO,
+      sessoes: duasSessoesDoDocumento(),
+      documentos: [problema(409, "REFAZER_PROVA_DE_VIDA")],
+      situacoes: [json(200, { ...SITUACAO, ...SITUACAO_DO_DOCUMENTO, enviosDeDocumentoRestantesHoje: 1 })],
+    });
+
+    await escolherAsFotos(usuario);
+    await fazerASelfieDoDocumento(usuario);
+    await screen.findByText(DOCUMENTO.selfieVenceu);
+    await falharASegundaSelfieDoDocumento(usuario);
+
+    // A prova ruim gastou o envio (D14-bis): a segunda selfie era a última de hoje.
+    expect(await screen.findByRole("heading", { level: 2, name: "Conta em análise" })).toBeInTheDocument();
   });
 
   it("falhaNaSelfieDoUltimoEnvioVaiParaAAnalise", async () => {
