@@ -56,7 +56,7 @@ class Salas {
     }
     String token = Segredos.novoToken(Segredos.BYTES_ASSENTO);
     Convite convite = Convite.novo();
-    Participante criador = new Participante(Assento.A, apelido, Segredos.resumo(token));
+    Participante criador = Participante.anonimo(Assento.A, apelido, Segredos.resumo(token));
     Sala sala = new Sala(Segredos.novoIdDeSala(), criador, convite, cenario, relogio, limites);
     todas.add(sala);
     porAssento.put(criador.resumoToken(), sala);
@@ -72,7 +72,7 @@ class Salas {
             .map(c -> porConvite.get(Segredos.resumo(c)))
             .orElseThrow(() -> new ErroApi(Codigo.CONVITE_INVALIDO, "Este convite não vale."));
     String token = Segredos.novoToken(Segredos.BYTES_ASSENTO);
-    Participante parceiro = new Participante(Assento.B, apelido, Segredos.resumo(token));
+    Participante parceiro = Participante.anonimo(Assento.B, apelido, Segredos.resumo(token));
     Visao visao = sala.entrar(parceiro);
     porConvite.remove(sala.resumoConvite(), sala);
     porAssento.put(parceiro.resumoToken(), sala);
