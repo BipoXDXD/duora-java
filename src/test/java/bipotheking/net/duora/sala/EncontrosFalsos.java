@@ -10,6 +10,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import org.springframework.boot.test.context.TestConfiguration;
+import org.springframework.context.annotation.Primary;
 
 /**
  * As portas dos encontros para os testes da fila, sem sala de verdade: a ocupação, os términos
@@ -19,6 +20,7 @@ import org.springframework.boot.test.context.TestConfiguration;
  * lançam {@link UnsupportedOperationException}.
  */
 @TestConfiguration(proxyBeanMethods = false)
+@Primary
 public class EncontrosFalsos implements AberturaDeEncontro, OcupacaoDeEncontros {
 
   private final AtomicInteger ativos = new AtomicInteger();

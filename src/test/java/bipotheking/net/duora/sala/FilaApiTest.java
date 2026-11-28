@@ -18,6 +18,7 @@ import bipotheking.net.duora.perfil.Localizacoes;
 import bipotheking.net.duora.web.BancoDeTeste;
 import bipotheking.net.duora.web.MesmaOrigem;
 import jakarta.servlet.http.Cookie;
+import java.lang.reflect.Proxy;
 import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
@@ -39,6 +40,8 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.boot.test.context.TestConfiguration;
+import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.ResultActions;
@@ -50,7 +53,7 @@ import tools.jackson.databind.json.JsonMapper;
  * que cada teste configura. A entrada simultânea vai pelo Tomcat de verdade, em duas conexões.
  */
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
-@Import({EncontrosFalsos.class, EntregaEspia.class})
+@Import({EncontrosFalsos.class, EntregaEspia.class, FilaApiTest.OutraPonte.class})
 class FilaApiTest extends BancoDeTeste {
 
   private static final LocalDate NASCIMENTO = LocalDate.of(1995, 3, 4);
@@ -307,6 +310,39 @@ class FilaApiTest extends BancoDeTeste {
     assertThat(naFila).extracting(Evento::nome).containsExactly("fila.estado");
     assertThat(naFila.getFirst().dados()).isEqualTo(EstadoNaFila.aguardandoCompativel(INICIO));
     assertThat(foraDaFila).isEmpty();
+  }
+
+  @Test
+  void encontrosFalsosVencemAPonteDaAplicacao() throws Exception {
+    ContaDeTeste lia = pronta("Lia");
+    encontros.ocupar(10, List.of());
+
+    entrar(lia, "{}")
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.situacao").value("AGUARDANDO_VAGA"));
+  }
+
+  /** Outra implementação das portas, como a ponte da {@code room}; qualquer chamada falha. */
+  @TestConfiguration(proxyBeanMethods = false)
+  static class OutraPonte {
+
+    @Bean
+    AberturaDeEncontro outraAbertura() {
+      return (AberturaDeEncontro)
+          Proxy.newProxyInstance(
+              AberturaDeEncontro.class.getClassLoader(),
+              new Class<?>[] {AberturaDeEncontro.class, OcupacaoDeEncontros.class},
+              (proxy, metodo, argumentos) -> {
+                if (metodo.getDeclaringClass() == Object.class) {
+                  return switch (metodo.getName()) {
+                    case "equals" -> proxy == argumentos[0];
+                    case "hashCode" -> System.identityHashCode(proxy);
+                    default -> "OutraPonte";
+                  };
+                }
+                throw new AssertionError("a ponte da aplicação não devia ser chamada");
+              });
+    }
   }
 
   private ContaDeTeste pronta(String apelido) {
