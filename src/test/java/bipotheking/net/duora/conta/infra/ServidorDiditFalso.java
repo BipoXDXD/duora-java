@@ -41,46 +41,43 @@ final class ServidorDiditFalso implements AutoCloseable {
     }
 
     /**
-     * Valor do campo de texto {@code nome} do corpo multipart: o que vem depois da linha em branco
-     * que fecha os cabeçalhos da parte, até a fronteira seguinte. Falha com {@link AssertionError}
-     * se o campo não existir ou se a parte estiver malformada.
+     * Valor do campo de texto {@code nome} do corpo multipart. Falha com {@link AssertionError} se
+     * o campo não existir ou se a parte estiver malformada.
      */
     String campo(String nome) {
+      return conteudoDaParte("name=\"" + nome + "\"\r\n", nome);
+    }
+
+    /**
+     * Bytes do arquivo {@code nome} do corpo multipart (parte com {@code filename}). Falha com
+     * {@link AssertionError} se a parte não existir ou estiver malformada.
+     */
+    byte[] arquivo(String nome) {
+      return conteudoDaParte("name=\"" + nome + "\"; filename=", nome)
+          .getBytes(StandardCharsets.ISO_8859_1);
+    }
+
+    /**
+     * O conteúdo da parte cujo cabeçalho contém {@code marcador}: o que vem depois da linha em
+     * branco que fecha os cabeçalhos, até a fronteira seguinte.
+     */
+    private String conteudoDaParte(String marcador, String nome) {
       String texto = corpoComoTexto();
-      int parte = texto.indexOf("name=\"" + nome + "\"\r\n");
+      int parte = texto.indexOf(marcador);
       if (parte < 0) {
-        throw new AssertionError("O corpo não tem o campo " + nome);
+        throw new AssertionError("O corpo não tem a parte " + nome);
       }
       int fimDosCabecalhos = texto.indexOf("\r\n\r\n", parte);
       if (fimDosCabecalhos < 0) {
         throw new AssertionError(
             "A parte " + nome + " não fecha os cabeçalhos com linha em branco");
       }
-      int valor = fimDosCabecalhos + 4;
-      int fronteira = texto.indexOf("\r\n--", valor);
+      int conteudo = fimDosCabecalhos + 4;
+      int fronteira = texto.indexOf("\r\n--", conteudo);
       if (fronteira < 0) {
         throw new AssertionError("A parte " + nome + " não termina numa fronteira");
       }
-      return texto.substring(valor, fronteira);
-    }
-
-    /**
-     * Bytes do arquivo {@code nome} do corpo multipart (parte com {@code filename}), entre a linha
-     * em branco dos cabeçalhos e a fronteira seguinte. Falha com {@link AssertionError} se a parte
-     * não existir ou estiver malformada.
-     */
-    byte[] arquivo(String nome) {
-      String texto = corpoComoTexto();
-      int parte = texto.indexOf("name=\"" + nome + "\"; filename=");
-      if (parte < 0) {
-        throw new AssertionError("O corpo não tem o arquivo " + nome);
-      }
-      int fimDosCabecalhos = texto.indexOf("\r\n\r\n", parte);
-      int fronteira = fimDosCabecalhos < 0 ? -1 : texto.indexOf("\r\n--", fimDosCabecalhos + 4);
-      if (fronteira < 0) {
-        throw new AssertionError("A parte " + nome + " está malformada");
-      }
-      return texto.substring(fimDosCabecalhos + 4, fronteira).getBytes(StandardCharsets.ISO_8859_1);
+      return texto.substring(conteudo, fronteira);
     }
   }
 

@@ -57,6 +57,7 @@ final class ConferenciaDeDocumentoDidit implements ConferenciaDeDocumento {
   private static final String NAO_RECONHECIDO = "COULD_NOT_RECOGNIZE_DOCUMENT";
   private static final String APROVADO = "Approved";
   private static final Set<String> STATUS_CONHECIDOS = Set.of(APROVADO, "Declined", "In Review");
+  private static final Set<String> STATUS_CONHECIDOS_DO_ROSTO = Set.of(APROVADO, "Declined");
 
   private final RestClient documento;
   private final RestClient rosto;
@@ -163,6 +164,7 @@ final class ConferenciaDeDocumentoDidit implements ConferenciaDeDocumento {
 
   /**
    * {@code Approved} confere; {@code Declined}, outro status ou corpo sem {@code face_match}, não.
+   * Os dois últimos são inesperados e merecem aviso, só com o passo.
    */
   private static Boolean interpretarRosto(ConvertibleClientHttpResponse resposta)
       throws IOException {
@@ -171,7 +173,11 @@ final class ConferenciaDeDocumentoDidit implements ConferenciaDeDocumento {
     }
     RespostaDoRosto corpo = resposta.bodyTo(RespostaDoRosto.class);
     FaceMatch comparacao = corpo == null ? null : corpo.faceMatch();
-    return comparacao != null && APROVADO.equals(comparacao.status());
+    String status = comparacao == null ? null : comparacao.status();
+    if (status == null || !STATUS_CONHECIDOS_DO_ROSTO.contains(status)) {
+      LOG.warn("Didit devolveu status desconhecido em {}: rosto não confere", ROSTO);
+    }
+    return APROVADO.equals(status);
   }
 
   private static LeituraDoDocumento interpretarDocumento(ConvertibleClientHttpResponse resposta)
