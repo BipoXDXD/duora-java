@@ -52,14 +52,16 @@ class PrazosDaPlataformaTest extends BancoDeTeste {
   /**
    * Linhas sem política de retenção: os dados ficam até a pessoa apagar, desligar ou excluir a
    * conta, e saem pelos ganchos da exclusão. Ajustes de busca (tabela {@code preferencias}), namoro
-   * e orientação dependem de {@code perfil}.
+   * e orientação dependem de {@code perfil}; os pares vetados (tabela {@code par_vetado}) nunca
+   * vencem.
    */
   private static final List<String> LINHAS_SEM_POLITICA =
       List.of(
           "Conta, perfil e foto",
           "Ajustes de busca (idade e distância)",
           "Gênero e quem você quer conhecer",
-          "Orientação");
+          "Orientação",
+          "Pares que não voltam a se encontrar");
 
   private static final Pattern PRAZO = Pattern.compile("(\\d+) (minutos?|horas?|dias?|mês|meses)");
 
