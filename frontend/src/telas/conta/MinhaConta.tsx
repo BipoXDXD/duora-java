@@ -5,6 +5,7 @@ import { excluirConta, sairDaConta } from "../../api/conta";
 import type { Conta } from "../../api/estadoDaConta";
 import { ErroHttp } from "../../api/http";
 import { DialogoDeConfirmacao } from "../../componentes/DialogoDeConfirmacao";
+import { MarcaDoSelo } from "../../componentes/SeloVerificado";
 import { BOTAO_PERIGO, BOTAO_SECUNDARIO_SEM_MARGEM, LINK_DE_ACAO, TITULO_DA_CASCA } from "../../componentes/estilos";
 import { CAMINHO_DA_VERIFICACAO } from "../../rotas/caminhosDaCasca";
 import { consultaDaConta } from "../../rotas/consultas";
@@ -17,25 +18,6 @@ const ID_DA_FALHA_AO_EXCLUIR = "minha-conta-falha-ao-excluir";
 
 const AVISO_DE_FALHA = "m-0 text-[0.9375rem] leading-[1.45] text-coral";
 const PARAGRAFO = "m-0 text-texto-2 text-[1.125rem] leading-[1.5]";
-
-/** A marca do selo: decorativa, o texto ao lado já diz tudo. */
-function MarcaDoSelo(): ReactElement {
-  return (
-    <svg
-      aria-hidden="true"
-      viewBox="0 0 20 20"
-      className="size-5 shrink-0 text-verde-agua forced-colors:text-[CanvasText]"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    >
-      <circle cx="10" cy="10" r="8.5" />
-      <path d="m6.5 10.25 2.25 2.25 4.75-5" />
-    </svg>
-  );
-}
 
 /** O texto da recusa: a conta indisponível tem a mensagem do servidor; o resto, a falha sem resposta. */
 function textoDaFalha(erro: Error, falhaSemResposta: string): string {
