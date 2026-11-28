@@ -3,6 +3,14 @@
 import { queryOptions } from "@tanstack/react-query";
 import { obterConta } from "../api/estadoDaConta";
 import { obterVersoesLegais } from "../api/legal";
+import {
+  obterLocalizacao,
+  obterMeuPerfil,
+  obterNamoro,
+  obterOrientacao,
+  obterPerfilPublico,
+  obterPreferencias,
+} from "../api/perfil";
 import { obterVerificacao } from "../api/verificacao";
 
 /** A conta da sessão (null quando anônimo). Quem abre ou fecha uma sessão invalida esta chave. */
@@ -21,3 +29,22 @@ export const consultaDasVersoesLegais = queryOptions({
 
 /** A situação da verificação de idade da conta, lida do servidor a cada chegada à /verificacao. */
 export const consultaDaVerificacao = queryOptions({ queryKey: ["conta", "verificacao"], queryFn: obterVerificacao });
+
+// Perfil (Etapa 3): sem staleTime; quem grava invalida a chave ou escreve a resposta no cache.
+
+export const consultaDoMeuPerfil = queryOptions({ queryKey: ["perfil"], queryFn: obterMeuPerfil });
+
+export const consultaDasPreferencias = queryOptions({
+  queryKey: ["perfil", "preferencias"],
+  queryFn: obterPreferencias,
+});
+
+export const consultaDaLocalizacao = queryOptions({ queryKey: ["perfil", "localizacao"], queryFn: obterLocalizacao });
+
+export const consultaDoNamoro = queryOptions({ queryKey: ["perfil", "namoro"], queryFn: obterNamoro });
+
+export const consultaDaOrientacao = queryOptions({ queryKey: ["perfil", "orientacao"], queryFn: obterOrientacao });
+
+export function consultaDoPerfilPublico(contaId: string) {
+  return queryOptions({ queryKey: ["perfis", contaId], queryFn: () => obterPerfilPublico(contaId) });
+}
