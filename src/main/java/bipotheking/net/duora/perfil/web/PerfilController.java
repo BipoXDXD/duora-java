@@ -3,6 +3,7 @@ package bipotheking.net.duora.perfil.web;
 import bipotheking.net.duora.conta.ContaAtual;
 import bipotheking.net.duora.conta.ContaId;
 import bipotheking.net.duora.perfil.Intencao;
+import bipotheking.net.duora.perfil.PausaDaConta;
 import bipotheking.net.duora.perfil.Pronomes;
 import bipotheking.net.duora.perfil.ServicoDePerfil;
 import bipotheking.net.duora.perfil.dominio.Apelido;
@@ -27,12 +28,14 @@ import org.springframework.web.bind.annotation.RestController;
 class PerfilController {
 
   private static final PerfilJson SEM_PERFIL =
-      new PerfilJson(null, null, null, null, List.of(), "");
+      new PerfilJson(null, null, null, null, List.of(), "", false);
 
   private final ServicoDePerfil servico;
+  private final PausaDaConta pausa;
 
-  PerfilController(ServicoDePerfil servico) {
+  PerfilController(ServicoDePerfil servico, PausaDaConta pausa) {
     this.servico = servico;
+    this.pausa = pausa;
   }
 
   /** Campo ausente chega nulo; o domínio recusa com o código do contrato. */
@@ -44,16 +47,17 @@ class PerfilController {
       @Nullable List<Intencao> intencoes,
       @Nullable String bio) {}
 
-  /** O perfil como o front o lê. As Tasks D4 e D5 acrescentam chaves. */
+  /** O perfil como o front o lê. A Task D5 acrescenta chaves. */
   record PerfilJson(
       @Nullable Long versao,
       @Nullable String apelido,
       @Nullable Pronomes pronomes,
       @Nullable String descricaoPronomes,
       List<Intencao> intencoes,
-      String bio) {
+      String bio,
+      boolean pausada) {
 
-    static PerfilJson de(Perfil perfil) {
+    static PerfilJson de(Perfil perfil, boolean pausada) {
       EdicaoDoPerfil dados = perfil.dados();
       Optional<PronomesEscolhidos> pronomes = dados.pronomes();
       return new PerfilJson(
@@ -62,13 +66,17 @@ class PerfilController {
           pronomes.map(PronomesEscolhidos::pronomes).orElse(null),
           pronomes.flatMap(PronomesEscolhidos::descricao).map(DescricaoCurta::valor).orElse(null),
           List.copyOf(dados.intencoes().valores()),
-          dados.bio().valor());
+          dados.bio().valor(),
+          pausada);
     }
   }
 
   @GetMapping
   PerfilJson consultar(@ContaAtual ContaId conta) {
-    return servico.meu(conta).map(PerfilJson::de).orElse(SEM_PERFIL);
+    return servico
+        .meu(conta)
+        .map(perfil -> PerfilJson.de(perfil, pausa.pausada(conta)))
+        .orElse(SEM_PERFIL);
   }
 
   @PutMapping
@@ -79,6 +87,6 @@ class PerfilController {
             PronomesEscolhidos.de(corpo.pronomes(), corpo.descricaoPronomes()),
             Intencoes.de(corpo.intencoes()),
             Bio.de(corpo.bio()));
-    return PerfilJson.de(servico.salvar(conta, corpo.versao(), dados));
+    return PerfilJson.de(servico.salvar(conta, corpo.versao(), dados), pausa.pausada(conta));
   }
 }

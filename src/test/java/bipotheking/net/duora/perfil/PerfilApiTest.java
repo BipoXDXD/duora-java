@@ -40,7 +40,8 @@ class PerfilApiTest extends BancoDeTeste {
             content()
                 .json(
                     "{\"versao\":null,\"apelido\":null,\"pronomes\":null,"
-                        + "\"descricaoPronomes\":null,\"intencoes\":[],\"bio\":\"\"}",
+                        + "\"descricaoPronomes\":null,\"intencoes\":[],\"bio\":\"\","
+                        + "\"pausada\":false}",
                     JsonCompareMode.STRICT));
   }
 
@@ -54,7 +55,8 @@ class PerfilApiTest extends BancoDeTeste {
             content()
                 .json(
                     "{\"versao\":1,\"apelido\":\"Bia\",\"pronomes\":null,"
-                        + "\"descricaoPronomes\":null,\"intencoes\":[\"AMIZADE\"],\"bio\":\"oi\"}",
+                        + "\"descricaoPronomes\":null,\"intencoes\":[\"AMIZADE\"],\"bio\":\"oi\","
+                        + "\"pausada\":false}",
                     JsonCompareMode.STRICT));
   }
 
