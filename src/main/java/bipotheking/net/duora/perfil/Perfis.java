@@ -3,6 +3,7 @@ package bipotheking.net.duora.perfil;
 import bipotheking.net.duora.conta.ConsultaDeContas;
 import bipotheking.net.duora.conta.ContaId;
 import bipotheking.net.duora.conta.ContaResumo;
+import bipotheking.net.duora.conta.EstadoConta;
 import bipotheking.net.duora.perfil.dominio.DadosDeNamoro;
 import bipotheking.net.duora.perfil.dominio.DadosDeOrientacao;
 import bipotheking.net.duora.perfil.dominio.EdicaoDoPerfil;
