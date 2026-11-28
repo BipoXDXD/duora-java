@@ -1,5 +1,6 @@
 package bipotheking.net.duora.retencao;
 
+import static java.util.Map.entry;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import bipotheking.net.duora.web.BancoDeTeste;
@@ -34,15 +35,16 @@ class PrazosDaPlataformaTest extends BancoDeTeste {
    * idade nunca são gravados: não há o que expirar.
    */
   private static final Map<String, List<String>> POLITICAS_POR_LINHA =
-      Map.of(
-          "Link de entrada", List.of("links-de-entrada"),
-          "Sessão", List.of("sessoes-expiradas"),
-          "E-mails na fila de envio", List.of("outbox-enviada", "outbox-falhada"),
-          "Chaves de repetição de pedidos", List.of("chaves-de-idempotencia"),
-          "Registros de acesso (IP, porta e horário)", List.of("registros-de-acesso"),
-          "Denúncias feitas sem conta", List.of("denuncias-publicas"),
-          "Contagens diárias de conta nova", List.of("uso-conta-nova"),
-          "Tentativas de verificação de idade", List.of("tentativas-de-verificacao"));
+      Map.ofEntries(
+          entry("Link de entrada", List.of("links-de-entrada")),
+          entry("Sessão", List.of("sessoes-expiradas")),
+          entry("E-mails na fila de envio", List.of("outbox-enviada", "outbox-falhada")),
+          entry("Chaves de repetição de pedidos", List.of("chaves-de-idempotencia")),
+          entry("Registros de acesso (IP, porta e horário)", List.of("registros-de-acesso")),
+          entry("Denúncias feitas sem conta", List.of("denuncias-publicas")),
+          entry("Contagens diárias de conta nova", List.of("uso-conta-nova")),
+          entry("Tentativas de verificação de idade", List.of("tentativas-de-verificacao")),
+          entry("Localização (área de cerca de 5 km)", List.of("localizacoes-paradas")));
 
   private static final Pattern PRAZO = Pattern.compile("(\\d+) (minutos?|horas?|dias?|mês|meses)");
 
