@@ -42,4 +42,47 @@ class CatalogoDeCenariosTest {
     assertThatThrownBy(() -> new CatalogoDeCenarios(nenhum))
         .isInstanceOf(IllegalArgumentException.class);
   }
+
+  @Test
+  void sorteaveisSegueAOrdemDada() {
+    CatalogoDeCenarios comSorteaveis =
+        new CatalogoDeCenarios(
+            List.of(Terraco.CENARIO, CenarioMinimo.CENARIO), List.of("minimo", "terraco"));
+
+    assertThat(comSorteaveis.sorteaveis()).containsExactly(CenarioMinimo.CENARIO, Terraco.CENARIO);
+  }
+
+  @Test
+  void idDesconhecidoFalha() {
+    List<Cenario> cenarios = List.of(Terraco.CENARIO);
+    List<String> sorteaveis = List.of("terraco", "vulcao");
+
+    assertThatThrownBy(() -> new CatalogoDeCenarios(cenarios, sorteaveis))
+        .isInstanceOf(IllegalArgumentException.class)
+        .hasMessageContaining("vulcao");
+  }
+
+  @Test
+  void sorteavelRepetidoFalha() {
+    List<Cenario> cenarios = List.of(Terraco.CENARIO);
+    List<String> sorteaveis = List.of("terraco", "terraco");
+
+    assertThatThrownBy(() -> new CatalogoDeCenarios(cenarios, sorteaveis))
+        .isInstanceOf(IllegalArgumentException.class)
+        .hasMessageContaining("terraco");
+  }
+
+  @Test
+  void semSorteavelFalha() {
+    List<Cenario> cenarios = List.of(Terraco.CENARIO);
+    List<String> nenhum = List.of();
+
+    assertThatThrownBy(() -> new CatalogoDeCenarios(cenarios, nenhum))
+        .isInstanceOf(IllegalArgumentException.class);
+  }
+
+  @Test
+  void construtorAntigoDeixaTodosSorteaveis() {
+    assertThat(catalogo.sorteaveis()).containsExactly(Terraco.CENARIO, CenarioMinimo.CENARIO);
+  }
 }
