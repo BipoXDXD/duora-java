@@ -179,7 +179,9 @@ describe("MeuPerfil", () => {
     });
     expect(campo).toHaveAccessibleDescription(`Até 20 caracteres. ${mensagem}`);
     expect(campo).toHaveFocus();
-    expect(screen.getByRole("alert")).toHaveTextContent("");
+    for (const alerta of screen.getAllByRole("alert")) {
+      expect(alerta).toHaveTextContent("");
+    }
   });
 
   it("outroErroMostraFalhaGeral", async () => {
