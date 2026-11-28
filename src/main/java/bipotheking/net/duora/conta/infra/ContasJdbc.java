@@ -80,6 +80,14 @@ class ContasJdbc implements RepositorioDeContas {
   }
 
   @Override
+  public Optional<Conta> travar(ContaId id) {
+    return jdbc.sql(COLUNAS + " where id = :id for update")
+        .param("id", id.valor())
+        .query((rs, linha) -> conta(rs))
+        .optional();
+  }
+
+  @Override
   public boolean marcarAguardandoVerificacao(ContaId id, LocalDate nascimento) {
     return jdbc.sql(
                 """
@@ -106,6 +114,21 @@ class ContasJdbc implements RepositorioDeContas {
             .param("agora", OffsetDateTime.ofInstant(agora, ZoneOffset.UTC))
             .param("id", id.valor())
             .param("disponiveis", DISPONIVEIS)
+            .update()
+        == 1;
+  }
+
+  @Override
+  public boolean ativar(ContaId id, Instant agora) {
+    return jdbc.sql(
+                """
+                update conta set estado = :ativa, ativada_em = :agora
+                where id = :id and estado = :aguardando
+                """)
+            .param("ativa", EstadoConta.ATIVA.name())
+            .param("agora", OffsetDateTime.ofInstant(agora, ZoneOffset.UTC))
+            .param("id", id.valor())
+            .param("aguardando", EstadoConta.AGUARDANDO_VERIFICACAO.name())
             .update()
         == 1;
   }

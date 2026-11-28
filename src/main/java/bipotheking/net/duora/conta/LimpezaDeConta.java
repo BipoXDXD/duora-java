@@ -5,6 +5,7 @@ import bipotheking.net.duora.conta.dominio.RepositorioDeAceites;
 import bipotheking.net.duora.conta.dominio.RepositorioDeBloqueios;
 import bipotheking.net.duora.conta.dominio.RepositorioDeContas;
 import bipotheking.net.duora.conta.dominio.RepositorioDeLinks;
+import bipotheking.net.duora.conta.dominio.RepositorioDeVerificacoes;
 import bipotheking.net.duora.notificacao.Outbox;
 import java.time.Instant;
 import org.springframework.stereotype.Component;
@@ -16,9 +17,9 @@ import org.springframework.stereotype.Component;
  * pedido que já travou termina antes, e o link e a mensagem dele entram na limpeza; um pedido que
  * chega depois espera o commit. Os links saem antes das sessões: uma confirmação que consumiu um
  * link em paralelo segura a linha dele, então a limpeza espera o commit dela e revoga também a
- * sessão que ela abriu. A exclusão vem antes de apagar os aceites: se um cadastro concorrente da
- * mesma conta gravou aceites, a trava da linha da conta faz esta transação esperar o commit dele e
- * vê-los.
+ * sessão que ela abriu. A exclusão vem antes de apagar os aceites e a verificação de idade: se um
+ * cadastro ou uma reserva de tentativa concorrente da mesma conta gravou linhas, a trava da linha
+ * da conta faz esta transação esperar o commit dele e vê-las.
  */
 @Component
 class LimpezaDeConta {
@@ -30,6 +31,7 @@ class LimpezaDeConta {
   private final ResumoDeEmail resumoDeEmail;
   private final Outbox outbox;
   private final Sessoes sessoes;
+  private final RepositorioDeVerificacoes verificacoes;
 
   LimpezaDeConta(
       RepositorioDeContas contas,
@@ -38,7 +40,8 @@ class LimpezaDeConta {
       RepositorioDeLinks links,
       ResumoDeEmail resumoDeEmail,
       Outbox outbox,
-      Sessoes sessoes) {
+      Sessoes sessoes,
+      RepositorioDeVerificacoes verificacoes) {
     this.contas = contas;
     this.aceites = aceites;
     this.bloqueios = bloqueios;
@@ -46,6 +49,7 @@ class LimpezaDeConta {
     this.resumoDeEmail = resumoDeEmail;
     this.outbox = outbox;
     this.sessoes = sessoes;
+    this.verificacoes = verificacoes;
   }
 
   /**
@@ -71,6 +75,15 @@ class LimpezaDeConta {
     return apagar(id, email, titular, agora);
   }
 
+  /**
+   * Toma a trava do e-mail sem apagar nada, para quem precisa dela antes das outras (a ordem das
+   * travas é e-mail, conta, tentativas). A trava é de transação e reentrante: a exclusão que vem
+   * depois, na mesma transação, a toma de novo sem esperar.
+   */
+  void travarEmail(Email email) {
+    travar(email);
+  }
+
   private String travar(Email email) {
     String titular = resumoDeEmail.hex(email);
     links.travarEmail(titular);
@@ -79,9 +92,10 @@ class LimpezaDeConta {
 
   /**
    * Apaga os links do e-mail (nenhuma linha guarda o e-mail), a carga das mensagens pendentes (o
-   * link pendente não sai), as sessões, os dados da conta e os aceites. Só com a trava tomada. A
-   * linha da conta é a última trava: a exclusão condicional espera quem a mudou em paralelo e vê o
-   * estado dele. Os aceites só saem se a conta foi excluída.
+   * link pendente não sai), as sessões, os dados da conta, os aceites e a verificação de idade
+   * (tentativas e aprovação). Só com a trava tomada. A linha da conta é a última trava: a exclusão
+   * condicional espera quem a mudou em paralelo e vê o estado dele. Aceites e verificação só saem
+   * se a conta foi excluída.
    *
    * @return se a conta estava num estado disponível e foi excluída
    */
@@ -93,6 +107,7 @@ class LimpezaDeConta {
       return false;
     }
     aceites.apagarDaConta(id);
+    verificacoes.apagarDaConta(id);
     return true;
   }
 }

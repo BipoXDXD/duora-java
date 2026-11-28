@@ -179,6 +179,24 @@ class ContasJdbcTest extends BancoDeTeste {
         });
   }
 
+  /** A ativação só sai de {@code AGUARDANDO_VERIFICACAO}: nem da pendente, nem duas vezes. */
+  @Test
+  void ativarSoSaiDeAguardando() {
+    ContaId pendente = contas.criar(EstadoConta.PENDENTE, null).id();
+    ContaId aguardando = contas.criar(EstadoConta.AGUARDANDO_VERIFICACAO, NASCIMENTO).id();
+
+    assertThat(repositorio.ativar(pendente, INICIO)).isFalse();
+    assertThat(repositorio.ativar(aguardando, INICIO)).isTrue();
+    assertThat(repositorio.ativar(aguardando, INICIO.plus(Duration.ofHours(1)))).isFalse();
+
+    assertThat(repositorio.porId(pendente)).map(Conta::estado).contains(EstadoConta.PENDENTE);
+    assertThat(repositorio.porId(aguardando))
+        .hasValueSatisfying(conta -> {
+          assertThat(conta.estado()).isEqualTo(EstadoConta.ATIVA);
+          assertThat(conta.ativadaEm()).isEqualTo(INICIO);
+        });
+  }
+
   /** Insere direto, para testar os checks do esquema: cada caso viola uma regra só. */
   private void inserir(
       EstadoConta estado,

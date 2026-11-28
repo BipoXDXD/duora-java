@@ -2,6 +2,7 @@ package bipotheking.net.duora.e2e;
 
 import static bipotheking.net.duora.e2e.Axe.assertSemViolacoes;
 import static com.microsoft.playwright.assertions.PlaywrightAssertions.assertThat;
+import static java.nio.charset.StandardCharsets.UTF_8;
 
 import bipotheking.net.duora.conta.ContasDeTeste;
 import bipotheking.net.duora.conta.EstadoConta;
@@ -13,6 +14,7 @@ import com.microsoft.playwright.options.AriaRole;
 import java.time.LocalDate;
 import java.time.ZoneId;
 import java.util.Map;
+import java.util.function.Consumer;
 import org.jspecify.annotations.Nullable;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -41,6 +43,46 @@ class AxeContaIT extends ContaE2eBase {
       "instance":"/api/conta/entrar","codigo":"LIMITE_DE_TAXA",\
       "mensagem":"Muitas tentativas. Tente de novo em alguns minutos."}\
       """;
+
+  private static final String SITUACAO_SEM_TENTATIVAS =
+      """
+      {"estado":"AGUARDANDO","tentativasRestantesHoje":0,"enviosDeDocumentoRestantesHoje":2,\
+      "modo":"falso"}\
+      """;
+
+  private static final String SITUACAO_EM_ANALISE =
+      """
+      {"estado":"DUVIDA","tentativasRestantesHoje":0,"enviosDeDocumentoRestantesHoje":0,\
+      "modo":"falso"}\
+      """;
+
+  private static final String RESULTADO_REPETIR =
+      """
+      {"resultado":"REPETIR","pedeDocumento":false,"tentativasRestantesHoje":1,\
+      "enviosDeDocumentoRestantesHoje":2}\
+      """;
+
+  private static final String RESULTADO_REPETIR_SEM_TENTATIVAS =
+      """
+      {"resultado":"REPETIR","pedeDocumento":false,"tentativasRestantesHoje":0,\
+      "enviosDeDocumentoRestantesHoje":2}\
+      """;
+
+  /** A faixa de dúvida com envios de documento hoje: a página abre no envio das fotos. */
+  private static final String SITUACAO_DO_DOCUMENTO =
+      """
+      {"estado":"DUVIDA","tentativasRestantesHoje":0,"enviosDeDocumentoRestantesHoje":2,\
+      "modo":"falso"}\
+      """;
+
+  private static final String DOCUMENTO_NAO_LIDO =
+      """
+      {"resultado":"REPETIR","pedeDocumento":false,"tentativasRestantesHoje":0,\
+      "enviosDeDocumentoRestantesHoje":1}\
+      """;
+
+  /** O pedaço do detector do modo falso, que a página só baixa quando a captura começa. */
+  private static final String PEDACO_DO_DETECTOR_FALSO = "**/app/DetectorFalso-*.js";
 
   /** Base64url com o tamanho de um token de 32 bytes, que nunca foi emitido. */
   private static final String TOKEN_INEXISTENTE = "A".repeat(43);
@@ -132,22 +174,262 @@ class AxeContaIT extends ContaE2eBase {
   }
 
   @Test
-  void aguardando(Participantes participantes) {
+  void verificacao(Participantes participantes) {
     ContaPagina conta =
         logado(participantes, EstadoConta.AGUARDANDO_VERIFICACAO, NASCIMENTO_DE_ADULTO)
-            .abrir(raiz() + "aguardando");
+            .abrir(raiz() + "verificacao");
 
-    assertThat(conta.heading("Cadastro recebido")).isVisible();
+    assertThat(conta.heading("Confirme sua idade")).isVisible();
 
-    assertSemViolacoes(conta.page(), "aguardando");
+    assertSemViolacoes(conta.page(), "verificação");
+  }
+
+  /**
+   * A explicação, com a API da verificação simulada: o aviso de luz traz o e-mail do encarregado.
+   */
+  @Test
+  void verificacaoExplicacao(Participantes participantes) {
+    VerificacaoPagina verificacao = verificacaoSimulada(participantes, api -> {});
+
+    assertThat(verificacao.heading("Confirme sua idade")).isVisible();
+    assertThat(
+            verificacao
+                .page()
+                .getByRole(
+                    AriaRole.LINK,
+                    new Page.GetByRoleOptions().setName("encarregado@exemplo.invalid")))
+        .hasAttribute("href", "mailto:encarregado@exemplo.invalid");
+    verificacao.textoVisivel("Tentativas restantes hoje: 3");
+
+    assertSemViolacoes(verificacao.page(), "verificação: explicação");
+  }
+
+  @Test
+  void verificacaoLimite(Participantes participantes) {
+    VerificacaoPagina verificacao =
+        verificacaoSimulada(participantes, api -> api.comSituacao(SITUACAO_SEM_TENTATIVAS));
+
+    verificacao.textoVisivel("Você chegou ao limite de tentativas de hoje. Tente de novo amanhã.");
+
+    assertSemViolacoes(verificacao.page(), "verificação: limite");
+  }
+
+  @Test
+  void verificacaoServicoFora(Participantes participantes) {
+    VerificacaoPagina verificacao =
+        verificacaoSimulada(
+            participantes,
+            api ->
+                api.comSessao(
+                    ApiDeVerificacaoSimulada.Resposta.problema(
+                        503,
+                        "PROVA_DE_VIDA_INDISPONIVEL",
+                        "A verificação está fora do ar. Tente de novo em alguns minutos.")));
+
+    verificacao
+        .consentirEComecar()
+        .textoVisivel("O serviço de verificação não respondeu. Tente de novo em instantes.");
+    assertThat(verificacao.botao("Tentar de novo")).isVisible();
+
+    assertSemViolacoes(verificacao.page(), "verificação: serviço fora");
+  }
+
+  @Test
+  void verificacaoCapturaSimulada(Participantes participantes) {
+    VerificacaoPagina verificacao = verificacaoSimulada(participantes, api -> {});
+
+    verificacao.consentirEComecar().textoVisivel("Modo de teste: nenhuma câmera é usada.");
+    assertThat(verificacao.botao("Simular captura")).isVisible();
+
+    assertSemViolacoes(verificacao.page(), "verificação: captura simulada");
+  }
+
+  @Test
+  void verificacaoAprovada(Participantes participantes) {
+    VerificacaoPagina verificacao = verificacaoSimulada(participantes, api -> {});
+
+    verificacao.consentirEComecar().simularCaptura();
+    assertThat(verificacao.heading("Idade confirmada")).isFocused();
+    assertThat(
+            verificacao
+                .page()
+                .getByRole(AriaRole.LINK, new Page.GetByRoleOptions().setName("Continuar")))
+        .hasAttribute("href", "/");
+
+    assertSemViolacoes(verificacao.page(), "verificação: aprovada");
+  }
+
+  @Test
+  void verificacaoRepetir(Participantes participantes) {
+    VerificacaoPagina verificacao =
+        verificacaoSimulada(
+            participantes,
+            api ->
+                api.comResultado(ApiDeVerificacaoSimulada.Resposta.json(200, RESULTADO_REPETIR)));
+
+    verificacao.consentirEComecar().simularCaptura();
+    assertThat(verificacao.heading("Não deu para confirmar")).isVisible();
+    verificacao.textoVisivel("Tentativas restantes hoje: 1");
+    assertThat(verificacao.botao("Tentar de novo")).isVisible();
+
+    assertSemViolacoes(verificacao.page(), "verificação: repetir");
+  }
+
+  @Test
+  void verificacaoRepetirSemTentativas(Participantes participantes) {
+    VerificacaoPagina verificacao =
+        verificacaoSimulada(
+            participantes,
+            api ->
+                api.comResultado(
+                    ApiDeVerificacaoSimulada.Resposta.json(200, RESULTADO_REPETIR_SEM_TENTATIVAS)));
+
+    verificacao.consentirEComecar().simularCaptura();
+    assertThat(verificacao.heading("Não deu para confirmar")).isVisible();
+    verificacao.textoVisivel("Você chegou ao limite de tentativas de hoje. Tente de novo amanhã.");
+
+    assertSemViolacoes(verificacao.page(), "verificação: repetir sem tentativas");
+  }
+
+  @Test
+  void verificacaoFalhaDoDetector(Participantes participantes) {
+    VerificacaoPagina verificacao = verificacaoSimulada(participantes, api -> {});
+    // Sem o pedaço do detector, a captura falha por carregamento, como numa conexão que caiu.
+    verificacao.page().route(PEDACO_DO_DETECTOR_FALSO, Route::abort);
+
+    verificacao
+        .consentirEComecar()
+        .textoVisivel("Não conseguimos carregar a selfie. Confira a conexão e tente de novo.");
+    assertThat(verificacao.botao("Tentar de novo")).isVisible();
+
+    assertSemViolacoes(verificacao.page(), "verificação: falha do detector");
+  }
+
+  @Test
+  void verificacaoSessaoInvalida(Participantes participantes) {
+    VerificacaoPagina verificacao =
+        verificacaoSimulada(
+            participantes,
+            api ->
+                api.comResultado(
+                    ApiDeVerificacaoSimulada.Resposta.problema(
+                        404,
+                        "SESSAO_DE_VERIFICACAO_INVALIDA",
+                        "A sessão de verificação não vale mais.")));
+
+    verificacao.consentirEComecar().simularCaptura();
+    verificacao.textoVisivel("Esta selfie não vale mais. Comece de novo.");
+    assertThat(verificacao.botao("Tentar de novo")).isVisible();
+
+    assertSemViolacoes(verificacao.page(), "verificação: sessão inválida");
+  }
+
+  @Test
+  void verificacaoMenor(Participantes participantes) {
+    VerificacaoPagina verificacao =
+        verificacaoSimulada(
+            participantes,
+            api ->
+                api.comResultado(
+                    ApiDeVerificacaoSimulada.Resposta.problema(
+                        422, "MENOR_DE_IDADE", "O Duora é só para maiores de 18 anos.")));
+
+    verificacao.consentirEComecar().simularCaptura();
+    assertThat(verificacao.heading("Cadastro não concluído")).isVisible();
+    verificacao.textoVisivel("O Duora é só para maiores de 18 anos. Encerramos o cadastro.");
+
+    assertSemViolacoes(verificacao.page(), "verificação: menor");
+  }
+
+  @Test
+  void verificacaoDocumento(Participantes participantes) {
+    VerificacaoPagina verificacao =
+        verificacaoSimulada(participantes, api -> api.comSituacao(SITUACAO_DO_DOCUMENTO));
+
+    assertThat(verificacao.heading("Falta pouco")).isVisible();
+    verificacao.textoVisivel("Escolha as fotos da frente e do verso.");
+    verificacao.escolherDocumento(
+        DocumentoSintetico.jpeg("frente"), DocumentoSintetico.jpeg("verso"));
+    verificacao.textoVisivel("Logo depois da selfie, enviamos tudo de uma vez.");
+
+    assertSemViolacoes(verificacao.page(), "verificação: documento");
+  }
+
+  @Test
+  void verificacaoFotoIlegivel(Participantes participantes) {
+    VerificacaoPagina verificacao =
+        verificacaoSimulada(participantes, api -> api.comSituacao(SITUACAO_DO_DOCUMENTO));
+
+    // Bytes que nenhum navegador decodifica, com o tipo de um JPEG: a redução recusa a foto.
+    verificacao
+        .escolherFoto("Frente do documento", "isto não é uma imagem".getBytes(UTF_8))
+        .textoVisivel("Não conseguimos abrir esta foto. Tire outra.");
+    assertThat(verificacao.campoDaFoto("Frente do documento")).hasAttribute("aria-invalid", "true");
+
+    assertSemViolacoes(verificacao.page(), "verificação: foto ilegível");
+  }
+
+  @Test
+  void verificacaoDocumentoNaoLido(Participantes participantes) {
+    VerificacaoPagina verificacao =
+        verificacaoSimulada(
+            participantes,
+            api ->
+                api.comSituacao(SITUACAO_DO_DOCUMENTO)
+                    .comDocumento(ApiDeVerificacaoSimulada.Resposta.json(200, DOCUMENTO_NAO_LIDO)));
+
+    verificacao
+        .escolherDocumento(DocumentoSintetico.jpeg("frente"), DocumentoSintetico.jpeg("verso"))
+        .fazerSelfieDoDocumento()
+        .simularCaptura()
+        .textoVisivel(
+            "Não conseguimos ler o documento. Use boa luz, sem reflexo, com as quatro pontas"
+                + " aparecendo.")
+        .textoVisivel("Envios restantes hoje: 1");
+    assertThat(verificacao.heading("Falta pouco")).isFocused();
+
+    assertSemViolacoes(verificacao.page(), "verificação: documento não lido");
+  }
+
+  @Test
+  void verificacaoSelfieVenceu(Participantes participantes) {
+    VerificacaoPagina verificacao =
+        verificacaoSimulada(
+            participantes,
+            api ->
+                api.comSituacao(SITUACAO_DO_DOCUMENTO)
+                    .comDocumento(
+                        ApiDeVerificacaoSimulada.Resposta.problema(
+                            409,
+                            "REFAZER_PROVA_DE_VIDA",
+                            "A selfie venceu antes do envio. Faça uma nova.")));
+
+    verificacao
+        .escolherDocumento(DocumentoSintetico.jpeg("frente"), DocumentoSintetico.jpeg("verso"))
+        .fazerSelfieDoDocumento()
+        .simularCaptura()
+        .textoVisivel("A selfie venceu antes do envio. Faça uma nova; as fotos continuam aqui.");
+    assertThat(verificacao.botao("Fazer a selfie")).not().hasAttribute("aria-disabled", "true");
+
+    assertSemViolacoes(verificacao.page(), "verificação: selfie venceu");
+  }
+
+  @Test
+  void verificacaoEmAnalise(Participantes participantes) {
+    VerificacaoPagina verificacao =
+        verificacaoSimulada(participantes, api -> api.comSituacao(SITUACAO_EM_ANALISE));
+
+    assertThat(verificacao.heading("Conta em análise")).isVisible();
+
+    assertSemViolacoes(verificacao.page(), "verificação: em análise");
   }
 
   @Test
   void minhaConta(Participantes participantes) {
     ContaPagina conta = minhaContaAberta(participantes);
 
-    assertThat(conta.page().getByText("Falta confirmar sua idade. Essa etapa chega em breve."))
-        .isVisible();
+    assertThat(conta.page().getByText("Falta confirmar sua idade.")).isVisible();
+    assertThat(conta.link("Confirmar minha idade")).hasAttribute("href", "/verificacao");
     assertSemViolacoes(conta.page(), "minha conta");
   }
 
@@ -249,6 +531,14 @@ class AxeContaIT extends ContaE2eBase {
 
     assertThat(conta.heading("Página não encontrada")).isVisible();
     assertSemViolacoes(conta.page(), "página não encontrada");
+  }
+
+  /** A /verificacao com a conta e a API da verificação respondidas pelo Playwright. */
+  private VerificacaoPagina verificacaoSimulada(
+      Participantes participantes, Consumer<ApiDeVerificacaoSimulada> ajuste) {
+    Page page = participantes.novo().page();
+    ajuste.accept(ApiDeVerificacaoSimulada.instalar(page));
+    return VerificacaoPagina.abrir(page, raiz());
   }
 
   private static ContaPagina semConta(Participantes participantes) {

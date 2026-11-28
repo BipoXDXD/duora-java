@@ -36,6 +36,10 @@ export default defineConfig(({ command }) => ({
     // Sem o polyfill de modulepreload: os navegadores-alvo já têm <link rel="modulepreload">, e ele
     // pesava no orçamento do JS inicial (meta de 80 KB em gzip, TamanhoDoJsInicialTest).
     modulePreload: { polyfill: false },
+    // O chunk do detector do Amplify (app/verificacao-amplify-*) mede 1.073 kB sem gzip e só baixa na
+    // captura; o teto é a medida × 1,1, arredondado à centena. Os outros ficam abaixo de 500 kB
+    // (ChunksDoFrontTest.soOChunkDoAmplifyPassaDe500KB).
+    chunkSizeWarningLimit: 1200,
     rolldownOptions: {
       // Fontes e sprites de /assets/ são servidos pelo Spring (src/main/resources/static) e resolvidos
       // em tempo de execução; declarar como externos evita o aviso "didn't resolve at build time".
@@ -47,11 +51,23 @@ export default defineConfig(({ command }) => ({
           // React Router e TanStack Query no chunk da casca de conta (app/casca-de-conta-*.js), que só
           // o import() do despacho baixa: o terraço não paga esse JS (ChunksDoFrontTest). Sem levar as
           // dependências: por padrão o grupo puxaria React e ReactDOM, e o chunk viraria modulepreload.
+          // O detector de prova de vida (Amplify, SDK da AWS, TensorFlow, xstate) num chunk só dele
+          // (app/verificacao-amplify-*), que só o import() do DetectorAmplify baixa, na captura: fica
+          // fora do JS inicial e do chunk da rota, e o service worker não o guarda (src/sw/rotas.ts).
+          // O grupo leva também as dependências transitivas do liveness (Radix, Floating UI, ponte do
+          // useSyncExternalStore do @xstate/react, uuid, tslib, lodash, qrcode...): sem elas, caíam no
+          // chunk do DetectorAmplify, o chunk do Amplify importava de volta dele, e o ciclo deixava
+          // essas dependências indefinidas na avaliação (ChunksDoFrontTest.chunkDoAmplifyNaoImportaODetector).
           groups: [
             { name: "polling", test: /src\/api\/polling\.ts/ },
             {
               name: "casca-de-conta",
               test: /node_modules\/(react-router|@tanstack)\//,
+              includeDependenciesRecursively: false,
+            },
+            {
+              name: "verificacao-amplify",
+              test: /node_modules\/(@aws-amplify|aws-amplify|@aws-sdk|@aws-crypto|@aws|@smithy|@tensorflow|@tensorflow-models|@mediapipe|xstate|@xstate|@radix-ui|@floating-ui|use-sync-external-store|use-isomorphic-layout-effect|use-callback-ref|use-sidecar|react-remove-scroll|react-remove-scroll-bar|react-style-singleton|react-hook-form|aria-hidden|get-nonce|detect-node-es|uuid|tslib|lodash|qrcode|dijkstrajs|pngjs|encode-utf8|bowser|seedrandom|long)\/|__vite-browser-external/,
               includeDependenciesRecursively: false,
             },
           ],

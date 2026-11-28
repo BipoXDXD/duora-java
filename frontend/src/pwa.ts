@@ -1,12 +1,15 @@
 // Registro do service worker: o app abre sem rede e pode ser instalado no celular.
 
+import { CAMINHO_DA_VERIFICACAO } from "./rotas/caminhosDaCasca";
+
 /**
  * Registra depois do load: o install baixa o shell inteiro, e antes disso disputaria a rede com as
- * imagens da primeira tela. O /sw.js é um script clássico (o build o gera como IIFE).
+ * imagens da primeira tela. O /sw.js é um script clássico (o build o gera como IIFE). O documento
+ * da verificação não registra: ele vive isolado, com a política de segurança dele.
  */
-export function registrarServiceWorker(): void {
+export function registrarServiceWorker(caminho: string = location.pathname): void {
   // No vite dev não há /sw.js (o build o gera), e o fallback devolveria o HTML com um aviso.
-  if (!import.meta.env.PROD || !("serviceWorker" in navigator)) {
+  if (!import.meta.env.PROD || !("serviceWorker" in navigator) || caminho === CAMINHO_DA_VERIFICACAO) {
     return;
   }
   if (document.readyState === "complete") {

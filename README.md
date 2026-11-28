@@ -25,6 +25,10 @@ Pré-requisitos: JDK 25 e Docker (veja [Banco local](#banco-local)). O Maven vem
 ./mvnw spring-boot:run
 ```
 
+O `spring-boot:run` liga o perfil `verificacao-falsa`: a verificação de idade usa a prova de vida e
+o documento falsos, sem chamar a AWS. Fora dele, a aplicação só sobe com
+`duora.verificacao.provedor` e `duora.verificacao.documento.provedor` configurados.
+
 1. Abra <http://127.0.0.1:8080> numa janela normal, escolha um apelido e crie o terraço.
 2. Copie o link do convite e abra-o numa janela anônima (ou em outro navegador): cada janela
    precisa do próprio cookie para ser uma pessoa diferente.

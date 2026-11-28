@@ -29,8 +29,9 @@ class PrazosDaPlataformaTest extends BancoDeTeste {
 
   /**
    * Linha da tabela para as políticas que a cumprem, na ordem dos prazos que a linha cita. Ficam de
-   * fora as linhas sem prazo (conta até a exclusão, código do e-mail recusado) e as de etapas que
-   * ainda não têm política (chat, imagens, verificação de idade).
+   * fora as linhas sem prazo (conta e aceites até a exclusão, código do e-mail recusado) e as de
+   * etapas que ainda não têm política (chat, imagens). A selfie e o documento da verificação de
+   * idade nunca são gravados: não há o que expirar.
    */
   private static final Map<String, List<String>> POLITICAS_POR_LINHA =
       Map.of(
@@ -40,7 +41,8 @@ class PrazosDaPlataformaTest extends BancoDeTeste {
           "Chaves de repetição de pedidos", List.of("chaves-de-idempotencia"),
           "Registros de acesso (IP, porta e horário)", List.of("registros-de-acesso"),
           "Denúncias feitas sem conta", List.of("denuncias-publicas"),
-          "Contagens diárias de conta nova", List.of("uso-conta-nova"));
+          "Contagens diárias de conta nova", List.of("uso-conta-nova"),
+          "Tentativas de verificação de idade", List.of("tentativas-de-verificacao"));
 
   private static final Pattern PRAZO = Pattern.compile("(\\d+) (minutos?|horas?|dias?|mês|meses)");
 

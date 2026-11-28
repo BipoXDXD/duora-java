@@ -31,6 +31,8 @@ class ArquiteturaTest {
 
   @ArchTest static final ArchRule webSemJdbc = RegrasDeArquitetura.webSemJdbc(RAIZ);
 
+  @ArchTest static final ArchRule sdkDaAwsSoNaInfra = RegrasDeArquitetura.sdkDaAwsSoNaInfra(RAIZ);
+
   @ArchTest
   static final ArchRule dominioJavaPuro =
       RegrasDeArquitetura.dominioJavaPuro(RAIZ).allowEmptyShould(false);

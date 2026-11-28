@@ -50,12 +50,21 @@ class ConteudoLegalTest {
             "selfie",
             "Amazon Web Services",
             "Estados Unidos",
-            "Didit",
             "RG ou da CNH",
+            "frente e do verso do RG ou da CNH e uma selfie nova, que vão juntas para a Amazon"
+                + " Web Services",
+            "sem guardar as imagens",
+            "Registramos a versão do consentimento que você aceitou e quando.",
             "6 meses",
             "encarregado",
             NOME_DO_ENCARREGADO,
             EMAIL_DO_ENCARREGADO);
+  }
+
+  /** A conferência do documento saiu da Didit (ADR 0007): a política não pode citá-la. */
+  @Test
+  void privacidadeNaoCitaADidit() {
+    assertThat(texto(DocumentoLegal.PRIVACIDADE)).doesNotContainIgnoringCase("didit");
   }
 
   @Test

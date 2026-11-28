@@ -49,10 +49,10 @@ describe("exigirConta", () => {
     expect(await destinoDoRedirect(exigirConta(new QueryClient(), ["AGUARDANDO_VERIFICACAO"]))).toBe("/cadastro");
   });
 
-  it("aguardandoNoCadastroVaiParaAguardando", async () => {
+  it("aguardandoVaiParaAVerificacao", async () => {
     responderConta(200, contaNoEstado("AGUARDANDO_VERIFICACAO"));
 
-    expect(await destinoDoRedirect(exigirConta(new QueryClient(), ["PENDENTE"]))).toBe("/aguardando");
+    expect(await destinoDoRedirect(exigirConta(new QueryClient(), ["PENDENTE"]))).toBe("/verificacao");
   });
 
   it("ativaForaDaContaVaiParaConta", async () => {

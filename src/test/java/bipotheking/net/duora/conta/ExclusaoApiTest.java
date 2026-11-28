@@ -12,8 +12,11 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import bipotheking.net.duora.conta.ContasDeTeste.ContaDeTeste;
 import bipotheking.net.duora.conta.GanchoDeExclusaoDeTeste.Chamada;
 import bipotheking.net.duora.conta.dominio.Email;
+import bipotheking.net.duora.conta.dominio.FinalidadeDaTentativa;
+import bipotheking.net.duora.conta.dominio.MetodoDeVerificacao;
 import bipotheking.net.duora.conta.dominio.RepositorioDeAceites;
 import bipotheking.net.duora.conta.dominio.RepositorioDeContas;
+import bipotheking.net.duora.conta.dominio.RepositorioDeVerificacoes;
 import bipotheking.net.duora.conta.dominio.Token;
 import bipotheking.net.duora.notificacao.MensagemDeEmail;
 import bipotheking.net.duora.notificacao.infra.DespachanteDaOutbox;
@@ -62,6 +65,7 @@ class ExclusaoApiTest extends BancoDeTeste {
   @Autowired private RandomGenerator aleatorio;
   @Autowired private DespachanteDaOutbox despachante;
   @Autowired private EmailNoLog emailNoLog;
+  @Autowired private RepositorioDeVerificacoes verificacoes;
 
   @BeforeEach
   void esquecerOGancho() {
@@ -136,6 +140,22 @@ class ExclusaoApiTest extends BancoDeTeste {
     assertThat(gancho.chamadas()).containsExactly(new Chamada(conta.id(), true));
   }
 
+  @Test
+  void exclusaoApagaVerificacaoETentativas() throws Exception {
+    ContaDeTeste conta = contas.criarAtiva();
+    verificacoes.reservar(conta.id(), FinalidadeDaTentativa.SELFIE, 3, INICIO);
+    verificacoes.reservar(conta.id(), FinalidadeDaTentativa.DOCUMENTO, 2, INICIO);
+    verificacoes.gravarAprovacao(conta.id(), MetodoDeVerificacao.DOCUMENTO, INICIO);
+
+    excluir(conta, CONFIRMO).andExpect(status().isNoContent());
+
+    assertThat(contarDaConta("select count(*) from verificacao_idade where conta_id = :id", conta))
+        .isZero();
+    assertThat(
+            contarDaConta("select count(*) from tentativa_verificacao where conta_id = :id", conta))
+        .isZero();
+  }
+
   /**
    * O gancho de teste revoga as sessões antes de lançar: a sessão viva prova que a falha desfez o
    * que o gancho gravou, não só que a exclusão parou antes de começar.
@@ -155,7 +175,7 @@ class ExclusaoApiTest extends BancoDeTeste {
     assertThat(linha.get("email")).isEqualTo(emailDe(conta));
     assertThat(linha.get("excluida_em")).isNull();
     assertThat(sessoesDa(conta)).as("a revogação do gancho foi desfeita").isOne();
-    assertThat(aceitesDa(conta)).isEqualTo(2);
+    assertThat(aceitesDa(conta)).isEqualTo(DocumentoLegal.values().length);
     assertThat(linksDo(emailDe(conta))).isOne();
     mvc.perform(get("/api/teste/so-ativa").cookie(cookieDe(conta))).andExpect(status().isOk());
     assertThat(saida.getOut())
@@ -211,7 +231,7 @@ class ExclusaoApiTest extends BancoDeTeste {
     assertThat(linha.get("email")).isEqualTo(emailDe(outra));
     assertThat(linha.get("data_nascimento")).isNotNull();
     assertThat(sessoesDa(outra)).isOne();
-    assertThat(aceitesDa(outra)).isEqualTo(2);
+    assertThat(aceitesDa(outra)).isEqualTo(DocumentoLegal.values().length);
     assertThat(linksDo(emailDe(outra))).isOne();
     assertThat(
             jdbc.sql("select count(*) from outbox where carga->>'para' = :email")

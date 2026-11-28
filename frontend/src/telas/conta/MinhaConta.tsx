@@ -6,6 +6,7 @@ import type { Conta } from "../../api/estadoDaConta";
 import { ErroHttp } from "../../api/http";
 import { DialogoDeConfirmacao } from "../../componentes/DialogoDeConfirmacao";
 import { BOTAO_PERIGO, BOTAO_SECUNDARIO_SEM_MARGEM, LINK_DE_ACAO, TITULO_DA_CASCA } from "../../componentes/estilos";
+import { CAMINHO_DA_VERIFICACAO } from "../../rotas/caminhosDaCasca";
 import { consultaDaConta } from "../../rotas/consultas";
 import { CONFIRMAR, MINHA_CONTA } from "./textos";
 
@@ -14,6 +15,26 @@ const ID_DA_EXCLUSAO = "minha-conta-exclusao";
 const ID_DA_FALHA_AO_EXCLUIR = "minha-conta-falha-ao-excluir";
 
 const AVISO_DE_FALHA = "m-0 text-[0.9375rem] leading-[1.45] text-coral";
+const PARAGRAFO = "m-0 text-texto-2 text-[1.125rem] leading-[1.5]";
+
+/** A marca do selo: decorativa, o texto ao lado já diz tudo. */
+function MarcaDoSelo(): ReactElement {
+  return (
+    <svg
+      aria-hidden="true"
+      viewBox="0 0 20 20"
+      className="size-5 shrink-0 text-verde-agua forced-colors:text-[CanvasText]"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <circle cx="10" cy="10" r="8.5" />
+      <path d="m6.5 10.25 2.25 2.25 4.75-5" />
+    </svg>
+  );
+}
 
 /** O texto da recusa: a conta indisponível tem a mensagem do servidor; o resto, a falha sem resposta. */
 function textoDaFalha(erro: Error, falhaSemResposta: string): string {
@@ -30,7 +51,8 @@ function sessaoJaEncerrada(erro: Error): boolean {
 /**
  * A conta da sessão (aguardando verificação ou ativa, pelo guarda da rota): sair e excluir. Excluir
  * pede confirmação num diálogo, um par só de botão e diálogo. Depois de sair ou excluir, a conta sai
- * do cache para não deixar estado logado fantasma. Sem o selo de verificada, que é da 2b.
+ * do cache para não deixar estado logado fantasma. Quem aguarda a verificação recebe o link para
+ * ela (página inteira: a verificação vive num documento próprio); a conta verificada mostra o selo.
  */
 export function MinhaConta(): ReactElement {
   const conta = useLoaderData<Conta>();
@@ -151,7 +173,21 @@ export function MinhaConta(): ReactElement {
       <title>{MINHA_CONTA.tituloDaAba}</title>
       <h1 className={TITULO_DA_CASCA}>{MINHA_CONTA.titulo}</h1>
       {conta.estado === "AGUARDANDO_VERIFICACAO" && (
-        <p className="mt-(--e-4) mb-0 text-texto-2 text-[1.125rem] leading-[1.5]">{MINHA_CONTA.proximoPasso}</p>
+        <div className="mt-(--e-4) grid gap-(--e-2) justify-items-start">
+          <p className={PARAGRAFO}>{MINHA_CONTA.faltaConfirmar}</p>
+          <a href={CAMINHO_DA_VERIFICACAO} className={LINK_DE_ACAO}>
+            {MINHA_CONTA.confirmarIdade}
+          </a>
+        </div>
+      )}
+      {conta.verificada && (
+        <div className="mt-(--e-4) flex items-start gap-(--e-3)">
+          <MarcaDoSelo />
+          <div className="grid gap-(--e-1)">
+            <p className="m-0 font-semibold text-[1.125rem] leading-[1.25]">{MINHA_CONTA.selo}</p>
+            <p className="m-0 text-texto-2 leading-[1.5]">{MINHA_CONTA.descricaoDoSelo}</p>
+          </div>
+        </div>
       )}
       <div className="mt-(--e-6) grid gap-(--e-2)">
         <button

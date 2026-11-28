@@ -1,4 +1,11 @@
 /**
+ * A prova de vida: sempre num documento próprio, com a CSP e a Permissions-Policy dela (o back a
+ * espelha em web/RotasDoSpa.CAMINHO_DA_VERIFICACAO). Fica fora do rotas.tsx para o pwa.ts, no JS
+ * inicial, lê-la sem baixar o roteador.
+ */
+export const CAMINHO_DA_VERIFICACAO = "/verificacao";
+
+/**
  * Fonte única, no front, das rotas da casca de conta; o back espelha a lista em web/RotasDoSpa.CAMINHOS.
  * Nenhuma começa por /app/, reservado aos bundles com cache imutável.
  */
@@ -6,7 +13,7 @@ export const CAMINHOS_DA_CASCA = [
   "/entrar",
   "/entrar/confirmar",
   "/cadastro",
-  "/aguardando",
+  CAMINHO_DA_VERIFICACAO,
   "/conta",
   "/termos",
   "/privacidade",

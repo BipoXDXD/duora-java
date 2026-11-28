@@ -18,5 +18,5 @@
     "skipLibCheck": true
   },
   "include": ["src"],
-  "exclude": ["src/sw"]
+  "exclude": ["src/sw", "src/telas/verificacao/cadeiaDeSuprimentos.test.ts"]
 }

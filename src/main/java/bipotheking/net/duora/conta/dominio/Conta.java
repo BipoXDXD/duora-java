@@ -76,9 +76,13 @@ public record Conta(
         : new ResultadoDoCadastro.RecusadoPorIdade();
   }
 
-  /** O que outros módulos podem ver. Ainda não há selo de verificação: sai sempre falso. */
-  public ContaResumo resumo() {
-    return new ContaResumo(id, estado, dataDeNascimento, false, ativadaEm);
+  /**
+   * O que outros módulos podem ver.
+   *
+   * @param verificada se a conta tem a verificação de idade aprovada, que fica fora deste registro
+   */
+  public ContaResumo resumo(boolean verificada) {
+    return new ContaResumo(id, estado, dataDeNascimento, verificada, ativadaEm);
   }
 
   @Override

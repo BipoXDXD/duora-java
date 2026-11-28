@@ -42,6 +42,13 @@ class RegrasDeArquiteturaTest {
   }
 
   @Test
+  void sdkDaAwsSoNaInfraMorde() {
+    assertThat(violacoes(RegrasDeArquitetura.sdkDaAwsSoNaInfra(RAIZ)))
+        .isNotEmpty()
+        .allSatisfy(v -> assertThat(v).contains("UsaAws", "Region"));
+  }
+
+  @Test
   void dominioJavaPuroMorde() {
     assertThat(violacoes(RegrasDeArquitetura.dominioJavaPuro(RAIZ)))
         .anySatisfy(v -> assertThat(v).contains("UsaSpring").contains("StringUtils"));

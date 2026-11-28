@@ -13,7 +13,7 @@
 // widget real do Turnstile (chaves de teste do dev) liberar o envio e captura (entrar.png); pede o
 // link com um e-mail novo (o POST precisa dar 2xx) e lê o link do log do EmailNoLog; abre o
 // link, entra e captura o cadastro (cadastro.png); conclui o cadastro; abre Minha conta
-// (minha-conta.png) e volta à tela Cadastro recebido (aguardando.png), onde para. Resultado e
+// (minha-conta.png) e volta à tela Confirme sua idade (verificacao.png), onde para. Resultado e
 // capturas em target/android/. Sai com código 1 em qualquer falha, inclusive a cada violação da
 // CSP; SIGINT e SIGTERM desfazem o reverse e o forward, gravam o resultado e saem com 130 e 143.
 //
@@ -64,11 +64,11 @@ export function cabecalhoDaCsp(cabecalhos) {
   return nome ? cabecalhos[nome] : null;
 }
 
-/** Ordem em que o main() roda os passos de EXECUTORES; a rodada para na tela Cadastro recebido. */
+/** Ordem em que o main() roda os passos de EXECUTORES; a rodada para na tela Confirme sua idade. */
 export const PASSOS = Object.freeze([
   'abrirEntrar', 'capturarEntrar', 'pedirLink', 'abrirLink', 'confirmarEntrada', 'capturarCadastro',
-  'concluirCadastro', 'abrirMinhaConta', 'capturarMinhaConta', 'voltarAoAguardando',
-  'capturarAguardando',
+  'concluirCadastro', 'abrirMinhaConta', 'capturarMinhaConta', 'voltarAVerificacao',
+  'capturarVerificacao',
 ]);
 
 /** Os passos que a rodada executa, na ordem de PASSOS. O conta-check não tem variante de rodada. */
@@ -255,18 +255,20 @@ const EXECUTORES = {
     await pagina.avaliar(`(() => { preencher(campo('Data de nascimento'), '${NASCIMENTO}'); return true; })()`);
     await clicar(pagina, "campo('Li e aceito os Termos de uso')", 'aceite dos termos');
     await clicar(pagina, "botao('Concluir cadastro')", 'botão Concluir cadastro');
-    await esperarTitulo(pagina, 'Cadastro recebido');
+    // A conta nova aguarda a verificação de idade: o cadastro leva direto a /verificacao.
+    await esperarTitulo(pagina, 'Confirme sua idade');
   },
-  async abrirMinhaConta({ pagina }) {
-    await clicar(pagina, "link('Minha conta')", 'link Minha conta');
+  async abrirMinhaConta({ pagina, base }) {
+    // A /verificacao não tem o link do topo: Minha conta abre pelo endereço.
+    await pagina.navegar(`${base}/conta`);
     await esperarTitulo(pagina, 'Minha conta');
   },
   capturarMinhaConta: (contexto) => capturar(contexto, 'minha-conta'),
-  async voltarAoAguardando({ pagina }) {
+  async voltarAVerificacao({ pagina }) {
     await pagina.avaliar('(() => { history.back(); return true; })()');
-    await esperarTitulo(pagina, 'Cadastro recebido');
+    await esperarTitulo(pagina, 'Confirme sua idade');
   },
-  capturarAguardando: (contexto) => capturar(contexto, 'aguardando'),
+  capturarVerificacao: (contexto) => capturar(contexto, 'verificacao'),
 };
 
 async function main() {

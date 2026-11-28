@@ -7,6 +7,9 @@
 export const INDISPONIVEL_EM_ALTO_CONTRASTE =
   "forced-colors:aria-disabled:text-[color:GrayText] forced-colors:aria-disabled:border-[color:GrayText]";
 
+/** A mensagem de erro sob um campo; vazia, some do layout (e o aria-describedby segue valendo). */
+export const ERRO_DE_CAMPO = "erro-campo m-0 text-[0.875rem] leading-[1.45] text-coral empty:hidden";
+
 export const BOTAO_PRIMARIO = [
   "botao-primario min-h-[52px] px-(--e-5) py-(--e-3) border-0 rounded-(--raio) bg-ambar text-ambar-tinta",
   "text-[1.0625rem] font-semibold cursor-pointer [transition:background_var(--transicao)] hover:not-aria-disabled:bg-ambar-claro",

@@ -40,7 +40,21 @@
         <bucket4j.version>8.23.0</bucket4j.version>
         <commonmark.version>0.33.0</commonmark.version>
         <archunit.version>1.5.1</archunit.version>
+        <!-- Conferida no Maven Central em 2026-11-27 (última da linha 2.59) -->
+        <aws-sdk.version>2.59.10</aws-sdk.version>
     </properties>
+
+    <dependencyManagement>
+        <dependencies>
+            <dependency>
+                <groupId>software.amazon.awssdk</groupId>
+                <artifactId>bom</artifactId>
+                <version>${aws-sdk.version}</version>
+                <type>pom</type>
+                <scope>import</scope>
+            </dependency>
+        </dependencies>
+    </dependencyManagement>
 
     <dependencies>
         <dependency>
@@ -107,6 +121,69 @@
             <groupId>org.commonmark</groupId>
             <artifactId>commonmark-ext-yaml-front-matter</artifactId>
             <version>${commonmark.version}</version>
+        </dependency>
+        <!-- Verificação de idade (Etapa 2b): Rekognition (Face Liveness e CompareFaces), Textract
+             (data de nascimento do documento) e STS para a credencial curta do navegador. Cliente
+             HTTP só o url-connection-client do JDK; Apache (4 e 5) e Netty ficam de fora
+             (ClasspathDaAwsTest trava): desde a 2.59 o pom pai dos serviços puxa o apache5-client,
+             não mais o apache-client. -->
+        <dependency>
+            <groupId>software.amazon.awssdk</groupId>
+            <artifactId>rekognition</artifactId>
+            <exclusions>
+                <exclusion>
+                    <groupId>software.amazon.awssdk</groupId>
+                    <artifactId>netty-nio-client</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>software.amazon.awssdk</groupId>
+                    <artifactId>apache-client</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>software.amazon.awssdk</groupId>
+                    <artifactId>apache5-client</artifactId>
+                </exclusion>
+            </exclusions>
+        </dependency>
+        <dependency>
+            <groupId>software.amazon.awssdk</groupId>
+            <artifactId>textract</artifactId>
+            <exclusions>
+                <exclusion>
+                    <groupId>software.amazon.awssdk</groupId>
+                    <artifactId>netty-nio-client</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>software.amazon.awssdk</groupId>
+                    <artifactId>apache-client</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>software.amazon.awssdk</groupId>
+                    <artifactId>apache5-client</artifactId>
+                </exclusion>
+            </exclusions>
+        </dependency>
+        <dependency>
+            <groupId>software.amazon.awssdk</groupId>
+            <artifactId>sts</artifactId>
+            <exclusions>
+                <exclusion>
+                    <groupId>software.amazon.awssdk</groupId>
+                    <artifactId>netty-nio-client</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>software.amazon.awssdk</groupId>
+                    <artifactId>apache-client</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>software.amazon.awssdk</groupId>
+                    <artifactId>apache5-client</artifactId>
+                </exclusion>
+            </exclusions>
+        </dependency>
+        <dependency>
+            <groupId>software.amazon.awssdk</groupId>
+            <artifactId>url-connection-client</artifactId>
         </dependency>
 
         <dependency>
@@ -250,9 +327,16 @@
                     </execution>
                 </executions>
             </plugin>
+            <!-- O spring-boot:run do desenvolvimento liga a verificação falsa: a config base não escolhe
+                 provedor. O jar de produção não passa por aqui. -->
             <plugin>
                 <groupId>org.springframework.boot</groupId>
                 <artifactId>spring-boot-maven-plugin</artifactId>
+                <configuration>
+                    <profiles>
+                        <profile>verificacao-falsa</profile>
+                    </profiles>
+                </configuration>
             </plugin>
             <!-- Front (frontend/): lint, build do Vite em target/vite (servido em static/) e Vitest.
                  O plugin registra o stderr do pnpm como [ERROR]; o silent tira o eco "$ comando" que o
@@ -362,6 +446,9 @@
                                 <exclude>**/VisualIT.java</exclude>
                                 <!-- Rede real (Cloudflare): roda só com -Dit.test=TurnstileChavesDeTesteIT -->
                                 <exclude>**/TurnstileChavesDeTesteIT.java</exclude>
+                                <!-- Serviços reais (AWS, com custo): rodam só com
+                                     -Pe2e -DskipUnitTests=true -Dit.test=VerificacaoAwsSmokeIT verify -->
+                                <exclude>**/VerificacaoAwsSmokeIT.java</exclude>
                             </excludes>
                             <systemPropertyVariables>
                                 <navegador>${navegador}</navegador>
