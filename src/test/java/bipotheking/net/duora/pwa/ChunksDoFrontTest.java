@@ -45,6 +45,29 @@ class ChunksDoFrontTest {
     assertThat(Estaticos.jsInicial()).noneMatch(url -> url.contains("casca-de-conta"));
   }
 
+  /**
+   * As telas de perfil (Etapa 3) entram por {@code lazy}: o JS inicial não traz nem o cliente da
+   * API de perfil, e cada tela tem seu chunk, abaixo do teto de aviso.
+   */
+  @Test
+  void telasDoPerfilForaDoJsInicial() {
+    List<String> meuPerfil =
+        jsDoApp().stream().filter(c -> c.matches("app/MeuPerfil-[^/]+\\.js")).toList();
+    List<String> doPerfil =
+        jsDoApp().stream()
+            .filter(c ->
+                c.matches(
+                    "app/(LayoutDoPerfil|MeuPerfil|Preferencias|Namoro|Orientacao"
+                        + "|PerfilDeOutraPessoa)-[^/]+\\.js"))
+            .toList();
+
+    assertThat(meuPerfil).hasSize(1);
+    assertThat(doPerfil).allMatch(c -> tamanho(c) <= TETO_DOS_OUTROS_CHUNKS);
+    assertThat(Estaticos.jsInicial())
+        .map(url -> url.substring(1))
+        .noneMatch(c -> Estaticos.texto(c).contains("/perfil/localizacao"));
+  }
+
   @Test
   void amplifyNumChunkProprioForaDoJsInicial() {
     List<String> chunks = jsDoApp().stream().filter(c -> c.matches(CHUNK_DO_AMPLIFY)).toList();

@@ -1,8 +1,25 @@
 import { render, screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
-import { Desfecho } from "./Desfecho";
+import { Desfecho, DesfechoDaVerificacao } from "./Desfecho";
 
 describe("Desfecho", () => {
+  it("aprovadaLevaAoPerfil", () => {
+    render(
+      <DesfechoDaVerificacao
+        tipo="aprovada"
+        focar={false}
+        tentativas={0}
+        emailDoEncarregado="encarregado@exemplo.invalid"
+        aoRepetir={() => undefined}
+      />,
+    );
+
+    const links = screen.getAllByRole("link");
+    expect(links[0]).toHaveAccessibleName("Montar meu perfil");
+    expect(links[0]).toHaveAttribute("href", "/perfil");
+    expect(screen.queryByRole("link", { name: "Continuar" })).not.toBeInTheDocument();
+  });
+
   it("focoNoTituloDoDesfecho", () => {
     render(
       <Desfecho titulo="Idade confirmada">

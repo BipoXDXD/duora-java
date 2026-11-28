@@ -31,3 +31,12 @@ export async function exigirConta(cliente: QueryClient, aceitos: readonly Estado
   }
   return conta;
 }
+
+/**
+ * Guarda das telas de perfil: só a conta ATIVA passa, e só então `carregar` roda (quem aguarda a
+ * verificação nunca dispara os pedidos da tela).
+ */
+export async function comContaAtiva<T>(cliente: QueryClient, carregar: () => Promise<T>): Promise<T> {
+  await exigirConta(cliente, ["ATIVA"]);
+  return carregar();
+}
