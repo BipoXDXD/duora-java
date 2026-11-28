@@ -1,5 +1,5 @@
 ---
-versao: 2026-11-27
+versao: 2026-11-28
 ---
 
 # Política de privacidade
@@ -26,8 +26,8 @@ O controlador dos dados é o responsável pelo Duora. Para dúvidas e pedidos so
 ## Verificação de idade
 
 - Você grava uma selfie em vídeo curta, com prova de vida e estimativa de idade feitas pela Amazon Web Services, nos Estados Unidos.
-- Só se a estimativa ficar em dúvida, pedimos uma foto do RG ou da CNH. A Didit lê a data de nascimento e compara o rosto do documento com a selfie, sem guardar nada.
-- A imagem do seu rosto é um dado biométrico, portanto sensível. Nós a tratamos com seu consentimento específico, só para verificar a idade. Ela nunca é guardada nem usada para outra coisa.
+- Só se a estimativa ficar em dúvida, pedimos fotos da frente e do verso do RG ou da CNH e uma selfie nova, que vão juntas para a Didit. A Didit lê a data de nascimento e compara o rosto do documento com a selfie nova, sem guardar nada.
+- A imagem do seu rosto é um dado biométrico, portanto sensível. Nós a tratamos com seu consentimento específico, só para verificar a idade, e ela nunca é guardada nem usada para outra coisa. Registramos a versão do consentimento que você aceitou e quando.
 - Guardamos só o resultado (aprovado ou recusado), a data e o método usado.
 - Quem tem menos de 18 anos tem o cadastro bloqueado.
 - Para contestar o resultado, escreva ao encarregado: <{{encarregado}}>.
