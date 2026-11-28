@@ -33,10 +33,10 @@ test('linkSemTokenIgnorado', () => {
   assert.equal(ultimoLinkDoLog(log), `http://127.0.0.1:8080/entrar/confirmar#t=${TOKEN_ANTIGO}`);
 });
 
-test('passosParamNaTelaAguardando', () => {
+test('passosParamNaTelaDaVerificacao', () => {
   const passos = passosDaRodada();
 
-  assert.equal(passos.at(-1), 'capturarAguardando');
+  assert.equal(passos.at(-1), 'capturarVerificacao');
   for (const captura of ['capturarEntrar', 'capturarCadastro', 'capturarMinhaConta']) {
     assert.ok(passos.indexOf(captura) >= 0, `${captura} fora da rodada: ${passos.join(', ')}`);
   }
