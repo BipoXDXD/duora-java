@@ -138,7 +138,7 @@ class TratamentoDeErros extends ResponseEntityExceptionHandler {
       case METODO_NAO_PERMITIDO -> "Este endereço não aceita esse tipo de pedido.";
       case FORMATO_NAO_SUPORTADO -> "Envie o conteúdo num formato aceito.";
       case IMAGEM_GRANDE_DEMAIS -> ProcessadorDeImagemVips.MENSAGEM_GRANDE_DEMAIS;
-      case CORPO_INVALIDO -> "O corpo da requisição não está no formato esperado.";
+      case CORPO_INVALIDO -> CodigoWeb.MENSAGEM_DO_CORPO_INVALIDO;
       case ERRO_INTERNO -> "Algo deu errado. Tente de novo.";
       default -> "A requisição veio incompleta ou com um valor inválido.";
     };

@@ -2,7 +2,6 @@ package bipotheking.net.duora.perfil.web;
 
 import bipotheking.net.duora.conta.ContaAtual;
 import bipotheking.net.duora.conta.ContaId;
-import bipotheking.net.duora.nucleo.ErroDeNegocio;
 import bipotheking.net.duora.perfil.Localizacoes;
 import bipotheking.net.duora.web.CodigoWeb;
 import java.time.Instant;
@@ -57,8 +56,7 @@ class LocalizacaoController {
     Double latitude = corpo.latitude();
     Double longitude = corpo.longitude();
     if (latitude == null || longitude == null) {
-      throw new ErroDeNegocio(
-          CodigoWeb.CORPO_INVALIDO, "O corpo da requisição não está no formato esperado.");
+      throw CodigoWeb.corpoInvalido();
     }
     localizacoes.consentirEAtualizar(conta, latitude, longitude);
   }

@@ -107,9 +107,9 @@ class ExclusaoComFotoTest extends BancoDeTeste {
    * consultiva, o envio esperaria a linha da conta que a exclusão alterou e gravaria a foto depois.
    */
   private void esperarTravaOuFim(Future<?> envio) {
-    Instant prazo = Instant.now().plus(PACIENCIA);
+    long prazo = System.nanoTime() + PACIENCIA.toNanos();
     while (!envio.isDone() && travasEmEspera() == 0) {
-      if (Instant.now().isAfter(prazo)) {
+      if (System.nanoTime() - prazo > 0) {
         throw new AssertionError("O envio nem terminou nem esperou a trava");
       }
       LockSupport.parkNanos(Duration.ofMillis(20).toNanos());
