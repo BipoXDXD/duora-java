@@ -1,6 +1,6 @@
 // Textos fixos das telas de perfil. As mensagens de negócio (validação do servidor) vêm da API.
 
-import type { Genero, Intencao, Pronomes, Raio } from "../../api/perfil";
+import type { Genero, Intencao, Orientacao, Pronomes, Raio } from "../../api/perfil";
 
 /** A navegação entre as telas de perfil, no topo de cada uma. */
 export const NAVEGACAO_DO_PERFIL = {
@@ -189,6 +189,43 @@ export const ERROS_DO_NAMORO = {
 export const ORIENTACAO = {
   titulo: "Orientação",
   tituloDaAba: "Orientação · Duora",
+  aviso:
+    "Orientação é um dado sensível. É opcional, nunca entra no pareamento e só aparece para suas conexões se você quiser.",
+  rotulo: "Sua orientação",
+  rotuloDaDescricao: "Como você descreve sua orientação",
+  dicaDaDescricao: "Até 40 caracteres.",
+  mostrar: "Mostrar para minhas conexões",
+  consentimento: "Concordo em guardar minha orientação no Duora",
+  concordouEm: (data: string) => `Você concordou em ${data}.`,
+  salvar: "Salvar orientação",
+  salvando: "Salvando…",
+  semConsentimento: "Marque a caixa de consentimento para salvar.",
+  salva: "Orientação salva.",
+  falha: "Não conseguimos salvar sua orientação. Tente de novo em instantes.",
+  apagar: "Apagar orientação",
+  apagando: "Apagando…",
+  apagada: "Orientação apagada.",
+  falhaAoApagar: "Não conseguimos apagar sua orientação. Tente de novo em instantes.",
+} as const;
+
+/** Os rótulos da orientação, na ordem do contrato (D4). */
+export const ROTULO_DA_ORIENTACAO = {
+  HETEROSSEXUAL: "Heterossexual",
+  GAY: "Gay",
+  LESBICA: "Lésbica",
+  BISSEXUAL: "Bissexual",
+  PANSEXUAL: "Pansexual",
+  ASSEXUAL: "Assexual",
+  DEMISSEXUAL: "Demissexual",
+  QUEER: "Queer",
+  QUESTIONANDO: "Questionando",
+  OUTRA: "Prefiro descrever",
+} as const satisfies Record<Orientacao, string>;
+
+/** As recusas do formulário de orientação antes do envio. */
+export const ERROS_DA_ORIENTACAO = {
+  semOrientacao: "Escolha sua orientação.",
+  descricao: "Escreva como você descreve sua orientação, com até 40 caracteres.",
 } as const;
 
 export const PERFIL_DE_OUTRA_PESSOA = {
