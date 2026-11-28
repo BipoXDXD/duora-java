@@ -108,6 +108,8 @@ class TratamentoDeErros extends ResponseEntityExceptionHandler {
     return switch (status.value()) {
       case 404 -> CodigoWeb.RECURSO_INEXISTENTE;
       case 405 -> CodigoWeb.METODO_NAO_PERMITIDO;
+      // Só o multipart dispara o 413 do Spring, e todo arquivo enviado é imagem (foto, documento).
+      case 413 -> CodigoWeb.IMAGEM_GRANDE_DEMAIS;
       case 415 -> CodigoWeb.FORMATO_NAO_SUPORTADO;
       default -> status.is5xxServerError() ? CodigoWeb.ERRO_INTERNO : CodigoWeb.REQUISICAO_INVALIDA;
     };
@@ -118,6 +120,7 @@ class TratamentoDeErros extends ResponseEntityExceptionHandler {
       case RECURSO_INEXISTENTE -> "Não encontramos este endereço.";
       case METODO_NAO_PERMITIDO -> "Este endereço não aceita esse tipo de pedido.";
       case FORMATO_NAO_SUPORTADO -> "Envie o conteúdo num formato aceito.";
+      case IMAGEM_GRANDE_DEMAIS -> ProcessadorDeImagemVips.MENSAGEM_GRANDE_DEMAIS;
       case CORPO_INVALIDO -> "O corpo da requisição não está no formato esperado.";
       case ERRO_INTERNO -> "Algo deu errado. Tente de novo.";
       default -> "A requisição veio incompleta ou com um valor inválido.";

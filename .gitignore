@@ -47,6 +47,9 @@ build/
 .serena/
 .mcp.json
 
+### Imagens enviadas em dev (duora.imagens.dir) ###
+/dados/
+
 ### Ferramentas locais ###
 .playwright-mcp/
 

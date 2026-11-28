@@ -17,6 +17,9 @@ public enum CodigoWeb implements CodigoDeErro {
   CHAVE_DE_IDEMPOTENCIA_INVALIDA(TipoDeErro.ENTRADA_INVALIDA, "Chave de idempotência inválida"),
   CHAVE_DE_IDEMPOTENCIA_REUSADA(TipoDeErro.CONFLITO, "Chave de idempotência reusada"),
   REQUISICAO_EM_ANDAMENTO(TipoDeErro.CONFLITO, "Requisição em andamento"),
+  IMAGEM_GRANDE_DEMAIS(TipoDeErro.GRANDE_DEMAIS, "Imagem grande demais"),
+  IMAGEM_INVALIDA(TipoDeErro.REGRA_DE_NEGOCIO, "Imagem inválida"),
+  PROCESSAMENTO_INDISPONIVEL(TipoDeErro.INDISPONIVEL, "Processamento indisponível"),
   ERRO_INTERNO(TipoDeErro.INTERNO, "Erro interno");
 
   private final TipoDeErro tipo;

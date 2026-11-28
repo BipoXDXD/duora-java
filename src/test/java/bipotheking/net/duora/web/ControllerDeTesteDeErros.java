@@ -6,6 +6,7 @@ import java.time.Duration;
 import java.util.Map;
 import org.jspecify.annotations.Nullable;
 import org.springframework.http.MediaType;
+import org.springframework.util.unit.DataSize;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -13,6 +14,7 @@ import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.multipart.MaxUploadSizeExceededException;
 
 /**
  * Rotas que só existem nos testes, para exercitar o tratamento de erros. Ficam em {@code /teste},
@@ -50,6 +52,12 @@ class ControllerDeTesteDeErros {
   @PostMapping(path = "/json", consumes = MediaType.APPLICATION_JSON_VALUE)
   Map<String, Object> json(@RequestBody Map<String, Object> corpo) {
     return corpo;
+  }
+
+  /** O que o multipart do Spring lança quando um arquivo passa de {@code max-file-size}. */
+  @PostMapping("/upload-grande")
+  void uploadGrande() {
+    throw new MaxUploadSizeExceededException(DataSize.ofMegabytes(6).toBytes());
   }
 
   @GetMapping("/so-get")
