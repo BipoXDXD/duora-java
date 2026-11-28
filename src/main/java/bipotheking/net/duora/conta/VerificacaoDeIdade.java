@@ -273,9 +273,21 @@ public class VerificacaoDeIdade {
   }
 
   private Conta conta(ContaId id) {
+    return contaDaSessao(contas, id);
+  }
+
+  /**
+   * A conta da sessão. Se ela sumiu depois da checagem da sessão (excluída numa requisição
+   * paralela), a recusa é a mesma da sessão, e o front recarrega.
+   *
+   * @throws ErroDeNegocio {@code CONTA_INDISPONIVEL}
+   */
+  static Conta contaDaSessao(RepositorioDeContas contas, ContaId id) {
     return contas
         .porId(id)
-        .orElseThrow(() -> new IllegalStateException("Sessão de conta inexistente: " + id));
+        .orElseThrow(() ->
+            new ErroDeNegocio(
+                CodigoSessao.CONTA_INDISPONIVEL, CodigoSessao.CONTA_INDISPONIVEL.mensagem()));
   }
 
   /**

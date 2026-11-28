@@ -234,9 +234,7 @@ public class VerificacaoPorDocumento {
   }
 
   private Conta conta(ContaId id) {
-    return contas
-        .porId(id)
-        .orElseThrow(() -> new IllegalStateException("Sessão de conta inexistente: " + id));
+    return VerificacaoDeIdade.contaDaSessao(contas, id);
   }
 
   /** A conta aguardando verificação sempre tem data: a invariante da {@link Conta} garante. */
