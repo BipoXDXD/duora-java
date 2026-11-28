@@ -18,7 +18,7 @@ O controlador dos dados é o responsável pelo Duora. Para dúvidas e pedidos so
 - **Apelido, intenção e bio:** para apresentar você nos encontros.
 - **Foto:** reprocessada sem metadados e aprovada pela moderação. Quem ainda não é sua conexão vê uma versão borrada; só conexões veem a foto nítida.
 - **Gênero e quem você quer conhecer:** dado sensível, tratado só com seu consentimento e só para o pareamento. Nunca aparece para ninguém e é apagado quando você desliga o namoro.
-- **Localização:** só com seu consentimento. Guardamos uma área de cerca de 5 km e descartamos o ponto exato. Outras pessoas veem só faixas de distância.
+- **Localização:** só com seu consentimento. Guardamos uma área de cerca de 5 km e descartamos o ponto exato. Outras pessoas veem só faixas de distância. Se você não usar o Duora por 90 dias, apagamos essa área.
 - **Chat e imagens do encontro:** para o encontro acontecer e para a moderação analisar denúncias.
 - **Voz:** passa ao vivo entre as pessoas do encontro e não é gravada.
 - **Denúncias e bloqueios:** para proteger você e quem usa o Duora.
@@ -44,6 +44,7 @@ O controlador dos dados é o responsável pelo Duora. Para dúvidas e pedidos so
 | Chaves de repetição de pedidos | 1 dia |
 | Arquivos temporários de imagem | 1 hora |
 | Conta, perfil e foto | até a exclusão da conta |
+| Localização (área de cerca de 5 km) | até você desativar a localização ou excluir a conta; apagada 90 dias depois da última atualização |
 | Aceites dos termos, desta política e do consentimento biométrico | até a exclusão da conta |
 | Selfie e documento da verificação de idade | apagados logo após a checagem; fica só o resultado, a data e o método |
 | Tentativas de verificação de idade | 1 dia |
