@@ -58,6 +58,7 @@ public class FotosDoPerfil {
   private final ConsultaDeContas contas;
   private final ProcessadorDeImagem processador;
   private final ArmazemDeImagens armazem;
+  private final ArquivosDasFotos arquivos;
   private final LimiteDeTaxa limiteDeTaxa;
   private final Idempotencia idempotencia;
   private final GeradorDeIds geradorDeIds;
@@ -81,6 +82,7 @@ public class FotosDoPerfil {
     this.contas = contas;
     this.processador = processador;
     this.armazem = armazem;
+    this.arquivos = new ArquivosDasFotos(armazem);
     this.limiteDeTaxa = limiteDeTaxa;
     this.idempotencia = idempotencia;
     this.geradorDeIds = geradorDeIds;
@@ -234,14 +236,7 @@ public class FotosDoPerfil {
   }
 
   private void apagarArquivos(List<FotoId> ids) {
-    for (FotoId id : ids) {
-      try {
-        armazem.apagar(CATEGORIA, id.valor());
-      } catch (RuntimeException erro) {
-        // A retenção de fotos órfãs varre o que sobrar.
-        LOG.warn("Não foi possível apagar os arquivos de uma foto", erro);
-      }
-    }
+    arquivos.apagar(ids);
   }
 
   /**
