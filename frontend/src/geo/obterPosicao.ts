@@ -19,7 +19,7 @@ const OPCOES: PositionOptions = { enableHighAccuracy: false, timeout: 10_000, ma
 /** O código de GeolocationPositionError.PERMISSION_DENIED. */
 const PERMISSAO_NEGADA = 1;
 
-interface Relogio {
+export interface Relogio {
   setTimeout: typeof setTimeout;
   clearTimeout: typeof clearTimeout;
 }
