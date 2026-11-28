@@ -14,7 +14,7 @@ import {
   TEXTO_SECUNDARIO,
   TITULO_DA_CASCA,
 } from "../../componentes/estilos";
-import { consultaDaConta, consultaDasVersoesLegais } from "../../rotas/consultas";
+import { consultaDasVersoesLegais, esquecerASessao } from "../../rotas/consultas";
 import { CAMINHO_DA_VERIFICACAO } from "../../rotas/caminhosDaCasca";
 import { CADASTRO, CONFIRMAR, textoDeEspera } from "./textos";
 
@@ -107,14 +107,14 @@ export function Cadastro({
     }
     switch (erro.codigo) {
       case "MENOR_DE_IDADE":
-        clienteDeConsulta.removeQueries({ queryKey: consultaDaConta.queryKey, exact: true });
+        esquecerASessao(clienteDeConsulta);
         setFinal(CADASTRO.menorDeIdade);
         return;
       case "CONTA_INDISPONIVEL":
         setFinal(erro.mensagem ?? CONFIRMAR.contaIndisponivel);
         return;
       case "NAO_AUTENTICADO":
-        clienteDeConsulta.removeQueries({ queryKey: consultaDaConta.queryKey, exact: true });
+        esquecerASessao(clienteDeConsulta);
         void navegar("/entrar", { replace: true });
         return;
       case "CADASTRO_JA_CONCLUIDO":
