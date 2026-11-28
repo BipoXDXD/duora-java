@@ -2,6 +2,8 @@ package bipotheking.net.duora.perfil;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.hamcrest.Matchers.matchesPattern;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.multipart;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -11,6 +13,7 @@ import bipotheking.net.duora.conta.ContasDeTeste;
 import bipotheking.net.duora.conta.ContasDeTeste.ContaDeTeste;
 import bipotheking.net.duora.web.BancoDeTeste;
 import bipotheking.net.duora.web.MesmaOrigem;
+import bipotheking.net.duora.web.Variante;
 import jakarta.servlet.http.Cookie;
 import java.time.LocalDate;
 import org.jspecify.annotations.Nullable;
@@ -21,13 +24,18 @@ import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.test.web.servlet.ResultActions;
 import org.springframework.test.web.servlet.request.MockMultipartHttpServletRequestBuilder;
 
-/** {@code POST /api/perfil/foto}: multipart com a parte {@code arquivo}, resposta 202 pendente. */
+/**
+ * {@code POST /api/perfil/foto}: multipart com a parte {@code arquivo}, resposta 202 pendente.
+ * {@code DELETE}: apaga aprovada, pendente e recusa, 204 mesmo sem foto.
+ */
 class FotoApiTest extends BancoDeTeste {
 
   private static final String CHAVE = "foto-teste-0001";
   private static final String URL_DA_NITIDA = "^/api/fotos/[0-9a-f-]{36}/nitida$";
 
   @Autowired private ContasDeTeste contas;
+  @Autowired private FotosDeTeste fotosDeTeste;
+  @Autowired private FotosDoPerfil fotos;
 
   @Test
   void uploadResponde202Pendente() throws Exception {
@@ -110,6 +118,30 @@ class FotoApiTest extends BancoDeTeste {
     enviar(conta, outraParte, null)
         .andExpect(status().isBadRequest())
         .andExpect(jsonPath("$.codigo").value("REQUISICAO_INVALIDA"));
+  }
+
+  @Test
+  void deleteRemoveTudo() throws Exception {
+    ContaDeTeste conta = contas.criarAtiva();
+    FotoId aprovada = fotosDeTeste.enviarAprovada(conta.id());
+    fotosDeTeste.enviar(conta.id());
+
+    mvc.perform(
+            delete("/api/perfil/foto").header(MesmaOrigem.CABECALHO, "1").cookie(cookieDe(conta)))
+        .andExpect(status().isNoContent());
+
+    mvc.perform(get(UrlDaFoto.de(aprovada, Variante.NITIDA)).cookie(cookieDe(conta)))
+        .andExpect(status().isNotFound());
+    assertThat(fotos.doTitular(conta.id())).isEqualTo(new FotoDoTitular(null, null, null));
+  }
+
+  @Test
+  void deleteSemFoto204() throws Exception {
+    ContaDeTeste conta = contas.criarAtiva();
+
+    mvc.perform(
+            delete("/api/perfil/foto").header(MesmaOrigem.CABECALHO, "1").cookie(cookieDe(conta)))
+        .andExpect(status().isNoContent());
   }
 
   private ResultActions enviar(

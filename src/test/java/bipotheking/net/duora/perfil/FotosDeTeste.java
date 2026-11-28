@@ -7,10 +7,8 @@ import bipotheking.net.duora.perfil.dominio.RepositorioDeFotos;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.UncheckedIOException;
-import java.time.Clock;
 import java.util.Objects;
 import org.springframework.stereotype.Component;
-import org.springframework.transaction.support.TransactionTemplate;
 
 /** Fotos de perfil prontas para outros testes, pelo mesmo envio que a API usa. */
 @Component
@@ -20,19 +18,13 @@ public class FotosDeTeste {
   public static final String RETRATO = "retrato-exif-orientacao-6.jpg";
 
   private final FotosDoPerfil fotos;
+  private final FilaDeFotos fila;
   private final RepositorioDeFotos repositorio;
-  private final TransactionTemplate transacao;
-  private final Clock relogio;
 
-  FotosDeTeste(
-      FotosDoPerfil fotos,
-      RepositorioDeFotos repositorio,
-      TransactionTemplate transacao,
-      Clock relogio) {
+  FotosDeTeste(FotosDoPerfil fotos, FilaDeFotos fila, RepositorioDeFotos repositorio) {
     this.fotos = fotos;
+    this.fila = fila;
     this.repositorio = repositorio;
-    this.transacao = transacao;
-    this.relogio = relogio;
   }
 
   /** Os bytes de uma fixture de {@code src/test/resources/imagens}. */
@@ -54,16 +46,10 @@ public class FotosDeTeste {
         .orElseThrow();
   }
 
-  /** Envia o retrato e o aprova no lugar da aprovada que houver. */
+  /** Envia o retrato e o aprova pela fila, no lugar da aprovada que houver. */
   public FotoId enviarAprovada(ContaId conta) {
     FotoId foto = enviar(conta);
-    transacao.executeWithoutResult(_ -> {
-      repositorio.travarConta(conta);
-      repositorio.apagarDoEstado(conta, EstadoDaFoto.APROVADA);
-      if (!repositorio.decidir(foto, EstadoDaFoto.APROVADA, relogio.instant())) {
-        throw new IllegalStateException("A foto enviada deixou de estar pendente");
-      }
-    });
+    fila.aprovar(foto);
     return foto;
   }
 }
