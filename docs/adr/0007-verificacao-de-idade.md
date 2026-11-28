@@ -23,7 +23,7 @@ As opções avaliadas:
 - **Selfie (AWS, `us-east-1`).** Face Liveness do Rekognition e `DetectFaces` com `AGE_RANGE` sobre a imagem de referência. Os limiares ficam fixos em código (`DecisaoDeIdade`): confiança mínima 90,0, exatamente um rosto e faixa presente, senão `REPETIR`. Com `alta < 18`, `RECUSADA`. Com `baixa ≥ 21`, `APROVADA`. O resto é `DUVIDA`. Nenhuma propriedade leva a conta a `ATIVA` sem aprovação.
 - **Recusa:** a conta vira lápide e o e-mail é bloqueado (motivo `MENOR`), com 422 `MENOR_DE_IDADE` e o cookie expirado.
 - **D-B, documento primeiro na dúvida.** Frente e verso do RG/CNH e uma selfie nova vão num envio só, dentro dos 3 min da nova sessão de prova de vida (+US$ 0,016: a sessão de documento também roda o `DetectFaces`). A Didit lê o documento (com a prova de vida do documento) e compara o retrato com a selfie nova (limiar de rosto 30). A ordem da decisão é esta: documento não aceito ou sem data → `REPETIR`. Rosto que não confere → `DUVIDA`. Menor de 18 pela data lida → `RECUSADA`. Data lida diferente da declarada → `DUVIDA`. Senão, `APROVADA`. O `In Review` da Didit conta como não aceito.
-- **409 `REFAZER_PROVA_DE_VIDA` (D14).** Se a prova da sessão de documento venceu, ficou abaixo de 90,0 ou não tem referência, o servidor descarta a tentativa, não chama a Didit e não gasta envio do dia. O front guarda as fotos do documento e reenvia com uma sessão nova, porque num 4G o upload pode passar dos 3 min.
+- **409 `REFAZER_PROVA_DE_VIDA` (D14).** Se a prova da sessão de documento venceu, ficou abaixo de 90,0 ou não tem referência, o servidor descarta a tentativa, não chama a Didit e não gasta envio do dia. O front guarda as fotos do documento e reenvia com uma sessão nova, porque num 4G o upload pode passar dos 3 min. Um reenvio com o mesmo `sessaoId` responde 404 `SESSAO_DE_VERIFICACAO_INVALIDA`, porque a tentativa já não existe; isso substitui o "responde igual" do contrato do plano.
 - **D-C:** Didit em sandbox na 2b. A chave de produção entra na Etapa 10.
 - **D-D, Didit sem repetição automática.** 5xx, timeout, rede, 401, 403 e 429 viram 503 `CONFERENCIA_DE_DOCUMENTO_INDISPONIVEL`, e a pessoa reenvia. Leitura de 9 s no documento e de 4 s no rosto, com 1 s de conexão em cada. A AWS tem até 2 tentativas por chamada (chamadas idempotentes ou baratas), com 2 s por tentativa e 4 s por chamada.
 - **Limites (24 h corridas, contados no banco):** 3 sessões `SELFIE` e 2 envios `DOCUMENTO` por conta, com 429 `LIMITE_DE_VERIFICACAO` e `Retry-After`. O Bucket4j `verificacao-conta` (20 por 10 min) só segura rajada.
@@ -55,7 +55,7 @@ As opções avaliadas:
 
 ### Orçamento de tempo
 
-O `resultado` da AWS leva no máximo 8 s (2 × 4 s), e o `conferir` da Didit no máximo 15 s (1 + 9 s no documento, 1 + 4 s no rosto). Os dois somados (23 s) cabem na reserva de idempotência de 30 s, e o `OrcamentoDeTempoTest` trava essa conta com os padrões das configurações.
+O `resultado` da AWS leva no máximo 8 s (duas chamadas de até 4 s), e o `conferir` da Didit no máximo 15 s (1 + 9 s no documento, 1 + 4 s no rosto). Os dois somados (23 s) cabem na reserva de idempotência de 30 s, e o `OrcamentoDeTempoTest` trava essa conta com os padrões das configurações.
 
 ### Navegador
 
@@ -84,6 +84,6 @@ A prova de vida pisca cores na tela. A tela avisa antes, e quem não pode se exp
 ## Alternativas consideradas
 
 - **(a) Tudo na AWS:** um fornecedor só, mas a AWS documenta o `AnalyzeID` só para documentos dos EUA. Não serve para RG/CNH. Rejeitada.
-- **(b) Tudo na Didit:** um fornecedor só, mas mais cara por pessoa (US$ 0,25 contra US$ 0,016 na maioria) e com o fluxo inteiro dependendo dela. Rejeitada.
-- **(d) gov.br:** a data viria de fonte oficial, mas a integração pede adesão formal ao gov.br e nem toda pessoa tem conta com nível de confiança suficiente. Rejeitada para o piloto.
+- **(b) Tudo na Didit:** um fornecedor só, mas com o fluxo inteiro dependendo dela e com o documento, o passo mais caro, mais perto de todo cadastro. Rejeitada.
+- **(d) gov.br:** a data viria de fonte oficial. Premissa, pela documentação pública do gov.br em 2026-11 (a conferir antes de reabrir a opção): a integração pede adesão formal, e nem toda pessoa tem conta com nível de confiança suficiente. Rejeitada para o piloto.
 - **(e) Documento para todos:** mais preciso, mas custa cerca de 17 vezes mais por pessoa, pede mais dado sensível de todo mundo e afasta quem só queria entrar. Rejeitada.
