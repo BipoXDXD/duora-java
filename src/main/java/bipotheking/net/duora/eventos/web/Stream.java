@@ -184,14 +184,17 @@ final class Stream {
           }
         }
       }
-    } catch (IOException | IllegalStateException e) {
-      // O cliente foi embora ou a resposta já terminou: nada a escrever.
+    } catch (IOException e) {
+      // O cliente foi embora: nada a escrever.
       concluir();
     } catch (InterruptedException e) {
       Thread.currentThread().interrupt();
       terminarJa();
     } catch (RuntimeException e) {
-      LOG.warn("Falha no stream da conta {}", conta, e);
+      // Depois de terminada, a resposta recusa o envio (IllegalStateException): não é falha.
+      if (aceitando.get()) {
+        LOG.warn("Falha no stream da conta {}", conta, e);
+      }
       terminarJa();
     }
   }

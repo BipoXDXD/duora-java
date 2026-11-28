@@ -6,6 +6,7 @@ import static org.assertj.core.api.Assertions.fail;
 import bipotheking.net.duora.conta.ContaId;
 import bipotheking.net.duora.conta.ContasDeTeste;
 import bipotheking.net.duora.conta.ContasDeTeste.ContaDeTeste;
+import bipotheking.net.duora.conta.Sessoes;
 import bipotheking.net.duora.eventos.dominio.EventoGravado;
 import bipotheking.net.duora.eventos.dominio.RepositorioDeEventos;
 import io.micrometer.core.instrument.MeterRegistry;
@@ -21,7 +22,9 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
 import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.TimeUnit;
 import java.util.function.BooleanSupplier;
@@ -31,10 +34,13 @@ import org.jspecify.annotations.Nullable;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.context.TestConfiguration;
+import org.springframework.boot.test.system.CapturedOutput;
+import org.springframework.boot.test.system.OutputCaptureExtension;
 import org.springframework.context.annotation.Bean;
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.transaction.support.TransactionTemplate;
@@ -49,6 +55,7 @@ import tools.jackson.databind.json.JsonMapper;
 @SpringBootTest(
     webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT,
     properties = "duora.eventos.batimento=PT0.2S")
+@ExtendWith(OutputCaptureExtension.class)
 class EventosApiTest {
 
   private static final Duration ESPERA = Duration.ofSeconds(5);
@@ -67,6 +74,7 @@ class EventosApiTest {
   @Autowired private JdbcClient jdbc;
   @Autowired private MeterRegistry metricas;
   @Autowired private JsonMapper json;
+  @Autowired private Sessoes sessoes;
 
   private final List<ClienteSse> abertos = new ArrayList<>();
   private ContaDeTeste conta;
@@ -75,9 +83,17 @@ class EventosApiTest {
   @TestConfiguration(proxyBeanMethods = false)
   static class EstadoInicialDeTeste {
 
+    /** As contas cujo estado inicial falha, para o teste do escritor que cai. */
+    static final Set<ContaId> QUE_FALHAM = ConcurrentHashMap.newKeySet();
+
     @Bean
     EstadoInicial estadoInicialDeTeste() {
-      return contaId -> List.of(new Evento(INICIAL, Map.of("conta", contaId.toString())));
+      return contaId -> {
+        if (QUE_FALHAM.contains(contaId)) {
+          throw new IllegalStateException("estado inicial de teste falhou");
+        }
+        return List.of(new Evento(INICIAL, Map.of("conta", contaId.toString())));
+      };
     }
   }
 
@@ -89,6 +105,65 @@ class EventosApiTest {
   @AfterEach
   void fecharClientes() {
     abertos.forEach(ClienteSse::close);
+  }
+
+  @Test
+  void sairEncerraOStream() throws Exception {
+    ClienteSse cliente = abrir(conta, "/api/eventos", Map.of());
+    cliente.proximo();
+
+    HttpResponse<Void> resposta =
+        HttpClient.newHttpClient()
+            .send(
+                HttpRequest.newBuilder(uri("/api/conta/sair"))
+                    .header("Cookie", conta.cookie())
+                    .header("X-Duora", "1")
+                    .POST(HttpRequest.BodyPublishers.noBody())
+                    .timeout(ESPERA)
+                    .build(),
+                HttpResponse.BodyHandlers.discarding());
+
+    assertThat(resposta.statusCode()).isEqualTo(204);
+    cliente.esperarFim();
+    esperarAte(() -> !canal.conectada(conta.id()));
+  }
+
+  @Test
+  void revogarTodasAsSessoesEncerraOStream() throws Exception {
+    ClienteSse cliente = abrir(conta, "/api/eventos", Map.of());
+    cliente.proximo();
+
+    sessoes.revogarTodas(conta.id());
+
+    cliente.esperarFim();
+    esperarAte(() -> !canal.conectada(conta.id()));
+  }
+
+  @Test
+  void streamDeSessaoJaEncerradaFechaSemErroNoLog(CapturedOutput saida) throws Exception {
+    ClienteSse cliente = abrir(conta, "/api/eventos", Map.of());
+    cliente.proximo();
+    sessoes.encerrar(conta.cookie().split("=", 2)[1]);
+
+    canal.encerrarStreams(conta.id());
+
+    cliente.esperarFim();
+    esperarAte(() -> !canal.conectada(conta.id()));
+    Thread.sleep(300);
+    assertThat(saida.getAll()).doesNotContain(" WARN ").doesNotContain(" ERROR ");
+  }
+
+  @Test
+  void falhaNoEstadoInicialFechaOStream() throws Exception {
+    EstadoInicialDeTeste.QUE_FALHAM.add(conta.id());
+    try {
+      ClienteSse cliente = abrir(conta, "/api/eventos", Map.of());
+
+      cliente.esperarFim();
+      esperarAte(() -> !canal.conectada(conta.id()));
+    } finally {
+      EstadoInicialDeTeste.QUE_FALHAM.remove(conta.id());
+    }
   }
 
   @Test

@@ -7,6 +7,7 @@ import bipotheking.net.duora.conta.RotasPublicas;
 import bipotheking.net.duora.conta.SessaoAtiva;
 import bipotheking.net.duora.nucleo.ErroDeNegocio;
 import bipotheking.net.duora.web.CodigoWeb;
+import jakarta.servlet.DispatcherType;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import java.util.Arrays;
@@ -39,13 +40,15 @@ class ExigeSessao implements HandlerInterceptor {
   }
 
   /**
-   * Rota pública passa sem ler o cookie. As recusas saem pelo {@code TratamentoDeErros}; o cookie
-   * expirado de uma sessão inválida já está na resposta quando a exceção sobe.
+   * Rota pública passa sem ler o cookie. A despachada assíncrona (o fim de um SSE) passa direto: a
+   * sessão foi conferida no despacho inicial, e a resposta já saiu; conferir de novo depois de um
+   * logout lançaria com a resposta commitada. As recusas saem pelo {@code TratamentoDeErros}; o
+   * cookie expirado de uma sessão inválida já está na resposta quando a exceção sobe.
    */
   @Override
   public boolean preHandle(
       HttpServletRequest request, HttpServletResponse response, Object handler) {
-    if (publica(request)) {
+    if (request.getDispatcherType() == DispatcherType.ASYNC || publica(request)) {
       return true;
     }
     SessaoAtiva sessao =
