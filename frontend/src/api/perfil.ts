@@ -163,8 +163,8 @@ export function obterMeuPerfil(): Promise<MeuPerfil> {
 }
 
 /** Manda só os campos do contrato; `versao` nula cria o perfil. */
-export function salvarPerfil(e: EdicaoDoPerfil): Promise<MeuPerfil> {
-  const { versao, apelido, pronomes, descricaoPronomes, intencoes, bio } = e;
+export function salvarPerfil(edicao: EdicaoDoPerfil): Promise<MeuPerfil> {
+  const { versao, apelido, pronomes, descricaoPronomes, intencoes, bio } = edicao;
   return gravar("/perfil", { versao, apelido, pronomes, descricaoPronomes, intencoes, bio }, EsquemaMeuPerfil);
 }
 
@@ -202,8 +202,8 @@ export function obterPreferencias(): Promise<PreferenciasDeEncontro> {
   return obter("/perfil/preferencias", EsquemaPreferencias);
 }
 
-export function salvarPreferencias(p: PreferenciasDeEncontro): Promise<PreferenciasDeEncontro> {
-  const { versao, idadeMinima, idadeMaxima, raio, raioObrigatorio } = p;
+export function salvarPreferencias(preferencias: PreferenciasDeEncontro): Promise<PreferenciasDeEncontro> {
+  const { versao, idadeMinima, idadeMaxima, raio, raioObrigatorio } = preferencias;
   return gravar(
     "/perfil/preferencias",
     { versao, idadeMinima, idadeMaxima, raio, raioObrigatorio },
@@ -216,8 +216,8 @@ export function obterLocalizacao(): Promise<SituacaoDaLocalizacao> {
 }
 
 /** Só latitude e longitude saem, mesmo que o objeto traga mais (precisão, altitude). */
-export function ativarLocalizacao(c: Coordenada): Promise<void> {
-  return semResposta("PUT", "/perfil/localizacao", { latitude: c.latitude, longitude: c.longitude });
+export function ativarLocalizacao(coordenada: Coordenada): Promise<void> {
+  return semResposta("PUT", "/perfil/localizacao", { latitude: coordenada.latitude, longitude: coordenada.longitude });
 }
 
 export function desativarLocalizacao(): Promise<void> {
@@ -232,8 +232,8 @@ export async function obterNamoro(): Promise<DadosDeNamoro | null> {
   return ler(EsquemaNamoro, resposta.status, resposta.dados);
 }
 
-export function salvarNamoro(d: EdicaoDoNamoro): Promise<DadosDeNamoro> {
-  const { genero, descricaoGenero, interesses, consentimento } = d;
+export function salvarNamoro(edicao: EdicaoDoNamoro): Promise<DadosDeNamoro> {
+  const { genero, descricaoGenero, interesses, consentimento } = edicao;
   return gravar("/perfil/namoro", { genero, descricaoGenero, interesses, consentimento }, EsquemaNamoro);
 }
 
@@ -249,8 +249,8 @@ export async function obterOrientacao(): Promise<DadosDeOrientacao | null> {
   return ler(EsquemaOrientacao, resposta.status, resposta.dados);
 }
 
-export function salvarOrientacao(d: EdicaoDaOrientacao): Promise<DadosDeOrientacao> {
-  const { orientacao, descricaoOrientacao, mostrarOrientacao, consentimento } = d;
+export function salvarOrientacao(edicao: EdicaoDaOrientacao): Promise<DadosDeOrientacao> {
+  const { orientacao, descricaoOrientacao, mostrarOrientacao, consentimento } = edicao;
   return gravar(
     "/perfil/orientacao",
     { orientacao, descricaoOrientacao, mostrarOrientacao, consentimento },
