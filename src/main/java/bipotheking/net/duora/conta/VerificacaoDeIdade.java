@@ -222,10 +222,8 @@ public class VerificacaoDeIdade {
       DesfechoDaVerificacao desfecho =
           transacao.execute(status -> {
             Instant agora = relogio.instant();
-            if (!verificacoes.concluir(tentativa.id(), resultado, agora)) {
-              throw CodigoVerificacao.SESSAO_DE_VERIFICACAO_INVALIDA.erro();
-            }
-            efeitos.aplicar(conta, resultado, MetodoDeVerificacao.ESTIMATIVA_FACIAL, agora);
+            efeitos.concluir(
+                tentativa, conta, resultado, MetodoDeVerificacao.ESTIMATIVA_FACIAL, agora);
             DesfechoDaVerificacao novo = desfecho(conta.id(), resultado, agora);
             idempotencia.concluir(ESCOPO_DO_RESULTADO, sessaoId, dono, novo);
             return novo;

@@ -19,6 +19,12 @@ public interface RepositorioDeContas {
   Optional<Conta> porId(ContaId id);
 
   /**
+   * Trava a linha da conta ({@code for update}) até o fim da transação do chamador e a relê já com
+   * a trava: o estado lido não muda até o commit. Vazio se a conta não existe.
+   */
+  Optional<Conta> travar(ContaId id);
+
+  /**
    * Grava a data de nascimento e leva a conta a {@code AGUARDANDO_VERIFICACAO} num UPDATE
    * condicional: só sai de {@code PENDENTE}, e só um entre concorrentes vence.
    *

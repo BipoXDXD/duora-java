@@ -75,6 +75,15 @@ class LimpezaDeConta {
     return apagar(id, email, titular, agora);
   }
 
+  /**
+   * Toma a trava do e-mail sem apagar nada, para quem precisa dela antes das outras (a ordem das
+   * travas é e-mail, conta, tentativas). A trava é de transação e reentrante: a exclusão que vem
+   * depois, na mesma transação, a toma de novo sem esperar.
+   */
+  void travarEmail(Email email) {
+    travar(email);
+  }
+
   private String travar(Email email) {
     String titular = resumoDeEmail.hex(email);
     links.travarEmail(titular);
