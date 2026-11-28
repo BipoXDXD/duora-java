@@ -256,6 +256,32 @@ describe("MeuPerfil", () => {
     expect(screen.getByRole("textbox", { name: "Seus pronomes" })).toHaveAccessibleDescription("Até 20 caracteres.");
   });
 
+  it("erroDaDescricaoAbertaSoNoCampo", async () => {
+    prepararFetch([]);
+    renderizar();
+    const usuario = userEvent.setup();
+
+    await usuario.click(screen.getByRole("radio", { name: "Prefiro descrever" }));
+    await usuario.click(botaoSalvar());
+
+    const campo = screen.getByRole("textbox", { name: "Seus pronomes" });
+    expect(campo).toHaveAccessibleDescription("Até 20 caracteres. Escreva seus pronomes com até 20 caracteres.");
+    expect(screen.getByRole("group", { name: "Pronomes (opcional)" })).not.toHaveAttribute("aria-describedby");
+  });
+
+  it("trocarDePronomesTiraOErroDaDescricao", async () => {
+    prepararFetch([]);
+    renderizar();
+    const usuario = userEvent.setup();
+    await usuario.click(screen.getByRole("radio", { name: "Prefiro descrever" }));
+    await usuario.click(botaoSalvar());
+    expect(screen.getByText("Escreva seus pronomes com até 20 caracteres.")).toBeInTheDocument();
+
+    await usuario.click(screen.getByRole("radio", { name: "ela/dela" }));
+
+    expect(screen.queryByText("Escreva seus pronomes com até 20 caracteres.")).not.toBeInTheDocument();
+  });
+
   it("descricaoDosPronomesSoVaiComPrefiroDescrever", async () => {
     const { corposDoPut } = prepararFetch([{ status: 200, corpo: SALVO }]);
     renderizar();

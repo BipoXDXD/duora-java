@@ -185,6 +185,12 @@ export function MeuPerfil(): ReactElement {
     setEdicao((atual) => ({ ...atual, ...parte }));
   }
 
+  /** Trocar de pronomes tira o erro da descrição: ele valia para a escolha anterior. */
+  function escolherPronomes(pronomes: Pronomes | null) {
+    mudar({ pronomes });
+    setErros((atuais) => ({ ...atuais, descricaoPronomes: undefined }));
+  }
+
   function alternarIntencao(intencao: Intencao, marcada: boolean) {
     // Na ordem do contrato, qualquer que seja a ordem dos cliques.
     const escolhidas = new Set(edicao.intencoes);
@@ -251,7 +257,8 @@ export function MeuPerfil(): ReactElement {
 
         <fieldset
           className={`${GRUPO} ${erros.descricaoPronomes === undefined ? "border-transparent" : "border-coral"}`}
-          aria-describedby={descricao("descricaoPronomes")}
+          // Aberto, o erro é descrito pelo campo da descrição; no grupo, seria lido duas vezes.
+          aria-describedby={prefereDescrever ? undefined : descricao("descricaoPronomes")}
         >
           <legend className={`${ROTULO} p-0 mb-(--e-2)`}>{MEU_PERFIL.rotuloDosPronomes}</legend>
           {[null, ...PRONOMES].map((valor) => {
@@ -266,7 +273,7 @@ export function MeuPerfil(): ReactElement {
                   value={valor ?? ""}
                   checked={marcado}
                   onChange={() => {
-                    mudar({ pronomes: valor });
+                    escolherPronomes(valor);
                   }}
                 />
                 {valor === null ? MEU_PERFIL.naoMostrar : ROTULO_DOS_PRONOMES[valor]}
@@ -294,9 +301,10 @@ export function MeuPerfil(): ReactElement {
               <p className={DICA} id={ID.dicaDaDescricao}>
                 {MEU_PERFIL.dicaDaDescricaoDosPronomes}
               </p>
+              {erroDo("descricaoPronomes")}
             </div>
           )}
-          {erroDo("descricaoPronomes")}
+          {!prefereDescrever && erroDo("descricaoPronomes")}
         </fieldset>
 
         <fieldset

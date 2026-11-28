@@ -56,6 +56,18 @@ class AxeMeuPerfilIT extends ContaE2eBase {
       "mensagem":"Seu perfil mudou enquanto você editava. Confira e salve de novo."}\
       """;
 
+  private static final String CORPO_DO_APELIDO_INVALIDO =
+      """
+      {"type":"about:blank","title":"Regra de negócio","status":422,\
+      "codigo":"APELIDO_INVALIDO",\
+      "mensagem":"O apelido precisa ter de 1 a 20 caracteres."}\
+      """;
+
+  private static final String CORPO_DA_INDISPONIBILIDADE =
+      """
+      {"type":"about:blank","title":"Indisponível","status":503,"codigo":"INDISPONIVEL"}\
+      """;
+
   /** PNG de 1×1: a foto abre e o cartão mostra a imagem, não a silhueta. */
   private static final byte[] FOTO =
       Base64.getDecoder()
@@ -162,6 +174,49 @@ class AxeMeuPerfilIT extends ContaE2eBase {
     assertThat(page.getByRole(AriaRole.ALERT))
         .hasText("Seu perfil mudou em outro aparelho. Confira e salve de novo.");
     assertSemViolacoes(page, "meu perfil: versão obsoleta");
+  }
+
+  /** O 422 do servidor vai ao campo do apelido, com o erro sob ele. */
+  @Test
+  void erroDoServidorNoCampo(Participantes participantes) {
+    ContaPagina conta = meuPerfil(participantes, PERFIL_MINIMO, false);
+    Page page = conta.page();
+    responderAoPut(page, 422, CORPO_DO_APELIDO_INVALIDO);
+
+    salvar(page);
+
+    assertThat(page.getByText("O apelido precisa ter de 1 a 20 caracteres.")).isVisible();
+    assertSemViolacoes(page, "meu perfil: erro do servidor no campo");
+  }
+
+  @Test
+  void falhaGeral(Participantes participantes) {
+    ContaPagina conta = meuPerfil(participantes, PERFIL_MINIMO, false);
+    Page page = conta.page();
+    responderAoPut(page, 503, CORPO_DA_INDISPONIBILIDADE);
+
+    salvar(page);
+
+    assertThat(page.getByRole(AriaRole.ALERT))
+        .hasText("Não conseguimos salvar seu perfil. Tente de novo em instantes.");
+    assertSemViolacoes(page, "meu perfil: falha geral");
+  }
+
+  /** O PUT do perfil responde o erro; o resto segue para as rotas já preparadas. */
+  private static void responderAoPut(Page page, int status, String corpo) {
+    page.route(
+        "**/api/perfil",
+        rota -> {
+          if ("PUT".equals(rota.request().method())) {
+            rota.fulfill(
+                new Route.FulfillOptions()
+                    .setStatus(status)
+                    .setContentType("application/problem+json")
+                    .setBody(corpo));
+          } else {
+            rota.fallback();
+          }
+        });
   }
 
   /**
