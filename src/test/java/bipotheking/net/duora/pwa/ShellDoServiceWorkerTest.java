@@ -52,6 +52,20 @@ class ShellDoServiceWorkerTest {
     assertThat(Estaticos.shell()).containsAll(citados);
   }
 
+  /**
+   * A verificação vive num documento próprio, com a CSP dela: o shell não guarda a rota nem os
+   * detectores (o chunk do Amplify tem vários MB e só serve à captura).
+   */
+  @Test
+  void shellNaoGuardaAVerificacao() {
+    assertThat(Estaticos.shell()).isNotEmpty();
+    assertThat(Estaticos.shell())
+        .noneMatch(url -> url.startsWith("/verificacao"))
+        .noneMatch(url -> url.contains("verificacao-amplify"))
+        .noneMatch(url -> url.contains("Detector"))
+        .noneMatch(url -> url.contains("VerificacaoPagina"));
+  }
+
   @Test
   void cadaSpriteTemArquivoEmCadaMomentoELargura() {
     String cena = cenaJson();

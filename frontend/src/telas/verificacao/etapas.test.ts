@@ -131,6 +131,34 @@ describe("proximaEtapa", () => {
     });
   });
 
+  it("concluirSelfieVaiParaConferindo", () => {
+    const captura: Etapa = { etapa: "captura", sessao: SESSAO, finalidade: "SELFIE" };
+
+    expect(proximaEtapa(captura, { tipo: "concluiu" })).toEqual({ etapa: "conferindo", sessaoId: SESSAO.sessaoId });
+  });
+
+  // A selfie do documento segue para o envio das fotos (F7), não para a conferência da selfie.
+  it("concluirCapturaDoDocumentoNaoConfereASelfie", () => {
+    const captura: Etapa = { etapa: "captura", sessao: SESSAO, finalidade: "DOCUMENTO" };
+
+    expect(proximaEtapa(captura, { tipo: "concluiu" })).toBe(captura);
+  });
+
+  it("falhaDoDetectorVaiParaAFalha", () => {
+    const captura: Etapa = { etapa: "captura", sessao: SESSAO, finalidade: "SELFIE" };
+
+    expect(proximaEtapa(captura, { tipo: "falhou", falha: "outraPessoa" })).toEqual({
+      etapa: "falhaDoDetector",
+      falha: "outraPessoa",
+    });
+  });
+
+  it("cancelarVoltaParaExplicacao", () => {
+    const captura: Etapa = { etapa: "captura", sessao: SESSAO, finalidade: "SELFIE" };
+
+    expect(proximaEtapa(captura, { tipo: "cancelou" })).toEqual({ etapa: "explicacao" });
+  });
+
   it("eventoForaDaEtapaNaoMudaNada", () => {
     const iniciando: Etapa = { etapa: "iniciando", finalidade: "SELFIE" };
 

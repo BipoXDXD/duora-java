@@ -16,6 +16,7 @@ export const VERIFICACAO_DE_IDADE = {
   comecar: "Começar a selfie",
   semConsentimento: "Marque a caixa para começar.",
   semSuporte: "Este navegador não abre a câmera. Abra o Duora no Chrome, no Safari ou no Firefox atualizado.",
+  selfieEmVideo: "Selfie em vídeo",
   abrindoCamera: "Abrindo a câmera…",
   preparando: "Preparando a selfie…",
   cameraNegada:

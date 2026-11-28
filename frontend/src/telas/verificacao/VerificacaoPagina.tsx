@@ -8,6 +8,7 @@ import { iniciarSessao, type Finalidade, type SituacaoDaVerificacao } from "../.
 import { BOTAO_SECUNDARIO_SEM_MARGEM, LINK_DE_ACAO, TITULO_DA_CASCA } from "../../componentes/estilos";
 import { CASCA, textoDeEspera } from "../conta/textos";
 import { checarCamera, navegadorTemSuporte, type MotivoSemCamera, type ResultadoDaCamera } from "./camera";
+import { CapturaDeVida } from "./CapturaDeVida";
 import { etapaInicial, proximaEtapa, type Etapa, type Evento } from "./etapas";
 import { Explicacao } from "./Explicacao";
 import { VERIFICACAO_DE_IDADE } from "./textos";
@@ -202,14 +203,14 @@ interface PropsDoConteudo {
   despachar: (evento: Evento) => void;
 }
 
-/** O texto das etapas de espera; o detector da F6 troca a espera da captura. */
+/** O texto das etapas de espera; na captura, quem fala é a espera do próprio CapturaDeVida. */
 function textoDaEspera(etapa: Etapa): string | null {
   switch (etapa.etapa) {
     case "checandoCamera":
-    case "captura":
       return VERIFICACAO_DE_IDADE.abrindoCamera;
     case "iniciando":
       return VERIFICACAO_DE_IDADE.preparando;
+    case "captura":
     case "explicacao":
     case "semCamera":
     case "conferindo":
@@ -275,10 +276,25 @@ function ConteudoDaEtapa({
       );
     case "indisponivel":
       return <FalhaComRepeticao texto={VERIFICACAO_DE_IDADE.servicoFora} aoRepetir={tentarDeNovo} />;
+    case "captura":
+      // O detector vem do modo que o servidor mandou na sessão (D-F2).
+      return (
+        <CapturaDeVida
+          sessao={etapa.sessao}
+          aoConcluir={() => {
+            despachar({ tipo: "concluiu" });
+          }}
+          aoFalhar={(falha) => {
+            despachar({ tipo: "falhou", falha });
+          }}
+          aoCancelar={() => {
+            despachar({ tipo: "cancelou" });
+          }}
+        />
+      );
     // As esperas falam na região viva da página, fora daqui.
     case "checandoCamera":
     case "iniciando":
-    case "captura":
     case "conferindo":
     case "falhaDoDetector":
     case "desfecho":

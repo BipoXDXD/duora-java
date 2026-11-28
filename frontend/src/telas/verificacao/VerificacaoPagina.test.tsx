@@ -10,6 +10,18 @@ import { stubarFetch, VERSOES_LEGAIS } from "../../teste/fetchFalso";
 import type { ResultadoDaCamera } from "./camera";
 import { VerificacaoPagina, type DadosDaVerificacao } from "./VerificacaoPagina";
 
+/** O Core do Amplify abriria a câmera: o teste guarda as props e chama os callbacks à mão. */
+const coreDoAmplify = vi.hoisted(() => ({
+  onError: undefined as ((erro: { state: string; error: Error }) => void) | undefined,
+}));
+
+vi.mock("@aws-amplify/ui-react-liveness", () => ({
+  FaceLivenessDetectorCore: (props: { onError: (erro: { state: string; error: Error }) => void }) => {
+    coreDoAmplify.onError = props.onError;
+    return <p>detector amplify</p>;
+  },
+}));
+
 const CONTA = { estado: "AGUARDANDO_VERIFICACAO", cadastroConcluido: false, verificada: false } as const;
 const SITUACAO: SituacaoDaVerificacao = {
   estado: "AGUARDANDO",
@@ -184,6 +196,7 @@ function titulo() {
 }
 
 afterEach(() => {
+  coreDoAmplify.onError = undefined;
   vi.unstubAllGlobals();
   localStorage.clear();
   sessionStorage.clear();
@@ -414,12 +427,62 @@ describe("VerificacaoPagina", () => {
     expect(titulo()).toHaveFocus();
   });
 
+  it("sessaoCriadaMostraODetectorDoModo", async () => {
+    const usuario = userEvent.setup();
+    abrirAPagina({ sessoes: [json(201, SESSAO_CRIADA)] });
+
+    await consentirEComecar(usuario);
+
+    expect(await screen.findByRole("region", { name: "Selfie em vídeo" })).toBeInTheDocument();
+    expect(await screen.findByText("Modo de teste: nenhuma câmera é usada.")).toBeInTheDocument();
+  });
+
+  it("simularCapturaVaiParaConferindo", async () => {
+    const usuario = userEvent.setup();
+    const { pedidosDeSessao } = abrirAPagina({ sessoes: [json(201, SESSAO_CRIADA)] });
+
+    await consentirEComecar(usuario);
+    await usuario.click(await screen.findByRole("button", { name: "Simular captura" }));
+
+    expect(screen.queryByRole("region", { name: "Selfie em vídeo" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Começar a selfie" })).not.toBeInTheDocument();
+    expect(titulo()).toHaveFocus();
+    expect(pedidosDeSessao()).toBe(1);
+  });
+
+  it("falhaDoDetectorSaiDaCaptura", async () => {
+    const usuario = userEvent.setup();
+    abrirAPagina({ situacao: { modo: "aws" }, sessoes: [json(201, { ...SESSAO_CRIADA, modo: "aws" })] });
+
+    await consentirEComecar(usuario);
+    await screen.findByText("detector amplify");
+    act(() => {
+      coreDoAmplify.onError?.({ state: "MULTIPLE_FACES_ERROR", error: new Error("dois rostos") });
+    });
+
+    expect(screen.queryByRole("region", { name: "Selfie em vídeo" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Começar a selfie" })).not.toBeInTheDocument();
+    expect(titulo()).toHaveFocus();
+  });
+
+  it("cancelarVoltaParaExplicacao", async () => {
+    const usuario = userEvent.setup();
+    const { pedidosDeSessao } = abrirAPagina({ sessoes: [json(201, SESSAO_CRIADA)] });
+
+    await consentirEComecar(usuario);
+    await usuario.click(await screen.findByRole("button", { name: "Cancelar" }));
+
+    expect(screen.getByRole("button", { name: "Começar a selfie" })).toBeInTheDocument();
+    expect(screen.queryByRole("region", { name: "Selfie em vídeo" })).not.toBeInTheDocument();
+    expect(pedidosDeSessao()).toBe(1);
+  });
+
   it("credencialNuncaVaiParaOStorage", async () => {
     const usuario = userEvent.setup();
     const { clienteDeConsulta } = abrirAPagina({ sessoes: [json(201, SESSAO_CRIADA)] });
 
     await consentirEComecar(usuario);
-    await screen.findByText("Abrindo a câmera…");
+    await screen.findByRole("button", { name: "Simular captura" });
 
     const guardado = [
       conteudoDo(localStorage),
@@ -447,7 +510,7 @@ describe("VerificacaoPagina", () => {
     abrirAPagina({ sessoes: [json(201, SESSAO_CRIADA)] });
 
     await consentirEComecar(usuario);
-    await screen.findByText("Abrindo a câmera…");
+    await screen.findByRole("button", { name: "Simular captura" });
 
     const html = document.documentElement.outerHTML;
     for (const valor of [CREDENCIAL.accessKeyId, CREDENCIAL.secretAccessKey, CREDENCIAL.sessionToken]) {
