@@ -61,6 +61,7 @@ class FotosDoPerfilTest extends BancoDeTeste {
   @Autowired private GeradorDeIds geradorDeIds;
   @Autowired private TransactionTemplate transacao;
   @Autowired private Clock relogioDoSistema;
+  @Autowired private AcessoAFoto acesso;
 
   private final byte[] retrato = FotosDeTeste.fixture(FotosDeTeste.RETRATO);
 
@@ -247,7 +248,8 @@ class FotosDoPerfilTest extends BancoDeTeste {
         idempotencia,
         geradorDeIds,
         transacao,
-        relogioDoSistema);
+        relogioDoSistema,
+        acesso);
   }
 
   /** Armazém com o disco cheio: {@code guardar} falha como o {@code ArmazemEmDisco} falharia. */

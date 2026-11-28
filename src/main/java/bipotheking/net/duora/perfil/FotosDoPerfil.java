@@ -25,10 +25,12 @@ import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.UUID;
 import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.core.io.Resource;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.TransactionDefinition;
 import org.springframework.transaction.support.TransactionSynchronization;
@@ -62,6 +64,7 @@ public class FotosDoPerfil {
   private final TransactionTemplate transacao;
   private final TransactionTemplate transacaoAParte;
   private final Clock relogio;
+  private final AcessoAFoto acesso;
 
   FotosDoPerfil(
       RepositorioDeFotos fotos,
@@ -72,7 +75,8 @@ public class FotosDoPerfil {
       Idempotencia idempotencia,
       GeradorDeIds geradorDeIds,
       TransactionTemplate transacao,
-      Clock relogio) {
+      Clock relogio,
+      AcessoAFoto acesso) {
     this.fotos = fotos;
     this.contas = contas;
     this.processador = processador;
@@ -86,6 +90,7 @@ public class FotosDoPerfil {
     this.transacaoAParte.setPropagationBehavior(TransactionDefinition.PROPAGATION_REQUIRES_NEW);
     this.transacaoAParte.setReadOnly(true);
     this.relogio = relogio;
+    this.acesso = acesso;
   }
 
   /**
@@ -126,6 +131,37 @@ public class FotosDoPerfil {
       }
     }
     return new FotoDoTitular(aprovada, pendente, recusadaEm);
+  }
+
+  /** A URL da variante da foto aprovada do titular, se houver. */
+  public Optional<String> urlDaAprovada(ContaId titular, Variante variante) {
+    return fotos.daConta(titular).stream()
+        .filter(foto -> foto.estado() == EstadoDaFoto.APROVADA)
+        .findFirst()
+        .map(foto -> UrlDaFoto.de(foto.id(), variante));
+  }
+
+  /**
+   * Os bytes da variante, se {@code quemVe} puder vê-la. Vazio é a mesma resposta para a foto que
+   * não existe, a recusada, a pendente de outra conta e a variante que o nível não alcança: quem
+   * pede não distingue um caso do outro.
+   */
+  public Optional<Resource> abrir(ContaId quemVe, FotoId id, Variante variante) {
+    return fotos
+        .porId(id)
+        .filter(foto -> podeVer(quemVe, foto, variante))
+        .flatMap(foto -> armazem.ler(CATEGORIA, foto.id().valor(), variante));
+  }
+
+  /** A pendente só a titular vê; a aprovada, quem tem o nível que a variante pede. */
+  private boolean podeVer(ContaId quemVe, FotoDePerfil foto, Variante variante) {
+    boolean visivel =
+        switch (foto.estado()) {
+          case APROVADA -> true;
+          case PENDENTE -> quemVe.equals(foto.conta());
+          case RECUSADA -> false;
+        };
+    return visivel && acesso.nivel(quemVe, foto.conta()).permite(variante);
   }
 
   private FotoEnviada efetuarComChave(ContaId conta, byte[] arquivo, ChaveReservada chave) {
