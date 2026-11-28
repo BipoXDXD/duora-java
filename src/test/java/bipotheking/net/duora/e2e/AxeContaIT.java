@@ -13,6 +13,7 @@ import com.microsoft.playwright.options.AriaRole;
 import java.time.LocalDate;
 import java.time.ZoneId;
 import java.util.Map;
+import java.util.function.Consumer;
 import org.jspecify.annotations.Nullable;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -40,6 +41,12 @@ class AxeContaIT extends ContaE2eBase {
       "detail":"Muitas tentativas. Tente de novo em alguns minutos.",\
       "instance":"/api/conta/entrar","codigo":"LIMITE_DE_TAXA",\
       "mensagem":"Muitas tentativas. Tente de novo em alguns minutos."}\
+      """;
+
+  private static final String SITUACAO_SEM_TENTATIVAS =
+      """
+      {"estado":"AGUARDANDO","tentativasRestantesHoje":0,"enviosDeDocumentoRestantesHoje":2,\
+      "modo":"falso"}\
       """;
 
   /** Base64url com o tamanho de um token de 32 bytes, que nunca foi emitido. */
@@ -140,6 +147,56 @@ class AxeContaIT extends ContaE2eBase {
     assertThat(conta.heading("Confirme sua idade")).isVisible();
 
     assertSemViolacoes(conta.page(), "verificação");
+  }
+
+  /**
+   * A explicação, com a API da verificação simulada: o aviso de luz traz o e-mail do encarregado.
+   */
+  @Test
+  void verificacaoExplicacao(Participantes participantes) {
+    VerificacaoPagina verificacao = verificacaoSimulada(participantes, api -> {});
+
+    assertThat(verificacao.heading("Confirme sua idade")).isVisible();
+    assertThat(
+            verificacao
+                .page()
+                .getByRole(
+                    AriaRole.LINK,
+                    new Page.GetByRoleOptions().setName("encarregado@exemplo.invalid")))
+        .hasAttribute("href", "mailto:encarregado@exemplo.invalid");
+    verificacao.textoVisivel("Tentativas restantes hoje: 3");
+
+    assertSemViolacoes(verificacao.page(), "verificação: explicação");
+  }
+
+  @Test
+  void verificacaoLimite(Participantes participantes) {
+    VerificacaoPagina verificacao =
+        verificacaoSimulada(participantes, api -> api.comSituacao(SITUACAO_SEM_TENTATIVAS));
+
+    verificacao.textoVisivel("Você chegou ao limite de tentativas de hoje. Tente de novo amanhã.");
+
+    assertSemViolacoes(verificacao.page(), "verificação: limite");
+  }
+
+  @Test
+  void verificacaoServicoFora(Participantes participantes) {
+    VerificacaoPagina verificacao =
+        verificacaoSimulada(
+            participantes,
+            api ->
+                api.comSessao(
+                    ApiDeVerificacaoSimulada.Resposta.problema(
+                        503,
+                        "PROVA_DE_VIDA_INDISPONIVEL",
+                        "A verificação está fora do ar. Tente de novo em alguns minutos.")));
+
+    verificacao
+        .consentirEComecar()
+        .textoVisivel("O serviço de verificação não respondeu. Tente de novo em instantes.");
+    assertThat(verificacao.botao("Tentar de novo")).isVisible();
+
+    assertSemViolacoes(verificacao.page(), "verificação: serviço fora");
   }
 
   @Test
@@ -249,6 +306,14 @@ class AxeContaIT extends ContaE2eBase {
 
     assertThat(conta.heading("Página não encontrada")).isVisible();
     assertSemViolacoes(conta.page(), "página não encontrada");
+  }
+
+  /** A /verificacao com a conta e a API da verificação respondidas pelo Playwright. */
+  private VerificacaoPagina verificacaoSimulada(
+      Participantes participantes, Consumer<ApiDeVerificacaoSimulada> ajuste) {
+    Page page = participantes.novo().page();
+    ajuste.accept(ApiDeVerificacaoSimulada.instalar(page));
+    return VerificacaoPagina.abrir(page, raiz());
   }
 
   private static ContaPagina semConta(Participantes participantes) {
