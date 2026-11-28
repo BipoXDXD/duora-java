@@ -46,7 +46,8 @@ class PrazosDaPlataformaTest extends BancoDeTeste {
           entry("Tentativas de verificação de idade", List.of("tentativas-de-verificacao")),
           entry("Arquivos temporários de imagem", List.of("imagens-temporarias")),
           entry("Arquivo de foto trocada, recusada ou removida", List.of("fotos-orfas")),
-          entry("Localização (área de cerca de 5 km)", List.of("localizacoes-paradas")));
+          entry("Localização (área de cerca de 5 km)", List.of("localizacoes-paradas")),
+          entry("Avisos de tempo real (fila e encontro)", List.of("eventos-de-conta")));
 
   /**
    * Linhas dos dados do perfil que não têm política de retenção: ficam até a pessoa apagar,
