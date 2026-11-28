@@ -2,7 +2,9 @@ package bipotheking.net.duora.conta.dominio;
 
 import bipotheking.net.duora.conta.ContaId;
 import java.time.Instant;
+import java.util.Collection;
 import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
 
 /**
@@ -57,6 +59,9 @@ public interface RepositorioDeVerificacoes {
   void gravarAprovacao(ContaId conta, MetodoDeVerificacao metodo, Instant agora);
 
   boolean aprovada(ContaId conta);
+
+  /** Quais das contas pedidas têm a aprovação, numa consulta só. */
+  Set<ContaId> aprovadas(Collection<ContaId> contas);
 
   /** Apaga as tentativas e a aprovação da conta (exclusão). */
   void apagarDaConta(ContaId conta);

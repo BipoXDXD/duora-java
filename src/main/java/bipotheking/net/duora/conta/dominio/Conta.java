@@ -80,9 +80,11 @@ public record Conta(
    * O que outros módulos podem ver.
    *
    * @param verificada se a conta tem a verificação de idade aprovada, que fica fora deste registro
+   *     (a marca de conta de teste sai do e-mail; a excluída, sem e-mail, não é de teste)
    */
   public ContaResumo resumo(boolean verificada) {
-    return new ContaResumo(id, estado, dataDeNascimento, verificada, ativadaEm, false);
+    return new ContaResumo(
+        id, estado, dataDeNascimento, verificada, ativadaEm, email != null && email.deTeste());
   }
 
   @Override

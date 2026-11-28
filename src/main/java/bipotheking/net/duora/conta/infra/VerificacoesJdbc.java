@@ -14,8 +14,11 @@ import java.time.Duration;
 import java.time.Instant;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
+import java.util.Collection;
 import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
+import java.util.stream.Collectors;
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.stereotype.Component;
 
@@ -194,6 +197,21 @@ class VerificacoesJdbc implements RepositorioDeVerificacoes {
         .param("conta", conta.valor())
         .query(Boolean.class)
         .single();
+  }
+
+  @Override
+  public Set<ContaId> aprovadas(Collection<ContaId> contas) {
+    if (contas.isEmpty()) {
+      return Set.of();
+    }
+    return jdbc
+        .sql("select conta_id from verificacao_idade where conta_id = any(:contas)")
+        .param("contas", contas.stream().map(ContaId::valor).toArray(UUID[]::new))
+        .query(UUID.class)
+        .list()
+        .stream()
+        .map(ContaId::new)
+        .collect(Collectors.toUnmodifiableSet());
   }
 
   @Override

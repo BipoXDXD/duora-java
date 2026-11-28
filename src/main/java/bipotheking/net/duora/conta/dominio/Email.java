@@ -21,6 +21,7 @@ public record Email(String valor) {
   private static final Pattern ESPACO_OU_CONTROLE = Pattern.compile("[\\s\\p{Z}\\p{Cc}\\p{Cf}]");
   private static final Set<String> DOMINIOS_DO_GMAIL = Set.of("gmail.com", "googlemail.com");
   private static final String MENSAGEM = "Confira o e-mail digitado.";
+  private static final String DOMINIO_DE_TESTE = "@teste.duora.invalid";
 
   public Email {
     if (!valido(valor)) {
@@ -34,6 +35,11 @@ public record Email(String valor) {
       throw new ErroDeNegocio(CodigoEmail.EMAIL_INVALIDO, MENSAGEM);
     }
     return new Email(bruto.strip().toLowerCase(Locale.ROOT));
+  }
+
+  /** Se o e-mail é das contas criadas pelos testes ({@code …@teste.duora.invalid}). */
+  public boolean deTeste() {
+    return valor.endsWith(DOMINIO_DE_TESTE);
   }
 
   public String dominio() {
