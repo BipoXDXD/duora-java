@@ -73,6 +73,10 @@ export const LINK_DE_ACAO = [
   "hover:text-ambar-claro [transition:color_var(--transicao)]",
 ].join(" ");
 
+/** Saída rebaixada de uma tela da casca (Minha conta, o terraço): texto sublinhado, sem cor de ação. */
+export const LINK_DE_SAIDA =
+  "inline-flex items-center min-h-[44px] text-[0.9375rem] text-texto-2 underline underline-offset-4 hover:text-marfim";
+
 /** Um botão indisponível fica no foco e na leitura, mas ignora o clique. */
 export function seDisponivel(indisponivel: boolean, acao: () => void): () => void {
   return () => {
