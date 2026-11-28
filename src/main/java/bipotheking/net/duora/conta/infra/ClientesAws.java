@@ -1,12 +1,8 @@
 package bipotheking.net.duora.conta.infra;
 
-import static bipotheking.net.duora.conta.infra.Exigencias.exigir;
-
 import java.net.URI;
 import java.util.Optional;
-import software.amazon.awssdk.auth.credentials.AwsBasicCredentials;
 import software.amazon.awssdk.auth.credentials.AwsCredentialsProvider;
-import software.amazon.awssdk.auth.credentials.StaticCredentialsProvider;
 import software.amazon.awssdk.awscore.client.builder.AwsClientBuilder;
 import software.amazon.awssdk.awscore.client.builder.AwsSyncClientBuilder;
 import software.amazon.awssdk.http.urlconnection.UrlConnectionHttpClient;
@@ -27,16 +23,15 @@ final class ClientesAws {
   static final Region REGIAO = Region.US_EAST_1;
 
   private static final int TENTATIVAS = 2;
-  private static final String PREFIXO = "duora.verificacao.aws.";
 
   private ClientesAws() {}
 
   static RekognitionClient rekognition(ConfiguracaoAws configuracao, Optional<URI> endpoint) {
-    return rekognition(configuracao, daConfiguracao(configuracao), endpoint);
+    return rekognition(configuracao, configuracao.credencial(), endpoint);
   }
 
   static StsClient sts(ConfiguracaoAws configuracao, Optional<URI> endpoint) {
-    return sts(configuracao, daConfiguracao(configuracao), endpoint);
+    return sts(configuracao, configuracao.credencial(), endpoint);
   }
 
   /**
@@ -52,13 +47,6 @@ final class ClientesAws {
   static StsClient sts(
       ConfiguracaoAws configuracao, AwsCredentialsProvider credencial, Optional<URI> endpoint) {
     return configurar(StsClient.builder(), configuracao, credencial, endpoint).build();
-  }
-
-  private static AwsCredentialsProvider daConfiguracao(ConfiguracaoAws configuracao) {
-    return StaticCredentialsProvider.create(
-        AwsBasicCredentials.create(
-            exigir(configuracao.accessKeyId(), PREFIXO + "access-key-id"),
-            exigir(configuracao.secretAccessKey(), PREFIXO + "secret-access-key")));
   }
 
   private static <B extends AwsClientBuilder<B, ?> & AwsSyncClientBuilder<B, ?>> B configurar(
