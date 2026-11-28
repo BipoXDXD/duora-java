@@ -40,7 +40,7 @@ public class VerificacaoDeIdade {
   private static final String ESCOPO_DO_RESULTADO = "verificacao-resultado";
 
   /** A janela dos limites e da dúvida: 24 h corridas, a mesma do repositório. */
-  private static final Duration JANELA = Duration.parse("P1D");
+  static final Duration JANELA = Duration.parse("P1D");
 
   /** O {@code Retry-After} nunca sai zero nem negativo, mesmo com o relógio na borda da janela. */
   private static final Duration ESPERA_MINIMA = Duration.ofSeconds(1);
@@ -269,7 +269,8 @@ public class VerificacaoDeIdade {
         .orElseThrow(() -> new IllegalStateException("Sessão de conta inexistente: " + id));
   }
 
-  private static void exigirAguardando(Conta conta) {
+  /** Só a conta aguardando verificação abre sessão, conclui selfie ou envia documento. */
+  static void exigirAguardando(Conta conta) {
     if (conta.estado() != EstadoConta.AGUARDANDO_VERIFICACAO) {
       throw CodigoVerificacao.VERIFICACAO_FORA_DE_ORDEM.erro();
     }
