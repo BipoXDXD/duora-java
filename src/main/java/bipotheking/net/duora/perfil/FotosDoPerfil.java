@@ -135,6 +135,19 @@ public class FotosDoPerfil {
     return new FotoDoTitular(aprovada, pendente, recusadaEm);
   }
 
+  /**
+   * Apaga a aprovada, a pendente e a marca de recusa da conta, na transação do chamador (ou numa
+   * nova, se não houver). Toma a trava das fotos da conta antes de tudo, como o envio: um envio em
+   * curso termina antes, e o que ele gravou também sai. Os arquivos saem depois do commit; o que
+   * falhar fica para a retenção de fotos órfãs.
+   */
+  public void removerTodas(ContaId conta) {
+    transacao.executeWithoutResult(_ -> {
+      fotos.travarConta(conta);
+      arquivos.apagarDepoisDoCommit(fotos.apagarDaConta(conta));
+    });
+  }
+
   /** A URL da variante da foto aprovada do titular, se houver. */
   public Optional<String> urlDaAprovada(ContaId titular, Variante variante) {
     return fotos.daConta(titular).stream()

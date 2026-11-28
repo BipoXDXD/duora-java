@@ -43,6 +43,7 @@ O controlador dos dados é o responsável pelo Duora. Para dúvidas e pedidos so
 | E-mails na fila de envio | 7 dias após o envio (30 dias se o envio falhar) |
 | Chaves de repetição de pedidos | 1 dia |
 | Arquivos temporários de imagem | 1 hora |
+| Arquivo de foto trocada, recusada ou removida | apagado na hora; o que sobrar de uma falha sai em 1 dia |
 | Conta, perfil e foto | até a exclusão da conta |
 | Localização (área de cerca de 5 km) | até você desativar a localização ou excluir a conta; apagada 90 dias depois da última atualização |
 | Aceites dos termos, desta política e do consentimento biométrico | até a exclusão da conta |

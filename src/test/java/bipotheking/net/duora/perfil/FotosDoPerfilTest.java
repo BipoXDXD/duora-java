@@ -207,6 +207,11 @@ class FotosDoPerfilTest extends BancoDeTeste {
 
     assertThat(repositorio.daConta(conta)).isEmpty();
     assertThat(guardadas()).isEqualTo(antes);
+    assertThatThrownBy(() -> fotos.enviar(conta, retrato, "conta-suspensa-01"))
+        .as("a chave foi liberada: o segundo envio chega à conta, não à reserva")
+        .isInstanceOfSatisfying(
+            ErroDeNegocio.class,
+            erro -> assertThat(erro.codigo()).isEqualTo(CodigoSessao.CONTA_INDISPONIVEL));
   }
 
   private FotoDePerfil unicaDa(ContaId conta) {
