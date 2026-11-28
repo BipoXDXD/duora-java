@@ -129,3 +129,16 @@ jobs:
             target/failsafe-reports
           if-no-files-found: warn
           retention-days: 14
+
+  imagem:
+    name: Imagem Docker de produção
+    needs: verify
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      # Sem banco nem app no ar: confere libvips >= 8.15, usuário não root e HEALTHCHECK declarado.
+      - name: Construir a imagem
+        run: docker build -t duora-java:ci .
+      - name: Conferir a imagem
+        run: scripts/ci/checar-imagem.sh duora-java:ci

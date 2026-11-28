@@ -1,0 +1,11 @@
+# Contexto do docker build: só o que o ./mvnw package precisa.
+target/
+frontend/node_modules
+frontend/node
+.git
+.claude/
+.superpowers/
+dados/
+.idea
+*.log
+.env*
