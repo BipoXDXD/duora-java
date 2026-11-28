@@ -20,7 +20,9 @@ import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.UUID;
 import java.util.concurrent.Callable;
+import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
@@ -37,6 +39,7 @@ import org.springframework.http.MediaType;
 import org.springframework.mock.web.MockHttpServletResponse;
 import org.springframework.test.json.JsonCompareMode;
 import org.springframework.test.web.servlet.ResultActions;
+import org.springframework.transaction.support.TransactionTemplate;
 
 /** API da verificação de idade pela selfie, com os dublês programáveis no lugar dos falsos. */
 @Import(DublesDeVerificacao.class)
@@ -52,6 +55,7 @@ class VerificacaoApiTest extends BancoDeTeste {
   @Autowired private ContasDeTeste contas;
   @Autowired private ProvaDeVidaDeTeste provaDeVida;
   @Autowired private ConferenciaDeDocumentoDeTeste conferencia;
+  @Autowired private TransactionTemplate transacao;
 
   @BeforeEach
   void zerarDubles() {
@@ -157,6 +161,47 @@ class VerificacaoApiTest extends BancoDeTeste {
 
     assertThat(status).containsExactlyInAnyOrder(201, 201, 201, 429, 429, 429);
     assertThat(contar("select count(*) from tentativa_verificacao")).isEqualTo(3);
+  }
+
+  /**
+   * A conta sai de {@code AGUARDANDO_VERIFICACAO} enquanto a reserva espera a trava dela: a
+   * checagem de fora já passou, e só a releitura depois da trava impede a tentativa.
+   */
+  @Test
+  void contaQueSaiDeAguardandoAntesDaTravaNaoGeraTentativa() throws Exception {
+    ContaDeTeste conta = aguardando();
+    CountDownLatch travada = new CountDownLatch(1);
+    CountDownLatch soltar = new CountDownLatch(1);
+
+    MockHttpServletResponse resposta;
+    try (ExecutorService threads = Executors.newFixedThreadPool(2)) {
+      Future<?> trava =
+          threads.submit(() ->
+              transacao.executeWithoutResult(status -> {
+                jdbc.sql("select id from conta where id = :id for update")
+                    .param("id", conta.id().valor())
+                    .query(UUID.class)
+                    .single();
+                travada.countDown();
+                aguardar(soltar);
+                jdbc.sql("update conta set estado = 'SUSPENSA' where id = :id")
+                    .param("id", conta.id().valor())
+                    .update();
+              }));
+      assertThat(travada.await(ESPERA.toSeconds(), TimeUnit.SECONDS)).isTrue();
+      Future<MockHttpServletResponse> pedido =
+          threads.submit(() -> iniciar(conta, CORPO_SELFIE).andReturn().getResponse());
+      aguardarAlguemEsperandoTrava();
+      soltar.countDown();
+      trava.get(ESPERA.toSeconds(), TimeUnit.SECONDS);
+      resposta = pedido.get(ESPERA.toSeconds(), TimeUnit.SECONDS);
+    }
+
+    assertThat(resposta.getStatus()).isEqualTo(409);
+    assertThat(JsonPath.<String>read(resposta.getContentAsString(), "$.codigo"))
+        .isEqualTo("VERIFICACAO_FORA_DE_ORDEM");
+    assertThat(contar("select count(*) from tentativa_verificacao")).isZero();
+    assertThat(provaDeVida.transacaoAtivaNasChamadas()).isEmpty();
   }
 
   @Test
@@ -409,6 +454,37 @@ class VerificacaoApiTest extends BancoDeTeste {
     assertThat(saida.getOut()).contains(conta.id().toString());
     assertThat(saida.getOut() + saida.getErr())
         .doesNotContain(ProvaDeVidaDeTeste.SEGREDO, ProvaDeVidaDeTeste.CONTEUDO_DA_REFERENCIA);
+  }
+
+  /** Espera até uma sessão do banco ficar parada esperando uma trava de linha. */
+  private void aguardarAlguemEsperandoTrava() throws InterruptedException {
+    long limite = System.nanoTime() + ESPERA.toNanos();
+    while (System.nanoTime() < limite) {
+      int esperando =
+          jdbc.sql(
+                  """
+                  select count(*) from pg_stat_activity
+                  where datname = current_database() and wait_event_type = 'Lock'
+                  """)
+              .query(Integer.class)
+              .single();
+      if (esperando > 0) {
+        return;
+      }
+      Thread.sleep(20);
+    }
+    throw new AssertionError("Nenhuma requisição chegou a esperar a trava da conta");
+  }
+
+  private static void aguardar(CountDownLatch sinal) {
+    try {
+      if (!sinal.await(ESPERA.toSeconds(), TimeUnit.SECONDS)) {
+        throw new AssertionError("O teste não soltou a trava a tempo");
+      }
+    } catch (InterruptedException e) {
+      Thread.currentThread().interrupt();
+      throw new AssertionError("Interrompido esperando o teste soltar a trava", e);
+    }
   }
 
   private ContaDeTeste aguardando() {

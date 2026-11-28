@@ -172,8 +172,14 @@ public class VerificacaoDeIdade {
 
   private UUID reservar(ContaId conta, FinalidadeDaTentativa finalidade, Instant agora) {
     ReservaDeTentativa reserva =
-        transacao.execute(
-            status -> verificacoes.reservar(conta, finalidade, limites.limite(finalidade), agora));
+        transacao.execute(status -> {
+          ReservaDeTentativa feita =
+              verificacoes.reservar(conta, finalidade, limites.limite(finalidade), agora);
+          // A checagem de iniciar é só atalho: a conta pode ter mudado enquanto a reserva esperava
+          // a trava. Relida já com a trava, a recusa desfaz a tentativa inserida.
+          exigirAguardando(conta(conta));
+          return feita;
+        });
     return switch (reserva) {
       case ReservaDeTentativa.Feita feita -> feita.tentativa();
       case ReservaDeTentativa.Esgotada esgotada ->
