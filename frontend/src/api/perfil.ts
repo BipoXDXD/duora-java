@@ -249,12 +249,24 @@ export function apagarOrientacao(): Promise<void> {
   return semResposta("DELETE", "/perfil/orientacao");
 }
 
-/** 404 PERFIL_INEXISTENTE vira null (inexistente e sem permissão são iguais para quem vê). */
+/** Recusas que viram "perfil indisponível": para quem vê, não há diferença entre elas. */
+function perfilIndisponivel(erro: unknown): boolean {
+  return (
+    erro instanceof ErroHttp &&
+    ((erro.status === 404 && erro.codigo === "PERFIL_INEXISTENTE") ||
+      (erro.status === 400 && erro.codigo === "REQUISICAO_INVALIDA"))
+  );
+}
+
+/**
+ * 404 PERFIL_INEXISTENTE vira null (inexistente e sem permissão são iguais para quem vê), e o 400
+ * REQUISICAO_INVALIDA também: o único 400 desta leitura é o id que não é UUID (um link truncado).
+ */
 export async function obterPerfilPublico(contaId: string): Promise<PerfilPublico | null> {
   try {
     return await obter(`/perfis/${encodeURIComponent(contaId)}`, EsquemaPerfilPublico);
   } catch (erro) {
-    if (erro instanceof ErroHttp && erro.status === 404 && erro.codigo === "PERFIL_INEXISTENTE") {
+    if (perfilIndisponivel(erro)) {
       return null;
     }
     throw erro;

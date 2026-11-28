@@ -1,5 +1,6 @@
 import type { ReactElement } from "react";
 import { Link, NavLink, Outlet } from "react-router";
+import { LINK_DE_SAIDA } from "../../componentes/estilos";
 import { NAVEGACAO_DO_PERFIL } from "./textos";
 
 const SECOES = [
@@ -19,9 +20,6 @@ const LINK_DA_SECAO = [
   "aria-[current=page]:border-ambar aria-[current=page]:text-marfim aria-[current=page]:font-semibold",
   "forced-colors:aria-[current=page]:border-[CanvasText]",
 ].join(" ");
-
-const LINK_DE_SAIDA =
-  "inline-flex items-center min-h-[44px] text-[0.9375rem] text-texto-2 underline underline-offset-4 hover:text-marfim";
 
 /**
  * Moldura das telas de perfil, dentro da casca de conta: a navegação entre as quatro seções e a

@@ -113,4 +113,7 @@ export const PERFIL_DE_OUTRA_PESSOA = {
   tituloDaAba: (apelido: string) => `${apelido} · Duora`,
   indisponivel: "Perfil indisponível",
   tituloDaAbaIndisponivel: "Perfil indisponível · Duora",
+  explicacaoDoIndisponivel: "Este perfil não existe ou não está disponível.",
+  minhaConta: "Minha conta",
+  voltarAoTerraco: "Voltar ao terraço",
 } as const;
