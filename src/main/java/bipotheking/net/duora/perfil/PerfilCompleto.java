@@ -31,7 +31,13 @@ public record PerfilCompleto(
     Objects.requireNonNull(fotoUrl, "fotoUrl");
     Objects.requireNonNull(pronomes, "pronomes");
     Objects.requireNonNull(orientacao, "orientacao");
-    intencao = Collections.unmodifiableSet(EnumSet.copyOf(intencao));
+    intencao = Collections.unmodifiableSet(copia(intencao));
+  }
+
+  private static EnumSet<Intencao> copia(Set<Intencao> origem) {
+    EnumSet<Intencao> copia = EnumSet.noneOf(Intencao.class);
+    copia.addAll(origem);
+    return copia;
   }
 
   @Override
