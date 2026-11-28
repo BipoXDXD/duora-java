@@ -20,6 +20,9 @@ class SalaAoExcluirConta implements AoExcluirConta {
 
   @Override
   public void excluir(ContaId conta) {
+    jdbc.sql("delete from fila_espera where conta_id = :conta")
+        .param("conta", conta.valor())
+        .update();
     jdbc.sql("delete from cenario_jogado where conta_id = :conta")
         .param("conta", conta.valor())
         .update();
