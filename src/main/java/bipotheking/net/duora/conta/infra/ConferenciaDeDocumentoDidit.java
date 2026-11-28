@@ -52,11 +52,16 @@ final class ConferenciaDeDocumentoDidit implements ConferenciaDeDocumento {
   private static final String DOCUMENTO = "documento";
   private static final String ROSTO = "rosto";
   private static final String CAMINHO_DO_DOCUMENTO = "/v3/id-verification/";
-  private static final String CAMINHO_DO_ROSTO = "/v3/face-match/";
-  private static final String CABECALHO_DA_CHAVE = "x-api-key";
+  // Package-private: o DiditSmokeIT monta o Face Match cru com os mesmos nomes.
+  static final String CAMINHO_DO_ROSTO = "/v3/face-match/";
+  static final String CABECALHO_DA_CHAVE = "x-api-key";
+  static final String CAMPO_DA_SELFIE = "user_image";
+  static final String CAMPO_DO_RETRATO = "ref_image";
+  static final String CAMPO_SALVAR_PEDIDO = "save_api_request";
   private static final String NAO_RECONHECIDO = "COULD_NOT_RECOGNIZE_DOCUMENT";
   private static final String APROVADO = "Approved";
   private static final Set<String> STATUS_CONHECIDOS = Set.of(APROVADO, "Declined", "In Review");
+  private static final Set<String> STATUS_CONHECIDOS_DO_ROSTO = Set.of(APROVADO, "Declined");
 
   private final RestClient documento;
   private final RestClient rosto;
@@ -117,7 +122,7 @@ final class ConferenciaDeDocumentoDidit implements ConferenciaDeDocumento {
     partes.part("front_image", frente.bytes(), tipo(frente)).filename("frente");
     partes.part("back_image", verso.bytes(), tipo(verso)).filename("verso");
     partes.part("perform_document_liveness", "true");
-    partes.part("save_api_request", "false");
+    partes.part(CAMPO_SALVAR_PEDIDO, "false");
     return enviar(
         documento,
         CAMINHO_DO_DOCUMENTO,
@@ -128,10 +133,10 @@ final class ConferenciaDeDocumentoDidit implements ConferenciaDeDocumento {
 
   private boolean compararRosto(Imagem selfie, Imagem retrato) {
     MultipartBodyBuilder partes = new MultipartBodyBuilder();
-    partes.part("user_image", selfie.bytes(), tipo(selfie)).filename("selfie");
-    partes.part("ref_image", retrato.bytes(), tipo(retrato)).filename("retrato");
+    partes.part(CAMPO_DA_SELFIE, selfie.bytes(), tipo(selfie)).filename("selfie");
+    partes.part(CAMPO_DO_RETRATO, retrato.bytes(), tipo(retrato)).filename("retrato");
     partes.part("face_match_score_decline_threshold", limiarRosto);
-    partes.part("save_api_request", "false");
+    partes.part(CAMPO_SALVAR_PEDIDO, "false");
     return enviar(
         rosto, CAMINHO_DO_ROSTO, ROSTO, partes, (pedido, resposta) -> interpretarRosto(resposta));
   }
@@ -163,6 +168,7 @@ final class ConferenciaDeDocumentoDidit implements ConferenciaDeDocumento {
 
   /**
    * {@code Approved} confere; {@code Declined}, outro status ou corpo sem {@code face_match}, não.
+   * Os dois últimos são inesperados e merecem aviso, só com o passo.
    */
   private static Boolean interpretarRosto(ConvertibleClientHttpResponse resposta)
       throws IOException {
@@ -171,7 +177,11 @@ final class ConferenciaDeDocumentoDidit implements ConferenciaDeDocumento {
     }
     RespostaDoRosto corpo = resposta.bodyTo(RespostaDoRosto.class);
     FaceMatch comparacao = corpo == null ? null : corpo.faceMatch();
-    return comparacao != null && APROVADO.equals(comparacao.status());
+    String status = comparacao == null ? null : comparacao.status();
+    if (status == null || !STATUS_CONHECIDOS_DO_ROSTO.contains(status)) {
+      LOG.warn("Didit devolveu status desconhecido em {}: rosto não confere", ROSTO);
+    }
+    return APROVADO.equals(status);
   }
 
   private static LeituraDoDocumento interpretarDocumento(ConvertibleClientHttpResponse resposta)
@@ -262,7 +272,7 @@ final class ConferenciaDeDocumentoDidit implements ConferenciaDeDocumento {
     return indisponivel(passo);
   }
 
-  private static MediaType tipo(Imagem imagem) {
+  static MediaType tipo(Imagem imagem) {
     return switch (imagem.tipo()) {
       case JPEG -> MediaType.IMAGE_JPEG;
       case PNG -> MediaType.IMAGE_PNG;
