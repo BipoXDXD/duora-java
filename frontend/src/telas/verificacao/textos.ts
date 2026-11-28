@@ -86,6 +86,7 @@ export const VERIFICACAO_DE_IDADE = {
     enviando: "Conferindo o documento… Pode levar até 30 segundos.",
     naoLeu: "Não conseguimos ler o documento. Use boa luz, sem reflexo, com as quatro pontas aparecendo.",
     selfieVenceu: "A selfie venceu antes do envio. Faça uma nova; as fotos continuam aqui.",
+    selfieNaoDeuCerto: "A selfie não deu certo. Faça uma nova; as fotos continuam aqui.",
     fotosIlegiveis: "Não conseguimos abrir as fotos. Tire as fotos de novo.",
     /** O 413: as fotos já saem reduzidas, então só um arquivo fora do comum chega aqui. */
     fotosGrandes: "As fotos ficaram grandes demais para enviar. Tire as fotos de novo.",

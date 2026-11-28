@@ -21,6 +21,7 @@ class CodigoVerificacaoTest {
           VERIFICACAO_FORA_DE_ORDEM             | CONFLITO         | Esta etapa da verificação não está disponível agora. Recarregue a página.
           SESSAO_DE_VERIFICACAO_INVALIDA        | NAO_ENCONTRADO   | Esta verificação expirou. Comece de novo.
           REFAZER_PROVA_DE_VIDA                 | CONFLITO         | A selfie venceu antes do envio. Faça uma nova.
+          SELFIE_NAO_DEU_CERTO                  | CONFLITO         | A selfie não deu certo. Faça uma nova.
           DOCUMENTO_INVALIDO                    | REGRA_DE_NEGOCIO | Envie fotos JPEG ou PNG de até 5 MB, frente e verso.
           LIMITE_DE_VERIFICACAO                 | LIMITE           | Você chegou ao limite de tentativas de hoje. Tente de novo amanhã.
           PROVA_DE_VIDA_INDISPONIVEL            | INDISPONIVEL     | A verificação está fora do ar. Tente de novo em alguns minutos.
@@ -33,8 +34,8 @@ class CodigoVerificacaoTest {
   }
 
   @Test
-  void contratoTemOitoCodigos() {
-    assertThat(CodigoVerificacao.values()).hasSize(8);
+  void contratoTemNoveCodigos() {
+    assertThat(CodigoVerificacao.values()).hasSize(9);
   }
 
   @Test

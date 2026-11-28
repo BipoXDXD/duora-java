@@ -25,6 +25,8 @@ public enum CodigoVerificacao implements CodigoDeErro {
       TipoDeErro.CONFLITO,
       "Refazer prova de vida",
       "A selfie venceu antes do envio. Faça uma nova."),
+  SELFIE_NAO_DEU_CERTO(
+      TipoDeErro.CONFLITO, "Selfie não deu certo", "A selfie não deu certo. Faça uma nova."),
   DOCUMENTO_INVALIDO(
       TipoDeErro.REGRA_DE_NEGOCIO,
       "Documento inválido",

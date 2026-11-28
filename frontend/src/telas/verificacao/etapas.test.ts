@@ -505,6 +505,15 @@ describe("documento", () => {
     });
   });
 
+  it("selfieQueNaoDeuCertoMantemAsFotosComOutroAviso", () => {
+    expect(proximaEtapa(enviando, { tipo: "envioRecusado", erro: recusa(409, "SELFIE_NAO_DEU_CERTO") })).toEqual({
+      etapa: "documento",
+      frente: FRENTE,
+      verso: VERSO,
+      aviso: "selfieNaoDeuCerto",
+    });
+  });
+
   it("sessaoDoEnvioVencidaMantemAsFotos", () => {
     const erro = recusa(404, "SESSAO_DE_VERIFICACAO_INVALIDA");
 

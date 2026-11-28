@@ -1063,21 +1063,23 @@ describe("VerificacaoPagina", () => {
     expect(await screen.findByText("Envios restantes hoje: 1")).toBeInTheDocument();
   });
 
-  it("refazerComOEnvioGastoSegueOServidor", async () => {
+  it("selfieQueNaoDeuCertoMantemAsFotosESegueOServidor", async () => {
     const usuario = userEvent.setup();
     abrirAPagina({
       situacao: SITUACAO_DO_DOCUMENTO,
       sessoes: duasSessoesDoDocumento(),
-      documentos: [problema(409, "REFAZER_PROVA_DE_VIDA")],
+      documentos: [problema(409, "SELFIE_NAO_DEU_CERTO")],
       situacoes: [json(200, { ...SITUACAO, ...SITUACAO_DO_DOCUMENTO, enviosDeDocumentoRestantesHoje: 1 })],
     });
 
     await escolherAsFotos(usuario);
     await fazerASelfieDoDocumento(usuario);
-    await screen.findByText(DOCUMENTO.selfieVenceu);
+    expect(await screen.findByRole("alert")).toHaveTextContent(DOCUMENTO.selfieNaoDeuCerto);
+    expect(screen.queryByText(DOCUMENTO.selfieVenceu)).not.toBeInTheDocument();
+    expect(screen.getByLabelText(`Frente do documento ${DOCUMENTO.trocarFoto}`)).toBeInTheDocument();
     await falharASegundaSelfieDoDocumento(usuario);
 
-    // A prova ruim gastou o envio (D14-bis): a segunda selfie era a última de hoje.
+    // A selfie ruim encerrou a tentativa e gastou o envio (D14-bis): a segunda era a última de hoje.
     expect(await screen.findByRole("heading", { level: 2, name: "Conta em análise" })).toBeInTheDocument();
   });
 

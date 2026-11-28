@@ -12,7 +12,7 @@ export type FalhaDoDetector =
 
 export type TipoDeDesfecho = "aprovada" | "repetir" | "analise" | "menor" | "sessaoInvalida";
 
-export type AvisoDoDocumento = "naoLeu" | "selfieVenceu" | "fotosIlegiveis" | "fotosGrandes";
+export type AvisoDoDocumento = "naoLeu" | "selfieVenceu" | "selfieNaoDeuCerto" | "fotosIlegiveis" | "fotosGrandes";
 
 export type LadoDoDocumento = "frente" | "verso";
 
@@ -167,8 +167,9 @@ function etapaDoEnvio(desfecho: Desfecho): Etapa {
 }
 
 /**
- * A recusa do envio do documento (D14). A selfie vencida (409 REFAZER_PROVA_DE_VIDA, ou o 404 do mesmo
- * envio repetido) guarda as fotos e pede só uma selfie nova; as fotos que a Didit não abre (422) ou
+ * A recusa do envio do documento (D14-bis). A selfie vencida (409 REFAZER_PROVA_DE_VIDA, ou o 404 do mesmo
+ * envio repetido) e a selfie que não serviu (409 SELFIE_NAO_DEU_CERTO, que gastou o envio) guardam as
+ * fotos e pedem só uma selfie nova, cada uma com o seu aviso; as fotos que a Didit não abre (422) ou
  * grandes demais (413) são apagadas; o menor encerra; os 429 viram limite; o resto (503, 409 em
  * andamento, rede) reenvia o mesmo multipart com a mesma sessão.
  */
@@ -177,6 +178,8 @@ export function recusaDoEnvio(envio: { sessaoId: string; fotos: FotosDoDocumento
     case "REFAZER_PROVA_DE_VIDA":
     case "SESSAO_DE_VERIFICACAO_INVALIDA":
       return { etapa: "documento", frente: envio.fotos.frente, verso: envio.fotos.verso, aviso: "selfieVenceu" };
+    case "SELFIE_NAO_DEU_CERTO":
+      return { etapa: "documento", frente: envio.fotos.frente, verso: envio.fotos.verso, aviso: "selfieNaoDeuCerto" };
     case "DOCUMENTO_INVALIDO":
       return { etapa: "documento", aviso: "fotosIlegiveis" };
     case "MENOR_DE_IDADE":

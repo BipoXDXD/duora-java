@@ -46,6 +46,12 @@ interface PropsDaVerificacao {
 
 /** Recusas que dizem que esta página não vale mais para a conta: Minha conta leva à tela certa. */
 const CODIGOS_DE_RECARGA: readonly string[] = ["VERIFICACAO_FORA_DE_ORDEM", "NAO_AUTENTICADO", "CONTA_INDISPONIVEL"];
+// Recusas depois das quais a página não sabe o que o servidor gastou: relê as contagens nele.
+const CODIGOS_DE_RESSINCRONIA: readonly string[] = [
+  "SESSAO_DE_VERIFICACAO_INVALIDA",
+  "REFAZER_PROVA_DE_VIDA",
+  "SELFIE_NAO_DEU_CERTO",
+];
 
 const CAMINHO_DA_CONTA = "/conta";
 
@@ -184,8 +190,8 @@ function Etapas({
 
   /**
    * Relê a situação no servidor e adota as contagens dele. Vale quando a página não sabe o que o
-   * servidor gastou: o 409 da selfie vencida (só a expirada devolve o envio, D14-bis) e o 404 de
-   * sessão. Uma sessão aberta no meio da releitura já descontou a dela, e a releitura é descartada.
+   * servidor gastou: os 409 da selfie vencida ou que não serviu (só a expirada devolve o envio,
+   * D14-bis) e o 404 de sessão. Uma sessão aberta no meio da releitura já descontou a dela, e a releitura é descartada.
    */
   const ressincronizarContagens = (): void => {
     const antes = sessoesAbertas.current;
@@ -213,7 +219,7 @@ function Etapas({
       return;
     }
     const codigo = erro instanceof ErroHttp ? erro.codigo : null;
-    if (codigo === "SESSAO_DE_VERIFICACAO_INVALIDA" || codigo === "REFAZER_PROVA_DE_VIDA") {
+    if (codigo !== null && CODIGOS_DE_RESSINCRONIA.includes(codigo)) {
       ressincronizarContagens();
     } else if (resultado.etapa === "desfecho") {
       if (resultado.tipo === "menor") {
