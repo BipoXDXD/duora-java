@@ -40,7 +40,7 @@ class GuardaDaVerificacaoRealTest {
   @Test
   void provaFalsaEmProdDerrubaOBoot() {
     producao
-        .withPropertyValues(PROVEDOR + "=falso", DOCUMENTO + "=didit")
+        .withPropertyValues(PROVEDOR + "=falso", DOCUMENTO + "=aws")
         .run(GuardaDaVerificacaoRealTest::bootCaiuNaGuarda);
   }
 
@@ -54,7 +54,7 @@ class GuardaDaVerificacaoRealTest {
   @Test
   void provaFalsaEmMaiusculasEmProdDerrubaOBoot() {
     producao
-        .withPropertyValues(PROVEDOR + "=FALSO", DOCUMENTO + "=didit")
+        .withPropertyValues(PROVEDOR + "=FALSO", DOCUMENTO + "=aws")
         .run(GuardaDaVerificacaoRealTest::bootCaiuNaGuarda);
   }
 
@@ -68,7 +68,7 @@ class GuardaDaVerificacaoRealTest {
   @Test
   void provedoresReaisPassam() {
     producao
-        .withPropertyValues(PROVEDOR + "=aws", DOCUMENTO + "=didit")
+        .withPropertyValues(PROVEDOR + "=aws", DOCUMENTO + "=aws")
         .run(aplicacao -> assertThat(aplicacao).hasSingleBean(GuardaDaVerificacaoReal.class));
   }
 

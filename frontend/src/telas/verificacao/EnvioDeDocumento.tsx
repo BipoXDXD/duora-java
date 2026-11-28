@@ -35,7 +35,7 @@ interface PropsDoEnvio {
   frente?: Blob;
   verso?: Blob;
   aviso?: AvisoDoDocumento;
-  /** Os envios de documento que sobram hoje; aparecem junto do aviso de que a Didit não leu. */
+  /** Os envios de documento que sobram hoje; aparecem junto do aviso de que o documento não foi lido. */
   envios: number;
   /**
    * false quando a página já abre nesta etapa: o foco fica onde o navegador o pôs. Vale o da montagem:

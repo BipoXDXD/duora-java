@@ -26,7 +26,7 @@ Pré-requisitos: JDK 25 e Docker (veja [Banco local](#banco-local)). O Maven vem
 ```
 
 O `spring-boot:run` liga o perfil `verificacao-falsa`: a verificação de idade usa a prova de vida e
-o documento falsos, sem AWS nem Didit. Fora dele, a aplicação só sobe com
+o documento falsos, sem chamar a AWS. Fora dele, a aplicação só sobe com
 `duora.verificacao.provedor` e `duora.verificacao.documento.provedor` configurados.
 
 1. Abra <http://127.0.0.1:8080> numa janela normal, escolha um apelido e crie o terraço.

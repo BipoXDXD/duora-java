@@ -30,17 +30,17 @@ class MedicaoDeFornecedorTest {
     Throwable lancada =
         catchThrowable(() ->
             medicao.medir(
-                "didit",
-                "documento",
+                "aws",
+                "documento-frente",
                 () -> {
                   throw e;
                 }));
 
     assertThat(lancada).isSameAs(e);
-    Timer falha = timer("didit", "documento", "falha");
+    Timer falha = timer("aws", "documento-frente", "falha");
     assertThat(falha).isNotNull();
     assertThat(falha.count()).isEqualTo(1);
-    assertThat(timer("didit", "documento", "sucesso")).isNull();
+    assertThat(timer("aws", "documento-frente", "sucesso")).isNull();
   }
 
   private @Nullable Timer timer(String fornecedor, String operacao, String desfecho) {

@@ -4,6 +4,9 @@ import java.util.ArrayList;
 import java.util.List;
 import org.jspecify.annotations.Nullable;
 import software.amazon.awssdk.services.rekognition.RekognitionClient;
+import software.amazon.awssdk.services.rekognition.model.CompareFacesMatch;
+import software.amazon.awssdk.services.rekognition.model.CompareFacesRequest;
+import software.amazon.awssdk.services.rekognition.model.CompareFacesResponse;
 import software.amazon.awssdk.services.rekognition.model.CreateFaceLivenessSessionRequest;
 import software.amazon.awssdk.services.rekognition.model.CreateFaceLivenessSessionResponse;
 import software.amazon.awssdk.services.rekognition.model.DetectFacesRequest;
@@ -14,9 +17,9 @@ import software.amazon.awssdk.services.rekognition.model.GetFaceLivenessSessionR
 
 /**
  * Rekognition em memória: guarda os pedidos de {@code CreateFaceLivenessSession}, {@code
- * GetFaceLivenessSessionResults} e {@code DetectFaces} e responde o combinado ou lança a falha
- * combinada. Nada sai da JVM; qualquer outra operação cai no {@code UnsupportedOperationException}
- * padrão da interface.
+ * GetFaceLivenessSessionResults}, {@code DetectFaces} e {@code CompareFaces} e responde o combinado
+ * ou lança a falha combinada. Nada sai da JVM; qualquer outra operação cai no {@code
+ * UnsupportedOperationException} padrão da interface.
  */
 final class RekognitionFalso implements RekognitionClient {
 
@@ -29,6 +32,9 @@ final class RekognitionFalso implements RekognitionClient {
   private List<FaceDetail> rostos = List.of();
   private @Nullable RuntimeException falhaNoDetectFaces;
   private final List<DetectFacesRequest> pedidosDeDetectFaces = new ArrayList<>();
+  private List<CompareFacesMatch> semelhancas = List.of();
+  private @Nullable RuntimeException falhaNoCompareFaces;
+  private final List<CompareFacesRequest> pedidosDeCompareFaces = new ArrayList<>();
   private boolean fechado;
 
   private RekognitionFalso(@Nullable String sessaoId, @Nullable RuntimeException falha) {
@@ -51,6 +57,11 @@ final class RekognitionFalso implements RekognitionClient {
     return falso;
   }
 
+  /** Para o {@code CompareFaces}: sem rosto parecido até {@link #comparando} dizer outra coisa. */
+  static RekognitionFalso paraComparar() {
+    return new RekognitionFalso(null, null);
+  }
+
   static RekognitionFalso falhandoNoResultado(RuntimeException falha) {
     RekognitionFalso falso = new RekognitionFalso(null, null);
     falso.falhaNoResultado = falha;
@@ -60,6 +71,21 @@ final class RekognitionFalso implements RekognitionClient {
   /** Rostos que o {@code DetectFaces} devolve. */
   RekognitionFalso detectando(FaceDetail... rostos) {
     this.rostos = List.of(rostos);
+    return this;
+  }
+
+  /** Semelhanças, de 0 a 100, que o {@code CompareFaces} devolve, uma por rosto parecido. */
+  RekognitionFalso comparando(float... semelhancas) {
+    List<CompareFacesMatch> lista = new ArrayList<>();
+    for (float semelhanca : semelhancas) {
+      lista.add(CompareFacesMatch.builder().similarity(semelhanca).build());
+    }
+    this.semelhancas = List.copyOf(lista);
+    return this;
+  }
+
+  RekognitionFalso falhandoNoCompareFaces(RuntimeException falha) {
+    this.falhaNoCompareFaces = falha;
     return this;
   }
 
@@ -100,6 +126,15 @@ final class RekognitionFalso implements RekognitionClient {
     return DetectFacesResponse.builder().faceDetails(rostos).build();
   }
 
+  @Override
+  public CompareFacesResponse compareFaces(CompareFacesRequest pedido) {
+    pedidosDeCompareFaces.add(pedido);
+    if (falhaNoCompareFaces != null) {
+      throw falhaNoCompareFaces;
+    }
+    return CompareFacesResponse.builder().faceMatches(semelhancas).build();
+  }
+
   /** O último pedido recebido; falha o teste se nenhum chegou. */
   CreateFaceLivenessSessionRequest pedido() {
     if (pedido == null) {
@@ -118,6 +153,10 @@ final class RekognitionFalso implements RekognitionClient {
 
   List<DetectFacesRequest> pedidosDeDetectFaces() {
     return List.copyOf(pedidosDeDetectFaces);
+  }
+
+  List<CompareFacesRequest> pedidosDeCompareFaces() {
+    return List.copyOf(pedidosDeCompareFaces);
   }
 
   boolean fechado() {

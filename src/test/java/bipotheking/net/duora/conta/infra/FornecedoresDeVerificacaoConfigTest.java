@@ -2,6 +2,7 @@ package bipotheking.net.duora.conta.infra;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import bipotheking.net.duora.conta.dominio.ConferenciaDeDocumento;
 import bipotheking.net.duora.conta.dominio.CredencialDoNavegador;
 import bipotheking.net.duora.conta.dominio.ProvaDeVida;
 import io.micrometer.core.instrument.MeterRegistry;
@@ -9,10 +10,6 @@ import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import java.io.IOException;
 import java.util.Properties;
 import org.junit.jupiter.api.Test;
-import org.springframework.boot.autoconfigure.AutoConfigurations;
-import org.springframework.boot.http.converter.autoconfigure.HttpMessageConvertersAutoConfiguration;
-import org.springframework.boot.jackson.autoconfigure.JacksonAutoConfiguration;
-import org.springframework.boot.restclient.autoconfigure.RestClientAutoConfiguration;
 import org.springframework.boot.test.context.runner.ApplicationContextRunner;
 import org.springframework.core.env.StandardEnvironment;
 import org.springframework.core.io.ClassPathResource;
@@ -20,18 +17,13 @@ import org.springframework.core.io.support.PropertiesLoaderUtils;
 
 /**
  * Os beans reais da verificação só sobem com o provedor real e as chaves completas. Nenhum teste
- * chama AWS ou Didit: montar os clientes não abre conexão. O contexto não enxerga as variáveis de
+ * chama a AWS: montar os clientes não abre conexão. O contexto não enxerga as variáveis de
  * ambiente, para que uma {@code DUORA_*} exportada na máquina não resolva os placeholders.
  */
 class FornecedoresDeVerificacaoConfigTest {
 
   private static final ApplicationContextRunner CONTEXTO =
       new ApplicationContextRunner()
-          .withConfiguration(
-              AutoConfigurations.of(
-                  JacksonAutoConfiguration.class,
-                  HttpMessageConvertersAutoConfiguration.class,
-                  RestClientAutoConfiguration.class))
           .withInitializer(contexto ->
               contexto
                   .getEnvironment()
@@ -54,10 +46,7 @@ class FornecedoresDeVerificacaoConfigTest {
 
   @Test
   void configuracoesSemChavesSobemSemExigir() {
-    CONTEXTO.run(contexto ->
-        assertThat(contexto)
-            .hasSingleBean(ConfiguracaoAws.class)
-            .hasSingleBean(ConfiguracaoDidit.class));
+    CONTEXTO.run(contexto -> assertThat(contexto).hasSingleBean(ConfiguracaoAws.class));
   }
 
   @Test
@@ -69,7 +58,7 @@ class FornecedoresDeVerificacaoConfigTest {
             assertThat(contexto)
                 .hasNotFailed()
                 .doesNotHaveBean(ProvaDeVidaAws.class)
-                .doesNotHaveBean(ConferenciaDeDocumentoDidit.class));
+                .doesNotHaveBean(ConferenciaDeDocumentoAws.class));
   }
 
   @Test
@@ -86,13 +75,19 @@ class FornecedoresDeVerificacaoConfigTest {
         });
   }
 
+  /** A conferência usa só a credencial do back; o ARN do papel de captura é da prova de vida. */
   @Test
-  void diditCriaConferencia() {
+  void awsCriaConferenciaSemOArnDoPapel() {
     CONTEXTO
         .withPropertyValues(
-            "duora.verificacao.documento.provedor=didit",
-            "duora.verificacao.didit.api-key=chave-didit-ficticia")
-        .run(contexto -> assertThat(contexto).hasSingleBean(ConferenciaDeDocumentoDidit.class));
+            "duora.verificacao.documento.provedor=aws",
+            "duora.verificacao.aws.access-key-id=chave-de-acesso-ficticia",
+            "duora.verificacao.aws.secret-access-key=segredo-de-acesso-ficticio")
+        .run(contexto ->
+            assertThat(contexto)
+                .hasSingleBean(ConferenciaDeDocumentoAws.class)
+                .hasSingleBean(ConferenciaDeDocumento.class)
+                .doesNotHaveBean(ProvaDeVidaAws.class));
   }
 
   @Test
@@ -106,15 +101,15 @@ class FornecedoresDeVerificacaoConfigTest {
   }
 
   @Test
-  void diditSemChaveDerrubaOContexto() {
+  void conferenciaSemChaveDerrubaOContexto() {
     CONTEXTO
         .withPropertyValues(
-            "duora.verificacao.documento.provedor=didit",
-            "duora.verificacao.didit.api-key=${DUORA_DIDIT_API_KEY}")
+            "duora.verificacao.documento.provedor=aws",
+            "duora.verificacao.aws.access-key-id=${DUORA_AWS_VERIFICACAO_ACCESS_KEY_ID}")
         .run(contexto ->
             assertThat(contexto.getStartupFailure())
                 .rootCause()
-                .hasMessageContaining("duora.verificacao.didit.api-key"));
+                .hasMessageContaining("duora.verificacao.aws.access-key-id"));
   }
 
   @Test
