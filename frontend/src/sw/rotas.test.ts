@@ -53,6 +53,24 @@ describe("rotaDoPedido", () => {
     expect(rota({ caminho: "/app/index-abc.js" })).toBe("cache-primeiro");
   });
 
+  // O documento da verificação tem CSP e Permissions-Policy próprias: nunca o shell guardado com as de "/".
+  it("a navegação para a verificação é ignorada", () => {
+    expect(rota({ caminho: "/verificacao", modo: "navigate" })).toBe("ignorar");
+  });
+
+  it("a navegação para a verificação com query também é ignorada", () => {
+    expect(rota({ caminho: "/verificacao?de=conta", modo: "navigate" })).toBe("ignorar");
+  });
+
+  // O chunk do Amplify (vários MB) só serve à verificação: não entra no cache do worker.
+  it("o chunk do detector do Amplify é ignorado", () => {
+    expect(rota({ caminho: "/app/verificacao-amplify-abc.js" })).toBe("ignorar");
+  });
+
+  it("o CSS do detector do Amplify é ignorado", () => {
+    expect(rota({ caminho: "/app/verificacao-amplify-abc.css" })).toBe("ignorar");
+  });
+
   it("o resto vem da rede", () => {
     expect(rota({ caminho: "/manifest.webmanifest" })).toBe("rede");
   });

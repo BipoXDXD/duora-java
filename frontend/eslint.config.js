@@ -14,6 +14,14 @@ const CASCA = ["react-router", "react-router-dom"].map((name) => ({
   message: MENSAGEM_DA_CASCA,
 }));
 const CASCA_SUBMODULOS = { group: ["react-router/*", "@tanstack/*"], message: MENSAGEM_DA_CASCA };
+const DETECTOR_AMPLIFY = "src/telas/verificacao/DetectorAmplify.tsx";
+const MENSAGEM_DO_AMPLIFY = "Amplify só em src/telas/verificacao/DetectorAmplify.tsx (carregado sob demanda)";
+// Import de tipo some no build e não puxa o Amplify para o chunk (os textos do detector usam o tipo).
+const AMPLIFY = {
+  group: ["aws-amplify", "aws-amplify/*", "@aws-amplify/*"],
+  message: MENSAGEM_DO_AMPLIFY,
+  allowTypeImports: true,
+};
 
 export default defineConfig([
   // O frontend-maven-plugin instala o Node em node/; nada ali é código do projeto.
@@ -54,6 +62,16 @@ export default defineConfig([
     files: ["src/rotas/**/*.{ts,tsx}", "src/telas/**/*.{ts,tsx}"],
     rules: {
       "no-restricted-imports": ["error", { paths: [VALIBOT], patterns: [VALIBOT_SUBMODULOS] }],
+    },
+  },
+  {
+    // O Amplify (vários MB) só no detector, que o CapturaDeVida carrega por import(): fora do JS
+    // inicial e do chunk da rota (ChunksDoFrontTest). A versão com tipos da regra deixa passar o
+    // import de tipo.
+    files: ["**/*.{ts,tsx}"],
+    ignores: [DETECTOR_AMPLIFY],
+    rules: {
+      "@typescript-eslint/no-restricted-imports": ["error", { patterns: [AMPLIFY] }],
     },
   },
   {

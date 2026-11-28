@@ -21,6 +21,11 @@ export type Evento =
   | { tipo: "iniciar"; finalidade: Finalidade }
   | { tipo: "sessaoCriada"; sessao: SessaoDeCaptura }
   | { tipo: "sessaoRecusada"; erro: unknown }
+  /** O detector terminou a selfie: a conferência pede o resultado ao servidor. */
+  | { tipo: "concluiu" }
+  | { tipo: "falhou"; falha: FalhaDoDetector }
+  /** A pessoa desistiu da selfie: volta para a explicação (a tentativa já foi gasta no servidor). */
+  | { tipo: "cancelou" }
   | { tipo: "tentarDeNovo" };
 
 export type Etapa =
@@ -106,6 +111,14 @@ export function proximaEtapa(etapa: Etapa, evento: Evento): Etapa {
       }
       return evento.tipo === "iniciar" ? { etapa: "iniciando", finalidade: evento.finalidade } : etapa;
     case "captura":
+      // A selfie do documento segue para o envio das fotos, não para a conferência da selfie.
+      if (evento.tipo === "concluiu" && etapa.finalidade === "SELFIE") {
+        return { etapa: "conferindo", sessaoId: etapa.sessao.sessaoId };
+      }
+      if (evento.tipo === "falhou") {
+        return { etapa: "falhaDoDetector", falha: evento.falha };
+      }
+      return evento.tipo === "cancelou" ? { etapa: "explicacao" } : etapa;
     case "conferindo":
     case "falhaDoDetector":
     case "desfecho":

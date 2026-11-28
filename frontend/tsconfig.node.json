@@ -17,5 +17,13 @@
     "noEmit": true,
     "skipLibCheck": true
   },
-  "include": ["vite.config.ts", "tailwind.test.ts", "avisos-do-build.test.ts", "build"]
+  // O teste da cadeia de suprimentos lê package.json, lockfile e node_modules: roda no Node, ao lado
+  // do detector que ele pina.
+  "include": [
+    "vite.config.ts",
+    "tailwind.test.ts",
+    "avisos-do-build.test.ts",
+    "build",
+    "src/telas/verificacao/cadeiaDeSuprimentos.test.ts"
+  ]
 }
