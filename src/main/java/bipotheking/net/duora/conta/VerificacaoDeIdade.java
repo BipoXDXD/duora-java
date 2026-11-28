@@ -111,12 +111,28 @@ public class VerificacaoDeIdade {
       verificacoes.associarSessao(tentativa, sessao.id());
       return new SessaoDeCaptura(sessao.id(), sessao.regiao(), provaDeVida.modo(), credencial);
     } catch (FornecedorIndisponivel e) {
-      verificacoes.descartar(tentativa);
+      descartar(tentativa, e);
       LOG.warn("Prova de vida indisponível ao abrir sessão da conta {}: {}", conta, e.getMessage());
+      for (Throwable falha : e.getSuppressed()) {
+        // O 503 não carrega a falha (ErroDeNegocio não guarda suprimidas): ela sai aqui.
+        LOG.error("Tentativa {} da conta {} não foi descartada", tentativa, conta, falha);
+      }
       throw CodigoVerificacao.PROVA_DE_VIDA_INDISPONIVEL.erro();
     } catch (RuntimeException e) {
-      verificacoes.descartar(tentativa);
+      descartar(tentativa, e);
       throw e;
+    }
+  }
+
+  /**
+   * Descarta a tentativa depois de uma falha sem trocar a exceção original: se o descarte também
+   * falhar, a falha dele vai como suprimida na original.
+   */
+  private void descartar(UUID tentativa, RuntimeException original) {
+    try {
+      verificacoes.descartar(tentativa);
+    } catch (RuntimeException falha) {
+      original.addSuppressed(falha);
     }
   }
 
