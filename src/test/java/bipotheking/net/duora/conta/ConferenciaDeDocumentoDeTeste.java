@@ -9,8 +9,6 @@ import java.time.LocalDate;
 import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.CopyOnWriteArrayList;
-import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
@@ -27,15 +25,12 @@ public class ConferenciaDeDocumentoDeTeste implements ConferenciaDeDocumento {
   /** A data padrão lida no documento: a mesma do {@link ContasDeTeste#criarAtiva()}. */
   public static final LocalDate NASCIMENTO_PADRAO = LocalDate.of(1990, 5, 10);
 
-  /** Teto da retenção: um teste que esquece de liberar não trava a suíte. */
-  private static final Duration RETENCAO_MAXIMA = Duration.ofSeconds(10);
-
   private final AtomicReference<ResultadoDoDocumento> resultado = new AtomicReference<>(aceito());
   private final AtomicBoolean falha = new AtomicBoolean();
   private final AtomicInteger chamadas = new AtomicInteger();
   private final AtomicReference<@Nullable Chamada> ultimaChamada = new AtomicReference<>();
   private final List<Boolean> transacaoAtiva = new CopyOnWriteArrayList<>();
-  private final AtomicReference<@Nullable Retencao> retencao = new AtomicReference<>();
+  private final RetencaoDeTeste retencao = new RetencaoDeTeste();
 
   /** As três imagens que uma conferência recebeu. */
   public record Chamada(Imagem frente, Imagem verso, Imagem selfie) {}
@@ -49,7 +44,7 @@ public class ConferenciaDeDocumentoDeTeste implements ConferenciaDeDocumento {
     transacaoAtiva.add(TransactionSynchronizationManager.isActualTransactionActive());
     chamadas.incrementAndGet();
     ultimaChamada.set(new Chamada(frente, verso, selfie));
-    reter();
+    retencao.reter();
     if (falha.get()) {
       throw new FornecedorIndisponivel("conferência de documento fora do ar (dublê)", null);
     }
@@ -83,47 +78,26 @@ public class ConferenciaDeDocumentoDeTeste implements ConferenciaDeDocumento {
 
   /** Faz as conferências seguintes pararem dentro do dublê até {@link #liberar()}. */
   public void segurar() {
-    retencao.set(new Retencao(new CountDownLatch(1), new CountDownLatch(1)));
+    retencao.segurar();
   }
 
   /** Espera uma conferência chegar ao dublê depois de {@link #segurar()}. */
   public boolean aguardarChamada(Duration limite) throws InterruptedException {
-    Retencao atual = retencao.get();
-    return atual != null && atual.chegou().await(limite.toMillis(), TimeUnit.MILLISECONDS);
+    return retencao.aguardarChamada(limite);
   }
 
   /** Solta as conferências seguradas por {@link #segurar()}. */
   public void liberar() {
-    Retencao atual = retencao.get();
-    if (atual != null) {
-      atual.liberacao().countDown();
-    }
+    retencao.liberar();
   }
 
   /** Volta ao padrão: documento aceito, sem falha, sem retenção e sem chamadas registradas. */
   public void zerar() {
-    liberar();
-    retencao.set(null);
+    retencao.zerar();
     resultado.set(aceito());
     falha.set(false);
     chamadas.set(0);
     ultimaChamada.set(null);
     transacaoAtiva.clear();
   }
-
-  private void reter() {
-    Retencao atual = retencao.get();
-    if (atual == null) {
-      return;
-    }
-    atual.chegou().countDown();
-    try {
-      atual.liberacao().await(RETENCAO_MAXIMA.toMillis(), TimeUnit.MILLISECONDS);
-    } catch (InterruptedException e) {
-      Thread.currentThread().interrupt();
-    }
-  }
-
-  /** Avisa que uma chamada chegou e a segura até a liberação. */
-  private record Retencao(CountDownLatch chegou, CountDownLatch liberacao) {}
 }
