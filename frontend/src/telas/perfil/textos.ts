@@ -37,6 +37,41 @@ export const MEU_PERFIL = {
   contador: (caracteres: number, maximo: number) => `${String(caracteres)}/${String(maximo)}`,
 } as const;
 
+export const FOTO = {
+  titulo: "Foto",
+  alt: (apelido: string | null) => (apelido === null ? "Sua foto" : `Foto de ${apelido}`),
+  semFoto: "Você ainda não tem foto. Até ter uma aprovada, os outros veem uma silhueta.",
+  aguardando: "Aguardando aprovação. Até lá, os outros veem uma silhueta.",
+  novaAguardando: "Foto nova aguardando aprovação. Até lá, vale a anterior.",
+  recusada: "Sua última foto não foi aprovada.",
+  politica:
+    "Sem nudez, sexo, violência explícita ou conteúdo chocante. Toda foto passa por aprovação antes de aparecer.",
+  dica: "JPEG, PNG ou WebP, até 5 MB.",
+  escolher: "Escolher foto",
+  escolherOutra: "Escolher outra",
+  previa: "Prévia da foto escolhida",
+  enviar: "Enviar foto",
+  enviando: "Enviando…",
+  enviada: "Foto enviada. Ela aparece depois da aprovação.",
+  grande: "A foto pode ter até 5 MB. Escolha uma menor.",
+  formato: "Envie uma foto em JPEG, PNG ou WebP.",
+  invalida: "Não conseguimos abrir esta foto. Escolha outra.",
+  indisponivel: "Não conseguimos enviar a foto agora. Tente de novo em instantes.",
+  tentarDeNovo: "Tentar de novo",
+} as const;
+
+export const PAUSA = {
+  titulo: "Pausar a conta",
+  explicacao:
+    "Enquanto a conta estiver pausada, você não entra na fila nem recebe avisos de pessoas compatíveis. Suas conexões e conversas continuam.",
+  pausar: "Pausar",
+  pausando: "Pausando…",
+  faixa: "Sua conta está pausada.",
+  voltar: "Voltar a aparecer",
+  voltando: "Voltando…",
+  falha: "Não conseguimos mudar a pausa. Tente de novo em instantes.",
+} as const;
+
 /** Os rótulos das escolhas, na ordem do contrato. */
 export const ROTULO_DOS_PRONOMES = {
   ELA_DELA: "ela/dela",

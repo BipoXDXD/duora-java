@@ -10,6 +10,7 @@ import com.microsoft.playwright.Locator;
 import com.microsoft.playwright.Page;
 import com.microsoft.playwright.Route;
 import com.microsoft.playwright.options.AriaRole;
+import com.microsoft.playwright.options.FilePayload;
 import java.time.LocalDate;
 import java.util.Base64;
 import org.junit.jupiter.api.Test;
@@ -49,11 +50,47 @@ class AxeMeuPerfilIT extends ContaE2eBase {
       "foto":{"aprovada":null,"pendente":null,"recusadaEm":null}}\
       """;
 
+  /** A nova espera aprovação e a anterior continua valendo. */
+  private static final String PERFIL_COM_FOTO_PENDENTE =
+      """
+      {"versao":2,"apelido":"Sol","pronomes":null,"descricaoPronomes":null,\
+      "intencoes":["AMIZADE"],"bio":"","pausada":false,"prontoParaFila":true,"pendencias":[],\
+      "foto":{"aprovada":{"nitida":"/api/fotos/a/nitida","borrada":"/api/fotos/a/borrada"},\
+      "pendente":{"nitida":"/api/fotos/p/nitida","borrada":"/api/fotos/p/borrada"},\
+      "recusadaEm":null}}\
+      """;
+
+  private static final String PERFIL_COM_FOTO_RECUSADA =
+      """
+      {"versao":2,"apelido":"Sol","pronomes":null,"descricaoPronomes":null,\
+      "intencoes":["AMIZADE"],"bio":"","pausada":false,"prontoParaFila":true,"pendencias":[],\
+      "foto":{"aprovada":null,"pendente":null,"recusadaEm":"2026-11-27T12:00:00Z"}}\
+      """;
+
+  private static final String PERFIL_PAUSADO =
+      """
+      {"versao":2,"apelido":"Sol","pronomes":null,"descricaoPronomes":null,\
+      "intencoes":["AMIZADE"],"bio":"","pausada":true,"prontoParaFila":false,"pendencias":[],\
+      "foto":{"aprovada":null,"pendente":null,"recusadaEm":null}}\
+      """;
+
   private static final String CORPO_DO_CONFLITO =
       """
       {"type":"about:blank","title":"Conflito","status":409,\
       "codigo":"VERSAO_OBSOLETA",\
       "mensagem":"Seu perfil mudou enquanto você editava. Confira e salve de novo."}\
+      """;
+
+  private static final String CORPO_DO_APELIDO_INVALIDO =
+      """
+      {"type":"about:blank","title":"Regra de negócio","status":422,\
+      "codigo":"APELIDO_INVALIDO",\
+      "mensagem":"O apelido precisa ter de 1 a 20 caracteres."}\
+      """;
+
+  private static final String CORPO_DA_INDISPONIBILIDADE =
+      """
+      {"type":"about:blank","title":"Indisponível","status":503,"codigo":"INDISPONIVEL"}\
       """;
 
   /** PNG de 1×1: a foto abre e o cartão mostra a imagem, não a silhueta. */
@@ -162,6 +199,177 @@ class AxeMeuPerfilIT extends ContaE2eBase {
     assertThat(page.getByRole(AriaRole.ALERT))
         .hasText("Seu perfil mudou em outro aparelho. Confira e salve de novo.");
     assertSemViolacoes(page, "meu perfil: versão obsoleta");
+  }
+
+  /** O 422 do servidor vai ao campo do apelido, com o erro sob ele. */
+  @Test
+  void erroDoServidorNoCampo(Participantes participantes) {
+    ContaPagina conta = meuPerfil(participantes, PERFIL_MINIMO, false);
+    Page page = conta.page();
+    responderAoPut(page, 422, CORPO_DO_APELIDO_INVALIDO);
+
+    salvar(page);
+
+    assertThat(page.getByText("O apelido precisa ter de 1 a 20 caracteres.")).isVisible();
+    assertSemViolacoes(page, "meu perfil: erro do servidor no campo");
+  }
+
+  @Test
+  void falhaGeral(Participantes participantes) {
+    ContaPagina conta = meuPerfil(participantes, PERFIL_MINIMO, false);
+    Page page = conta.page();
+    responderAoPut(page, 503, CORPO_DA_INDISPONIBILIDADE);
+
+    salvar(page);
+
+    assertThat(page.getByRole(AriaRole.ALERT))
+        .hasText("Não conseguimos salvar seu perfil. Tente de novo em instantes.");
+    assertSemViolacoes(page, "meu perfil: falha geral");
+  }
+
+  @Test
+  void fotoNovaAguardandoAprovacao(Participantes participantes) {
+    ContaPagina conta = meuPerfil(participantes, PERFIL_COM_FOTO_PENDENTE, false);
+
+    assertThat(conta.page().getByText("Foto nova aguardando aprovação. Até lá, vale a anterior."))
+        .isVisible();
+    assertSemViolacoes(conta.page(), "meu perfil: foto nova aguardando aprovação");
+  }
+
+  @Test
+  void fotoRecusada(Participantes participantes) {
+    ContaPagina conta = meuPerfil(participantes, PERFIL_COM_FOTO_RECUSADA, false);
+
+    assertThat(conta.page().getByText("Sua última foto não foi aprovada.")).isVisible();
+    assertSemViolacoes(conta.page(), "meu perfil: foto recusada");
+  }
+
+  @Test
+  void previaDaFoto(Participantes participantes) {
+    ContaPagina conta = meuPerfil(participantes, PERFIL_MINIMO, false);
+    Page page = conta.page();
+
+    escolherFoto(page, "image/png", FOTO);
+
+    assertThat(
+            page.getByRole(
+                AriaRole.IMG, new Page.GetByRoleOptions().setName("Prévia da foto escolhida")))
+        .isVisible();
+    assertThat(enviarFoto(page)).isVisible();
+    assertSemViolacoes(page, "meu perfil: prévia da foto");
+  }
+
+  @Test
+  void fotoGrandeDemaisRecusadaNoAparelho(Participantes participantes) {
+    ContaPagina conta = meuPerfil(participantes, PERFIL_MINIMO, false);
+    Page page = conta.page();
+
+    escolherFoto(page, "image/jpeg", new byte[5_242_881]);
+
+    assertThat(page.getByText("A foto pode ter até 5 MB. Escolha uma menor.")).isVisible();
+    assertSemViolacoes(page, "meu perfil: foto grande demais");
+  }
+
+  @Test
+  void fotoEnviada(Participantes participantes) {
+    ContaPagina conta = meuPerfil(participantes, PERFIL_MINIMO, false);
+    Page page = conta.page();
+    page.route(
+        "**/api/perfil/foto",
+        rota ->
+            rota.fulfill(
+                new Route.FulfillOptions()
+                    .setStatus(202)
+                    .setContentType("application/json")
+                    .setBody("{\"estado\":\"PENDENTE\",\"url\":\"/api/fotos/p/nitida\"}")));
+
+    escolherFoto(page, "image/png", FOTO);
+    enviarFoto(page).click();
+
+    assertThat(page.getByText("Foto enviada. Ela aparece depois da aprovação.")).isFocused();
+    assertSemViolacoes(page, "meu perfil: foto enviada");
+  }
+
+  @Test
+  void envioDaFotoIndisponivel(Participantes participantes) {
+    ContaPagina conta = meuPerfil(participantes, PERFIL_MINIMO, false);
+    Page page = conta.page();
+    page.route(
+        "**/api/perfil/foto",
+        rota ->
+            rota.fulfill(
+                new Route.FulfillOptions()
+                    .setStatus(503)
+                    .setContentType("application/problem+json")
+                    .setBody(CORPO_DA_INDISPONIBILIDADE)));
+
+    escolherFoto(page, "image/png", FOTO);
+    enviarFoto(page).click();
+
+    assertThat(page.getByText("Não conseguimos enviar a foto agora. Tente de novo em instantes."))
+        .isVisible();
+    assertThat(
+            page.getByRole(AriaRole.BUTTON, new Page.GetByRoleOptions().setName("Tentar de novo")))
+        .isVisible();
+    assertSemViolacoes(page, "meu perfil: envio da foto indisponível");
+  }
+
+  @Test
+  void contaPausada(Participantes participantes) {
+    ContaPagina conta = meuPerfil(participantes, PERFIL_PAUSADO, false);
+    Page page = conta.page();
+
+    assertThat(page.getByText("Sua conta está pausada.")).isVisible();
+    assertThat(
+            page.getByRole(
+                AriaRole.BUTTON, new Page.GetByRoleOptions().setName("Voltar a aparecer")))
+        .isVisible();
+    assertSemViolacoes(page, "meu perfil: conta pausada");
+  }
+
+  @Test
+  void falhaAoPausar(Participantes participantes) {
+    ContaPagina conta = meuPerfil(participantes, PERFIL_MINIMO, false);
+    Page page = conta.page();
+    page.route(
+        "**/api/perfil/pausa",
+        rota ->
+            rota.fulfill(
+                new Route.FulfillOptions()
+                    .setStatus(503)
+                    .setContentType("application/problem+json")
+                    .setBody(CORPO_DA_INDISPONIBILIDADE)));
+
+    page.getByRole(AriaRole.BUTTON, new Page.GetByRoleOptions().setName("Pausar")).click();
+
+    assertThat(page.getByText("Não conseguimos mudar a pausa. Tente de novo em instantes."))
+        .isVisible();
+    assertSemViolacoes(page, "meu perfil: falha ao pausar");
+  }
+
+  private static void escolherFoto(Page page, String tipo, byte[] bytes) {
+    page.getByLabel("Escolher foto").setInputFiles(new FilePayload("foto", tipo, bytes));
+  }
+
+  private static Locator enviarFoto(Page page) {
+    return page.getByRole(AriaRole.BUTTON, new Page.GetByRoleOptions().setName("Enviar foto"));
+  }
+
+  /** O PUT do perfil responde o erro; o resto segue para as rotas já preparadas. */
+  private static void responderAoPut(Page page, int status, String corpo) {
+    page.route(
+        "**/api/perfil",
+        rota -> {
+          if ("PUT".equals(rota.request().method())) {
+            rota.fulfill(
+                new Route.FulfillOptions()
+                    .setStatus(status)
+                    .setContentType("application/problem+json")
+                    .setBody(corpo));
+          } else {
+            rota.fallback();
+          }
+        });
   }
 
   /**

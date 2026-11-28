@@ -22,7 +22,9 @@ import {
 } from "../../componentes/estilos";
 import { consultaDaConta, consultaDoMeuPerfil, consultaDoNamoro } from "../../rotas/consultas";
 import { contarCaracteres } from "./contar";
+import { EnviarFoto } from "./EnviarFoto";
 import { BIO_MAXIMA, bioNormalizada, deMeuPerfil, tiraNamoro, validar, type ErrosDoPerfil } from "./formularioDoPerfil";
+import { FaixaDaPausa, PausaDaConta } from "./PausaDaConta";
 import { MEU_PERFIL, ROTULO_DAS_INTENCOES, ROTULO_DOS_PRONOMES } from "./textos";
 
 type Campo = keyof ErrosDoPerfil;
@@ -79,8 +81,8 @@ function paraEnvio(e: EdicaoDoPerfil): EdicaoDoPerfil {
 
 /**
  * Meu perfil: apelido, pronomes, intenções e bio, salvos com a versão lida (o 409 traz a versão
- * nova e troca o formulário), e o cartão com o que os outros veem. A validação roda no envio, com o
- * foco no primeiro campo recusado.
+ * nova e troca o formulário), a foto, o cartão com o que os outros veem e a pausa da conta. A
+ * validação roda no envio, com o foco no primeiro campo recusado.
  */
 export function MeuPerfil(): ReactElement {
   const clienteDeConsulta = useQueryClient();
@@ -99,6 +101,7 @@ export function MeuPerfil(): ReactElement {
   const campoDaBio = useRef<HTMLTextAreaElement>(null);
   const pronomeMarcado = useRef<HTMLInputElement>(null);
   const alerta = useRef<HTMLParagraphElement>(null);
+  const faixaDaPausa = useRef<HTMLParagraphElement>(null);
 
   // Para onde o foco vai depois do próximo render (o campo da descrição dos pronomes só existe com
   // Prefiro descrever). Quem marca também muda o estado, e o render vem.
@@ -185,6 +188,12 @@ export function MeuPerfil(): ReactElement {
     setEdicao((atual) => ({ ...atual, ...parte }));
   }
 
+  /** Trocar de pronomes tira o erro da descrição: ele valia para a escolha anterior. */
+  function escolherPronomes(pronomes: Pronomes | null) {
+    mudar({ pronomes });
+    setErros((atuais) => ({ ...atuais, descricaoPronomes: undefined }));
+  }
+
   function alternarIntencao(intencao: Intencao, marcada: boolean) {
     // Na ordem do contrato, qualquer que seja a ordem dos cliques.
     const escolhidas = new Set(edicao.intencoes);
@@ -220,6 +229,7 @@ export function MeuPerfil(): ReactElement {
     <>
       <title>{MEU_PERFIL.tituloDaAba}</title>
       <h1 className={TITULO_DA_CASCA}>{MEU_PERFIL.titulo}</h1>
+      <FaixaDaPausa ref={faixaDaPausa} pausada={perfil.pausada} />
       {perfil.versao === null && (
         <p className={`mt-(--e-4) ${TEXTO_SECUNDARIO} text-[1.0625rem] leading-[1.5]`}>{MEU_PERFIL.introducao}</p>
       )}
@@ -251,7 +261,8 @@ export function MeuPerfil(): ReactElement {
 
         <fieldset
           className={`${GRUPO} ${erros.descricaoPronomes === undefined ? "border-transparent" : "border-coral"}`}
-          aria-describedby={descricao("descricaoPronomes")}
+          // Aberto, o erro é descrito pelo campo da descrição; no grupo, seria lido duas vezes.
+          aria-describedby={prefereDescrever ? undefined : descricao("descricaoPronomes")}
         >
           <legend className={`${ROTULO} p-0 mb-(--e-2)`}>{MEU_PERFIL.rotuloDosPronomes}</legend>
           {[null, ...PRONOMES].map((valor) => {
@@ -266,7 +277,7 @@ export function MeuPerfil(): ReactElement {
                   value={valor ?? ""}
                   checked={marcado}
                   onChange={() => {
-                    mudar({ pronomes: valor });
+                    escolherPronomes(valor);
                   }}
                 />
                 {valor === null ? MEU_PERFIL.naoMostrar : ROTULO_DOS_PRONOMES[valor]}
@@ -294,9 +305,10 @@ export function MeuPerfil(): ReactElement {
               <p className={DICA} id={ID.dicaDaDescricao}>
                 {MEU_PERFIL.dicaDaDescricaoDosPronomes}
               </p>
+              {erroDo("descricaoPronomes")}
             </div>
           )}
-          {erroDo("descricaoPronomes")}
+          {!prefereDescrever && erroDo("descricaoPronomes")}
         </fieldset>
 
         <fieldset
@@ -387,6 +399,8 @@ export function MeuPerfil(): ReactElement {
         </div>
       </form>
 
+      <EnviarFoto apelido={perfil.apelido} foto={perfil.foto} />
+
       <section aria-labelledby={ID.cartao} className="mt-(--e-8) pt-(--e-6) border-t border-noite-700 grid gap-(--e-4)">
         <h2 id={ID.cartao} className={TITULO_DE_SECAO}>
           {MEU_PERFIL.tituloDoCartao}
@@ -400,6 +414,9 @@ export function MeuPerfil(): ReactElement {
           />
         )}
       </section>
+
+      {/* Sem perfil salvo, o servidor recusa a pausa. */}
+      {perfil.versao !== null && <PausaDaConta pausada={perfil.pausada} faixa={faixaDaPausa} />}
     </>
   );
 }
