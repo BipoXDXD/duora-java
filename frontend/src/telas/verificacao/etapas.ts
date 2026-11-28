@@ -153,7 +153,7 @@ export function recusaDaConferencia(sessaoId: string, erro: unknown): Etapa {
 }
 
 /**
- * O resultado do envio do documento. O REPETIR (a Didit não leu) apaga as fotos e pede outras, enquanto
+ * O resultado do envio do documento. O REPETIR (o documento não foi lido) apaga as fotos e pede outras, enquanto
  * houver envio hoje; sem envio, a conta fica em análise, como na volta no mesmo dia.
  */
 function etapaDoEnvio(desfecho: Desfecho): Etapa {
@@ -172,7 +172,7 @@ function etapaDoEnvio(desfecho: Desfecho): Etapa {
 /**
  * A recusa do envio do documento (D14-bis). A selfie vencida (409 REFAZER_PROVA_DE_VIDA, ou o 404 do mesmo
  * envio repetido) e a selfie que não serviu (409 SELFIE_NAO_DEU_CERTO, que gastou o envio) guardam as
- * fotos e pedem só uma selfie nova, cada uma com o seu aviso; as fotos que a Didit não abre (422) ou
+ * fotos e pedem só uma selfie nova, cada uma com o seu aviso; as fotos que o servidor não abre (422) ou
  * grandes demais (413) são apagadas; o menor encerra; os 429 viram limite; o resto (503, 409 em
  * andamento, rede) reenvia o mesmo multipart com a mesma sessão.
  */

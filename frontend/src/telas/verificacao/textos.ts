@@ -81,7 +81,7 @@ export const VERIFICACAO_DE_IDADE = {
   documento: {
     titulo: "Falta pouco",
     texto:
-      "A selfie não bastou para confirmar sua idade. Envie fotos do seu RG ou da sua CNH, frente e verso, e faça uma selfie nova. A Didit, empresa de verificação de identidade, confere a data de nascimento e se o rosto do documento é o seu. A Didit apaga as imagens logo depois; guardamos só o resultado, a data e o método.",
+      "A selfie não bastou para confirmar sua idade. Envie fotos do seu RG ou da sua CNH, frente e verso, e faça uma selfie nova. Nosso parceiro de verificação, a Amazon Web Services (AWS), confere a data de nascimento e se o rosto do documento é o seu. A AWS não guarda as imagens, e nós guardamos só o resultado, a data e o método.",
     frente: "Frente do documento",
     verso: "Verso do documento",
     dica: "Com boa luz, sem reflexo e com as quatro pontas aparecendo.",
