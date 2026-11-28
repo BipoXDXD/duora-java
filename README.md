@@ -131,6 +131,26 @@ Localmente, o perfil `e2e` roda no Chromium. Para outro navegador, use
 `InstalabilidadeIT` sempre usa o Chromium completo, porque é o Chrome quem diz se o app pode ser
 instalado; por isso todo job e2e instala também o `chromium`.
 
+## Deploy (Coolify)
+
+A imagem de produção sai do `Dockerfile` da raiz (JRE 25 no Ubuntu 24.04, com o libvips 8.15 que o
+boot exige). A CI a constrói e confere no job `imagem` (`scripts/ci/checar-imagem.sh`).
+
+- **Build Pack:** Dockerfile. **Porta:** 8080.
+- **Armazenamento persistente obrigatório:** um Volume Mount com Destination Path `/dados/imagens`.
+  Sem ele, as fotos somem a cada deploy. O processo roda com o UID 10001; um volume novo herda o
+  dono da imagem, mas um Directory Mount precisa pertencer a esse UID.
+- **Healthcheck:** a imagem declara `HEALTHCHECK` em `/actuator/health`. O Coolify só o usa com o
+  Healthcheck do painel desligado; ligado, o do painel o substitui.
+- **Variáveis de ambiente** (a imagem já define `SPRING_PROFILES_ACTIVE=prod`,
+  `SERVER_ADDRESS=0.0.0.0` e `DUORA_IMAGENS_DIR=/dados/imagens`; sem as demais, o boot falha):
+  - banco: `DUORA_DB_URL`, `DUORA_DB_USUARIO`, `DUORA_DB_SENHA`;
+  - e-mail (Resend): `RESEND_API_KEY`;
+  - conta: `DUORA_SEGREDO_EMAIL`, `DUORA_URL_PUBLICA`, `TURNSTILE_SITE_KEY`, `TURNSTILE_SECRET`;
+  - legal: `DUORA_EMAIL_ENCARREGADO`;
+  - verificação (AWS e Didit): `DUORA_AWS_VERIFICACAO_ACCESS_KEY_ID`,
+    `DUORA_AWS_VERIFICACAO_SECRET_ACCESS_KEY`, `DUORA_AWS_PAPEL_CAPTURA_ARN`, `DUORA_DIDIT_API_KEY`.
+
 ## Arquitetura
 
 - `game`: regras puras (composição, portão da primeira peça, confirmações, revelação), sem
@@ -163,7 +183,8 @@ originais são grandes e ficam fora do Git.
 
 ## Limitações
 
-- Só roda localmente (escuta em `127.0.0.1`); não há configuração de implantação.
+- Em desenvolvimento, escuta só em `127.0.0.1`; a imagem de produção escuta em todas as interfaces
+  do contêiner (veja [Deploy (Coolify)](#deploy-coolify)).
 - O estado fica em memória: reiniciar o servidor apaga todas as salas.
 - Não há contas nem histórico: a identidade é o cookie da sessão, e o terraço expira após 30
   minutos sem ação.
