@@ -63,6 +63,25 @@ final class ServidorDiditFalso implements AutoCloseable {
       }
       return texto.substring(valor, fronteira);
     }
+
+    /**
+     * Bytes do arquivo {@code nome} do corpo multipart (parte com {@code filename}), entre a linha
+     * em branco dos cabeçalhos e a fronteira seguinte. Falha com {@link AssertionError} se a parte
+     * não existir ou estiver malformada.
+     */
+    byte[] arquivo(String nome) {
+      String texto = corpoComoTexto();
+      int parte = texto.indexOf("name=\"" + nome + "\"; filename=");
+      if (parte < 0) {
+        throw new AssertionError("O corpo não tem o arquivo " + nome);
+      }
+      int fimDosCabecalhos = texto.indexOf("\r\n\r\n", parte);
+      int fronteira = fimDosCabecalhos < 0 ? -1 : texto.indexOf("\r\n--", fimDosCabecalhos + 4);
+      if (fronteira < 0) {
+        throw new AssertionError("A parte " + nome + " está malformada");
+      }
+      return texto.substring(fimDosCabecalhos + 4, fronteira).getBytes(StandardCharsets.ISO_8859_1);
+    }
   }
 
   private record Resposta(int status, String corpo, Duration atraso) {}
@@ -110,13 +129,15 @@ final class ServidorDiditFalso implements AutoCloseable {
     return List.copyOf(requisicoes);
   }
 
-  /** A única requisição recebida; falha se houver zero ou mais de uma. */
-  Requisicao unicaRequisicao() {
-    List<Requisicao> todas = requisicoes();
-    if (todas.size() != 1) {
-      throw new AssertionError("Esperava 1 requisição, chegaram " + todas.size());
+  /** A única requisição recebida em {@code caminho}; falha se houver zero ou mais de uma. */
+  Requisicao requisicaoEm(String caminho) {
+    List<Requisicao> doCaminho =
+        requisicoes.stream().filter(r -> r.caminho().equals(caminho)).toList();
+    if (doCaminho.size() != 1) {
+      throw new AssertionError(
+          "Esperava 1 requisição em " + caminho + ", chegaram " + doCaminho.size());
     }
-    return todas.getFirst();
+    return doCaminho.getFirst();
   }
 
   @Override

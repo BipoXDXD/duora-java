@@ -6,6 +6,7 @@ import static org.assertj.core.api.Assertions.catchThrowableOfType;
 import bipotheking.net.duora.conta.dominio.FornecedorIndisponivel;
 import bipotheking.net.duora.conta.dominio.Imagem;
 import bipotheking.net.duora.conta.dominio.ResultadoDoDocumento;
+import io.micrometer.core.instrument.Timer;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
@@ -26,15 +27,16 @@ import org.springframework.web.client.RestClient;
 class ConferenciaDeDocumentoDiditTest {
 
   private static final String CAMINHO = "/v3/id-verification/";
+  private static final String CAMINHO_DO_ROSTO = "/v3/face-match/";
   private static final String CHAVE = "chave-de-teste";
   private static final Imagem FRENTE = jpeg("frente-de-teste");
   private static final Imagem VERSO = jpeg("verso-de-teste");
   private static final Imagem SELFIE = jpeg("selfie-de-teste");
-  private static final String RETRATO =
-      Base64.getEncoder()
-          .encodeToString(new byte[] {(byte) 0xFF, (byte) 0xD8, (byte) 0xFF, 1, 2, 3});
+  private static final byte[] BYTES_DO_RETRATO = {(byte) 0xFF, (byte) 0xD8, (byte) 0xFF, 1, 2, 3};
+  private static final String RETRATO = Base64.getEncoder().encodeToString(BYTES_DO_RETRATO);
 
   private final ServidorDiditFalso didit = ServidorDiditFalso.iniciar();
+  private final SimpleMeterRegistry metricas = new SimpleMeterRegistry();
 
   @AfterEach
   void fechar() {
@@ -47,7 +49,7 @@ class ConferenciaDeDocumentoDiditTest {
 
     conferencia().conferir(FRENTE, VERSO, SELFIE);
 
-    ServidorDiditFalso.Requisicao requisicao = didit.unicaRequisicao();
+    ServidorDiditFalso.Requisicao requisicao = didit.requisicaoEm(CAMINHO);
     assertThat(requisicao.campo("save_api_request")).isEqualTo("false");
     assertThat(requisicao.campo("perform_document_liveness")).isEqualTo("true");
   }
@@ -58,7 +60,7 @@ class ConferenciaDeDocumentoDiditTest {
 
     conferencia().conferir(FRENTE, VERSO, SELFIE);
 
-    ServidorDiditFalso.Requisicao requisicao = didit.unicaRequisicao();
+    ServidorDiditFalso.Requisicao requisicao = didit.requisicaoEm(CAMINHO);
     assertThat(requisicao.cabecalho("x-api-key")).isEqualTo(CHAVE);
     assertThat(requisicao.caminho()).isEqualTo(CAMINHO);
     assertThat(requisicao.metodo()).isEqualTo("POST");
@@ -71,7 +73,7 @@ class ConferenciaDeDocumentoDiditTest {
 
     conferencia().conferir(FRENTE, VERSO, SELFIE);
 
-    assertThat(didit.unicaRequisicao().corpoComoTexto())
+    assertThat(didit.requisicaoEm(CAMINHO).corpoComoTexto())
         .doesNotContain("vendor_data")
         .doesNotContain("metadata");
   }
@@ -82,7 +84,7 @@ class ConferenciaDeDocumentoDiditTest {
 
     conferencia().conferir(FRENTE, VERSO, SELFIE);
 
-    assertThat(didit.unicaRequisicao().corpoComoTexto())
+    assertThat(didit.requisicaoEm(CAMINHO).corpoComoTexto())
         .contains("name=\"front_image\"; filename=\"frente\"")
         .contains("name=\"back_image\"; filename=\"verso\"")
         .contains("frente-de-teste")
@@ -92,6 +94,7 @@ class ConferenciaDeDocumentoDiditTest {
 
   @Test
   void aprovadoLeData() {
+    responderRosto("Approved");
     didit.responder(
         CAMINHO,
         200,
@@ -104,8 +107,112 @@ class ConferenciaDeDocumentoDiditTest {
 
     ResultadoDoDocumento resultado = conferencia().conferir(FRENTE, VERSO, SELFIE);
 
+    assertThat(resultado.documentoAceito()).isTrue();
+    assertThat(resultado.dataDeNascimento()).contains(LocalDate.of(1990, 5, 10));
+  }
+
+  @Test
+  void aprovadoComRostoConferido() {
+    responderAprovado();
+
+    ResultadoDoDocumento resultado = conferencia().conferir(FRENTE, VERSO, SELFIE);
+
+    assertThat(resultado)
+        .isEqualTo(new ResultadoDoDocumento(true, Optional.of(LocalDate.of(1990, 5, 10)), true));
+  }
+
+  @Test
+  void faceMatchEnviaSelfieRetratoLimiarESaveFalse() {
+    responderAprovado();
+
+    conferencia().conferir(FRENTE, VERSO, SELFIE);
+
+    ServidorDiditFalso.Requisicao rosto = didit.requisicaoEm(CAMINHO_DO_ROSTO);
+    assertThat(rosto.metodo()).isEqualTo("POST");
+    assertThat(rosto.cabecalho("x-api-key")).isEqualTo(CHAVE);
+    assertThat(rosto.campo("face_match_score_decline_threshold")).isEqualTo("30.0");
+    assertThat(rosto.campo("save_api_request")).isEqualTo("false");
+    assertThat(rosto.arquivo("ref_image")).isEqualTo(BYTES_DO_RETRATO);
+    assertThat(rosto.arquivo("user_image")).isEqualTo(SELFIE.bytes());
+    assertThat(rosto.corpoComoTexto()).doesNotContain("vendor_data").doesNotContain("metadata");
+  }
+
+  @Test
+  void rostoAbaixoDoLimiarViraNaoConfere() {
+    responderAprovado();
+    responderRosto("Declined");
+
+    assertThat(conferencia().conferir(FRENTE, VERSO, SELFIE).rostoConfere()).isFalse();
+  }
+
+  @Test
+  void documentoRecusadoNaoChamaFaceMatch() {
+    responderComStatus("Declined");
+    responderRosto("Approved");
+
+    conferencia().conferir(FRENTE, VERSO, SELFIE);
+
+    assertThat(didit.requisicoes())
+        .extracting(ServidorDiditFalso.Requisicao::caminho)
+        .containsExactly(CAMINHO);
+  }
+
+  @Test
+  void semRetratoNaoChamaFaceMatch() {
+    responderDocumento("\"1990-05-10\"", "null");
+    responderRosto("Approved");
+
+    ResultadoDoDocumento resultado = conferencia().conferir(FRENTE, VERSO, SELFIE);
+
     assertThat(resultado)
         .isEqualTo(new ResultadoDoDocumento(true, Optional.of(LocalDate.of(1990, 5, 10)), false));
+    assertThat(didit.requisicoes())
+        .extracting(ServidorDiditFalso.Requisicao::caminho)
+        .containsExactly(CAMINHO);
+  }
+
+  @Test
+  void semDataNaoChamaFaceMatch() {
+    responderDocumento("null", "\"" + RETRATO + "\"");
+    responderRosto("Approved");
+
+    conferencia().conferir(FRENTE, VERSO, SELFIE);
+
+    assertThat(didit.requisicoes())
+        .extracting(ServidorDiditFalso.Requisicao::caminho)
+        .containsExactly(CAMINHO);
+  }
+
+  @Test
+  void dataDeMenorAindaChamaFaceMatch() {
+    responderDocumento("\"2015-03-01\"", "\"" + RETRATO + "\"");
+    responderRosto("Approved");
+
+    ResultadoDoDocumento resultado = conferencia().conferir(FRENTE, VERSO, SELFIE);
+
+    assertThat(resultado.rostoConfere()).isTrue();
+    assertThat(didit.requisicaoEm(CAMINHO_DO_ROSTO)).isNotNull();
+  }
+
+  @Test
+  void faceMatch500ViraIndisponivelSemRepetir() {
+    responderAprovado();
+    didit.responder(CAMINHO_DO_ROSTO, 500, "{\"detail\": \"erro\"}");
+
+    FornecedorIndisponivel falha = falhaDaConferencia();
+
+    assertThat(falha.getCause()).isNull();
+    assertThat(didit.requisicoes()).hasSize(2);
+  }
+
+  @Test
+  void metricaSeparaDocumentoERosto() {
+    responderAprovado();
+
+    conferencia().conferir(FRENTE, VERSO, SELFIE);
+
+    assertThat(contagem("documento")).isEqualTo(1);
+    assertThat(contagem("rosto")).isEqualTo(1);
   }
 
   @Test
@@ -273,12 +380,26 @@ class ConferenciaDeDocumentoDiditTest {
     ConferenciaDeDocumentoDidit comLeituraCurta = conferencia(Duration.ofMillis(200));
     catchThrowableOfType(
         FornecedorIndisponivel.class, () -> comLeituraCurta.conferir(FRENTE, VERSO, SELFIE));
+    responderAprovado();
+    didit.responder(CAMINHO_DO_ROSTO, 500, "{\"detail\": \"corpo-canario\"}");
+    falhaDaConferencia();
 
     assertThat(saida.getOut())
         .doesNotContain("corpo-canario")
         .doesNotContain(CHAVE)
         .doesNotContain(Base64.getEncoder().encodeToString(FRENTE.bytes()))
-        .doesNotContain("frente-de-teste");
+        .doesNotContain("frente-de-teste")
+        .doesNotContain(RETRATO)
+        .doesNotContain("selfie-de-teste");
+  }
+
+  private long contagem(String operacao) {
+    Timer timer =
+        metricas
+            .find("duora.verificacao.fornecedor")
+            .tags("fornecedor", "didit", "operacao", operacao, "desfecho", "sucesso")
+            .timer();
+    return timer == null ? 0 : timer.count();
   }
 
   private ConferenciaDeDocumentoDidit conferencia() {
@@ -295,7 +416,7 @@ class ConferenciaDeDocumentoDiditTest {
             leituraDoDocumento,
             Duration.ofSeconds(4));
     return ConferenciaDeDocumentoDidit.comTimeouts(
-        RestClient.builder(), config, new MedicaoDeFornecedor(new SimpleMeterRegistry()));
+        RestClient.builder(), config, new MedicaoDeFornecedor(metricas));
   }
 
   private FornecedorIndisponivel falhaDaConferencia() {
@@ -310,7 +431,28 @@ class ConferenciaDeDocumentoDiditTest {
     responderAprovadoDepois(Duration.ZERO);
   }
 
+  private void responderRosto(String status) {
+    didit.responder(
+        CAMINHO_DO_ROSTO,
+        200,
+        """
+        {"face_match": {"status": "%s", "score": 85.5, "warnings": []}, "request_id": "r-2"}
+        """
+            .formatted(status));
+  }
+
+  private void responderDocumento(String data, String retrato) {
+    didit.responder(
+        CAMINHO,
+        200,
+        """
+        {"id_verification": {"status": "Approved", "date_of_birth": %s, "portrait_image": %s}}
+        """
+            .formatted(data, retrato));
+  }
+
   private void responderAprovadoDepois(Duration atraso) {
+    responderRosto("Approved");
     didit.responder(
         CAMINHO,
         200,
