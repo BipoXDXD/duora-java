@@ -63,15 +63,18 @@ class RetencaoDeTemporariosTest {
     assertThat(retencao().tamanho()).isOne();
   }
 
+  /**
+   * No deploy sem parada, o contêiner novo sobe com o antigo ainda processando na mesma pasta: o
+   * temporário recente pode ser de um processamento em curso e fica.
+   */
   @Test
-  void bootEsvaziaTmp() throws IOException {
-    Path recente = temporario("recente-n.webp", Duration.ZERO);
-    Path vencido = temporario("vencido-n.webp", Duration.ofMinutes(61));
+  void bootPoupaOTemporarioRecente() throws IOException {
+    Path emCurso = temporario("em-curso-n.webp", Duration.ofSeconds(30));
+    Path abandonado = temporario("abandonado-n.webp", Duration.ofMinutes(3));
 
-    retencao().esvaziarNoBoot();
+    retencao().apagarAbandonadosNoBoot();
 
-    assertThat(recente).doesNotExist();
-    assertThat(vencido).doesNotExist();
-    assertThat(raiz.resolve("tmp")).isEmptyDirectory();
+    assertThat(emCurso).exists();
+    assertThat(abandonado).doesNotExist();
   }
 }
