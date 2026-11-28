@@ -2,8 +2,12 @@ package bipotheking.net.duora.perfil.web;
 
 import bipotheking.net.duora.conta.ContaAtual;
 import bipotheking.net.duora.conta.ContaId;
+import bipotheking.net.duora.perfil.FotoDoTitular;
+import bipotheking.net.duora.perfil.FotosDoPerfil;
 import bipotheking.net.duora.perfil.Intencao;
-import bipotheking.net.duora.perfil.PausaDaConta;
+import bipotheking.net.duora.perfil.Pendencia;
+import bipotheking.net.duora.perfil.Perfis;
+import bipotheking.net.duora.perfil.Perfis.Prontidao;
 import bipotheking.net.duora.perfil.Pronomes;
 import bipotheking.net.duora.perfil.ServicoDePerfil;
 import bipotheking.net.duora.perfil.dominio.Apelido;
@@ -27,15 +31,14 @@ import org.springframework.web.bind.annotation.RestController;
 @RequestMapping("/api/perfil")
 class PerfilController {
 
-  private static final PerfilJson SEM_PERFIL =
-      new PerfilJson(null, null, null, null, List.of(), "", false);
-
   private final ServicoDePerfil servico;
-  private final PausaDaConta pausa;
+  private final Perfis perfis;
+  private final FotosDoPerfil fotos;
 
-  PerfilController(ServicoDePerfil servico, PausaDaConta pausa) {
+  PerfilController(ServicoDePerfil servico, Perfis perfis, FotosDoPerfil fotos) {
     this.servico = servico;
-    this.pausa = pausa;
+    this.perfis = perfis;
+    this.fotos = fotos;
   }
 
   /** Campo ausente chega nulo; o domínio recusa com o código do contrato. */
@@ -47,7 +50,10 @@ class PerfilController {
       @Nullable List<Intencao> intencoes,
       @Nullable String bio) {}
 
-  /** O perfil como o front o lê. A Task D5 acrescenta chaves. */
+  /**
+   * O perfil como o front o lê. Sem perfil: nulos, {@code []}, {@code ""}, {@code false}, {@code
+   * false} e {@code ["PERFIL"]}; a foto vem de qualquer jeito.
+   */
   record PerfilJson(
       @Nullable Long versao,
       @Nullable String apelido,
@@ -55,9 +61,17 @@ class PerfilController {
       @Nullable String descricaoPronomes,
       List<Intencao> intencoes,
       String bio,
-      boolean pausada) {
+      boolean pausada,
+      boolean prontoParaFila,
+      List<Pendencia> pendencias,
+      FotoDoTitular foto) {
 
-    static PerfilJson de(Perfil perfil, boolean pausada) {
+    static PerfilJson de(@Nullable Perfil perfil, Prontidao prontidao, FotoDoTitular foto) {
+      List<Pendencia> pendencias = List.copyOf(prontidao.pendencias());
+      if (perfil == null) {
+        return new PerfilJson(
+            null, null, null, null, List.of(), "", false, false, pendencias, foto);
+      }
       EdicaoDoPerfil dados = perfil.dados();
       Optional<PronomesEscolhidos> pronomes = dados.pronomes();
       return new PerfilJson(
@@ -67,16 +81,16 @@ class PerfilController {
           pronomes.flatMap(PronomesEscolhidos::descricao).map(DescricaoCurta::valor).orElse(null),
           List.copyOf(dados.intencoes().valores()),
           dados.bio().valor(),
-          pausada);
+          prontidao.pausada(),
+          prontidao.prontoParaFila(),
+          pendencias,
+          foto);
     }
   }
 
   @GetMapping
   PerfilJson consultar(@ContaAtual ContaId conta) {
-    return servico
-        .meu(conta)
-        .map(perfil -> PerfilJson.de(perfil, pausa.pausada(conta)))
-        .orElse(SEM_PERFIL);
+    return corpo(conta, servico.meu(conta).orElse(null));
   }
 
   @PutMapping
@@ -87,6 +101,10 @@ class PerfilController {
             PronomesEscolhidos.de(corpo.pronomes(), corpo.descricaoPronomes()),
             Intencoes.de(corpo.intencoes()),
             Bio.de(corpo.bio()));
-    return PerfilJson.de(servico.salvar(conta, corpo.versao(), dados), pausa.pausada(conta));
+    return corpo(conta, servico.salvar(conta, corpo.versao(), dados));
+  }
+
+  private PerfilJson corpo(ContaId conta, @Nullable Perfil perfil) {
+    return PerfilJson.de(perfil, perfis.prontidao(conta), fotos.doTitular(conta));
   }
 }

@@ -136,7 +136,7 @@ class PerfisJdbc implements RepositorioDePerfis {
         .update();
   }
 
-  private static Perfil perfil(ContaId conta, ResultSet rs) throws SQLException {
+  static Perfil perfil(ContaId conta, ResultSet rs) throws SQLException {
     String pronomes = rs.getString("pronomes");
     String descricao = rs.getString("descricao_pronomes");
     Optional<PronomesEscolhidos> escolhidos =

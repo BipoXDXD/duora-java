@@ -1,7 +1,12 @@
 package bipotheking.net.duora.perfil;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.hamcrest.Matchers.contains;
+import static org.hamcrest.Matchers.endsWith;
+import static org.hamcrest.Matchers.nullValue;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -27,8 +32,12 @@ class PerfilApiTest extends BancoDeTeste {
   private static final String CRIAR_BIA =
       "{\"versao\":null,\"apelido\":\"Bia\",\"intencoes\":[\"AMIZADE\"],\"bio\":\"oi\"}";
 
+  private static final String SEM_FOTO =
+      "\"foto\":{\"aprovada\":null,\"pendente\":null,\"recusadaEm\":null}";
+
   @Autowired private ContasDeTeste contas;
   @Autowired private ExclusaoDeConta exclusao;
+  @Autowired private FotosDeTeste fotos;
 
   @Test
   void perfilNovoComecaVazio() throws Exception {
@@ -41,7 +50,9 @@ class PerfilApiTest extends BancoDeTeste {
                 .json(
                     "{\"versao\":null,\"apelido\":null,\"pronomes\":null,"
                         + "\"descricaoPronomes\":null,\"intencoes\":[],\"bio\":\"\","
-                        + "\"pausada\":false}",
+                        + "\"pausada\":false,\"prontoParaFila\":false,\"pendencias\":[\"PERFIL\"],"
+                        + SEM_FOTO
+                        + "}",
                     JsonCompareMode.STRICT));
   }
 
@@ -56,7 +67,9 @@ class PerfilApiTest extends BancoDeTeste {
                 .json(
                     "{\"versao\":1,\"apelido\":\"Bia\",\"pronomes\":null,"
                         + "\"descricaoPronomes\":null,\"intencoes\":[\"AMIZADE\"],\"bio\":\"oi\","
-                        + "\"pausada\":false}",
+                        + "\"pausada\":false,\"prontoParaFila\":true,\"pendencias\":[],"
+                        + SEM_FOTO
+                        + "}",
                     JsonCompareMode.STRICT));
   }
 
@@ -242,6 +255,52 @@ class PerfilApiTest extends BancoDeTeste {
     exclusao.excluir(conta.id(), true);
 
     assertThat(linhas(conta)).isZero();
+  }
+
+  @Test
+  void getTrazPendencias() throws Exception {
+    ContaDeTeste conta = contas.criarAtiva();
+
+    consultar(conta)
+        .andExpect(jsonPath("$.pendencias").value(contains("PERFIL")))
+        .andExpect(jsonPath("$.prontoParaFila").value(false));
+
+    salvar(conta, CRIAR_BIA).andExpect(status().isOk());
+
+    consultar(conta)
+        .andExpect(jsonPath("$.pendencias").isEmpty())
+        .andExpect(jsonPath("$.prontoParaFila").value(true));
+  }
+
+  @Test
+  void getTrazFotoDoTitular() throws Exception {
+    ContaDeTeste conta = contas.criarAtiva();
+    salvar(conta, CRIAR_BIA).andExpect(status().isOk());
+    fotos.enviar(conta.id());
+
+    consultar(conta)
+        .andExpect(jsonPath("$.foto.pendente.nitida").value(endsWith("/nitida")))
+        .andExpect(jsonPath("$.foto.aprovada").value(nullValue()));
+  }
+
+  @Test
+  void fotoEPausaNaoMudamAVersao() throws Exception {
+    ContaDeTeste conta = contas.criarAtiva();
+    salvar(conta, CRIAR_BIA).andExpect(status().isOk());
+
+    fotos.enviar(conta.id());
+    mvc.perform(
+            post("/api/perfil/pausa").header(MesmaOrigem.CABECALHO, "1").cookie(cookieDe(conta)))
+        .andExpect(status().isNoContent());
+    mvc.perform(
+            delete("/api/perfil/pausa").header(MesmaOrigem.CABECALHO, "1").cookie(cookieDe(conta)))
+        .andExpect(status().isNoContent());
+
+    consultar(conta).andExpect(jsonPath("$.versao").value(1));
+  }
+
+  private ResultActions consultar(ContaDeTeste conta) throws Exception {
+    return mvc.perform(get("/api/perfil").cookie(cookieDe(conta))).andExpect(status().isOk());
   }
 
   private ResultActions salvar(ContaDeTeste conta, String corpo) throws Exception {
