@@ -1,5 +1,5 @@
 ---
-versao: 2026-11-27
+versao: 2026-11-28
 ---
 
 # Política de privacidade
@@ -14,7 +14,7 @@ O controlador dos dados é o responsável pelo Duora. Para dúvidas e pedidos so
 
 - **E-mail:** para você entrar e receber avisos da conta.
 - **Data de nascimento:** só para confirmar que você tem 18 anos ou mais. Ela não aparece para ninguém.
-- **Aceites:** qual versão dos termos e desta política você aceitou, e quando.
+- **Aceites:** qual versão dos termos, desta política e do consentimento biométrico da verificação de idade você aceitou, e quando.
 - **Apelido, intenção e bio:** para apresentar você nos encontros.
 - **Foto:** reprocessada sem metadados e aprovada pela moderação. Quem ainda não é sua conexão vê uma versão borrada; só conexões veem a foto nítida.
 - **Gênero e quem você quer conhecer:** dado sensível, tratado só com seu consentimento e só para o pareamento. Nunca aparece para ninguém e é apagado quando você desliga o namoro.
@@ -26,8 +26,8 @@ O controlador dos dados é o responsável pelo Duora. Para dúvidas e pedidos so
 ## Verificação de idade
 
 - Você grava uma selfie em vídeo curta, com prova de vida e estimativa de idade feitas pela Amazon Web Services, nos Estados Unidos.
-- Só se a estimativa ficar em dúvida, pedimos uma foto do RG ou da CNH. A Didit lê a data de nascimento e compara o rosto do documento com a selfie, sem guardar nada.
-- A imagem do seu rosto é um dado biométrico, portanto sensível. Nós a tratamos com seu consentimento específico, só para verificar a idade. Ela nunca é guardada nem usada para outra coisa.
+- Só se a estimativa ficar em dúvida, pedimos fotos da frente e do verso do RG ou da CNH e uma selfie nova, que vão juntas para a Didit. A Didit lê a data de nascimento e compara o rosto do documento com a selfie nova, sem guardar nada.
+- A imagem do seu rosto é um dado biométrico, portanto sensível. Nós a tratamos com seu consentimento específico, só para verificar a idade, e ela nunca é guardada nem usada para outra coisa. Registramos a versão do consentimento que você aceitou e quando.
 - Guardamos só o resultado (aprovado ou recusado), a data e o método usado.
 - Quem tem menos de 18 anos tem o cadastro bloqueado.
 - Para contestar o resultado, escreva ao encarregado: <{{encarregado}}>.
@@ -44,6 +44,7 @@ O controlador dos dados é o responsável pelo Duora. Para dúvidas e pedidos so
 | Chaves de repetição de pedidos | 1 dia |
 | Arquivos temporários de imagem | 1 hora |
 | Conta, perfil e foto | até a exclusão da conta |
+| Aceites dos termos, desta política e do consentimento biométrico | até a exclusão da conta |
 | Selfie e documento da verificação de idade | apagados logo após a checagem; fica só o resultado, a data e o método |
 | Tentativas de verificação de idade | 1 dia |
 | Registros de acesso (IP, porta e horário) | 6 meses |

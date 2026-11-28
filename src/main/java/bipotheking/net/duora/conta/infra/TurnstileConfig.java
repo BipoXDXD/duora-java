@@ -1,7 +1,8 @@
 package bipotheking.net.duora.conta.infra;
 
+import static bipotheking.net.duora.conta.infra.Exigencias.exigir;
+
 import java.net.URI;
-import org.jspecify.annotations.Nullable;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.boot.context.properties.bind.DefaultValue;
 
@@ -20,12 +21,5 @@ record TurnstileConfig(
   TurnstileConfig {
     exigir(chaveDoSite, "duora.turnstile.chave-do-site");
     exigir(segredo, "duora.turnstile.segredo");
-  }
-
-  /** A mensagem cita só a propriedade, nunca o valor (pode ser o segredo). */
-  private static void exigir(@Nullable String valor, String propriedade) {
-    if (valor == null || valor.isBlank() || valor.startsWith("${")) {
-      throw new IllegalArgumentException(propriedade + " ausente ou com placeholder sem resolver");
-    }
   }
 }

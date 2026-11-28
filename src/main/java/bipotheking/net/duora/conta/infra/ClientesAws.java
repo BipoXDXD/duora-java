@@ -1,23 +1,23 @@
 package bipotheking.net.duora.conta.infra;
 
-import static bipotheking.net.duora.conta.infra.Exigencias.exigir;
-
 import java.net.URI;
 import java.util.Optional;
-import software.amazon.awssdk.auth.credentials.AwsBasicCredentials;
 import software.amazon.awssdk.auth.credentials.AwsCredentialsProvider;
-import software.amazon.awssdk.auth.credentials.StaticCredentialsProvider;
 import software.amazon.awssdk.awscore.client.builder.AwsClientBuilder;
 import software.amazon.awssdk.awscore.client.builder.AwsSyncClientBuilder;
 import software.amazon.awssdk.http.urlconnection.UrlConnectionHttpClient;
+import software.amazon.awssdk.profiles.ProfileFile;
 import software.amazon.awssdk.regions.Region;
+import software.amazon.awssdk.regions.ServiceMetadata;
 import software.amazon.awssdk.services.rekognition.RekognitionClient;
 import software.amazon.awssdk.services.sts.StsClient;
 
 /**
  * Monta os clientes síncronos da AWS usados pela verificação de idade. Região fixa {@code
  * us-east-1} (a SCP da conta só libera essa), credencial só da {@link ConfiguracaoAws} (nunca
- * {@code ~/.aws}, {@code AWS_*} nem {@code aws.*} do sistema), HTTP do JDK e os timeouts do
+ * {@code ~/.aws}, {@code AWS_*} nem {@code aws.*} do sistema), endpoint sempre fixado (o público do
+ * serviço, sem FIPS nem dual-stack, para {@code AWS_ENDPOINT_URL*} e o {@code endpoint_url} do
+ * perfil não desviarem as chamadas), nenhum arquivo de perfil, HTTP do JDK e os timeouts do
  * orçamento: {@code conexao} por conexão, {@code tentativa} por leitura e por tentativa, {@code
  * chamada} para a chamada inteira, com no máximo duas tentativas. O {@code endpoint} só existe nos
  * testes, que apontam para um servidor local.
@@ -27,16 +27,19 @@ final class ClientesAws {
   static final Region REGIAO = Region.US_EAST_1;
 
   private static final int TENTATIVAS = 2;
-  private static final String PREFIXO = "duora.verificacao.aws.";
+
+  /** No lugar do {@code ~/.aws/config} e do {@code ~/.aws/credentials}: nenhum perfil. */
+  private static final ProfileFile SEM_PERFIL =
+      ProfileFile.builder().content("").type(ProfileFile.Type.CONFIGURATION).build();
 
   private ClientesAws() {}
 
   static RekognitionClient rekognition(ConfiguracaoAws configuracao, Optional<URI> endpoint) {
-    return rekognition(configuracao, daConfiguracao(configuracao), endpoint);
+    return rekognition(configuracao, configuracao.credencial(), endpoint);
   }
 
   static StsClient sts(ConfiguracaoAws configuracao, Optional<URI> endpoint) {
-    return sts(configuracao, daConfiguracao(configuracao), endpoint);
+    return sts(configuracao, configuracao.credencial(), endpoint);
   }
 
   /**
@@ -45,39 +48,47 @@ final class ClientesAws {
    */
   static RekognitionClient rekognition(
       ConfiguracaoAws configuracao, AwsCredentialsProvider credencial, Optional<URI> endpoint) {
-    return configurar(RekognitionClient.builder(), configuracao, credencial, endpoint).build();
+    return configurar(
+            RekognitionClient.builder(),
+            configuracao,
+            credencial,
+            endpoint.orElseGet(() -> oficial(RekognitionClient.serviceMetadata())))
+        .build();
   }
 
   /** Como {@link #rekognition(ConfiguracaoAws, AwsCredentialsProvider, Optional)}, para o STS. */
   static StsClient sts(
       ConfiguracaoAws configuracao, AwsCredentialsProvider credencial, Optional<URI> endpoint) {
-    return configurar(StsClient.builder(), configuracao, credencial, endpoint).build();
-  }
-
-  private static AwsCredentialsProvider daConfiguracao(ConfiguracaoAws configuracao) {
-    return StaticCredentialsProvider.create(
-        AwsBasicCredentials.create(
-            exigir(configuracao.accessKeyId(), PREFIXO + "access-key-id"),
-            exigir(configuracao.secretAccessKey(), PREFIXO + "secret-access-key")));
+    return configurar(
+            StsClient.builder(),
+            configuracao,
+            credencial,
+            endpoint.orElseGet(() -> oficial(StsClient.serviceMetadata())))
+        .build();
   }
 
   private static <B extends AwsClientBuilder<B, ?> & AwsSyncClientBuilder<B, ?>> B configurar(
-      B builder,
-      ConfiguracaoAws configuracao,
-      AwsCredentialsProvider credencial,
-      Optional<URI> endpoint) {
+      B builder, ConfiguracaoAws configuracao, AwsCredentialsProvider credencial, URI endpoint) {
     builder
         .region(REGIAO)
         .credentialsProvider(credencial)
+        .endpointOverride(endpoint)
+        .fipsEnabled(false)
+        .dualstackEnabled(false)
         .httpClientBuilder(
             UrlConnectionHttpClient.builder()
                 .connectionTimeout(configuracao.conexao())
                 .socketTimeout(configuracao.tentativa()))
         .overrideConfiguration(o ->
-            o.apiCallAttemptTimeout(configuracao.tentativa())
+            o.defaultProfileFile(SEM_PERFIL)
+                .apiCallAttemptTimeout(configuracao.tentativa())
                 .apiCallTimeout(configuracao.chamada())
                 .retryStrategy(r -> r.maxAttempts(TENTATIVAS)));
-    endpoint.ifPresent(builder::endpointOverride);
     return builder;
+  }
+
+  /** O endpoint público do serviço na {@link #REGIAO}, por HTTPS. */
+  private static URI oficial(ServiceMetadata servico) {
+    return URI.create("https://" + servico.endpointFor(REGIAO));
   }
 }

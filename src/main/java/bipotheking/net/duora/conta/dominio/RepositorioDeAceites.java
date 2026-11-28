@@ -8,6 +8,7 @@ import java.time.Instant;
 /** Porta dos aceites dos documentos legais, um por conta, documento e versão. */
 public interface RepositorioDeAceites {
 
+  /** Grava o aceite; o da mesma conta, documento e versão que já existe fica como está. */
   void gravar(ContaId conta, DocumentoLegal documento, VersaoDeDocumento versao, Instant agora);
 
   /**

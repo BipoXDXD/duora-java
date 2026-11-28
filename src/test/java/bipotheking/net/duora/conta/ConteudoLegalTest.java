@@ -52,6 +52,8 @@ class ConteudoLegalTest {
             "Estados Unidos",
             "Didit",
             "RG ou da CNH",
+            "frente e do verso do RG ou da CNH e uma selfie nova",
+            "Registramos a versão do consentimento que você aceitou e quando.",
             "6 meses",
             "encarregado",
             NOME_DO_ENCARREGADO,

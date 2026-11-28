@@ -4,8 +4,8 @@ import org.jspecify.annotations.Nullable;
 
 /**
  * Regra das chaves obrigatórias dos fornecedores: nula, em branco ou com placeholder sem resolver é
- * recusada. O Binder deixa passar {@code ${...}} literal quando a variável de ambiente falta.
- * Repete a regra privada do {@code TurnstileConfig}, que fica intocado.
+ * recusada. O Binder deixa passar {@code ${...}} literal quando a variável de ambiente falta. Vale
+ * para o Turnstile e para a AWS e a Didit.
  */
 final class Exigencias {
 

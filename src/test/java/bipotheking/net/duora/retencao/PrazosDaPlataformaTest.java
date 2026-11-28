@@ -29,9 +29,9 @@ class PrazosDaPlataformaTest extends BancoDeTeste {
 
   /**
    * Linha da tabela para as políticas que a cumprem, na ordem dos prazos que a linha cita. Ficam de
-   * fora as linhas sem prazo (conta até a exclusão, código do e-mail recusado) e as de etapas que
-   * ainda não têm política (chat, imagens). A selfie e o documento da verificação de idade nunca
-   * são gravados: não há o que expirar.
+   * fora as linhas sem prazo (conta e aceites até a exclusão, código do e-mail recusado) e as de
+   * etapas que ainda não têm política (chat, imagens). A selfie e o documento da verificação de
+   * idade nunca são gravados: não há o que expirar.
    */
   private static final Map<String, List<String>> POLITICAS_POR_LINHA =
       Map.of(

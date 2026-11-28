@@ -27,6 +27,7 @@ class AceitesJdbc implements RepositorioDeAceites {
             """
             insert into aceite_documento (conta_id, documento, versao, resumo_sha256, aceito_em)
             values (:conta, :documento, :versao, :resumo, :agora)
+            on conflict (conta_id, documento, versao) do nothing
             """)
         .param("conta", conta.valor())
         .param("documento", documento.name())

@@ -13,6 +13,7 @@ import bipotheking.net.duora.conta.dominio.RepositorioDeVerificacoes;
 import bipotheking.net.duora.conta.dominio.ResultadoDaProva;
 import bipotheking.net.duora.conta.dominio.ResultadoDaVerificacao;
 import bipotheking.net.duora.conta.dominio.ResultadoDoDocumento;
+import bipotheking.net.duora.conta.dominio.SituacaoDaProva;
 import bipotheking.net.duora.conta.dominio.Tentativa;
 import bipotheking.net.duora.nucleo.ErroDeNegocio;
 import bipotheking.net.duora.web.Idempotencia;
@@ -86,7 +87,10 @@ public class VerificacaoPorDocumento {
    * antes de qualquer consulta ou chamada. A chave de idempotência é o id da sessão: a repetição
    * devolve o mesmo desfecho sem chamar os fornecedores, e um envio concorrente recebe {@code
    * REQUISICAO_EM_ANDAMENTO}. Prova de vida vencida ou ruim, fornecedor fora do ar ou qualquer
-   * falha antes do commit libera a chave e não conclui nada: o mesmo id de sessão pode reenviar.
+   * falha antes do commit libera a chave e não conclui nada. Com o fornecedor fora do ar, o mesmo
+   * id de sessão pode reenviar; com a prova expirada, a tentativa é descartada e o reenvio recebe
+   * {@code SESSAO_DE_VERIFICACAO_INVALIDA}; com a prova ruim, o reenvio recebe o mesmo {@code
+   * REFAZER_PROVA_DE_VIDA}.
    *
    * @throws ErroDeNegocio {@code LIMITE_DE_TAXA}, {@code DOCUMENTO_INVALIDO}, {@code
    *     SESSAO_DE_VERIFICACAO_INVALIDA} (sessão inexistente, de outra conta, de selfie ou já
@@ -161,8 +165,10 @@ public class VerificacaoPorDocumento {
 
   /**
    * A referência da selfie nova da sessão. Prova vencida, ruim ou sem referência pede outra selfie
-   * sem concluir nada (D14): a tentativa é descartada e não gasta envio do dia; o front mantém as
-   * fotos do documento e reenvia com uma sessão nova.
+   * sem concluir nada, e o front mantém as fotos do documento e reenvia com uma sessão nova. Só a
+   * prova {@code EXPIRADA} descarta a tentativa e devolve o envio do dia (D14-bis): o upload lento
+   * num 4G não é culpa da pessoa. Falha, confiança baixa ou prova ainda criada (envio sem selfie)
+   * gastam o envio.
    */
   private Imagem referenciaDaProva(Tentativa tentativa, String sessaoId, Conta conta) {
     ResultadoDaProva prova;
@@ -178,7 +184,9 @@ public class VerificacaoPorDocumento {
           "Prova de vida da sessão de documento da conta {} não serve: {}",
           conta.id(),
           prova.situacao());
-      descartar(tentativa, conta);
+      if (prova.situacao() == SituacaoDaProva.EXPIRADA) {
+        descartar(tentativa, conta);
+      }
       throw CodigoVerificacao.REFAZER_PROVA_DE_VIDA.erro();
     }
     return prova.referencia().orElseThrow();

@@ -7,6 +7,9 @@ import java.util.regex.Pattern;
 import org.jspecify.annotations.Nullable;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.boot.context.properties.bind.DefaultValue;
+import software.amazon.awssdk.auth.credentials.AwsBasicCredentials;
+import software.amazon.awssdk.auth.credentials.AwsCredentialsProvider;
+import software.amazon.awssdk.auth.credentials.StaticCredentialsProvider;
 
 /**
  * Acesso do back à AWS ({@code duora.verificacao.aws.*}). As chaves só existem com o provedor
@@ -33,14 +36,24 @@ record ConfiguracaoAws(
    * papel de captura já validado.
    */
   String exigirCompleta() {
-    exigir(accessKeyId, PREFIXO + "access-key-id");
-    exigir(secretAccessKey, PREFIXO + "secret-access-key");
+    credencial();
     String arn = exigir(papelCapturaArn, PREFIXO + "papel-captura-arn");
     if (!ARN_DE_PAPEL.matcher(arn).matches()) {
       throw new IllegalArgumentException(
           PREFIXO + "papel-captura-arn fora do formato arn:aws:iam::<conta>:role/<nome>");
     }
     return arn;
+  }
+
+  /**
+   * A credencial do back, só desta configuração; chave ausente é recusada como em {@link
+   * #exigirCompleta()}.
+   */
+  AwsCredentialsProvider credencial() {
+    return StaticCredentialsProvider.create(
+        AwsBasicCredentials.create(
+            exigir(accessKeyId, PREFIXO + "access-key-id"),
+            exigir(secretAccessKey, PREFIXO + "secret-access-key")));
   }
 
   /** Sem chave, segredo nem ARN (o ARN traz o número da conta). */

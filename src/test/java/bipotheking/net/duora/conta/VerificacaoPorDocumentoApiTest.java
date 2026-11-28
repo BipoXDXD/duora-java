@@ -167,25 +167,53 @@ class VerificacaoPorDocumentoApiTest extends BancoDeTeste {
         .andExpect(jsonPath("$.enviosDeDocumentoRestantesHoje").value(1));
   }
 
+  /** D14-bis: a prova abaixo de 90,0 pede selfie nova, mas gasta o envio do dia. */
   @Test
-  void provaRuimNaoChamaADidit() throws Exception {
+  void confiancaBaixaNaoChamaADiditEGastaOEnvio() throws Exception {
     Preparo preparo = emDuvidaComSessaoDeDocumento();
     provaDeVida.programarPorSessao(
         preparo.documento(), ProvaDeVidaDeTeste.concluida(80.0, new FaixaEstimada(30, 40)));
 
+    exigirRefazerQueGastaOEnvio(preparo);
+  }
+
+  /** D14-bis: a prova que falhou pede selfie nova, mas gasta o envio do dia. */
+  @Test
+  void provaQueFalhouGastaOEnvio() throws Exception {
+    Preparo preparo = emDuvidaComSessaoDeDocumento();
+    provaDeVida.programarPorSessao(
+        preparo.documento(),
+        new ResultadoDaProva(SituacaoDaProva.FALHOU, 0.0, Optional.empty(), Optional.empty()));
+
+    exigirRefazerQueGastaOEnvio(preparo);
+  }
+
+  /** D14-bis: o envio imediato, com a prova ainda criada, pede selfie nova e gasta o envio. */
+  @Test
+  void provaAindaCriadaGastaOEnvio() throws Exception {
+    Preparo preparo = emDuvidaComSessaoDeDocumento();
+    provaDeVida.programarPorSessao(
+        preparo.documento(),
+        new ResultadoDaProva(SituacaoDaProva.CRIADA, 0.0, Optional.empty(), Optional.empty()));
+
+    exigirRefazerQueGastaOEnvio(preparo);
+  }
+
+  /** O 409 sem concluir nada nem chamar a Didit, com a tentativa mantida: o envio fica gasto. */
+  private void exigirRefazerQueGastaOEnvio(Preparo preparo) throws Exception {
     enviar(preparo.conta(), preparo.documento())
         .andExpect(status().isConflict())
         .andExpect(jsonPath("$.codigo").value("REFAZER_PROVA_DE_VIDA"));
 
     assertThat(conferencia.chamadas()).isZero();
-    assertThat(tentativasDaSessao(preparo.documento())).isZero();
+    assertThat(tentativaSemResultado(preparo.documento())).isTrue();
     enviosRestantesHoje(preparo.conta())
-        .andExpect(jsonPath("$.enviosDeDocumentoRestantesHoje").value(2));
+        .andExpect(jsonPath("$.enviosDeDocumentoRestantesHoje").value(1));
   }
 
   /**
-   * D14: o 409 descarta a tentativa e não gasta envio do dia (os 2 voltam a caber); a sessão
-   * descartada não serve mais, e o mesmo envio repetido recebe 404.
+   * D14-bis: só a prova expirada descarta a tentativa e não gasta envio do dia (os 2 voltam a
+   * caber); a sessão descartada não serve mais, e o mesmo envio repetido recebe 404.
    */
   @Test
   void sessaoExpiradaPedeSelfieNovaSemConcluir() throws Exception {

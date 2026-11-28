@@ -175,7 +175,7 @@ class ExclusaoApiTest extends BancoDeTeste {
     assertThat(linha.get("email")).isEqualTo(emailDe(conta));
     assertThat(linha.get("excluida_em")).isNull();
     assertThat(sessoesDa(conta)).as("a revogação do gancho foi desfeita").isOne();
-    assertThat(aceitesDa(conta)).isEqualTo(2);
+    assertThat(aceitesDa(conta)).isEqualTo(DocumentoLegal.values().length);
     assertThat(linksDo(emailDe(conta))).isOne();
     mvc.perform(get("/api/teste/so-ativa").cookie(cookieDe(conta))).andExpect(status().isOk());
     assertThat(saida.getOut())
@@ -231,7 +231,7 @@ class ExclusaoApiTest extends BancoDeTeste {
     assertThat(linha.get("email")).isEqualTo(emailDe(outra));
     assertThat(linha.get("data_nascimento")).isNotNull();
     assertThat(sessoesDa(outra)).isOne();
-    assertThat(aceitesDa(outra)).isEqualTo(2);
+    assertThat(aceitesDa(outra)).isEqualTo(DocumentoLegal.values().length);
     assertThat(linksDo(emailDe(outra))).isOne();
     assertThat(
             jdbc.sql("select count(*) from outbox where carga->>'para' = :email")
