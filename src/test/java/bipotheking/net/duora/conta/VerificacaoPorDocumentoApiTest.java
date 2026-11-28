@@ -192,7 +192,7 @@ class VerificacaoPorDocumentoApiTest extends BancoDeTeste {
 
   /** D14-bis: a prova abaixo de 90,0 encerra a tentativa e gasta o envio do dia. */
   @Test
-  void confiancaBaixaNaoChamaADiditEGastaOEnvio() throws Exception {
+  void confiancaBaixaNaoChamaAConferenciaEGastaOEnvio() throws Exception {
     Preparo preparo = emDuvidaComSessaoDeDocumento();
     provaDeVida.programarPorSessao(
         preparo.documento(), ProvaDeVidaDeTeste.concluida(80.0, new FaixaEstimada(30, 40)));
@@ -223,8 +223,9 @@ class VerificacaoPorDocumentoApiTest extends BancoDeTeste {
   }
 
   /**
-   * O 409 sem chamar a Didit, com a tentativa encerrada como {@code REPETIR}: o envio fica gasto, e
-   * o mesmo envio repetido recebe 404, sem laço de 409. A selfie nova vem numa tentativa nova.
+   * O 409 sem chamar a conferência, com a tentativa encerrada como {@code REPETIR}: o envio fica
+   * gasto, e o mesmo envio repetido recebe 404, sem laço de 409. A selfie nova vem numa tentativa
+   * nova.
    */
   private void exigirSelfieNovaQueEncerraATentativa(Preparo preparo) throws Exception {
     enviar(preparo.conta(), preparo.documento())
@@ -355,7 +356,7 @@ class VerificacaoPorDocumentoApiTest extends BancoDeTeste {
   }
 
   @Test
-  void diditForaDoArDeixaReenviar() throws Exception {
+  void conferenciaForaDoArDeixaReenviar() throws Exception {
     Preparo preparo = emDuvidaComSessaoDeDocumento();
     conferencia.falhar();
 
@@ -395,7 +396,7 @@ class VerificacaoPorDocumentoApiTest extends BancoDeTeste {
   }
 
   @Test
-  void enviosSimultaneosChamamADiditUmaVez() throws Exception {
+  void enviosSimultaneosChamamAConferenciaUmaVez() throws Exception {
     Preparo preparo = emDuvidaComSessaoDeDocumento();
     conferencia.segurar();
 

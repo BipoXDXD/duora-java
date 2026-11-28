@@ -29,7 +29,7 @@ O controlador dos dados é o responsável pelo Duora. Para dúvidas e pedidos so
 ## Verificação de idade
 
 - Você grava uma selfie em vídeo curta, com prova de vida e estimativa de idade feitas pela Amazon Web Services, nos Estados Unidos.
-- Só se a estimativa ficar em dúvida, pedimos fotos da frente e do verso do RG ou da CNH e uma selfie nova, que vão juntas para a Didit. A Didit lê a data de nascimento e compara o rosto do documento com a selfie nova, sem guardar nada.
+- Só se a estimativa ficar em dúvida, pedimos fotos da frente e do verso do RG ou da CNH e uma selfie nova, que vão juntas para a Amazon Web Services, também nos Estados Unidos. Ela lê a data de nascimento e compara o rosto do documento com a selfie nova, sem guardar as imagens.
 - A imagem do seu rosto é um dado biométrico, portanto sensível. Nós a tratamos com seu consentimento específico, só para verificar a idade, e ela nunca é guardada nem usada para outra coisa. Registramos a versão do consentimento que você aceitou e quando.
 - Guardamos só o resultado (aprovado ou recusado), a data e o método usado.
 - Quem tem menos de 18 anos tem o cadastro bloqueado.
@@ -81,14 +81,13 @@ Recusamos o cadastro de quem tem menos de 18 anos. Para impedir uma nova tentati
 - **Resend:** envia nossos e-mails, sem rastreamento de abertura e de clique.
 - **Cloudflare Turnstile:** protege os formulários contra robôs.
 - **Hostinger:** hospeda o Duora em um servidor contratado.
-- **Amazon Web Services e Didit:** fazem a verificação de idade, como descrito acima. A Amazon Web Services também faz a análise automática das fotos de perfil.
+- **Amazon Web Services:** faz a verificação de idade, como descrito acima, e a análise automática das fotos de perfil.
 
 Quando um fornecedor fica fora do Brasil, o tratamento também acontece fora do país.
 
 ## Transferência internacional
 
 - A Amazon Web Services e a Resend tratam dados nos Estados Unidos.
-- A Didit trata dados só na faixa de dúvida da verificação de idade, no Espaço Econômico Europeu (hoje, na Irlanda), conforme o acordo de tratamento de dados da Didit.
 - O Cloudflare Turnstile pode tratar sinais do seu navegador fora do Brasil.
 
 ## Cookies

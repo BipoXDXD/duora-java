@@ -97,7 +97,8 @@ jobs:
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: ~/.cache/ms-playwright
-          key: playwright-1.65.1-${{ matrix.navegador }}-chromium
+          # A imagem do runner entra na chave: um WebKit baixado em outra imagem pede outra ICU.
+          key: playwright-1.65.1-${{ matrix.navegador }}-chromium-${{ env.ImageOS }}-${{ env.ImageVersion }}
       # Os testes com banco sobem o Postgres 18 pelo Testcontainers (sem services:); a imagem
       # baixada antes deixa o tempo do download fora dos testes.
       - name: Baixar a imagem do Postgres 18

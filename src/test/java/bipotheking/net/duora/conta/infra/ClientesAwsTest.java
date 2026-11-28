@@ -2,6 +2,7 @@ package bipotheking.net.duora.conta.infra;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.assertj.core.api.Assertions.catchThrowable;
 
 import bipotheking.net.duora.web.CabecalhosDeSeguranca;
 import bipotheking.net.duora.web.ServidorHttpLento;
@@ -23,9 +24,11 @@ import org.junit.jupiter.api.Timeout;
 import org.junit.jupiter.api.io.TempDir;
 import software.amazon.awssdk.auth.credentials.AwsSessionCredentials;
 import software.amazon.awssdk.auth.credentials.StaticCredentialsProvider;
+import software.amazon.awssdk.core.SdkBytes;
 import software.amazon.awssdk.core.exception.SdkClientException;
 import software.amazon.awssdk.services.rekognition.RekognitionClient;
 import software.amazon.awssdk.services.sts.StsClient;
+import software.amazon.awssdk.services.textract.TextractClient;
 
 /**
  * Prova a montagem dos clientes da AWS contra servidores locais (nada chega à AWS): região de
@@ -84,6 +87,41 @@ class ClientesAwsTest {
       assertThat(servidor.assinatura())
           .contains("Credential=" + CHAVE + "/")
           .contains(ASSINATURA_EM_US_EAST_1 + "rekognition/aws4_request");
+    }
+  }
+
+  @Test
+  void textractAssinaEmUsEast1() {
+    try (ServidorQueGuardaAssinatura servidor =
+            ServidorQueGuardaAssinatura.iniciar("application/x-amz-json-1.1", "{}");
+        TextractClient textract =
+            ClientesAws.textract(configuracao(), Optional.of(servidor.uri()))) {
+
+      // O Textract fala Smithy RPC v2 CBOR: o corpo JSON do servidor não decodifica, mas a
+      // assinatura já foi guardada quando a resposta chega.
+      catchThrowable(() ->
+          textract.analyzeDocument(r -> r.document(d -> d.bytes(SdkBytes.fromUtf8String("doc")))));
+
+      assertThat(servidor.assinatura())
+          .contains("Credential=" + CHAVE + "/")
+          .contains(ASSINATURA_EM_US_EAST_1 + "textract/aws4_request");
+    }
+  }
+
+  @Test
+  void textractLentoFalhaPeloTimeout() {
+    try (ServidorHttpLento lento = ServidorHttpLento.iniciar(Duration.ofSeconds(3));
+        TextractClient textract =
+            ClientesAws.textract(configuracaoApertada(), Optional.of(lento.uri()))) {
+
+      long inicio = System.nanoTime();
+      assertThatThrownBy(() ->
+              textract.analyzeDocument(
+                  r -> r.document(d -> d.bytes(SdkBytes.fromUtf8String("doc")))))
+          .isInstanceOf(SdkClientException.class);
+      Duration decorrido = Duration.ofNanos(System.nanoTime() - inicio);
+
+      assertThat(decorrido).isLessThan(Duration.ofSeconds(1));
     }
   }
 
@@ -153,10 +191,13 @@ class ClientesAwsTest {
     String anterior = System.getProperty("aws.endpointUrl");
     System.setProperty("aws.endpointUrl", "http://127.0.0.1:9/");
     try (RekognitionClient rekognition = ClientesAws.rekognition(configuracao(), Optional.empty());
-        StsClient sts = ClientesAws.sts(configuracao(), Optional.empty())) {
+        StsClient sts = ClientesAws.sts(configuracao(), Optional.empty());
+        TextractClient textract = ClientesAws.textract(configuracao(), Optional.empty())) {
 
       assertThat(rekognition.serviceClientConfiguration().endpointOverride())
           .contains(URI.create("https://rekognition.us-east-1.amazonaws.com"));
+      assertThat(textract.serviceClientConfiguration().endpointOverride())
+          .contains(URI.create("https://textract.us-east-1.amazonaws.com"));
       assertThat(sts.serviceClientConfiguration().endpointOverride())
           .contains(URI.create("https://sts.us-east-1.amazonaws.com"));
     } finally {

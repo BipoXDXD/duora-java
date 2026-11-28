@@ -26,7 +26,7 @@ Pré-requisitos: JDK 25 e Docker (veja [Banco local](#banco-local)). O Maven vem
 ```
 
 O `spring-boot:run` liga o perfil `verificacao-falsa`: a verificação de idade usa a prova de vida e
-o documento falsos, sem AWS nem Didit. Fora dele, a aplicação só sobe com
+o documento falsos, sem chamar a AWS. Fora dele, a aplicação só sobe com
 `duora.verificacao.provedor` e `duora.verificacao.documento.provedor` configurados.
 
 1. Abra <http://127.0.0.1:8080> numa janela normal, escolha um apelido e crie o terraço.
@@ -159,8 +159,8 @@ boot exige). A CI a constrói e confere no job `imagem` (`scripts/ci/checar-imag
   - e-mail (Resend): `RESEND_API_KEY`;
   - conta: `DUORA_SEGREDO_EMAIL`, `DUORA_URL_PUBLICA`, `TURNSTILE_SITE_KEY`, `TURNSTILE_SECRET`;
   - legal: `DUORA_EMAIL_ENCARREGADO`;
-  - verificação (AWS e Didit): `DUORA_AWS_VERIFICACAO_ACCESS_KEY_ID`,
-    `DUORA_AWS_VERIFICACAO_SECRET_ACCESS_KEY`, `DUORA_AWS_PAPEL_CAPTURA_ARN`, `DUORA_DIDIT_API_KEY`.
+  - verificação e moderação de fotos (AWS): `DUORA_AWS_VERIFICACAO_ACCESS_KEY_ID`,
+    `DUORA_AWS_VERIFICACAO_SECRET_ACCESS_KEY`, `DUORA_AWS_PAPEL_CAPTURA_ARN`.
 - **Web Push (opcional, ADR 0009):** nasce desligado, e o boot não depende dele. Para ligar, defina
   `DUORA_PUSH_HABILITADO=true` com o par VAPID em `DUORA_VAPID_PUBLICA` e `DUORA_VAPID_PRIVADA`;
   ligado sem as duas chaves, o boot falha. Gere o par com o teste manual `GerarChavesVapid`, que só
