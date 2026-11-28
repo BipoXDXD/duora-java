@@ -6,6 +6,8 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import bipotheking.net.duora.nucleo.ErroDeNegocio;
 import bipotheking.net.duora.perfil.CodigoPerfil;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 
 class BioTest {
 
@@ -43,5 +45,17 @@ class BioTest {
   @Test
   void bioNulaViraVazia() {
     assertThat(Bio.de(null).valor()).isEmpty();
+  }
+
+  /** A Bio segue a regra da DescricaoCurta, só que aceita a quebra de linha. */
+  @ParameterizedTest
+  @ValueSource(strings = {"oi\u202Eoi", "oi\u2066oi", "oi\u200Boi", "oi\uFEFF", "oi\u2028oi"})
+  void formatacaoRecusada(String bruto) {
+    assertThatThrownBy(() -> Bio.de(bruto)).isInstanceOf(ErroDeNegocio.class);
+  }
+
+  @Test
+  void espacoSemQuebraNasPontasCortado() {
+    assertThat(Bio.de("\u00A0oi\nlinha\u3000").valor()).isEqualTo("oi\nlinha");
   }
 }

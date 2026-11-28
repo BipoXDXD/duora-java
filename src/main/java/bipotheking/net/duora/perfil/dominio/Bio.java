@@ -5,8 +5,8 @@ import java.util.Objects;
 import org.jspecify.annotations.Nullable;
 
 /**
- * Texto livre do perfil: até 280 code points, sem espaços nas pontas. Aceita quebra de linha
- * ({@code \n}); qualquer outro caractere de controle é recusado.
+ * Texto livre do perfil: até 280 code points, sem espaços nas pontas. Segue a regra de caracteres
+ * da {@link DescricaoCurta}, mas aceita a quebra de linha ({@code \n}) e pode ficar vazia.
  */
 public record Bio(String valor) {
 
@@ -25,13 +25,13 @@ public record Bio(String valor) {
    * Ausente vira vazia; {@code \r\n} vira {@code \n} e as pontas perdem os espaços.
    *
    * @throws bipotheking.net.duora.nucleo.ErroDeNegocio {@code BIO_INVALIDA} acima de 280 code
-   *     points ou com outro caractere de controle
+   *     points ou com caractere proibido
    */
   public static Bio de(@Nullable String bruto) {
     if (bruto == null) {
       return VAZIA;
     }
-    String valor = bruto.replace("\r\n", "\n").strip();
+    String valor = DescricaoCurta.semEspacosNasPontas(bruto.replace("\r\n", "\n"));
     if (!valida(valor)) {
       throw CodigoPerfil.BIO_INVALIDA.erro();
     }
@@ -40,7 +40,7 @@ public record Bio(String valor) {
 
   private static boolean valida(String valor) {
     return valor.codePointCount(0, valor.length()) <= MAXIMO
-        && valor.equals(valor.strip())
-        && valor.codePoints().noneMatch(c -> c != '\n' && Character.isISOControl(c));
+        && valor.equals(DescricaoCurta.semEspacosNasPontas(valor))
+        && valor.codePoints().noneMatch(c -> c != '\n' && DescricaoCurta.proibido(c));
   }
 }

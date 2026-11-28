@@ -20,7 +20,7 @@ import {
   TITULO_DA_CASCA,
 } from "../../componentes/estilos";
 import { consultaDaOrientacao } from "../../rotas/consultas";
-import { contarCaracteres } from "./contar";
+import { semEspacosNasPontas, textoCurtoCabe } from "./textoDigitado";
 import { ERROS_DA_ORIENTACAO, ORIENTACAO, ROTULO_DA_ORIENTACAO } from "./textos";
 
 /** O formulário como a tela o guarda: sem orientação até a escolha, e a descrição como digitada. */
@@ -75,8 +75,7 @@ function validar(e: EdicaoNaTela): Erros {
     return { orientacao: ERROS_DA_ORIENTACAO.semOrientacao };
   }
   if (e.orientacao === "OUTRA") {
-    const tamanho = contarCaracteres(e.descricaoOrientacao.trim());
-    if (tamanho < 1 || tamanho > DESCRICAO_MAXIMA) {
+    if (!textoCurtoCabe(e.descricaoOrientacao, DESCRICAO_MAXIMA)) {
       return { descricaoOrientacao: ERROS_DA_ORIENTACAO.descricao };
     }
   }
@@ -87,7 +86,7 @@ function validar(e: EdicaoNaTela): Erros {
 function paraEnvio(e: EdicaoNaTela & { orientacao: OpcaoDeOrientacao }): EdicaoDaOrientacao {
   return {
     orientacao: e.orientacao,
-    descricaoOrientacao: e.orientacao === "OUTRA" ? e.descricaoOrientacao.trim() : null,
+    descricaoOrientacao: e.orientacao === "OUTRA" ? semEspacosNasPontas(e.descricaoOrientacao) : null,
     mostrarOrientacao: e.mostrarOrientacao,
     consentimento: true,
   };

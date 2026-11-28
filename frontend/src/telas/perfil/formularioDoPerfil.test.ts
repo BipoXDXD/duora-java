@@ -57,6 +57,22 @@ describe("validar", () => {
     expect(validar({ ...VALIDA, intencoes: [] })).toEqual({ intencoes: "Marque Amizade, Namoro ou as duas." });
   });
 
+  it.each(["\u3164", "\u200B", "\u00A0\u3000"])("apelidoSoComInvisiveisRecusado %#", (apelido) => {
+    expect(validar({ ...VALIDA, apelido }).apelido).toBe("Escreva um apelido.");
+  });
+
+  it("apelidoComFormatacaoNoMeioRecusado", () => {
+    expect(validar({ ...VALIDA, apelido: "Lu\u202Ea" }).apelido).toMatch(/caracteres invisíveis/);
+  });
+
+  it("bioComFormatacaoRecusada", () => {
+    expect(validar({ ...VALIDA, bio: "oi\u2066oi" }).bio).toMatch(/caracteres invisíveis/);
+  });
+
+  it("bioComQuebraDeLinhaAceita", () => {
+    expect(validar({ ...VALIDA, bio: "oi\nlinha" }).bio).toBeUndefined();
+  });
+
   it("bioCom281Recusada", () => {
     expect(validar({ ...VALIDA, bio: "b".repeat(281) })).toEqual({ bio: "Use até 280 caracteres." });
   });

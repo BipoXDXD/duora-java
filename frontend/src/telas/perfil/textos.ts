@@ -97,9 +97,11 @@ export const ROTULO_DAS_INTENCOES = {
 export const ERROS_DO_PERFIL = {
   semApelido: "Escreva um apelido.",
   apelidoLongo: "Use até 20 caracteres.",
+  apelidoInvisivel: "Tire os caracteres invisíveis do apelido. Eles costumam vir junto ao colar um texto.",
   descricaoDosPronomes: "Escreva seus pronomes com até 20 caracteres.",
   semIntencao: "Marque Amizade, Namoro ou as duas.",
   bioLonga: "Use até 280 caracteres.",
+  bioInvisivel: "Tire os caracteres invisíveis da bio. Eles costumam vir junto ao colar um texto.",
 } as const;
 
 export const PREFERENCIAS = {
