@@ -140,6 +140,11 @@ boot exige). A CI a constrói e confere no job `imagem` (`scripts/ci/checar-imag
 - **Armazenamento persistente obrigatório:** um Volume Mount com Destination Path `/dados/imagens`.
   Sem ele, as fotos somem a cada deploy. O processo roda com o UID 10001; um volume novo herda o
   dono da imagem, mas um Directory Mount precisa pertencer a esse UID.
+- **Domínio e proxy:** `DUORA_URL_PUBLICA` é obrigatória e precisa bater com o domínio servido
+  (por exemplo, `https://meetduora.com`, sem barra final). Os filtros aceitam o `Host` desse
+  domínio e exatamente essa origem no `Origin`, além do loopback. Não use labels do Traefik que
+  reescrevam `Host` ou `Origin` (por exemplo, para `127.0.0.1:8080`): elas não são necessárias e
+  anulam a checagem de mesma origem. Se existirem de deploys anteriores, remova-as.
 - **Healthcheck:** a imagem declara `HEALTHCHECK` em `/actuator/health`. O Coolify só o usa com o
   Healthcheck do painel desligado; ligado, o do painel o substitui.
 - **Variáveis de ambiente** (a imagem já define `SPRING_PROFILES_ACTIVE=prod`,
@@ -165,7 +170,8 @@ boot exige). A CI a constrói e confere no job `imagem` (`scripts/ci/checar-imag
   chunk próprio.
 - Segurança: credencial em cookie `HttpOnly; SameSite=Strict` (o servidor guarda só o hash),
   convite de uso único separado da credencial, mutações exigem o cabeçalho `X-Duora`, e `Origin` e
-  `Host` são conferidos contra uma allowlist local (proteção contra CSRF e DNS rebinding).
+  `Host` são conferidos contra o loopback e o domínio de `duora.url-publica` (proteção contra CSRF
+  e DNS rebinding).
 
 ## Assets
 
