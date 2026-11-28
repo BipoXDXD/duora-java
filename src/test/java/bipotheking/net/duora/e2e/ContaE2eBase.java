@@ -60,6 +60,14 @@ abstract class ContaE2eBase {
     return "conta-" + UUID.randomUUID() + "@exemplo.com";
   }
 
+  /**
+   * Como {@link #emailNovo()}, com os marcadores na parte local ({@code conta-<uuid>+idade19@...}):
+   * a prova de vida e a conferência de documento falsas respondem por eles.
+   */
+  protected static String emailCom(String... marcadores) {
+    return "conta-" + UUID.randomUUID() + "+" + String.join("+", marcadores) + "@exemplo.com";
+  }
+
   protected String raiz() {
     return Cenarios.raiz(porta);
   }
