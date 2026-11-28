@@ -79,21 +79,23 @@ describe("obterVerificacao", () => {
 });
 
 describe("iniciarSessao", () => {
-  it("iniciarSessaoMandaConsentimentoEFinalidade", async () => {
+  it("iniciarSessaoMandaConsentimentoVersaoEFinalidade", async () => {
     const fetchFalso = responder(201, SESSAO);
 
-    await iniciarSessao("DOCUMENTO");
+    await iniciarSessao("DOCUMENTO", "2026-11-28");
 
     const { url, init } = chamada(fetchFalso);
     expect(url).toBe("/api/conta/verificacao/sessao");
     expect(init?.method).toBe("POST");
-    expect(init?.body).toBe('{"consentimentoBiometrico":true,"finalidade":"DOCUMENTO"}');
+    expect(init?.body).toBe(
+      '{"consentimentoBiometrico":true,"versaoConsentimento":"2026-11-28","finalidade":"DOCUMENTO"}',
+    );
   });
 
   it("iniciarSessaoConverteExpiraEmEmDate", async () => {
     responder(201, SESSAO);
 
-    const sessao = await iniciarSessao("SELFIE");
+    const sessao = await iniciarSessao("SELFIE", "2026-11-28");
 
     expect(sessao.credencial.expiration).toBeInstanceOf(Date);
     expect(sessao.credencial.expiration.toISOString()).toBe("2026-11-27T12:15:00.000Z");
@@ -108,14 +110,17 @@ describe("iniciarSessao", () => {
   it("iniciarSessaoRecusaOutraRegiao", async () => {
     responder(201, { ...SESSAO, regiao: "sa-east-1" });
 
-    await expect(iniciarSessao("SELFIE")).rejects.toMatchObject({ name: "ErroHttp", codigo: "RESPOSTA_INVALIDA" });
+    await expect(iniciarSessao("SELFIE", "2026-11-28")).rejects.toMatchObject({
+      name: "ErroHttp",
+      codigo: "RESPOSTA_INVALIDA",
+    });
   });
 
   it("iniciarSessaoCalculaODesvioPeloCabecalhoDate", async () => {
     vi.setSystemTime(AGORA);
     responder(201, SESSAO, { Date: new Date(AGORA + 600_000).toUTCString() });
 
-    const sessao = await iniciarSessao("SELFIE");
+    const sessao = await iniciarSessao("SELFIE", "2026-11-28");
 
     expect(sessao.desvioDoRelogioMs).toBe(600_000);
   });
@@ -123,7 +128,7 @@ describe("iniciarSessao", () => {
   it("erroDoServidorViraErroHttpComCodigo", async () => {
     responder(503, { codigo: "PROVA_DE_VIDA_INDISPONIVEL", mensagem: "A verificação está fora do ar." });
 
-    const erro: unknown = await iniciarSessao("SELFIE").catch((causa: unknown) => causa);
+    const erro: unknown = await iniciarSessao("SELFIE", "2026-11-28").catch((causa: unknown) => causa);
 
     expect(erro).toBeInstanceOf(ErroHttp);
     expect(erro).toMatchObject({ status: 503, codigo: "PROVA_DE_VIDA_INDISPONIVEL", transitorio: true });

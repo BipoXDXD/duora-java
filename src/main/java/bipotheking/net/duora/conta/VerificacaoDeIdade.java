@@ -23,6 +23,7 @@ import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.UUID;
+import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
@@ -89,22 +90,30 @@ public class VerificacaoDeIdade {
   }
 
   /**
-   * Abre uma sessão de prova de vida. Confere, nesta ordem, o limite de taxa, o consentimento, o
-   * estado da conta e, para o documento, a dúvida de selfie nas últimas 24 h; então reserva a
-   * tentativa numa transação curta (a trava da conta serializa as reservas concorrentes), que
-   * também grava o aceite da versão atual do consentimento biométrico (uma vez por versão), e, já
-   * fora dela, abre a sessão e emite a credencial. Se o fornecedor falhar, a tentativa é descartada
-   * e não conta no limite do dia.
+   * Abre uma sessão de prova de vida. Confere, nesta ordem, o limite de taxa, o consentimento, a
+   * versão do texto que a pessoa viu, o estado da conta e, para o documento, a dúvida de selfie nas
+   * últimas 24 h; então reserva a tentativa numa transação curta (a trava da conta serializa as
+   * reservas concorrentes), que, só com a reserva feita, também grava o aceite dessa versão do
+   * consentimento biométrico (uma vez por versão), e, já fora dela, abre a sessão e emite a
+   * credencial. Se o fornecedor falhar, a tentativa é descartada e não conta no limite do dia.
    *
+   * @param versaoConsentimento a versão do texto exibido; ausente conta como desatualizada
    * @throws ErroDeNegocio {@code LIMITE_DE_TAXA}, {@code CONSENTIMENTO_BIOMETRICO_NECESSARIO},
-   *     {@code VERIFICACAO_FORA_DE_ORDEM}, {@link LimiteDeVerificacaoExcedido} ou {@code
-   *     PROVA_DE_VIDA_INDISPONIVEL}
+   *     {@code CONSENTIMENTO_DESATUALIZADO}, {@code VERIFICACAO_FORA_DE_ORDEM}, {@link
+   *     LimiteDeVerificacaoExcedido} ou {@code PROVA_DE_VIDA_INDISPONIVEL}
    */
   public SessaoDeCaptura iniciar(
-      ContaId conta, FinalidadeDaTentativa finalidade, boolean consentimento) {
+      ContaId conta,
+      FinalidadeDaTentativa finalidade,
+      boolean consentimento,
+      @Nullable String versaoConsentimento) {
     limiteDeTaxa.consumir(LIMITE_POR_CONTA, conta.toString());
     if (!consentimento) {
       throw CodigoVerificacao.CONSENTIMENTO_BIOMETRICO_NECESSARIO.erro();
+    }
+    VersaoDeDocumento versao = documentos.atual(DocumentoLegal.BIOMETRIA);
+    if (!versao.versao().equals(versaoConsentimento)) {
+      throw CodigoVerificacao.CONSENTIMENTO_DESATUALIZADO.erro();
     }
     exigirAguardando(conta(conta));
     Instant agora = relogio.instant();
@@ -112,7 +121,7 @@ public class VerificacaoDeIdade {
         && !verificacoes.duvidaDeSelfieDesde(conta, agora.minus(JANELA))) {
       throw CodigoVerificacao.VERIFICACAO_FORA_DE_ORDEM.erro();
     }
-    UUID tentativa = reservar(conta, finalidade, agora);
+    UUID tentativa = reservar(conta, finalidade, versao, agora);
     try {
       SessaoDeProva sessao = provaDeVida.criarSessao(tentativa);
       CredencialCurta credencial = credencialDoNavegador.emitir(tentativa);
@@ -192,7 +201,11 @@ public class VerificacaoDeIdade {
         provaDeVida.modo());
   }
 
-  private UUID reservar(ContaId conta, FinalidadeDaTentativa finalidade, Instant agora) {
+  private UUID reservar(
+      ContaId conta,
+      FinalidadeDaTentativa finalidade,
+      VersaoDeDocumento consentimento,
+      Instant agora) {
     ReservaDeTentativa reserva =
         transacao.execute(status -> {
           ReservaDeTentativa feita =
@@ -200,8 +213,10 @@ public class VerificacaoDeIdade {
           // A checagem de iniciar é só atalho: a conta pode ter mudado enquanto a reserva esperava
           // a trava. Relida já com a trava, a recusa desfaz a tentativa inserida.
           exigirAguardando(conta(conta));
-          aceites.gravar(
-              conta, DocumentoLegal.BIOMETRIA, documentos.atual(DocumentoLegal.BIOMETRIA), agora);
+          // O 429 do limite não abre sessão: sem reserva, o consentimento não foi usado.
+          if (feita instanceof ReservaDeTentativa.Feita) {
+            aceites.gravar(conta, DocumentoLegal.BIOMETRIA, consentimento, agora);
+          }
           return feita;
         });
     return switch (reserva) {

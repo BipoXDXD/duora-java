@@ -8,6 +8,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import bipotheking.net.duora.conta.ContasDeTeste;
 import bipotheking.net.duora.conta.ContasDeTeste.ContaDeTeste;
 import bipotheking.net.duora.conta.EstadoConta;
+import bipotheking.net.duora.conta.PedidosDeSessao;
 import bipotheking.net.duora.web.BancoDeTeste;
 import bipotheking.net.duora.web.MesmaOrigem;
 import jakarta.servlet.http.Cookie;
@@ -30,7 +31,7 @@ class PedidoDeSessaoJsonTest extends BancoDeTeste {
     ContaDeTeste conta =
         contas.criar(EstadoConta.AGUARDANDO_VERIFICACAO, LocalDate.of(1990, 5, 10));
 
-    pedir(conta, "{\"consentimentoBiometrico\":true,\"finalidade\":\"SELFIE\",\"extra\":1}")
+    pedir(conta, PedidosDeSessao.SELFIE.replace("}", ",\"extra\":1}"))
         .andExpect(status().isBadRequest())
         .andExpect(jsonPath("$.codigo").value("CORPO_INVALIDO"));
 
@@ -42,7 +43,12 @@ class PedidoDeSessaoJsonTest extends BancoDeTeste {
     ContaDeTeste conta =
         contas.criar(EstadoConta.AGUARDANDO_VERIFICACAO, LocalDate.of(1990, 5, 10));
 
-    pedir(conta, "{\"consentimentoBiometrico\":true}").andExpect(status().isCreated());
+    pedir(
+            conta,
+            "{\"consentimentoBiometrico\":true,\"versaoConsentimento\":\""
+                + PedidosDeSessao.VERSAO_DO_CONSENTIMENTO
+                + "\"}")
+        .andExpect(status().isCreated());
 
     assertThat(
             jdbc.sql("select finalidade from tentativa_verificacao where conta_id = :conta")

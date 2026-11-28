@@ -59,10 +59,8 @@ class VerificacaoPorDocumentoApiTest extends BancoDeTeste {
   private static final String MARCADOR_DA_REFERENCIA = "referencia-do-documento";
   private static final byte[] FRENTE = jpeg(MARCADOR_DA_FRENTE);
   private static final byte[] VERSO = jpeg(MARCADOR_DO_VERSO);
-  private static final String CORPO_SELFIE =
-      "{\"consentimentoBiometrico\":true,\"finalidade\":\"SELFIE\"}";
-  private static final String CORPO_DOCUMENTO =
-      "{\"consentimentoBiometrico\":true,\"finalidade\":\"DOCUMENTO\"}";
+  private static final String CORPO_SELFIE = PedidosDeSessao.SELFIE;
+  private static final String CORPO_DOCUMENTO = PedidosDeSessao.DOCUMENTO;
   private static final Duration ESPERA = Duration.ofSeconds(5);
 
   @Autowired private ContasDeTeste contas;

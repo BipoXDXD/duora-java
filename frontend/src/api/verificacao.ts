@@ -40,6 +40,7 @@ export interface Desfecho {
 /** Códigos de erro que as rotas da verificação devolvem, mais o RESPOSTA_INVALIDA deste cliente. */
 export type CodigoDaVerificacao =
   | "CONSENTIMENTO_BIOMETRICO_NECESSARIO"
+  | "CONSENTIMENTO_DESATUALIZADO"
   | "VERIFICACAO_FORA_DE_ORDEM"
   | "SESSAO_DE_VERIFICACAO_INVALIDA"
   | "REFAZER_PROVA_DE_VIDA"
@@ -69,6 +70,7 @@ const RESULTADOS: readonly string[] = Object.keys({
 } satisfies Record<Desfecho["resultado"], true>);
 const CODIGOS: readonly string[] = Object.keys({
   CONSENTIMENTO_BIOMETRICO_NECESSARIO: true,
+  CONSENTIMENTO_DESATUALIZADO: true,
   VERIFICACAO_FORA_DE_ORDEM: true,
   SESSAO_DE_VERIFICACAO_INVALIDA: true,
   REFAZER_PROVA_DE_VIDA: true,
@@ -195,10 +197,13 @@ export async function obterVerificacao(): Promise<SituacaoDaVerificacao> {
   return situacao;
 }
 
-/** Abre a sessão de captura; mandar a requisição já é o consentimento biométrico da pessoa. */
-export async function iniciarSessao(finalidade: Finalidade): Promise<SessaoDeCaptura> {
+/**
+ * Abre a sessão de captura; mandar a requisição já é o consentimento biométrico da pessoa, na versão
+ * do texto que ela viu.
+ */
+export async function iniciarSessao(finalidade: Finalidade, versaoConsentimento: string): Promise<SessaoDeCaptura> {
   const resposta = await requisitarHttp("POST", "/conta/verificacao/sessao", {
-    corpo: { consentimentoBiometrico: true, finalidade },
+    corpo: { consentimentoBiometrico: true, versaoConsentimento, finalidade },
   });
   const campos = objeto(resposta.dados);
   const credencial = lerCredencial(campos?.credencial);

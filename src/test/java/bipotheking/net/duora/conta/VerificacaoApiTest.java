@@ -12,6 +12,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import bipotheking.net.duora.conta.ContasDeTeste.ContaDeTeste;
 import bipotheking.net.duora.conta.dominio.Email;
 import bipotheking.net.duora.conta.dominio.FaixaEstimada;
+import bipotheking.net.duora.conta.dominio.FinalidadeDaTentativa;
 import bipotheking.net.duora.conta.dominio.MetodoDeVerificacao;
 import bipotheking.net.duora.conta.dominio.RepositorioDeContas;
 import bipotheking.net.duora.conta.dominio.RepositorioDeVerificacoes;
@@ -51,10 +52,8 @@ import org.springframework.transaction.support.TransactionTemplate;
 class VerificacaoApiTest extends BancoDeTeste {
 
   private static final LocalDate NASCIMENTO = LocalDate.of(1990, 5, 10);
-  private static final String CORPO_SELFIE =
-      "{\"consentimentoBiometrico\":true,\"finalidade\":\"SELFIE\"}";
-  private static final String CORPO_DOCUMENTO =
-      "{\"consentimentoBiometrico\":true,\"finalidade\":\"DOCUMENTO\"}";
+  private static final String CORPO_SELFIE = PedidosDeSessao.SELFIE;
+  private static final String CORPO_DOCUMENTO = PedidosDeSessao.DOCUMENTO;
   private static final Duration ESPERA = Duration.ofSeconds(5);
 
   @Autowired private ContasDeTeste contas;
@@ -115,6 +114,55 @@ class VerificacaoApiTest extends BancoDeTeste {
 
     assertThat(contar("select count(*) from aceite_documento where documento = 'BIOMETRIA'"))
         .isOne();
+  }
+
+  /**
+   * O texto que a pessoa viu é de uma versão que já mudou: 409 sem tentativa nem aceite, e o front
+   * recarrega o texto novo.
+   */
+  @Test
+  void consentimentoDeVersaoVelhaRecebe409SemAceite() throws Exception {
+    ContaDeTeste conta = aguardando();
+
+    iniciar(
+            conta,
+            "{\"consentimentoBiometrico\":true,\"versaoConsentimento\":\"2000-01-01\","
+                + "\"finalidade\":\"SELFIE\"}")
+        .andExpect(status().isConflict())
+        .andExpect(jsonPath("$.codigo").value("CONSENTIMENTO_DESATUALIZADO"));
+
+    assertThat(contar("select count(*) from tentativa_verificacao")).isZero();
+    assertThat(contar("select count(*) from aceite_documento where documento = 'BIOMETRIA'"))
+        .isZero();
+  }
+
+  /** Sem versão, como o cadastro sem a versão dos termos: conta como desatualizada. */
+  @Test
+  void consentimentoSemVersaoRecebe409() throws Exception {
+    ContaDeTeste conta = aguardando();
+
+    iniciar(conta, "{\"consentimentoBiometrico\":true,\"finalidade\":\"SELFIE\"}")
+        .andExpect(status().isConflict())
+        .andExpect(jsonPath("$.codigo").value("CONSENTIMENTO_DESATUALIZADO"));
+  }
+
+  /** O 429 do limite do dia não abre sessão: o aceite só fica gravado com a reserva feita. */
+  @Test
+  void limiteEsgotadoNaoGravaAceite() throws Exception {
+    ContaDeTeste conta = aguardando();
+    transacao.executeWithoutResult(status -> {
+      for (int i = 0; i < 3; i++) {
+        repositorioDeVerificacoes.reservar(
+            conta.id(), FinalidadeDaTentativa.SELFIE, 3, relogio.instant());
+      }
+    });
+
+    iniciar(conta, CORPO_SELFIE)
+        .andExpect(status().isTooManyRequests())
+        .andExpect(jsonPath("$.codigo").value("LIMITE_DE_VERIFICACAO"));
+
+    assertThat(contar("select count(*) from aceite_documento where documento = 'BIOMETRIA'"))
+        .isZero();
   }
 
   @Test

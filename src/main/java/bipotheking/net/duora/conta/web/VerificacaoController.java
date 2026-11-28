@@ -46,10 +46,13 @@ class VerificacaoController {
 
   /**
    * Corpo do pedido de sessão; campo extra recusa o corpo inteiro. Campo ausente chega nulo:
-   * consentimento ausente é recusado pelo caso de uso; finalidade ausente vira {@code SELFIE}.
+   * consentimento ou versão ausente é recusado pelo caso de uso; finalidade ausente vira {@code
+   * SELFIE}. A versão é a do texto do consentimento que o front exibiu.
    */
   record PedidoDeSessaoJson(
-      @Nullable Boolean consentimentoBiometrico, @Nullable FinalidadeDaTentativa finalidade) {
+      @Nullable Boolean consentimentoBiometrico,
+      @Nullable String versaoConsentimento,
+      @Nullable FinalidadeDaTentativa finalidade) {
 
     FinalidadeDaTentativa finalidadeOuSelfie() {
       return finalidade == null ? FinalidadeDaTentativa.SELFIE : finalidade;
@@ -106,7 +109,8 @@ class VerificacaoController {
         verificacao.iniciar(
             conta,
             corpo.finalidadeOuSelfie(),
-            Boolean.TRUE.equals(corpo.consentimentoBiometrico()));
+            Boolean.TRUE.equals(corpo.consentimentoBiometrico()),
+            corpo.versaoConsentimento());
     HttpHeaders cabecalhos = new HttpHeaders();
     cabecalhos.setDate(relogio.millis());
     return ResponseEntity.status(HttpStatus.CREATED)

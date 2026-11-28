@@ -13,6 +13,10 @@ public enum CodigoVerificacao implements CodigoDeErro {
       TipoDeErro.REGRA_DE_NEGOCIO,
       "Consentimento biométrico necessário",
       "Concorde com o uso da sua imagem para confirmar sua idade."),
+  CONSENTIMENTO_DESATUALIZADO(
+      TipoDeErro.CONFLITO,
+      "Texto do consentimento mudou",
+      "O texto do consentimento mudou. Leia de novo antes de continuar."),
   VERIFICACAO_FORA_DE_ORDEM(
       TipoDeErro.CONFLITO,
       "Verificação fora de ordem",

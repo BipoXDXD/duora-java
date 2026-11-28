@@ -28,7 +28,7 @@ import {
   type FotosDoDocumento,
 } from "./etapas";
 import { Explicacao } from "./Explicacao";
-import { VERIFICACAO_DE_IDADE } from "./textos";
+import { VERIFICACAO_DE_IDADE, VERSAO_DO_CONSENTIMENTO } from "./textos";
 
 /** O que o loader da rota entrega: a conta aguardando verificação, a situação dela e as versões legais. */
 export interface DadosDaVerificacao {
@@ -44,8 +44,16 @@ interface PropsDaVerificacao {
   temSuporte?: () => boolean;
 }
 
-/** Recusas que dizem que esta página não vale mais para a conta: Minha conta leva à tela certa. */
-const CODIGOS_DE_RECARGA: readonly string[] = ["VERIFICACAO_FORA_DE_ORDEM", "NAO_AUTENTICADO", "CONTA_INDISPONIVEL"];
+/**
+ * Recusas que dizem que esta página não vale mais para a conta: Minha conta leva à tela certa. A
+ * recarga completa também traz o texto novo do consentimento, quando ele mudou.
+ */
+const CODIGOS_DE_RECARGA: readonly string[] = [
+  "VERIFICACAO_FORA_DE_ORDEM",
+  "NAO_AUTENTICADO",
+  "CONTA_INDISPONIVEL",
+  "CONSENTIMENTO_DESATUALIZADO",
+];
 // Recusas depois das quais a página não sabe o que o servidor gastou: relê as contagens nele.
 const CODIGOS_DE_RESSINCRONIA: readonly string[] = [
   "SESSAO_DE_VERIFICACAO_INVALIDA",
@@ -171,7 +179,7 @@ function Etapas({
 
   const sessao = useMutation({
     mutationFn: async (finalidade: Finalidade) => {
-      const criada = await iniciarSessao(finalidade);
+      const criada = await iniciarSessao(finalidade, VERSAO_DO_CONSENTIMENTO);
       const contador = finalidade === "SELFIE" ? definirTentativas : definirEnvios;
       sessoesAbertas.current += 1;
       contador((restantes) => Math.max(0, restantes - 1));

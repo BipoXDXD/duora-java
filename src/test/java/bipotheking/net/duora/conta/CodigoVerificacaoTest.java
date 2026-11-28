@@ -18,6 +18,7 @@ class CodigoVerificacaoTest {
       textBlock =
           """
           CONSENTIMENTO_BIOMETRICO_NECESSARIO   | REGRA_DE_NEGOCIO | Concorde com o uso da sua imagem para confirmar sua idade.
+          CONSENTIMENTO_DESATUALIZADO           | CONFLITO         | O texto do consentimento mudou. Leia de novo antes de continuar.
           VERIFICACAO_FORA_DE_ORDEM             | CONFLITO         | Esta etapa da verificação não está disponível agora. Recarregue a página.
           SESSAO_DE_VERIFICACAO_INVALIDA        | NAO_ENCONTRADO   | Esta verificação expirou. Comece de novo.
           REFAZER_PROVA_DE_VIDA                 | CONFLITO         | A selfie venceu antes do envio. Faça uma nova.
@@ -34,8 +35,8 @@ class CodigoVerificacaoTest {
   }
 
   @Test
-  void contratoTemNoveCodigos() {
-    assertThat(CodigoVerificacao.values()).hasSize(9);
+  void contratoTemDezCodigos() {
+    assertThat(CodigoVerificacao.values()).hasSize(10);
   }
 
   @Test
