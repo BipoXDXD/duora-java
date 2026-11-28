@@ -4,7 +4,8 @@ import reactHooks from "eslint-plugin-react-hooks";
 import globals from "globals";
 import tseslint from "typescript-eslint";
 
-const MENSAGEM_DO_VALIBOT = "Só src/cenario/ler.ts importa o valibot; use o CenarioFront.";
+const MENSAGEM_DO_VALIBOT =
+  "Só src/cenario/ler.ts (cenário) e src/api/perfil.ts (respostas do perfil) importam o valibot.";
 const VALIBOT = { name: "valibot", message: MENSAGEM_DO_VALIBOT };
 const VALIBOT_SUBMODULOS = { group: ["valibot/*"], message: MENSAGEM_DO_VALIBOT };
 const MENSAGEM_DA_CASCA =
@@ -49,12 +50,20 @@ export default defineConfig([
     // O formato dos JSON do cenário é conhecido só por ler.ts; o resto do front usa o CenarioFront (R12).
     // React Router e TanStack Query ficam na casca de conta, fora do JS inicial do terraço.
     files: ["**/*.{ts,tsx}"],
-    ignores: ["src/cenario/ler.ts", "src/rotas/**", "src/telas/**"],
+    // api/perfil.ts lê as respostas do perfil com valibot (plano da Etapa 3); não importa a casca.
+    ignores: ["src/cenario/ler.ts", "src/api/perfil.ts", "src/rotas/**", "src/telas/**"],
     rules: {
       "no-restricted-imports": [
         "error",
         { paths: [VALIBOT, ...CASCA], patterns: [VALIBOT_SUBMODULOS, CASCA_SUBMODULOS] },
       ],
+    },
+  },
+  {
+    // api/perfil.ts pode o valibot, mas segue fora da casca: só a regra do React Router e do TanStack.
+    files: ["src/api/perfil.ts"],
+    rules: {
+      "no-restricted-imports": ["error", { paths: CASCA, patterns: [CASCA_SUBMODULOS] }],
     },
   },
   {

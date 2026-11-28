@@ -131,6 +131,31 @@ Localmente, o perfil `e2e` roda no Chromium. Para outro navegador, use
 `InstalabilidadeIT` sempre usa o Chromium completo, porque é o Chrome quem diz se o app pode ser
 instalado; por isso todo job e2e instala também o `chromium`.
 
+## Deploy (Coolify)
+
+A imagem de produção sai do `Dockerfile` da raiz (JRE 25 no Ubuntu 24.04, com o libvips 8.15 que o
+boot exige). A CI a constrói e confere no job `imagem` (`scripts/ci/checar-imagem.sh`).
+
+- **Build Pack:** Dockerfile. **Porta:** 8080.
+- **Armazenamento persistente obrigatório:** um Volume Mount com Destination Path `/dados/imagens`.
+  Sem ele, as fotos somem a cada deploy. O processo roda com o UID 10001; um volume novo herda o
+  dono da imagem, mas um Directory Mount precisa pertencer a esse UID.
+- **Domínio e proxy:** `DUORA_URL_PUBLICA` é obrigatória e precisa bater com o domínio servido
+  (por exemplo, `https://meetduora.com`, sem barra final). Os filtros aceitam o `Host` desse
+  domínio e exatamente essa origem no `Origin`, além do loopback. Não use labels do Traefik que
+  reescrevam `Host` ou `Origin` (por exemplo, para `127.0.0.1:8080`): elas não são necessárias e
+  anulam a checagem de mesma origem. Se existirem de deploys anteriores, remova-as.
+- **Healthcheck:** a imagem declara `HEALTHCHECK` em `/actuator/health`. O Coolify só o usa com o
+  Healthcheck do painel desligado; ligado, o do painel o substitui.
+- **Variáveis de ambiente** (a imagem já define `SPRING_PROFILES_ACTIVE=prod`,
+  `SERVER_ADDRESS=0.0.0.0` e `DUORA_IMAGENS_DIR=/dados/imagens`; sem as demais, o boot falha):
+  - banco: `DUORA_DB_URL`, `DUORA_DB_USUARIO`, `DUORA_DB_SENHA`;
+  - e-mail (Resend): `RESEND_API_KEY`;
+  - conta: `DUORA_SEGREDO_EMAIL`, `DUORA_URL_PUBLICA`, `TURNSTILE_SITE_KEY`, `TURNSTILE_SECRET`;
+  - legal: `DUORA_EMAIL_ENCARREGADO`;
+  - verificação e moderação de fotos (AWS): `DUORA_AWS_VERIFICACAO_ACCESS_KEY_ID`,
+    `DUORA_AWS_VERIFICACAO_SECRET_ACCESS_KEY`, `DUORA_AWS_PAPEL_CAPTURA_ARN`.
+
 ## Arquitetura
 
 - `game`: regras puras (composição, portão da primeira peça, confirmações, revelação), sem
@@ -145,7 +170,8 @@ instalado; por isso todo job e2e instala também o `chromium`.
   chunk próprio.
 - Segurança: credencial em cookie `HttpOnly; SameSite=Strict` (o servidor guarda só o hash),
   convite de uso único separado da credencial, mutações exigem o cabeçalho `X-Duora`, e `Origin` e
-  `Host` são conferidos contra uma allowlist local (proteção contra CSRF e DNS rebinding).
+  `Host` são conferidos contra o loopback e o domínio de `duora.url-publica` (proteção contra CSRF
+  e DNS rebinding).
 
 ## Assets
 
@@ -163,7 +189,8 @@ originais são grandes e ficam fora do Git.
 
 ## Limitações
 
-- Só roda localmente (escuta em `127.0.0.1`); não há configuração de implantação.
+- Em desenvolvimento, escuta só em `127.0.0.1`; a imagem de produção escuta em todas as interfaces
+  do contêiner (veja [Deploy (Coolify)](#deploy-coolify)).
 - O estado fica em memória: reiniciar o servidor apaga todas as salas.
 - Não há contas nem histórico: a identidade é o cookie da sessão, e o terraço expira após 30
   minutos sem ação.

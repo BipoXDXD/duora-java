@@ -20,6 +20,7 @@ import java.util.Optional;
 import java.util.concurrent.atomic.AtomicReference;
 import org.jspecify.annotations.Nullable;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.Timeout;
 import org.junit.jupiter.api.io.TempDir;
 import software.amazon.awssdk.auth.credentials.AwsSessionCredentials;
 import software.amazon.awssdk.auth.credentials.StaticCredentialsProvider;
@@ -50,6 +51,16 @@ class ClientesAwsTest {
           AwsSessionCredentials.create("ASIACURTA", "segredo-curto", "token-curto"));
 
   private static final String CHAVE = "AKIACONFIG";
+
+  /**
+   * O servidor lento nunca responde dentro do teste: só o timeout do cliente encerra a chamada, sem
+   * medir o relógio (antes, o teto de 1 s estourava com a JVM fria na suíte inteira).
+   */
+  private static final Duration SEM_RESPOSTA = Duration.ofMinutes(10);
+
+  /** Só para o teste não pendurar o build se o timeout do cliente deixar de valer. */
+  private static final int REDE_DE_SEGURANCA_EM_SEGUNDOS = 30;
+
   private static final String ASSINATURA_EM_US_EAST_1 = "/us-east-1/";
 
   private static final String RESPOSTA_DO_STS =
@@ -144,15 +155,12 @@ class ClientesAwsTest {
   }
 
   @Test
+  @Timeout(REDE_DE_SEGURANCA_EM_SEGUNDOS)
   void credencialInformadaMantemOTimeout() {
-    try (ServidorHttpLento lento = ServidorHttpLento.iniciar(Duration.ofSeconds(3));
+    try (ServidorHttpLento lento = ServidorHttpLento.iniciar(SEM_RESPOSTA);
         StsClient sts = ClientesAws.sts(configuracaoApertada(), CURTA, Optional.of(lento.uri()))) {
 
-      long inicio = System.nanoTime();
       assertThatThrownBy(sts::getCallerIdentity).isInstanceOf(SdkClientException.class);
-      Duration decorrido = Duration.ofNanos(System.nanoTime() - inicio);
-
-      assertThat(decorrido).isLessThan(Duration.ofSeconds(1));
     }
   }
 
@@ -228,30 +236,24 @@ class ClientesAwsTest {
   }
 
   @Test
+  @Timeout(REDE_DE_SEGURANCA_EM_SEGUNDOS)
   void rekognitionLentoFalhaPeloTimeout() {
-    try (ServidorHttpLento lento = ServidorHttpLento.iniciar(Duration.ofSeconds(3));
+    try (ServidorHttpLento lento = ServidorHttpLento.iniciar(SEM_RESPOSTA);
         RekognitionClient rekognition =
             ClientesAws.rekognition(configuracaoApertada(), Optional.of(lento.uri()))) {
 
-      long inicio = System.nanoTime();
       assertThatThrownBy(() -> rekognition.getFaceLivenessSessionResults(r -> r.sessionId("s")))
           .isInstanceOf(SdkClientException.class);
-      Duration decorrido = Duration.ofNanos(System.nanoTime() - inicio);
-
-      assertThat(decorrido).isLessThan(Duration.ofSeconds(1));
     }
   }
 
   @Test
+  @Timeout(REDE_DE_SEGURANCA_EM_SEGUNDOS)
   void stsLentoFalhaPeloTimeout() {
-    try (ServidorHttpLento lento = ServidorHttpLento.iniciar(Duration.ofSeconds(3));
+    try (ServidorHttpLento lento = ServidorHttpLento.iniciar(SEM_RESPOSTA);
         StsClient sts = ClientesAws.sts(configuracaoApertada(), Optional.of(lento.uri()))) {
 
-      long inicio = System.nanoTime();
       assertThatThrownBy(sts::getCallerIdentity).isInstanceOf(SdkClientException.class);
-      Duration decorrido = Duration.ofNanos(System.nanoTime() - inicio);
-
-      assertThat(decorrido).isLessThan(Duration.ofSeconds(1));
     }
   }
 

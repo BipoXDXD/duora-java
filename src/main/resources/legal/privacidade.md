@@ -1,5 +1,5 @@
 ---
-versao: 2026-11-28
+versao: 2026-11-29
 ---
 
 # Política de privacidade
@@ -16,9 +16,12 @@ O controlador dos dados é o responsável pelo Duora. Para dúvidas e pedidos so
 - **Data de nascimento:** só para confirmar que você tem 18 anos ou mais. Ela não aparece para ninguém.
 - **Aceites:** qual versão dos termos, desta política e do consentimento biométrico da verificação de idade você aceitou, e quando.
 - **Apelido, intenção e bio:** para apresentar você nos encontros.
-- **Foto:** reprocessada sem metadados e aprovada pela moderação. Quem ainda não é sua conexão vê uma versão borrada; só conexões veem a foto nítida.
-- **Gênero e quem você quer conhecer:** dado sensível, tratado só com seu consentimento e só para o pareamento. Nunca aparece para ninguém e é apagado quando você desliga o namoro.
-- **Localização:** só com seu consentimento. Guardamos uma área de cerca de 5 km e descartamos o ponto exato. Outras pessoas veem só faixas de distância.
+- **Pronomes:** opcionais; aparecem para quem encontra você.
+- **Ajustes de busca (faixa de idade e raio de distância):** para mostrar só quem se encaixa no que você pediu.
+- **Foto:** reprocessada sem metadados e aprovada pela moderação. Uma cópia passa pela análise automática de imagens da Amazon Web Services, nos Estados Unidos, que não a guarda; se a análise apontar algo ou não responder, a foto espera a revisão de uma pessoa da equipe. Quem ainda não é sua conexão vê uma versão borrada; só conexões veem a foto nítida.
+- **Gênero e quem você quer conhecer:** dado sensível, tratado só com seu consentimento e só para o pareamento. Nunca aparece para ninguém e é apagado quando você desliga o namoro. Você pode apagar esses dados quando quiser; isso desliga o namoro.
+- **Orientação:** opcional. É dado sensível: só com seu consentimento, nunca entra no pareamento e só aparece para suas conexões se você escolher mostrar.
+- **Localização:** só com seu consentimento. Guardamos uma área de cerca de 5 km e descartamos o ponto exato. Outras pessoas veem só faixas de distância. Se ela não for atualizada por 90 dias, apagamos essa área.
 - **Chat e imagens do encontro:** para o encontro acontecer e para a moderação analisar denúncias.
 - **Voz:** passa ao vivo entre as pessoas do encontro e não é gravada.
 - **Denúncias e bloqueios:** para proteger você e quem usa o Duora.
@@ -43,7 +46,12 @@ O controlador dos dados é o responsável pelo Duora. Para dúvidas e pedidos so
 | E-mails na fila de envio | 7 dias após o envio (30 dias se o envio falhar) |
 | Chaves de repetição de pedidos | 1 dia |
 | Arquivos temporários de imagem | 1 hora |
+| Arquivo de foto trocada, recusada ou removida | apagado na hora; o que sobrar de uma falha sai em 1 dia |
 | Conta, perfil e foto | até a exclusão da conta |
+| Ajustes de busca (idade e distância) | até a exclusão da conta |
+| Gênero e quem você quer conhecer | até você desligar o namoro, revogar o consentimento ou excluir a conta |
+| Orientação | até você apagar ou excluir a conta |
+| Localização (área de cerca de 5 km) | até você desativar a localização ou excluir a conta; apagada 90 dias depois da última atualização |
 | Aceites dos termos, desta política e do consentimento biométrico | até a exclusão da conta |
 | Selfie e documento da verificação de idade | apagados logo após a checagem; fica só o resultado, a data e o método |
 | Tentativas de verificação de idade | 1 dia |
@@ -69,7 +77,7 @@ Recusamos o cadastro de quem tem menos de 18 anos. Para impedir uma nova tentati
 - **Resend:** envia nossos e-mails, sem rastreamento de abertura e de clique.
 - **Cloudflare Turnstile:** protege os formulários contra robôs.
 - **Hostinger:** hospeda o Duora em um servidor contratado.
-- **Amazon Web Services:** faz a verificação de idade, como descrito acima.
+- **Amazon Web Services:** faz a verificação de idade, como descrito acima, e a análise automática das fotos de perfil.
 
 Quando um fornecedor fica fora do Brasil, o tratamento também acontece fora do país.
 

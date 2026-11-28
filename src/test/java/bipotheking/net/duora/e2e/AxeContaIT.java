@@ -11,8 +11,10 @@ import com.microsoft.playwright.Locator;
 import com.microsoft.playwright.Page;
 import com.microsoft.playwright.Route;
 import com.microsoft.playwright.options.AriaRole;
+import com.microsoft.playwright.options.FilePayload;
 import java.time.LocalDate;
 import java.time.ZoneId;
+import java.util.Base64;
 import java.util.Map;
 import java.util.function.Consumer;
 import org.jspecify.annotations.Nullable;
@@ -20,9 +22,11 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 
 /**
- * Varredura do axe-core ({@link Axe}) em cada estado novo das telas de conta e das telas públicas,
- * um teste por estado. Os participantes usam movimento reduzido, como o {@link Axe} exige; nas
- * telas que pedem a verificação de segurança, o Turnstile é o {@link TurnstileFalso}.
+ * Varredura do axe-core ({@link Axe}) em cada estado novo das telas de conta, das telas públicas e
+ * das telas de perfil, um teste por estado. Os participantes usam movimento reduzido, como o {@link
+ * Axe} exige; nas telas que pedem a verificação de segurança, o Turnstile é o {@link
+ * TurnstileFalso}. Os outros estados do perfil ficam em {@link AxeMeuPerfilIT}, {@link
+ * AxePreferenciasIT} e {@link AxePerfilDeOutraPessoaIT}.
  */
 class AxeContaIT extends ContaE2eBase {
 
@@ -83,6 +87,51 @@ class AxeContaIT extends ContaE2eBase {
 
   /** O pedaço do detector do modo falso, que a página só baixa quando a captura começa. */
   private static final String PEDACO_DO_DETECTOR_FALSO = "**/app/DetectorFalso-*.js";
+
+  /** O {@code GET /api/perfil} de quem ainda não salvou o perfil. */
+  private static final String PERFIL_NAO_SALVO =
+      """
+      {"versao":null,"apelido":null,"pronomes":null,"descricaoPronomes":null,"intencoes":[],\
+      "bio":"","pausada":false,"prontoParaFila":false,"pendencias":["PERFIL"],\
+      "foto":{"aprovada":null,"pendente":null,"recusadaEm":null}}\
+      """;
+
+  /** Perfil salvo só com Amizade: o namoro fica desligado. */
+  private static final String PERFIL_SEM_NAMORO =
+      """
+      {"versao":2,"apelido":"Sol","pronomes":null,"descricaoPronomes":null,\
+      "intencoes":["AMIZADE"],"bio":"","pausada":false,"prontoParaFila":true,"pendencias":[],\
+      "foto":{"aprovada":null,"pendente":null,"recusadaEm":null}}\
+      """;
+
+  private static final String PERFIL_COM_NAMORO =
+      """
+      {"versao":3,"apelido":"Lua","pronomes":null,"descricaoPronomes":null,\
+      "intencoes":["AMIZADE","NAMORO"],"bio":"","pausada":false,"prontoParaFila":true,\
+      "pendencias":[],"foto":{"aprovada":null,"pendente":null,"recusadaEm":null}}\
+      """;
+
+  /** O {@code GET /api/perfil/namoro} sem dados gravados. */
+  private static final String NAMORO_SEM_DADOS = "{\"genero\":null}";
+
+  private static final String NAMORO_GRAVADO =
+      """
+      {"genero":"MULHER","descricaoGenero":null,"interesses":["HOMEM","PESSOA_NAO_BINARIA"],\
+      "consentidoEm":"2026-11-20T12:00:00Z"}\
+      """;
+
+  /** Com Prefiro descrever: a tela mostra a descrição, a caixa de mostrar e o apagar. */
+  private static final String ORIENTACAO_GRAVADA =
+      """
+      {"orientacao":"OUTRA","descricaoOrientacao":"Fluida","mostrarOrientacao":true,\
+      "consentidaEm":"2026-11-20T12:00:00Z"}\
+      """;
+
+  /** PNG de 1×1: a foto escolhida abre na prévia. */
+  private static final byte[] FOTO =
+      Base64.getDecoder()
+          .decode(
+              "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=");
 
   /** Base64url com o tamanho de um token de 32 bytes, que nunca foi emitido. */
   private static final String TOKEN_INEXISTENTE = "A".repeat(43);
@@ -253,8 +302,8 @@ class AxeContaIT extends ContaE2eBase {
     assertThat(
             verificacao
                 .page()
-                .getByRole(AriaRole.LINK, new Page.GetByRoleOptions().setName("Continuar")))
-        .hasAttribute("href", "/");
+                .getByRole(AriaRole.LINK, new Page.GetByRoleOptions().setName("Montar meu perfil")))
+        .hasAttribute("href", "/perfil");
 
     assertSemViolacoes(verificacao.page(), "verificação: aprovada");
   }
@@ -434,6 +483,163 @@ class AxeContaIT extends ContaE2eBase {
   }
 
   @Test
+  void minhaContaAtivaComLinksDoPerfil(Participantes participantes) {
+    ContaPagina conta =
+        logado(participantes, EstadoConta.ATIVA, NASCIMENTO_DE_ADULTO).abrir(raiz() + "conta");
+
+    assertThat(conta.heading("Seu perfil")).isVisible();
+    assertThat(conta.link("Meu perfil")).hasAttribute("href", "/perfil");
+    assertThat(conta.link("Preferências de encontro")).hasAttribute("href", "/perfil/preferencias");
+    assertSemViolacoes(conta.page(), "minha conta ativa");
+  }
+
+  /**
+   * A navegação das telas de perfil. O {@code GET /api/perfil} vem do Playwright (perfil ainda não
+   * salvo), para a moldura não depender do back do perfil.
+   */
+  @Test
+  void navegacaoDoPerfil(Participantes participantes) {
+    ContaPagina conta = logado(participantes, EstadoConta.ATIVA, NASCIMENTO_DE_ADULTO);
+    conta
+        .page()
+        .route(
+            "**/api/perfil",
+            rota ->
+                rota.fulfill(
+                    new Route.FulfillOptions()
+                        .setStatus(200)
+                        .setContentType("application/json")
+                        .setBody(PERFIL_NAO_SALVO)));
+
+    conta.abrir(raiz() + "perfil");
+
+    Locator navegacao =
+        conta
+            .page()
+            .getByRole(AriaRole.NAVIGATION, new Page.GetByRoleOptions().setName("Seu perfil"));
+    assertThat(conta.heading("Meu perfil")).isVisible();
+    assertThat(
+            navegacao.getByRole(
+                AriaRole.LINK, new Locator.GetByRoleOptions().setName("Meu perfil")))
+        .hasAttribute("aria-current", "page");
+    assertSemViolacoes(conta.page(), "navegação do perfil");
+  }
+
+  /** O envio da foto recusado pelo limite: o {@code Retry-After} de 300 s vira "5 minutos". */
+  @Test
+  void fotoComLimite(Participantes participantes) {
+    ContaPagina conta =
+        telaDoPerfil(
+            participantes, "perfil", "Meu perfil", Map.of("**/api/perfil", PERFIL_SEM_NAMORO));
+    Page page = conta.page();
+    page.route(
+        "**/api/perfil/foto",
+        rota ->
+            rota.fulfill(
+                new Route.FulfillOptions()
+                    .setStatus(429)
+                    .setContentType("application/problem+json")
+                    .setHeaders(Map.of("Retry-After", SEGUNDOS_PARA_TENTAR_DE_NOVO))
+                    .setBody(CORPO_DO_LIMITE)));
+
+    page.getByLabel("Escolher foto").setInputFiles(new FilePayload("foto", "image/png", FOTO));
+    botao(page, "Enviar foto").click();
+
+    assertThat(page.getByText("Muitas tentativas. Tente de novo em 5 minutos.")).isVisible();
+    assertSemViolacoes(page, "meu perfil: foto com limite");
+  }
+
+  @Test
+  void namoroDesligado(Participantes participantes) {
+    ContaPagina conta =
+        telaDoPerfil(
+            participantes,
+            "perfil/namoro",
+            "Para namoro",
+            Map.of("**/api/perfil", PERFIL_SEM_NAMORO));
+
+    assertThat(
+            conta
+                .page()
+                .getByText("O namoro está desligado. Para usar, marque Namoro em Meu perfil."))
+        .isVisible();
+    assertThat(conta.link("Ir para Meu perfil")).hasAttribute("href", "/perfil");
+    assertSemViolacoes(conta.page(), "namoro: desligado");
+  }
+
+  /** Sem dados gravados: o aviso dos dados sensíveis e o campo aberto por Prefiro descrever. */
+  @Test
+  void namoroComAvisoEPrefiroDescrever(Participantes participantes) {
+    ContaPagina conta =
+        telaDoPerfil(
+            participantes,
+            "perfil/namoro",
+            "Para namoro",
+            Map.of("**/api/perfil", PERFIL_COM_NAMORO, "**/api/perfil/namoro", NAMORO_SEM_DADOS));
+    Page page = conta.page();
+
+    page.getByRole(
+            AriaRole.RADIO, new Page.GetByRoleOptions().setName("Prefiro descrever").setExact(true))
+        .check();
+
+    assertThat(page.getByText("Gênero e interesse são dados sensíveis.")).isVisible();
+    assertThat(
+            page.getByRole(
+                AriaRole.TEXTBOX, new Page.GetByRoleOptions().setName("Como você se descreve")))
+        .isVisible();
+    assertThat(botao(page, "Salvar dados de namoro")).hasAttribute("aria-disabled", "true");
+    assertSemViolacoes(page, "namoro: aviso e Prefiro descrever");
+  }
+
+  @Test
+  void dialogoDeApagarNamoro(Participantes participantes) {
+    ContaPagina conta =
+        telaDoPerfil(
+            participantes,
+            "perfil/namoro",
+            "Para namoro",
+            Map.of("**/api/perfil", PERFIL_COM_NAMORO, "**/api/perfil/namoro", NAMORO_GRAVADO));
+    Page page = conta.page();
+
+    botao(page, "Apagar dados de namoro").click();
+
+    assertThat(
+            page.getByRole(
+                AriaRole.DIALOG, new Page.GetByRoleOptions().setName("Apagar dados de namoro?")))
+        .isVisible();
+    assertSemViolacoes(page, "namoro: diálogo de apagar");
+  }
+
+  /** Com a orientação gravada: a descrição, a caixa de mostrar, o consentimento e o apagar. */
+  @Test
+  void orientacao(Participantes participantes) {
+    ContaPagina conta =
+        telaDoPerfil(
+            participantes,
+            "perfil/orientacao",
+            "Orientação",
+            Map.of(
+                "**/api/perfil",
+                PERFIL_SEM_NAMORO,
+                "**/api/perfil/orientacao",
+                ORIENTACAO_GRAVADA));
+    Page page = conta.page();
+
+    assertThat(
+            page.getByRole(
+                AriaRole.TEXTBOX,
+                new Page.GetByRoleOptions().setName("Como você descreve sua orientação")))
+        .hasValue("Fluida");
+    assertThat(
+            page.getByRole(
+                AriaRole.CHECKBOX,
+                new Page.GetByRoleOptions().setName("Mostrar para minhas conexões")))
+        .isChecked();
+    assertThat(botao(page, "Apagar orientação")).isVisible();
+    assertSemViolacoes(page, "orientação");
+  }
+
+  @Test
   void dialogoDeExclusaoAberto(Participantes participantes) {
     ContaPagina conta = minhaContaAberta(participantes);
 
@@ -564,6 +770,28 @@ class AxeContaIT extends ContaE2eBase {
         logado(participantes, EstadoConta.AGUARDANDO_VERIFICACAO, NASCIMENTO_DE_ADULTO)
             .abrir(raiz() + "conta");
     assertThat(conta.heading("Minha conta")).isVisible();
+    return conta;
+  }
+
+  /**
+   * Uma tela de perfil da conta ATIVA, com os GETs dados (padrão de URL → corpo JSON) respondidos
+   * pelo Playwright: a tela não depende do back do perfil.
+   */
+  private ContaPagina telaDoPerfil(
+      Participantes participantes, String caminho, String titulo, Map<String, String> respostas) {
+    ContaPagina conta = logado(participantes, EstadoConta.ATIVA, NASCIMENTO_DE_ADULTO);
+    Page page = conta.page();
+    respostas.forEach((url, corpo) ->
+        page.route(
+            url,
+            rota ->
+                rota.fulfill(
+                    new Route.FulfillOptions()
+                        .setStatus(200)
+                        .setContentType("application/json")
+                        .setBody(corpo))));
+    conta.abrir(raiz() + caminho);
+    assertThat(conta.heading(titulo)).isVisible();
     return conta;
   }
 

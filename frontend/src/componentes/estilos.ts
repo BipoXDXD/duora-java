@@ -67,11 +67,18 @@ export const TEXTO_SECUNDARIO = "m-0 text-texto-2";
 /** Título das telas da casca de conta. */
 export const TITULO_DA_CASCA = "m-0 font-titulo font-semibold text-[2rem] leading-[1.15] tracking-[-0.01em]";
 
+/** Título de uma seção (h2) dentro de uma tela da casca. */
+export const TITULO_DE_SECAO = "m-0 font-titulo font-semibold text-[1.375rem] leading-[1.2]";
+
 /** Link para o próximo passo numa tela da casca; sem margem, que cada tela dá a sua. */
 export const LINK_DE_ACAO = [
   "inline-flex items-center min-h-[44px] text-ambar text-[1.0625rem] font-semibold underline underline-offset-4",
   "hover:text-ambar-claro [transition:color_var(--transicao)]",
 ].join(" ");
+
+/** Saída rebaixada de uma tela da casca (Minha conta, o terraço): texto sublinhado, sem cor de ação. */
+export const LINK_DE_SAIDA =
+  "inline-flex items-center min-h-[44px] text-[0.9375rem] text-texto-2 underline underline-offset-4 hover:text-marfim";
 
 /** Um botão indisponível fica no foco e na leitura, mas ignora o clique. */
 export function seDisponivel(indisponivel: boolean, acao: () => void): () => void {

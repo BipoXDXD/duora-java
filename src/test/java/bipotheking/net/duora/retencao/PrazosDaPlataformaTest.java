@@ -1,5 +1,6 @@
 package bipotheking.net.duora.retencao;
 
+import static java.util.Map.entry;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import bipotheking.net.duora.web.BancoDeTeste;
@@ -30,19 +31,34 @@ class PrazosDaPlataformaTest extends BancoDeTeste {
   /**
    * Linha da tabela para as políticas que a cumprem, na ordem dos prazos que a linha cita. Ficam de
    * fora as linhas sem prazo (conta e aceites até a exclusão, código do e-mail recusado) e as de
-   * etapas que ainda não têm política (chat, imagens). A selfie e o documento da verificação de
-   * idade nunca são gravados: não há o que expirar.
+   * etapas que ainda não têm política (chat). A selfie e o documento da verificação de idade nunca
+   * são gravados: não há o que expirar.
    */
   private static final Map<String, List<String>> POLITICAS_POR_LINHA =
-      Map.of(
-          "Link de entrada", List.of("links-de-entrada"),
-          "Sessão", List.of("sessoes-expiradas"),
-          "E-mails na fila de envio", List.of("outbox-enviada", "outbox-falhada"),
-          "Chaves de repetição de pedidos", List.of("chaves-de-idempotencia"),
-          "Registros de acesso (IP, porta e horário)", List.of("registros-de-acesso"),
-          "Denúncias feitas sem conta", List.of("denuncias-publicas"),
-          "Contagens diárias de conta nova", List.of("uso-conta-nova"),
-          "Tentativas de verificação de idade", List.of("tentativas-de-verificacao"));
+      Map.ofEntries(
+          entry("Link de entrada", List.of("links-de-entrada")),
+          entry("Sessão", List.of("sessoes-expiradas")),
+          entry("E-mails na fila de envio", List.of("outbox-enviada", "outbox-falhada")),
+          entry("Chaves de repetição de pedidos", List.of("chaves-de-idempotencia")),
+          entry("Registros de acesso (IP, porta e horário)", List.of("registros-de-acesso")),
+          entry("Denúncias feitas sem conta", List.of("denuncias-publicas")),
+          entry("Contagens diárias de conta nova", List.of("uso-conta-nova")),
+          entry("Tentativas de verificação de idade", List.of("tentativas-de-verificacao")),
+          entry("Arquivos temporários de imagem", List.of("imagens-temporarias")),
+          entry("Arquivo de foto trocada, recusada ou removida", List.of("fotos-orfas")),
+          entry("Localização (área de cerca de 5 km)", List.of("localizacoes-paradas")));
+
+  /**
+   * Linhas dos dados do perfil que não têm política de retenção: ficam até a pessoa apagar,
+   * desligar ou excluir a conta, e saem pelos ganchos da exclusão. Ajustes de busca (tabela {@code
+   * preferencias}), namoro e orientação dependem de {@code perfil}.
+   */
+  private static final List<String> LINHAS_SEM_POLITICA_DO_PERFIL =
+      List.of(
+          "Conta, perfil e foto",
+          "Ajustes de busca (idade e distância)",
+          "Gênero e quem você quer conhecer",
+          "Orientação");
 
   private static final Pattern PRAZO = Pattern.compile("(\\d+) (minutos?|horas?|dias?|mês|meses)");
 
@@ -66,6 +82,18 @@ class PrazosDaPlataformaTest extends BancoDeTeste {
     });
 
     assertThat(expiracao.prazos()).containsExactlyInAnyOrderEntriesOf(esperados);
+  }
+
+  @Test
+  void linhasDoPerfilSemPoliticaEstaoNaTabela() throws IOException {
+    Map<String, String> tabela = tabelaDeRetencao();
+
+    assertThat(LINHAS_SEM_POLITICA_DO_PERFIL)
+        .allSatisfy(dado -> {
+          assertThat(tabela).as(dado).containsKey(dado);
+          assertThat(tabela.get(dado)).as(dado).contains("até");
+        })
+        .doesNotContainAnyElementsOf(POLITICAS_POR_LINHA.keySet());
   }
 
   /** As linhas da tabela da seção de retenção: dado para o texto do prazo. */

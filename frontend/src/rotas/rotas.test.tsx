@@ -10,7 +10,7 @@ import {
 } from "react-router";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { stubarFetch } from "../teste/fetchFalso";
-import { CAMINHOS_DA_CASCA } from "./caminhosDaCasca";
+import { CAMINHOS_DA_CASCA, PREFIXOS_DA_CASCA } from "./caminhosDaCasca";
 import { CAMINHO_DA_VERIFICACAO, criarRotas, isolarDocumentoDaVerificacao } from "./rotas";
 
 /** O cabeçalho que o redirectDocument (react-router 7.18.6) põe para o roteador recarregar o documento. */
@@ -94,6 +94,37 @@ function roteadorComJanela(filhas: RouteObject[], inicial: string) {
   return { roteador, recarregar };
 }
 
+/** Os caminhos completos das rotas (o index fica com o caminho do pai), sem a não encontrada. */
+function caminhosDasRotas(rotas: RouteObject[], pai = ""): string[] {
+  return rotas.flatMap((rota) => {
+    if (rota.path === "*") {
+      return [];
+    }
+    const caminho = rota.index === true ? pai : `${pai}/${rota.path ?? ""}`;
+    return rota.children === undefined ? [caminho] : caminhosDasRotas(rota.children, caminho);
+  });
+}
+
+function contaNoEstado(estado: string) {
+  return { estado, cadastroConcluido: estado === "ATIVA", verificada: estado === "ATIVA" };
+}
+
+/** Responde cada caminho da API com o corpo dado (null vira 204); o resto fica sem resposta. */
+function responderAPI(respostas: Record<string, unknown>) {
+  return stubarFetch((entrada) => {
+    const caminho = typeof entrada === "string" ? entrada : "";
+    if (!(caminho in respostas)) {
+      return new Promise<Response>(() => {});
+    }
+    const corpo = respostas[caminho];
+    return Promise.resolve(
+      corpo === null
+        ? new Response(null, { status: 204 })
+        : new Response(JSON.stringify(corpo), { headers: { "Content-Type": "application/json" } }),
+    );
+  });
+}
+
 function abrirEm(caminho: string): void {
   const clienteDeConsulta = new QueryClient();
   const roteador = createMemoryRouter(
@@ -112,9 +143,60 @@ function abrirEm(caminho: string): void {
 describe("criarRotas", () => {
   it("caminhosDaCascaSaoOsDasRotas", () => {
     const [raiz] = rotasDaCasca("/entrar");
-    const caminhos = (raiz?.children ?? []).map((rota) => rota.path).filter((caminho) => caminho !== "*");
+    const caminhos = caminhosDasRotas(raiz?.children ?? []);
 
-    expect(caminhos.map((caminho) => `/${caminho ?? ""}`)).toEqual([...CAMINHOS_DA_CASCA]);
+    expect(caminhos.filter((caminho) => !caminho.includes(":"))).toEqual([...CAMINHOS_DA_CASCA]);
+    expect(
+      caminhos.filter((caminho) => caminho.includes(":")).map((caminho) => caminho.replace(/:[^/]+$/, "")),
+    ).toEqual([...PREFIXOS_DA_CASCA]);
+  });
+
+  it("perfilComContaAguardandoVaiParaVerificacao", async () => {
+    const fetchFalso = responderAPI({ "/api/conta": contaNoEstado("AGUARDANDO_VERIFICACAO") });
+
+    const resposta = await redirectDe(carregar(filha(rotasDaCasca("/perfil"), "perfil"), "/perfil"));
+
+    expect(resposta.headers.get("Location")).toBe("/verificacao");
+    expect(fetchFalso.mock.calls.map(([entrada]) => entrada)).not.toContain("/api/perfil");
+  });
+
+  it("perfilAnonimoVaiParaEntrar", async () => {
+    responderAPI({ "/api/conta": null });
+
+    const resposta = await redirectDe(carregar(filha(rotasDaCasca("/perfil"), "perfil"), "/perfil"));
+
+    expect(resposta.headers.get("Location")).toBe("/entrar");
+  });
+
+  it("perfisComIdAbreATelaDeOutraPessoa", async () => {
+    const fetchFalso = responderAPI({
+      "/api/conta": contaNoEstado("ATIVA"),
+      "/api/perfis/conta-da-ana": { apelido: "Ana", foto: null, pronomes: null, verificado: true },
+    });
+
+    abrirEm("/perfis/conta-da-ana");
+
+    expect(await screen.findByRole("heading", { level: 1, name: "Ana" })).toBeInTheDocument();
+    expect(fetchFalso.mock.calls.map(([entrada]) => entrada)).toContain("/api/perfis/conta-da-ana");
+  });
+
+  it("perfisComIdMalformadoMostraPerfilIndisponivel", async () => {
+    // O back recusa o id que não é UUID com 400 REQUISICAO_INVALIDA: a tela é a mesma do 404.
+    const recusa = { codigo: "REQUISICAO_INVALIDA", mensagem: "Requisição inválida" };
+    stubarFetch((entrada) =>
+      Promise.resolve(
+        entrada === "/api/perfis/nao-e-uuid"
+          ? new Response(JSON.stringify(recusa), {
+              status: 400,
+              headers: { "Content-Type": "application/problem+json" },
+            })
+          : new Response(JSON.stringify(contaNoEstado("ATIVA")), { headers: { "Content-Type": "application/json" } }),
+      ),
+    );
+
+    abrirEm("/perfis/nao-e-uuid");
+
+    expect(await screen.findByRole("heading", { level: 1, name: "Perfil indisponível" })).toBeInTheDocument();
   });
 
   it("primeiraCargaMostraCarregandoNaMolduraAteATelaChegar", async () => {

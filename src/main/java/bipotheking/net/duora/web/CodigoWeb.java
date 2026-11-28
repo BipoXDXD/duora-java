@@ -1,6 +1,7 @@
 package bipotheking.net.duora.web;
 
 import bipotheking.net.duora.nucleo.CodigoDeErro;
+import bipotheking.net.duora.nucleo.ErroDeNegocio;
 import bipotheking.net.duora.nucleo.TipoDeErro;
 
 /** Códigos de erro da plataforma web, comuns a todos os módulos. */
@@ -17,7 +18,13 @@ public enum CodigoWeb implements CodigoDeErro {
   CHAVE_DE_IDEMPOTENCIA_INVALIDA(TipoDeErro.ENTRADA_INVALIDA, "Chave de idempotência inválida"),
   CHAVE_DE_IDEMPOTENCIA_REUSADA(TipoDeErro.CONFLITO, "Chave de idempotência reusada"),
   REQUISICAO_EM_ANDAMENTO(TipoDeErro.CONFLITO, "Requisição em andamento"),
+  IMAGEM_GRANDE_DEMAIS(TipoDeErro.GRANDE_DEMAIS, "Imagem grande demais"),
+  IMAGEM_INVALIDA(TipoDeErro.REGRA_DE_NEGOCIO, "Imagem inválida"),
+  PROCESSAMENTO_INDISPONIVEL(TipoDeErro.INDISPONIVEL, "Processamento indisponível"),
   ERRO_INTERNO(TipoDeErro.INTERNO, "Erro interno");
+
+  static final String MENSAGEM_DO_CORPO_INVALIDO =
+      "O corpo da requisição não está no formato esperado.";
 
   private final TipoDeErro tipo;
   private final String titulo;
@@ -35,5 +42,10 @@ public enum CodigoWeb implements CodigoDeErro {
   @Override
   public String titulo() {
     return titulo;
+  }
+
+  /** O corpo veio sem um campo obrigatório que o JSON não consegue exigir sozinho. */
+  public static ErroDeNegocio corpoInvalido() {
+    return new ErroDeNegocio(CORPO_INVALIDO, MENSAGEM_DO_CORPO_INVALIDO);
   }
 }

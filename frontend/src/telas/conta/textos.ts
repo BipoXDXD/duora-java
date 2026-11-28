@@ -78,6 +78,10 @@ export const MINHA_CONTA = {
   /** Só com a verificação de idade aprovada. */
   selo: "Conta verificada",
   descricaoDoSelo: "Confirmamos que você tem 18 anos ou mais.",
+  /** Só com a conta ATIVA: a entrada para as telas de perfil. */
+  tituloDoPerfil: "Seu perfil",
+  meuPerfil: "Meu perfil",
+  preferencias: "Preferências de encontro",
   sair: "Sair da conta",
   saindo: "Saindo…",
   /** Falha sem resposta conclusiva (rede, servidor fora do ar): a sessão pode seguir aberta. */

@@ -64,6 +64,9 @@ function renderizar(estado: EstadoDaConta = "ATIVA", verificada = false) {
   const conta: Conta = { estado, cadastroConcluido: estado === "ATIVA", verificada };
   const cliente = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   cliente.setQueryData(["conta"], conta);
+  cliente.setQueryData(["perfil"], { apelido: "Lua" });
+  cliente.setQueryData(["perfil", "namoro"], { genero: "MULHER" });
+  cliente.setQueryData(["perfis", "outra-conta"], { apelido: "Sol" });
   const roteador = createMemoryRouter(
     [
       { path: "/conta", loader: () => conta, Component: MinhaConta },
@@ -101,6 +104,30 @@ afterEach(() => {
 });
 
 describe("MinhaConta", () => {
+  it("contaAtivaTemLinksDoPerfil", async () => {
+    prepararFetch();
+    renderizar("ATIVA", true);
+
+    const secao = await screen.findByRole("region", { name: "Seu perfil" });
+    expect(within(secao).getByRole("heading", { level: 2, name: "Seu perfil" })).toBeInTheDocument();
+    expect(within(secao).getByRole("link", { name: "Meu perfil" })).toHaveAttribute("href", "/perfil");
+    expect(within(secao).getByRole("link", { name: "Preferências de encontro" })).toHaveAttribute(
+      "href",
+      "/perfil/preferencias",
+    );
+    // Antes do Sair, na ordem do documento.
+    expect(secao.compareDocumentPosition(await botaoSair()) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
+
+  it("contaAguardandoNaoTemLinksDoPerfil", async () => {
+    prepararFetch();
+    renderizar("AGUARDANDO_VERIFICACAO");
+
+    expect(await screen.findByText(FALTA_CONFIRMAR)).toBeInTheDocument();
+    expect(screen.queryByRole("region", { name: "Seu perfil" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: "Meu perfil" })).not.toBeInTheDocument();
+  });
+
   it("mostraOsTextosDoContrato", async () => {
     prepararFetch();
     renderizar();
@@ -160,6 +187,17 @@ describe("MinhaConta", () => {
     expect(pedidos.map(({ url }) => url)).toEqual(["/api/conta/sair"]);
     expect(cliente.getQueryData(["conta"])).toBeUndefined();
     expect(roteador.state.historyAction).toBe("REPLACE");
+  });
+
+  it("sairEsqueceOsPerfisDoCache", async () => {
+    prepararFetch();
+    const { cliente } = renderizar();
+
+    await userEvent.click(await botaoSair());
+
+    await screen.findByRole("heading", { name: "Tela de entrar" });
+    expect(cliente.getQueryCache().findAll({ queryKey: ["perfil"] })).toHaveLength(0);
+    expect(cliente.getQueryCache().findAll({ queryKey: ["perfis"] })).toHaveLength(0);
   });
 
   it("duploToqueEmSairEnviaUmaVez", async () => {
@@ -239,6 +277,8 @@ describe("MinhaConta", () => {
     expect(screen.getByRole("link", { name: "Voltar ao terraço" })).toHaveAttribute("href", "/");
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
     expect(cliente.getQueryData(["conta"])).toBeUndefined();
+    expect(cliente.getQueryCache().findAll({ queryKey: ["perfil"] })).toHaveLength(0);
+    expect(cliente.getQueryCache().findAll({ queryKey: ["perfis"] })).toHaveLength(0);
   });
 
   it("duploToqueNaConfirmacaoEnviaUmaVez", async () => {

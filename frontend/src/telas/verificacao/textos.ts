@@ -56,7 +56,8 @@ export const VERIFICACAO_DE_IDADE = {
   servicoFora: SERVICO_FORA,
   tentarDeNovo: "Tentar de novo",
   voltarAoTerraco: "Voltar ao terraço",
-  continuar: "Continuar",
+  /** O próximo passo depois da idade confirmada. */
+  montarPerfil: "Montar meu perfil",
   falhas: FALHAS,
   sessaoInvalida: "Esta selfie não vale mais. Comece de novo.",
   aprovada: {

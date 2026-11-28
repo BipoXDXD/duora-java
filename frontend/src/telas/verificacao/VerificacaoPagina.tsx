@@ -12,7 +12,7 @@ import {
   type SituacaoDaVerificacao,
 } from "../../api/verificacao";
 import { BOTAO_SECUNDARIO_SEM_MARGEM, TITULO_DA_CASCA } from "../../componentes/estilos";
-import { consultaDaConta, consultaDaVerificacao } from "../../rotas/consultas";
+import { consultaDaVerificacao, esquecerASessao } from "../../rotas/consultas";
 import { CASCA, textoDeEspera } from "../conta/textos";
 import { checarCamera, navegadorTemSuporte, type MotivoSemCamera, type ResultadoDaCamera } from "./camera";
 import { CapturaDeVida } from "./CapturaDeVida";
@@ -231,7 +231,7 @@ function Etapas({
       ressincronizarContagens();
     } else if (resultado.etapa === "desfecho") {
       if (resultado.tipo === "menor") {
-        clienteDeConsulta.removeQueries({ queryKey: consultaDaConta.queryKey, exact: true });
+        esquecerASessao(clienteDeConsulta);
       }
       void clienteDeConsulta.invalidateQueries({ queryKey: consultaDaVerificacao.queryKey });
     }

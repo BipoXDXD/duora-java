@@ -49,9 +49,22 @@ class CspDaVerificacaoTest {
   }
 
   @Test
-  void verificacaoLiberaSoACamera() throws Exception {
+  void permissionsPolicyFechaGeolocalizacaoNaVerificacao() throws Exception {
     assertThat(resposta(VERIFICACAO).getHeader("Permissions-Policy"))
-        .isEqualTo("camera=(self), microphone=()");
+        .isEqualTo("camera=(self), microphone=(), geolocation=()");
+  }
+
+  @Test
+  void permissionsPolicyDoSiteLiberaGeolocalizacaoDaOrigem() throws Exception {
+    assertThat(resposta("/perfil/preferencias").getHeader("Permissions-Policy"))
+        .isEqualTo("camera=(), microphone=(), geolocation=(self)");
+  }
+
+  @Test
+  void perfisComIdTemNoCache() throws Exception {
+    MockHttpServletResponse resposta = resposta("/perfis/3f2a9c1e-0000-4000-8000-000000000001");
+
+    assertThat(resposta.getHeaders("Cache-Control")).containsExactly("no-cache");
   }
 
   @Test
@@ -95,7 +108,8 @@ class CspDaVerificacaoTest {
     assertThat(resposta.getHeader("Content-Security-Policy"))
         .isEqualTo(CabecalhosDeSeguranca.CSP)
         .doesNotContain("wasm-unsafe-eval", "amazonaws");
-    assertThat(resposta.getHeader("Permissions-Policy")).isEqualTo("camera=(), microphone=()");
+    assertThat(resposta.getHeader("Permissions-Policy"))
+        .isEqualTo("camera=(), microphone=(), geolocation=(self)");
   }
 
   @Test

@@ -1,6 +1,6 @@
 import { QueryClient } from "@tanstack/react-query";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { exigirConta } from "./guardas";
+import { comContaAtiva, exigirConta } from "./guardas";
 
 function responderConta(status: number, corpo?: unknown) {
   vi.stubGlobal(
@@ -73,5 +73,21 @@ describe("exigirConta", () => {
     await expect(exigirConta(new QueryClient(), ["PENDENTE"])).rejects.toMatchObject({
       codigo: "CONTA_INDISPONIVEL",
     });
+  });
+});
+
+describe("comContaAtiva", () => {
+  it("contaAtivaDevolveOQueCarregou", async () => {
+    responderConta(200, contaNoEstado("ATIVA"));
+
+    await expect(comContaAtiva(new QueryClient(), () => Promise.resolve("dados"))).resolves.toBe("dados");
+  });
+
+  it("contaAguardandoNaoCarrega", async () => {
+    responderConta(200, contaNoEstado("AGUARDANDO_VERIFICACAO"));
+    const carregar = vi.fn(() => Promise.resolve("dados"));
+
+    expect(await destinoDoRedirect(comContaAtiva(new QueryClient(), carregar))).toBe("/verificacao");
+    expect(carregar).not.toHaveBeenCalled();
   });
 });

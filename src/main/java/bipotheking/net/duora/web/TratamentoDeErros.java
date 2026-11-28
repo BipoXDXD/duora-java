@@ -16,6 +16,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.context.request.ServletWebRequest;
 import org.springframework.web.context.request.WebRequest;
 import org.springframework.web.servlet.mvc.method.annotation.ResponseEntityExceptionHandler;
 
@@ -27,6 +28,9 @@ import org.springframework.web.servlet.mvc.method.annotation.ResponseEntityExcep
 class TratamentoDeErros extends ResponseEntityExceptionHandler {
 
   private static final Logger LOG = LoggerFactory.getLogger(TratamentoDeErros.class);
+  private static final String ROTA_DO_DOCUMENTO = "/api/conta/verificacao/documento";
+  private static final String MENSAGEM_DOCUMENTO_GRANDE_DEMAIS =
+      "Cada foto do documento pode ter até 6 MB.";
   private static final URI SEM_TIPO = URI.create("about:blank");
 
   static HttpStatus status(TipoDeErro tipo) {
@@ -83,8 +87,21 @@ class TratamentoDeErros extends ResponseEntityExceptionHandler {
     if (statusCode.is5xxServerError()) {
       LOG.error("Falha do Spring MVC ao atender a requisição", ex);
     }
-    ProblemDetail problema = problema(codigo, mensagemPadrao(codigo), statusCode);
+    ProblemDetail problema = problema(codigo, mensagem(codigo, request), statusCode);
     return super.handleExceptionInternal(ex, problema, headers, statusCode, request);
+  }
+
+  /**
+   * O 413 do multipart vale para o maior arquivo que o servidor aceita (6 MB): na foto do perfil, o
+   * limite que conta é o da imagem (5 MB); nas fotos do documento, é o próprio teto do multipart.
+   */
+  private static String mensagem(CodigoWeb codigo, WebRequest request) {
+    if (codigo == CodigoWeb.IMAGEM_GRANDE_DEMAIS
+        && request instanceof ServletWebRequest servlet
+        && ROTA_DO_DOCUMENTO.equals(servlet.getRequest().getRequestURI())) {
+      return MENSAGEM_DOCUMENTO_GRANDE_DEMAIS;
+    }
+    return mensagemPadrao(codigo);
   }
 
   static ProblemDetail problema(CodigoDeErro codigo, String mensagem) {
@@ -108,6 +125,8 @@ class TratamentoDeErros extends ResponseEntityExceptionHandler {
     return switch (status.value()) {
       case 404 -> CodigoWeb.RECURSO_INEXISTENTE;
       case 405 -> CodigoWeb.METODO_NAO_PERMITIDO;
+      // Só o multipart dispara o 413 do Spring, e todo arquivo enviado é imagem (foto, documento).
+      case 413 -> CodigoWeb.IMAGEM_GRANDE_DEMAIS;
       case 415 -> CodigoWeb.FORMATO_NAO_SUPORTADO;
       default -> status.is5xxServerError() ? CodigoWeb.ERRO_INTERNO : CodigoWeb.REQUISICAO_INVALIDA;
     };
@@ -118,7 +137,8 @@ class TratamentoDeErros extends ResponseEntityExceptionHandler {
       case RECURSO_INEXISTENTE -> "Não encontramos este endereço.";
       case METODO_NAO_PERMITIDO -> "Este endereço não aceita esse tipo de pedido.";
       case FORMATO_NAO_SUPORTADO -> "Envie o conteúdo num formato aceito.";
-      case CORPO_INVALIDO -> "O corpo da requisição não está no formato esperado.";
+      case IMAGEM_GRANDE_DEMAIS -> ProcessadorDeImagemVips.MENSAGEM_GRANDE_DEMAIS;
+      case CORPO_INVALIDO -> CodigoWeb.MENSAGEM_DO_CORPO_INVALIDO;
       case ERRO_INTERNO -> "Algo deu errado. Tente de novo.";
       default -> "A requisição veio incompleta ou com um valor inválido.";
     };

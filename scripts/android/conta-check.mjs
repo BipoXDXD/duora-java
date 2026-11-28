@@ -2,7 +2,7 @@
 // Prova o cadastro de conta no Chrome do emulador Android (AVD duora-pixel), com o widget real do
 // Turnstile.
 //
-// Uso: node scripts/android/conta-check.mjs --porta 8080 --log <arquivo do spring-boot:run>
+// Uso: node scripts/android/conta-check.mjs --porta 8080 --log <arquivo do spring-boot:run> [--perfil]
 //
 // Pré-requisito: emulador ligado (scripts/android/emulador.sh subir) e a aplicação servindo em
 // localhost:<porta> nesta máquina, com a saída do ./mvnw spring-boot:run no arquivo de --log.
@@ -13,7 +13,11 @@
 // widget real do Turnstile (chaves de teste do dev) liberar o envio e captura (entrar.png); pede o
 // link com um e-mail novo (o POST precisa dar 2xx) e lê o link do log do EmailNoLog; abre o
 // link, entra e captura o cadastro (cadastro.png); conclui o cadastro; abre Minha conta
-// (minha-conta.png) e volta à tela Confirme sua idade (verificacao.png), onde para. Resultado e
+// (minha-conta.png) e volta à tela Confirme sua idade (verificacao.png), onde para; com --perfil,
+// segue (PASSOS_DO_PERFIL): a selfie simulada ativa a conta, Meu perfil (perfil.png) e Preferências
+// (preferencias.png) têm os alvos de toque medidos (mínimo de 44 px), "De" e "Até" precisam abrir o
+// teclado numérico (teclado-de.png, teclado-ate.png), e o pedido de localização sem resposta precisa
+// falhar pela vigia de 20 s (localizacao-sem-resposta.png). Resultado e
 // capturas em target/android/. Sai com código 1 em qualquer falha, inclusive a cada violação da
 // CSP; SIGINT e SIGTERM desfazem o reverse e o forward, gravam o resultado e saem com 130 e 143.
 //
@@ -64,28 +68,59 @@ export function cabecalhoDaCsp(cabecalhos) {
   return nome ? cabecalhos[nome] : null;
 }
 
-/** Ordem em que o main() roda os passos de EXECUTORES; a rodada para na tela Confirme sua idade. */
+/** Ordem em que o main() roda os passos de EXECUTORES; sem --perfil, a rodada para em Confirme sua idade. */
 export const PASSOS = Object.freeze([
   'abrirEntrar', 'capturarEntrar', 'pedirLink', 'abrirLink', 'confirmarEntrada', 'capturarCadastro',
   'concluirCadastro', 'abrirMinhaConta', 'capturarMinhaConta', 'voltarAVerificacao',
   'capturarVerificacao',
 ]);
 
-/** Os passos que a rodada executa, na ordem de PASSOS. O conta-check não tem variante de rodada. */
-export function passosDaRodada() {
-  return [...PASSOS];
+/**
+ * Com --perfil, depois de Confirme sua idade: a selfie simulada ativa a conta, e a rodada abre Meu
+ * perfil e Preferências, mede os alvos de toque, abre o teclado de "De" e espera a falha da
+ * localização sem resposta à permissão.
+ */
+export const PASSOS_DO_PERFIL = Object.freeze([
+  'confirmarIdade', 'abrirPerfil', 'medirAlvosDoPerfil', 'capturarPerfil', 'abrirPreferencias',
+  'medirAlvosDasPreferencias', 'capturarPreferencias', 'conferirTecladoDaIdade', 'esperarFalhaDaLocalizacao',
+  'capturarFalhaDaLocalizacao',
+]);
+
+/** Os passos que a rodada pedida em `args` executa, na ordem. */
+export function passosDaRodada({ perfil }) {
+  return perfil ? [...PASSOS, ...PASSOS_DO_PERFIL] : [...PASSOS];
+}
+
+/** O menor alvo de toque aceito, em px CSS (o mínimo do plano para as telas de perfil). */
+export const ALVO_MINIMO_PX = 44;
+
+/** As medidas ({ alvo, largura, altura }) com algum lado abaixo de ALVO_MINIMO_PX. */
+export function alvosPequenos(medidas) {
+  return medidas.filter(({ largura, altura }) => largura < ALVO_MINIMO_PX || altura < ALVO_MINIMO_PX);
+}
+
+/** O TYPE_CLASS_NUMBER do EditorInfo do Android: os 4 bits baixos do inputType. */
+const CLASSE_NUMERICA = 0x2;
+
+/**
+ * Pelo `dumpsys input_method`: o teclado está aberto e o campo focado é numérico. O tipo vem do
+ * mInputEditorInfo (o campo que o teclado atende); o histórico de antes traz outros inputType.
+ */
+export function tecladoNumericoAberto(dumpsys) {
+  const tipo = dumpsys.match(/mInputEditorInfo:\s*\n\s*inputType=0x([0-9a-f]+)/i);
+  return /mInputShown=true/.test(dumpsys) && tipo !== null && (Number.parseInt(tipo[1], 16) & 0xf) === CLASSE_NUMERICA;
 }
 
 function lerArgumentos() {
   const { values } = parseArgs({
-    options: { porta: { type: 'string' }, log: { type: 'string' } },
+    options: { porta: { type: 'string' }, log: { type: 'string' }, perfil: { type: 'boolean', default: false } },
   });
   const porta = Number(values.porta);
   if (!Number.isInteger(porta) || porta <= 0 || porta > 65535 || !values.log) {
-    console.error('uso: node scripts/android/conta-check.mjs --porta <n> --log <arquivo do spring-boot:run>');
+    console.error('uso: node scripts/android/conta-check.mjs --porta <n> --log <arquivo do spring-boot:run> [--perfil]');
     process.exit(2);
   }
-  return { porta, log: values.log };
+  return { porta, log: values.log, perfil: values.perfil };
 }
 
 // ---- Página pelo CDP -------------------------------------------------------
@@ -185,6 +220,51 @@ async function clicar(pagina, achar, descricao) {
   }
 }
 
+/**
+ * Toque de verdade pelo CDP no centro do elemento, depois de rolar até ele: diferente do click()
+ * sintético, abre o teclado do Android e conta como gesto de quem usa.
+ */
+async function tocar(cdp, pagina, achar, descricao) {
+  const ponto = await pagina.avaliar(`(() => {
+    const el = ${achar};
+    if (!el) return null;
+    el.scrollIntoView({ block: 'center' });
+    const r = el.getBoundingClientRect();
+    return { x: r.left + r.width / 2, y: r.top + r.height / 2 };
+  })()`);
+  if (!ponto) throw new Falha(`${descricao} não encontrado`);
+  await cdp.enviar('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [ponto] });
+  await cdp.enviar('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
+}
+
+/**
+ * As medidas, em px CSS, de cada alvo de toque visível: o rádio e a caixa medem pelo rótulo que os
+ * envolve, e a entrada visualmente oculta (1 px) fica de fora, porque o alvo dela é o rótulo.
+ */
+const MEDIR_ALVOS = `(() => {
+  const alvos = new Set();
+  for (const el of document.querySelectorAll('a[href], button, input:not([type=hidden]), select, textarea, [role=button]')) {
+    const marca = el.matches('input[type=radio], input[type=checkbox]');
+    alvos.add(marca ? (el.closest('label') ?? el) : el);
+  }
+  return [...alvos].flatMap((el) => {
+    const r = el.getBoundingClientRect();
+    if (r.width <= 1 || r.height <= 1 || getComputedStyle(el).visibility === 'hidden') return [];
+    const nome = texto(el) || el.getAttribute('aria-label') || el.getAttribute('name') || '';
+    return [{ alvo: el.tagName.toLowerCase() + ' ' + nome.slice(0, 50),
+      largura: Math.round(r.width * 10) / 10, altura: Math.round(r.height * 10) / 10 }];
+  });
+})()`;
+
+const ROTULO_EXATO = (nome) => `[...document.querySelectorAll('label')].find((l) => texto(l) === ${JSON.stringify(nome)})?.control`;
+
+/** O texto da tela quando a localização falha (LOCALIZACAO.falhou no front). */
+const FALHA_DA_LOCALIZACAO = 'Não conseguimos sua localização.';
+/** A vigia do front é de 20 s; abaixo disso, foi o navegador que respondeu, não a vigia. */
+const VIGIA_DA_LOCALIZACAO_MS = 20000;
+const FOLGA_DA_VIGIA_MS = 1000;
+const ESPERA_DA_FALHA_MS = 40000;
+
 // ---- Log do spring-boot:run ------------------------------------------------
 
 const tamanhoDoLog = (arquivo) => readFileSync(arquivo).length;
@@ -269,7 +349,67 @@ const EXECUTORES = {
     await esperarTitulo(pagina, 'Confirme sua idade');
   },
   capturarVerificacao: (contexto) => capturar(contexto, 'verificacao'),
+  async confirmarIdade({ pagina }) {
+    // A verificação falsa do dev aprova o e-mail sem marcador: a conta fica ATIVA.
+    await clicar(pagina, "campo('Concordo com o uso da minha imagem')", 'consentimento da selfie');
+    await clicar(pagina, "botao('Começar a selfie')", 'botão Começar a selfie');
+    await esperarNaPagina(pagina, "!!botao('Simular captura')", 'o botão Simular captura');
+    await clicar(pagina, "botao('Simular captura')", 'botão Simular captura');
+    // O desfecho é um h2 dentro de Confirme sua idade.
+    await esperarNaPagina(pagina, "[...document.querySelectorAll('h2')].some((h) => texto(h) === 'Idade confirmada')",
+      'o desfecho Idade confirmada');
+  },
+  async abrirPerfil({ pagina, base }) {
+    await pagina.navegar(`${base}/perfil`);
+    await esperarTitulo(pagina, 'Meu perfil');
+  },
+  medirAlvosDoPerfil: (contexto) => medirAlvos(contexto, 'perfil'),
+  capturarPerfil: (contexto) => capturar(contexto, 'perfil'),
+  async abrirPreferencias({ pagina, base }) {
+    await pagina.navegar(`${base}/perfil/preferencias`);
+    await esperarTitulo(pagina, 'Preferências de encontro');
+  },
+  medirAlvosDasPreferencias: (contexto) => medirAlvos(contexto, 'preferencias'),
+  capturarPreferencias: (contexto) => capturar(contexto, 'preferencias'),
+  async conferirTecladoDaIdade(contexto) {
+    const { adb, cdp, pagina, resultado } = contexto;
+    resultado.tecladoNumerico = {};
+    for (const [rotulo, nome] of [['De', 'teclado-de'], ['Até', 'teclado-ate']]) {
+      await tocar(cdp, pagina, ROTULO_EXATO(rotulo), `campo ${rotulo}`);
+      await esperar(1500);
+      const dumpsys = adb.shell('dumpsys input_method');
+      // Guardado para conferir o teclado se o formato do dumpsys mudar com a versão do Android.
+      writeFileSync(join(SAIDA, `${nome}.txt`), dumpsys);
+      const numerico = tecladoNumericoAberto(dumpsys);
+      resultado.tecladoNumerico[rotulo] = numerico;
+      log(`teclado em ${rotulo}: ${numerico ? 'numérico' : 'não numérico ou fechado'}`);
+      await capturar(contexto, nome);
+      await pagina.avaliar('(() => { document.activeElement?.blur(); return true; })()');
+      if (!numerico) throw new Falha(`o campo ${rotulo} não abriu o teclado numérico`);
+    }
+  },
+  async esperarFalhaDaLocalizacao({ cdp, pagina, resultado }) {
+    // Ninguém responde ao pedido de permissão do Chrome: só a vigia do front encerra a espera.
+    const inicio = Date.now();
+    await tocar(cdp, pagina, "botao('Usar minha localização')", 'botão Usar minha localização');
+    await esperarNaPagina(pagina, `document.body.innerText.includes(${JSON.stringify(FALHA_DA_LOCALIZACAO)})`,
+      'a falha da localização', ESPERA_DA_FALHA_MS);
+    const decorridoMs = Date.now() - inicio;
+    resultado.falhaDaLocalizacaoEmS = Math.round(decorridoMs / 100) / 10;
+    log(`falha da localização em ${resultado.falhaDaLocalizacaoEmS}s`);
+    if (decorridoMs < VIGIA_DA_LOCALIZACAO_MS - FOLGA_DA_VIGIA_MS) {
+      throw new Falha(`a falha da localização veio em ${resultado.falhaDaLocalizacaoEmS}s, antes da vigia de 20 s`);
+    }
+  },
+  capturarFalhaDaLocalizacao: (contexto) => capturar(contexto, 'localizacao-sem-resposta'),
 };
+
+/** Guarda os alvos abaixo do mínimo da tela; o main() falha no fim se houver algum. */
+async function medirAlvos({ pagina, resultado }, tela) {
+  const pequenos = alvosPequenos(await pagina.avaliar(MEDIR_ALVOS));
+  resultado.alvosPequenos = { ...resultado.alvosPequenos, [tela]: pequenos };
+  log(`alvos abaixo de ${ALVO_MINIMO_PX}px em ${tela}: ${pequenos.length ? JSON.stringify(pequenos) : 'nenhum'}`);
+}
 
 async function main() {
   const args = lerArgumentos();
@@ -309,14 +449,18 @@ async function main() {
     cdp = await abrirNoChrome(adb, `${base}/entrar`, base);
     resultado.chrome = (await cdp.enviar('Browser.getVersion').catch(() => ({}))).product;
     const pagina = await abrirPagina(cdp);
-    let contexto = { args, adb, base, resultado, pagina };
-    for (const passo of passosDaRodada()) {
+    let contexto = { args, adb, cdp, base, resultado, pagina };
+    for (const passo of passosDaRodada(args)) {
       log(`passo: ${passo}`);
       contexto = { ...contexto, ...(await EXECUTORES[passo](contexto)) };
     }
     // Um último olhar: uma violação depois da última captura também derruba a rodada.
     await esperar(1000);
     pagina.exigirSemViolacao();
+    const pequenos = Object.entries(resultado.alvosPequenos ?? {}).filter(([, lista]) => lista.length);
+    if (pequenos.length) {
+      throw new Falha(`alvos de toque abaixo de ${ALVO_MINIMO_PX}px: ${JSON.stringify(Object.fromEntries(pequenos))}`);
+    }
     resultado.ok = true;
   } catch (e) {
     resultado.ok = false;

@@ -18,7 +18,10 @@ import tools.jackson.databind.json.JsonMapper;
 
 /**
  * Proteção contra CSRF: toda mutação na API exige {@code X-Duora: 1}; {@code Origin}, se veio, tem
- * de ser de loopback na porta local; {@code Sec-Fetch-Site}, se veio, tem de ser same-origin.
+ * de ser a de loopback na porta local ou exatamente a da URL pública ({@link EnderecoPublico}:
+ * esquema, host e porta efetiva, sem prefixo, subdomínio nem {@code null}); {@code Sec-Fetch-Site},
+ * se veio, tem de ser same-origin. O proxy precisa repassar o {@code Origin} do navegador sem
+ * reescrever, ou esta checagem perde o efeito.
  */
 @Component
 @Order(Ordered.HIGHEST_PRECEDENCE + 3)
@@ -32,9 +35,11 @@ public class MesmaOrigem extends OncePerRequestFilter {
   private static final Set<String> METODOS_SEGUROS = Set.of("GET", "HEAD", "OPTIONS");
 
   private final JsonMapper json;
+  private final EnderecoPublico publico;
 
-  MesmaOrigem(JsonMapper json) {
+  MesmaOrigem(JsonMapper json, EnderecoPublico publico) {
     this.json = json;
+    this.publico = publico;
   }
 
   /**
@@ -59,11 +64,13 @@ public class MesmaOrigem extends OncePerRequestFilter {
     chain.doFilter(request, response);
   }
 
-  private static boolean aceita(HttpServletRequest request) {
+  private boolean aceita(HttpServletRequest request) {
     String origem = request.getHeader(HttpHeaders.ORIGIN);
     String site = request.getHeader(SEC_FETCH_SITE);
     return VALOR_ESPERADO.equals(request.getHeader(CABECALHO))
-        && (origem == null || EnderecoLocal.origemPermitida(origem, request.getLocalPort()))
+        && (origem == null
+            || EnderecoLocal.origemPermitida(origem, request.getLocalPort())
+            || publico.origemPermitida(origem))
         && (site == null || MESMA_ORIGEM.equals(site));
   }
 }

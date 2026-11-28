@@ -100,8 +100,9 @@ export function DesfechoDaVerificacao({
       return (
         <Desfecho titulo={VERIFICACAO_DE_IDADE.aprovada.titulo} focar={focar}>
           <p className={PARAGRAFO}>{VERIFICACAO_DE_IDADE.aprovada.texto}</p>
-          <a href="/" className={`justify-self-start ${LINK_DE_ACAO}`}>
-            {VERIFICACAO_DE_IDADE.continuar}
+          {/* Página inteira: a verificação vive num documento próprio. */}
+          <a href="/perfil" className={`justify-self-start ${LINK_DE_ACAO}`}>
+            {VERIFICACAO_DE_IDADE.montarPerfil}
           </a>
         </Desfecho>
       );
