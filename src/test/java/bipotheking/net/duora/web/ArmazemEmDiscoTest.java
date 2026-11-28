@@ -38,7 +38,8 @@ class ArmazemEmDiscoTest {
     Path tmp = Files.createDirectories(raiz.resolve("tmp"));
     Path nitida = Files.writeString(Files.createTempFile(tmp, "n", ".webp"), conteudo + "-n");
     Path borrada = Files.writeString(Files.createTempFile(tmp, "b", ".webp"), conteudo + "-b");
-    return new ImagemProcessada(nitida, borrada, 10, 10);
+    Path paraModeracao = Files.writeString(Files.createTempFile(tmp, "m", ".jpg"), conteudo + "-m");
+    return new ImagemProcessada(nitida, borrada, paraModeracao, 10, 10);
   }
 
   private void guardar(ArmazemEmDisco armazem, UUID id) throws IOException {

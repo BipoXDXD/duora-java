@@ -57,6 +57,7 @@ class ClientesAwsTest {
 
   /** Só para o teste não pendurar o build se o timeout do cliente deixar de valer. */
   private static final int REDE_DE_SEGURANCA_EM_SEGUNDOS = 30;
+
   private static final String ASSINATURA_EM_US_EAST_1 = "/us-east-1/";
 
   private static final String RESPOSTA_DO_STS =

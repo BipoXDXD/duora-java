@@ -2,7 +2,7 @@ package bipotheking.net.duora.perfil;
 
 import bipotheking.net.duora.conta.ConsultaDeContas;
 import bipotheking.net.duora.conta.ContaId;
-import bipotheking.net.duora.conta.EstadoConta;
+import bipotheking.net.duora.conta.ContaResumo;
 import org.springframework.stereotype.Component;
 
 /**
@@ -21,8 +21,7 @@ public class AcessoAFotoPadrao implements AcessoAFoto {
 
   @Override
   public NivelDeAcesso nivel(ContaId quemVe, ContaId titular) {
-    boolean ativa =
-        contas.porId(titular).map(resumo -> resumo.estado() == EstadoConta.ATIVA).orElse(false);
+    boolean ativa = contas.porId(titular).map(ContaResumo::ativa).orElse(false);
     if (!ativa) {
       return NivelDeAcesso.NENHUM;
     }

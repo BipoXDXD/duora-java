@@ -167,14 +167,26 @@ export function salvarPerfil(e: EdicaoDoPerfil): Promise<MeuPerfil> {
   return gravar("/perfil", { versao, apelido, pronomes, descricaoPronomes, intencoes, bio }, EsquemaMeuPerfil);
 }
 
+const EsquemaFotoEnviada = v.object({ estado: v.picklist(["PENDENTE", "APROVADA"]) });
+
 /**
- * 202 com o corpo ignorado: a foto entra pendente e o próximo GET do perfil a mostra. O nome fixo
- * evita mandar ao servidor o nome do arquivo no aparelho.
+ * 202 com o estado em que a foto entrou: APROVADA se a moderação automática a liberou, senão
+ * PENDENTE (espera a revisão). O próximo GET do perfil a mostra. O nome fixo evita mandar ao
+ * servidor o nome do arquivo no aparelho.
  */
-export async function enviarFoto(arquivo: Blob, chave: string): Promise<void> {
+export async function enviarFoto(arquivo: Blob, chave: string): Promise<{ aprovada: boolean }> {
   const formulario = new FormData();
   formulario.append("arquivo", arquivo, "foto");
-  await requisitarHttp("POST", "/perfil/foto", { formulario, cabecalhos: { "Idempotency-Key": chave } });
+  const resposta = await requisitarHttp("POST", "/perfil/foto", {
+    formulario,
+    cabecalhos: { "Idempotency-Key": chave },
+  });
+  return { aprovada: ler(EsquemaFotoEnviada, resposta.status, resposta.dados).estado === "APROVADA" };
+}
+
+/** Apaga a foto aprovada, a pendente e a marca de recusa; o perfil volta à silhueta. */
+export function removerFoto(): Promise<void> {
+  return semResposta("DELETE", "/perfil/foto");
 }
 
 export function pausarConta(): Promise<void> {

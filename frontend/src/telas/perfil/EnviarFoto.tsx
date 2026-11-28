@@ -1,7 +1,8 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { useEffect, useReducer, useRef, type ChangeEvent, type ReactElement } from "react";
+import { useEffect, useReducer, useRef, useState, type ChangeEvent, type ReactElement } from "react";
 import { novaChaveDeIdempotencia } from "../../api/http";
-import { enviarFoto, type FotoDoPerfil } from "../../api/perfil";
+import { enviarFoto, removerFoto, type FotoDoPerfil } from "../../api/perfil";
+import { DialogoDeConfirmacao } from "../../componentes/DialogoDeConfirmacao";
 import { FotoOuSilhueta } from "../../componentes/FotoOuSilhueta";
 import {
   BOTAO_PRIMARIO,
@@ -71,9 +72,22 @@ function legenda(foto: FotoDoPerfil): string | null {
   return foto.aprovada === null ? FOTO.semFoto : null;
 }
 
+/** A remoção da foto guardada, com a confirmação antes. */
+type Remocao = "fechada" | "confirmando" | "removendo" | "removida" | "falhou";
+
 /** O useReducer passa só a etapa e o evento; a chave nova vem do gerador padrão. */
 function reduzir(etapa: EtapaDaFoto, evento: EventoDaFoto): EtapaDaFoto {
   return transicao(etapa, evento);
+}
+
+function textoDaConfirmacao(etapa: EtapaDaFoto, remocao: Remocao): string {
+  if (remocao === "removida") {
+    return FOTO.removida;
+  }
+  if (etapa.tipo !== "enviada") {
+    return "";
+  }
+  return etapa.aprovada ? FOTO.aprovada : FOTO.enviada;
 }
 
 function avisoDa(etapa: EtapaDaFoto): AvisoDaFoto | undefined {
@@ -91,11 +105,24 @@ export function EnviarFoto({ apelido, foto }: Props): ReactElement {
   const emEnvio = useRef(false);
   const confirmacao = useRef<HTMLParagraphElement>(null);
   const botaoDeEnviar = useRef<HTMLButtonElement>(null);
+  const [remocao, setRemocao] = useState<Remocao>("fechada");
+
+  const remover = useMutation({
+    mutationFn: removerFoto,
+    onSuccess: async () => {
+      await clienteDeConsulta.invalidateQueries({ queryKey: consultaDoMeuPerfil.queryKey, exact: true });
+      setRemocao("removida");
+    },
+    onError: () => {
+      setRemocao("falhou");
+    },
+  });
 
   const envio = useMutation({
     mutationFn: ({ arquivo, chave }: { arquivo: File; chave: string }) => enviarFoto(arquivo, chave),
-    onSuccess: () => {
-      despachar({ tipo: "enviado" });
+    onSuccess: ({ aprovada }) => {
+      setRemocao("fechada");
+      despachar({ tipo: "enviado", aprovada });
       void clienteDeConsulta.invalidateQueries({ queryKey: consultaDoMeuPerfil.queryKey, exact: true });
     },
     onError: (erro) => {
@@ -106,11 +133,20 @@ export function EnviarFoto({ apelido, foto }: Props): ReactElement {
     },
   });
 
+  // O botão de remover some junto com a foto: o foco vai para a confirmação.
   useEffect(() => {
-    if (etapa.tipo === "enviada") {
+    if (etapa.tipo === "enviada" || remocao === "removida") {
       confirmacao.current?.focus();
     }
-  }, [etapa.tipo]);
+  }, [etapa.tipo, remocao]);
+
+  function confirmarRemocao() {
+    if (remover.isPending) {
+      return;
+    }
+    setRemocao("removendo");
+    remover.mutate();
+  }
 
   function escolher(evento: ChangeEvent<HTMLInputElement>) {
     const arquivo = evento.target.files?.[0];
@@ -119,6 +155,8 @@ export function EnviarFoto({ apelido, foto }: Props): ReactElement {
     if (arquivo === undefined) {
       return;
     }
+    // Um aviso da remoção não deve ficar por cima do que vem com a foto nova.
+    setRemocao("fechada");
     const aviso = conferirNoCliente(arquivo);
     if (aviso !== null) {
       despachar({ tipo: "recusadaNoCliente", aviso });
@@ -153,6 +191,8 @@ export function EnviarFoto({ apelido, foto }: Props): ReactElement {
   const enviando = etapa.tipo === "enviando";
   const aviso = avisoDa(etapa);
   const situacao = legenda(foto);
+  const temFoto = foto.aprovada !== null || foto.pendente !== null;
+  const removendo = remocao === "removendo";
 
   return (
     <section aria-labelledby={ID.titulo} className="mt-(--e-8) pt-(--e-6) border-t border-noite-700 grid gap-(--e-4)">
@@ -203,6 +243,17 @@ export function EnviarFoto({ apelido, foto }: Props): ReactElement {
               {comPrevia ? FOTO.escolherOutra : FOTO.escolher}
             </label>
           </div>
+          {!comPrevia && temFoto && (
+            <button
+              type="button"
+              className={BOTAO_SECUNDARIO_SEM_MARGEM}
+              onClick={() => {
+                setRemocao("confirmando");
+              }}
+            >
+              {FOTO.remover}
+            </button>
+          )}
         </div>
         <p className={DICA} id={ID.dica}>
           {FOTO.dica}
@@ -213,10 +264,10 @@ export function EnviarFoto({ apelido, foto }: Props): ReactElement {
           className="m-0 text-[1.0625rem] leading-[1.5] text-marfim empty:hidden focus:not-focus-visible:[outline:none]"
           role="status"
         >
-          {etapa.tipo === "enviada" ? FOTO.enviada : ""}
+          {textoDaConfirmacao(etapa, remocao)}
         </p>
         <p className="m-0 text-[0.9375rem] leading-[1.45] text-coral empty:hidden" role="alert">
-          {aviso === undefined ? "" : textoDoAviso(aviso)}
+          {remocao === "falhou" ? FOTO.removerFalhou : aviso === undefined ? "" : textoDoAviso(aviso)}
         </p>
         {etapa.tipo === "falhou" && etapa.aviso.tipo === "indisponivel" && (
           <button type="button" className={BOTAO_SECUNDARIO_SEM_MARGEM} onClick={tentarDeNovo}>
@@ -224,6 +275,17 @@ export function EnviarFoto({ apelido, foto }: Props): ReactElement {
           </button>
         )}
       </div>
+      <DialogoDeConfirmacao
+        aberto={remocao === "confirmando" || removendo}
+        titulo={FOTO.removerTitulo}
+        texto={FOTO.removerTexto}
+        acao={removendo ? FOTO.removendo : FOTO.removerConfirmar}
+        aoConfirmar={confirmarRemocao}
+        aoCancelar={() => {
+          setRemocao("fechada");
+        }}
+        enviando={removendo}
+      />
     </section>
   );
 }

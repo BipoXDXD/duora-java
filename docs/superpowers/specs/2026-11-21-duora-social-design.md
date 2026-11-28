@@ -32,7 +32,7 @@ Hipótese herdada (`duora-java-mvp.md` §1): uma pequena criação compartilhada
   - A denúncia "parece menor de idade" suspende a conta na hora, sem depender do admin, até a revisão.
 - **Login**: link mágico por e-mail (Resend, já usado no C#), sem senha. O cadastro aberto ganha proteção contra robôs (Cloudflare Turnstile), rate limit por IP e por e-mail, e recusa de domínios de e-mail descartável.
 - **Localização**: obtida pelo Geolocation do navegador, só com consentimento. O servidor guarda apenas a célula (geohash de precisão 5, ≈5 km) e a coordenada exata é descartada. A tela mostra faixas ("até 5 km", "até 20 km", "até 50 km") e nunca a distância exata.
-- **Foto**: o servidor reprocessa a imagem (remove EXIF, converte para WebP q88) e gera a versão borrada. A original nítida só é servida a conexões mútuas, e o admin aprova cada foto antes de ela valer.
+- **Foto**: o servidor reprocessa a imagem (remove EXIF, converte para WebP q88) e gera a versão borrada. A original nítida só é servida a conexões mútuas. Nenhuma foto vale antes de aprovada: a análise automática de imagens da AWS (Rekognition `DetectModerationLabels`) aprova na hora a que não aponta nudez, sexo, violência explícita nem conteúdo chocante; a que ela aponta, ou quando ela falha, espera o admin (revisão da G5, decisão do dono de 2026-11-28).
 - **Voz** (WebRTC 1:1, só áudio, sem gravação no servidor) já no encontro, por decisão do dono. Cada um liga o próprio microfone; ninguém é ouvido sem ter ligado. Botão de silenciar o outro sempre visível.
   - **Prova de denúncia de voz** (dono, 2026-11-22): o aparelho de cada pessoa guarda em memória só os últimos 60 s do áudio recebido. Nada sai do aparelho, a menos que ela denuncie e confirme o envio do clipe. O aviso disso aparece no início de todo encontro, e a memória é descartada ao fim.
 - **Sair é sempre unilateral** (segurança): qualquer um sai a qualquer momento e vai à decisão privada. O que exige os dois é **encerrar antes dos 30 min de comum acordo**.
@@ -57,7 +57,7 @@ As fontes ficam em `docs/pesquisa/` (namoro, amizade e atividades, segurança e 
   - canal público de denúncia (ECA Digital, arts. 28 e 29);
   - contato do encarregado da LGPD.
 - **Etapa 3:**
-  - gênero, orientação e pronomes granulares, com "prefiro descrever";
+  - orientação e pronomes granulares, com "prefiro descrever"; gênero em 4 valores amplos (mulher, homem, pessoa não binária, outro), pela decisão G1 do dono no plano da Etapa 3;
   - pausar a conta sem apagá-la.
 - **Etapa 4:**
   - liquidez visível: tempo de espera estimado e horários com mais gente;
@@ -169,7 +169,7 @@ Playtest por agente (2026-11-22): primeira ação clara; contribuição do outro
 **Prova**: uma pessoa se cadastra pelo celular, um menor é recusado e um cadastro em rajada é barrado.
 
 ### Etapa 3: Perfil e preferências
-- Perfil: apelido, intenção (amizade/namoro, podendo ser ambas), bio curta, foto (upload → EXIF removido → WebP → versão borrada → fila de aprovação).
+- Perfil: apelido, intenção (amizade/namoro, podendo ser ambas), bio curta, foto (upload → EXIF removido → WebP → versão borrada → análise automática → aprovada, ou fila de aprovação humana).
 - Preferências: faixa etária e raio (5/20/50 km/sem limite), com a opção "raio obrigatório" ou "só preferência". Para namoro: o próprio gênero e os gêneros que a pessoa quer conhecer, com um aviso curto e uma caixa de consentimento. Esses dados são apagados quando a pessoa desliga o modo namoro.
 - Localização: consentimento explícito → célula geohash; atualizada a cada entrada na fila.
 

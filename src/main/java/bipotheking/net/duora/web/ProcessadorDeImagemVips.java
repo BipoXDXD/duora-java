@@ -14,9 +14,13 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.OptionalInt;
 import java.util.UUID;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.FutureTask;
 import java.util.concurrent.Semaphore;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import org.slf4j.Logger;
@@ -27,7 +31,8 @@ import org.springframework.stereotype.Component;
  * {@link ProcessadorDeImagem} com o libvips por processo (CLI): cada passo é um {@code vips} com
  * lista de argumentos, sem shell, com os carregadores não confiáveis bloqueados e um prazo que mata
  * o processo. Nítida: WebP q88 sem metadados, maior lado até 1600, orientação EXIF aplicada, sRGB.
- * Borrada: derivada de uma miniatura de 32 px ampliada a 400, para não guardar detalhe.
+ * Borrada: derivada de uma miniatura de 32 px ampliada a 400, para não guardar detalhe. Para a
+ * moderação, uma cópia da nítida em JPEG q85 sem metadados, que nunca é guardada.
  *
  * <p>No boot exige libvips ≥ 8.15 (falha proposital).
  */
@@ -45,6 +50,31 @@ final class ProcessadorDeImagemVips implements ProcessadorDeImagem {
       "libvips 8.15 ou mais novo é necessário: brew install vips (Mac) ou apt-get install"
           + " libvips-tools";
   private static final String SAIDA_WEBP = "[Q=88,keep=none]";
+  private static final String SAIDA_JPEG = "[Q=85,keep=none]";
+  private static final String LARGURA = "width";
+  private static final String ALTURA = "height";
+
+  /** Maior lado da nítida, em pixels. */
+  static final int LADO_DA_NITIDA = 1600;
+
+  /** Lado da miniatura de que a borrada deriva: o detalhe que sobra é o de 32 px. */
+  static final int LADO_DA_MINIATURA = 32;
+
+  /** Maior lado da borrada, em pixels. */
+  static final int LADO_DA_BORRADA = 400;
+
+  /** A ampliação da miniatura até a borrada (400 / 32 = 12,5). */
+  private static final double ESCALA_DA_BORRADA = (double) LADO_DA_BORRADA / LADO_DA_MINIATURA;
+
+  /** Desvio padrão do desfoque gaussiano da borrada, em pixels. */
+  private static final int DESVIO_DO_DESFOQUE = 6;
+
+  /** Abaixo disso, a falha de escrita do vips é tratada como disco cheio (503), não imagem ruim. */
+  private static final long ESPACO_MINIMO = 64L * 1024 * 1024;
+
+  /** Só o {@code vipsheader} e o {@code --version} escrevem, e pouco. */
+  private static final int SAIDA_MAXIMA = 4 * 1024;
+
   private static final byte[] JPEG = {(byte) 0xFF, (byte) 0xD8, (byte) 0xFF};
   private static final byte[] PNG = {(byte) 0x89, 'P', 'N', 'G', '\r', '\n', 0x1A, '\n'};
   private static final byte[] RIFF = {'R', 'I', 'F', 'F'};
@@ -107,45 +137,26 @@ final class ProcessadorDeImagemVips implements ProcessadorDeImagem {
     Path entrada = tmp.resolve(id + ".entrada");
     Path nitida = tmp.resolve(id + "-n.webp");
     Path borrada = tmp.resolve(id + "-b.webp");
+    Path paraModeracao = tmp.resolve(id + "-m.jpg");
     // PNG e não .v: o VIPS_BLOCK_UNTRUSTED bloqueia o vipsload.
-    Path miniatura = tmp.resolve(id + "-32.png");
-    Path ampliada = tmp.resolve(id + "-400.png");
+    Path miniatura = tmp.resolve(id + "-" + LADO_DA_MINIATURA + ".png");
+    Path ampliada = tmp.resolve(id + "-" + LADO_DA_BORRADA + ".png");
     boolean pronta = false;
     try {
       Files.createDirectories(tmp);
       copiarAteOLimite(arquivo, entrada);
       exigirFormatoAceito(entrada);
       exigirDimensoesAceitas(entrada, prazoFinal);
-      exigirSucesso(
-          executar(
-              prazoFinal,
-              config.vips(),
-              "thumbnail",
-              entrada.toString(),
-              nitida + SAIDA_WEBP,
-              "1600",
-              "--size",
-              "down",
-              "--export-profile",
-              "srgb",
-              "--fail-on",
-              "truncated"));
-      derivar(prazoFinal, "thumbnail", nitida.toString(), miniatura.toString(), "32");
-      derivar(
-          prazoFinal,
-          "resize",
-          miniatura.toString(),
-          ampliada.toString(),
-          "12.5",
-          "--kernel",
-          "linear");
-      derivar(prazoFinal, "gaussblur", ampliada.toString(), borrada + SAIDA_WEBP, "6");
+      gerarNitida(entrada, nitida, prazoFinal);
+      gerarBorrada(nitida, miniatura, ampliada, borrada, prazoFinal);
+      derivar(prazoFinal, "copy", nitida.toString(), paraModeracao + SAIDA_JPEG);
       ImagemProcessada imagem =
           new ImagemProcessada(
               nitida,
               borrada,
-              lado(nitida, "width", prazoFinal, false),
-              lado(nitida, "height", prazoFinal, false));
+              paraModeracao,
+              ladoGerado(nitida, LARGURA, prazoFinal),
+              ladoGerado(nitida, ALTURA, prazoFinal));
       pronta = true;
       return imagem;
     } catch (IOException e) {
@@ -154,8 +165,74 @@ final class ProcessadorDeImagemVips implements ProcessadorDeImagem {
     } finally {
       apagar(entrada, miniatura, ampliada);
       if (!pronta) {
-        apagar(nitida, borrada);
+        apagar(nitida, borrada, paraModeracao);
       }
+    }
+  }
+
+  /**
+   * O primeiro passo que decodifica a entrada do usuário: falha costuma ser arquivo corrompido
+   * (422), mas pode ser o disco cheio na escrita, e aí a culpa é nossa (503).
+   */
+  private void gerarNitida(Path entrada, Path nitida, long prazoFinal) {
+    Resultado resultado =
+        executar(
+            prazoFinal,
+            config.vips(),
+            "thumbnail",
+            entrada.toString(),
+            nitida + SAIDA_WEBP,
+            String.valueOf(LADO_DA_NITIDA),
+            "--size",
+            "down",
+            "--export-profile",
+            "srgb",
+            "--fail-on",
+            "truncated");
+    if (resultado.codigo() == 0) {
+      return;
+    }
+    if (semEspacoNoTmp()) {
+      LOG.error(
+          "vips thumbnail falhou (código {}) com o disco dos temporários quase cheio",
+          resultado.codigo());
+      throw indisponivel();
+    }
+    LOG.info("vips thumbnail recusou uma imagem enviada (código {})", resultado.codigo());
+    throw invalida();
+  }
+
+  /** Miniatura de 32 px, ampliada a 400 sem interpolar detalhe e desfocada. */
+  private void gerarBorrada(
+      Path nitida, Path miniatura, Path ampliada, Path borrada, long prazoFinal) {
+    derivar(
+        prazoFinal,
+        "thumbnail",
+        nitida.toString(),
+        miniatura.toString(),
+        String.valueOf(LADO_DA_MINIATURA));
+    derivar(
+        prazoFinal,
+        "resize",
+        miniatura.toString(),
+        ampliada.toString(),
+        String.valueOf(ESCALA_DA_BORRADA),
+        "--kernel",
+        "linear");
+    derivar(
+        prazoFinal,
+        "gaussblur",
+        ampliada.toString(),
+        borrada + SAIDA_WEBP,
+        String.valueOf(DESVIO_DO_DESFOQUE));
+  }
+
+  private boolean semEspacoNoTmp() {
+    try {
+      return Files.getFileStore(tmp).getUsableSpace() < ESPACO_MINIMO;
+    } catch (IOException e) {
+      LOG.warn("Não foi possível medir o espaço livre dos temporários", e);
+      return false;
     }
   }
 
@@ -196,33 +273,40 @@ final class ProcessadorDeImagemVips implements ProcessadorDeImagem {
 
   /** Lê só o cabeçalho: uma bomba de descompressão é recusada antes de ser decodificada. */
   private void exigirDimensoesAceitas(Path entrada, long prazoFinal) {
-    long largura = lado(entrada, "width", prazoFinal, true);
-    long altura = lado(entrada, "height", prazoFinal, true);
+    long largura = ladoDaEntrada(entrada, LARGURA, prazoFinal);
+    long altura = ladoDaEntrada(entrada, ALTURA, prazoFinal);
     if (largura > LADO_MAXIMO || altura > LADO_MAXIMO || largura * altura > AREA_MAXIMA) {
       throw invalida();
     }
   }
 
-  /**
-   * Um lado pelo {@code vipsheader}. Na entrada do usuário, falha é imagem inválida; num arquivo
-   * nosso, é falha do processamento.
-   */
-  private int lado(Path arquivo, String campo, long prazoFinal, boolean doUsuario) {
+  /** Um lado da entrada do usuário: sem leitura, a imagem é inválida. */
+  private int ladoDaEntrada(Path entrada, String campo, long prazoFinal) {
+    return lado(entrada, campo, prazoFinal).orElseThrow(ProcessadorDeImagemVips::invalida);
+  }
+
+  /** Um lado de um arquivo nosso: sem leitura, a falha é do processamento. */
+  private int ladoGerado(Path gerado, String campo, long prazoFinal) {
+    OptionalInt lado = lado(gerado, campo, prazoFinal);
+    if (lado.isEmpty()) {
+      LOG.warn("vipsheader falhou num arquivo gerado pelo processamento");
+      throw indisponivel();
+    }
+    return lado.getAsInt();
+  }
+
+  /** Um lado pelo {@code vipsheader}; vazio se ele falhar ou não escrever um número. */
+  private OptionalInt lado(Path arquivo, String campo, long prazoFinal) {
     Resultado resultado =
         executar(prazoFinal, config.vipsheader(), "-f", campo, arquivo.toString());
+    if (resultado.codigo() != 0) {
+      return OptionalInt.empty();
+    }
     try {
-      if (resultado.codigo() == 0) {
-        return Integer.parseInt(resultado.saida());
-      }
+      return OptionalInt.of(Integer.parseInt(resultado.saida()));
     } catch (NumberFormatException e) {
-      // cai na recusa abaixo
+      return OptionalInt.empty();
     }
-    if (doUsuario) {
-      throw invalida();
-    }
-    LOG.warn(
-        "vipsheader falhou num arquivo gerado pelo processamento (código {})", resultado.codigo());
-    throw indisponivel();
   }
 
   /** Passo sobre um arquivo que o próprio processamento gerou: falha não é culpa do usuário. */
@@ -234,12 +318,6 @@ final class ProcessadorDeImagemVips implements ProcessadorDeImagem {
     if (resultado.codigo() != 0) {
       LOG.warn("vips {} falhou (código {})", argumentos[0], resultado.codigo());
       throw indisponivel();
-    }
-  }
-
-  private static void exigirSucesso(Resultado resultado) {
-    if (resultado.codigo() != 0) {
-      throw invalida();
     }
   }
 
@@ -263,9 +341,9 @@ final class ProcessadorDeImagemVips implements ProcessadorDeImagem {
   }
 
   /**
-   * Roda um comando sem shell. Prazo estourado mata o processo e os descendentes e vira 503; a
-   * saída padrão é pequena (só o {@code vipsheader} e o {@code --version} escrevem) e é lida no
-   * fim.
+   * Roda um comando sem shell. Prazo estourado mata o processo e os descendentes e vira 503. A
+   * saída padrão é lida numa thread virtual enquanto o processo roda (um pipe cheio travaria o
+   * processo até o prazo) e só os primeiros {@link #SAIDA_MAXIMA} bytes ficam.
    */
   private Resultado executar(long prazoFinal, String... argumentos) {
     if (prazoFinal - System.nanoTime() <= 0) {
@@ -282,6 +360,8 @@ final class ProcessadorDeImagemVips implements ProcessadorDeImagem {
       LOG.error("Não foi possível iniciar o {}", argumentos[0], e);
       throw indisponivel();
     }
+    FutureTask<String> leitura = new FutureTask<>(() -> lerSaida(processo.getInputStream()));
+    Thread.ofVirtual().start(leitura);
     try {
       processo.getOutputStream().close();
       if (!processo.waitFor(prazoFinal - System.nanoTime(), TimeUnit.NANOSECONDS)) {
@@ -289,16 +369,27 @@ final class ProcessadorDeImagemVips implements ProcessadorDeImagem {
         matar(processo);
         throw indisponivel();
       }
-      String saida = new String(processo.getInputStream().readAllBytes(), US_ASCII).trim();
+      String saida = leitura.get(Math.max(0, prazoFinal - System.nanoTime()), TimeUnit.NANOSECONDS);
       return new Resultado(processo.exitValue(), saida);
     } catch (InterruptedException e) {
       Thread.currentThread().interrupt();
       matar(processo);
       throw indisponivel();
-    } catch (IOException e) {
+    } catch (ExecutionException | TimeoutException | IOException e) {
       matar(processo);
-      LOG.warn("Falha de E/S ao falar com o {}", argumentos[0], e);
+      LOG.warn("Falha ao ler a saída do {}", argumentos[0], e);
       throw indisponivel();
+    } finally {
+      leitura.cancel(true);
+    }
+  }
+
+  /** Guarda o começo da saída e descarta o resto até o fim, para o processo nunca travar. */
+  private static String lerSaida(InputStream saida) throws IOException {
+    try (saida) {
+      byte[] inicio = saida.readNBytes(SAIDA_MAXIMA);
+      saida.transferTo(OutputStream.nullOutputStream());
+      return new String(inicio, US_ASCII).trim();
     }
   }
 
