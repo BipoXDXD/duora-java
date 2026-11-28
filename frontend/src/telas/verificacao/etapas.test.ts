@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { ErroHttp } from "../../api/http";
-import type { SessaoDeCaptura, SituacaoDaVerificacao } from "../../api/verificacao";
-import { etapaInicial, proximaEtapa, type Etapa } from "./etapas";
+import type { Desfecho, SessaoDeCaptura, SituacaoDaVerificacao } from "../../api/verificacao";
+import { etapaInicial, proximaEtapa, type Etapa, type FalhaDoDetector } from "./etapas";
 
 function situacao(campos: Partial<SituacaoDaVerificacao>): SituacaoDaVerificacao {
   return {
@@ -150,6 +150,36 @@ describe("proximaEtapa", () => {
     expect(proximaEtapa(captura, { tipo: "falhou", falha: "outraPessoa" })).toEqual({
       etapa: "falhaDoDetector",
       falha: "outraPessoa",
+      finalidade: "SELFIE",
+    });
+  });
+
+  // Falha de infraestrutura não custa tentativa: a sessão da AWS segue valendo e volta inteira.
+  it("carregamentoRepeteComAMesmaSessao", () => {
+    const captura: Etapa = { etapa: "captura", sessao: SESSAO, finalidade: "SELFIE" };
+
+    const falha = proximaEtapa(captura, { tipo: "falhou", falha: "carregamento" });
+
+    expect(falha).toEqual({ etapa: "falhaDoDetector", falha: "carregamento", finalidade: "SELFIE", sessao: SESSAO });
+    expect(proximaEtapa(falha, { tipo: "comecar", modo: "aws" })).toEqual(captura);
+  });
+
+  it.each<FalhaDoDetector>(["camera", "tempo", "servico"])("falha %s guarda a finalidade sem a sessão", (falha) => {
+    const captura: Etapa = { etapa: "captura", sessao: SESSAO, finalidade: "DOCUMENTO" };
+
+    expect(proximaEtapa(captura, { tipo: "falhou", falha })).toEqual({
+      etapa: "falhaDoDetector",
+      falha,
+      finalidade: "DOCUMENTO",
+    });
+  });
+
+  it("falhaNaSelfieDoDocumentoRecomecaComoDocumento", () => {
+    const falha: Etapa = { etapa: "falhaDoDetector", falha: "tempo", finalidade: "DOCUMENTO" };
+
+    expect(proximaEtapa(falha, { tipo: "comecar", modo: "aws" })).toEqual({
+      etapa: "checandoCamera",
+      finalidade: "DOCUMENTO",
     });
   });
 
@@ -163,5 +193,132 @@ describe("proximaEtapa", () => {
     const iniciando: Etapa = { etapa: "iniciando", finalidade: "SELFIE" };
 
     expect(proximaEtapa(iniciando, { tipo: "comecar", modo: "falso" })).toBe(iniciando);
+  });
+});
+
+function desfecho(campos: Partial<Desfecho>): Desfecho {
+  return {
+    resultado: "APROVADA",
+    pedeDocumento: false,
+    tentativasRestantesHoje: 2,
+    enviosDeDocumentoRestantesHoje: 2,
+    ...campos,
+  };
+}
+
+describe("conferência da selfie", () => {
+  const conferindo: Etapa = { etapa: "conferindo", sessaoId: "abc" };
+
+  function recusa(status: number, codigo: string, tentarDeNovoEmSegundos: number | null = null): Etapa {
+    const erro = new ErroHttp({ status, codigo, tentarDeNovoEmSegundos });
+    return proximaEtapa(conferindo, { tipo: "conferenciaRecusada", erro });
+  }
+
+  it("aprovadaVaiParaODesfechoAprovada", () => {
+    expect(proximaEtapa(conferindo, { tipo: "conferido", desfecho: desfecho({}) })).toEqual({
+      etapa: "desfecho",
+      tipo: "aprovada",
+    });
+  });
+
+  it("repetirVaiParaODesfechoRepetir", () => {
+    expect(proximaEtapa(conferindo, { tipo: "conferido", desfecho: desfecho({ resultado: "REPETIR" }) })).toEqual({
+      etapa: "desfecho",
+      tipo: "repetir",
+    });
+  });
+
+  it("duvidaComDocumentoVaiParaODocumento", () => {
+    const duvida = desfecho({ resultado: "DUVIDA", pedeDocumento: true });
+
+    expect(proximaEtapa(conferindo, { tipo: "conferido", desfecho: duvida })).toEqual({ etapa: "documento" });
+  });
+
+  it("duvidaSemDocumentoVaiParaAnalise", () => {
+    const duvida = desfecho({ resultado: "DUVIDA", pedeDocumento: false, enviosDeDocumentoRestantesHoje: 0 });
+
+    expect(proximaEtapa(conferindo, { tipo: "conferido", desfecho: duvida })).toEqual({
+      etapa: "desfecho",
+      tipo: "analise",
+    });
+  });
+
+  it("menorDeIdadeVaiParaODesfechoMenor", () => {
+    expect(recusa(422, "MENOR_DE_IDADE")).toEqual({ etapa: "desfecho", tipo: "menor" });
+  });
+
+  it("sessaoInvalidaVaiParaODesfechoSessaoInvalida", () => {
+    expect(recusa(404, "SESSAO_DE_VERIFICACAO_INVALIDA")).toEqual({ etapa: "desfecho", tipo: "sessaoInvalida" });
+  });
+
+  it("servico503RepeteComOMesmoSessaoId", () => {
+    const indisponivel = recusa(503, "PROVA_DE_VIDA_INDISPONIVEL");
+
+    expect(indisponivel).toEqual({ etapa: "indisponivel", repetir: { tipo: "conferir", sessaoId: "abc" } });
+    expect(proximaEtapa(indisponivel, { tipo: "tentarDeNovo" })).toEqual(conferindo);
+  });
+
+  it("emAndamentoRepeteComOMesmoSessaoId", () => {
+    const indisponivel = recusa(409, "REQUISICAO_EM_ANDAMENTO", 1);
+
+    expect(indisponivel).toEqual({ etapa: "indisponivel", repetir: { tipo: "conferir", sessaoId: "abc" } });
+    expect(proximaEtapa(indisponivel, { tipo: "tentarDeNovo" })).toEqual(conferindo);
+  });
+
+  it("falhaDeRedeRepeteComOMesmoSessaoId", () => {
+    expect(recusa(0, "SEM_CONEXAO")).toEqual({ etapa: "indisponivel", repetir: { tipo: "conferir", sessaoId: "abc" } });
+  });
+
+  // D13-bis: só o 429 de taxa usa o Retry-After; o do dia mostra o texto do limite do dia.
+  it("limiteDeTaxaGuardaOsSegundos", () => {
+    expect(recusa(429, "LIMITE_DE_TAXA", 90)).toEqual({ etapa: "limite", segundos: 90 });
+  });
+
+  it("limiteDeVerificacaoEOLimiteDoDia", () => {
+    expect(recusa(429, "LIMITE_DE_VERIFICACAO", 3600)).toEqual({ etapa: "limite", segundos: null });
+  });
+
+  it("eventoForaDaConferenciaNaoMudaNada", () => {
+    expect(proximaEtapa(conferindo, { tipo: "tentarDeNovo" })).toBe(conferindo);
+  });
+});
+
+describe("depois da conferência", () => {
+  it.each<FalhaDoDetector>(["camera", "tempo", "conexao"])("falha %s com a AWS checa a câmera de novo", (falha) => {
+    const etapa: Etapa = { etapa: "falhaDoDetector", falha, finalidade: "SELFIE" };
+
+    expect(proximaEtapa(etapa, { tipo: "comecar", modo: "aws" })).toEqual({
+      etapa: "checandoCamera",
+      finalidade: "SELFIE",
+    });
+  });
+
+  it("falhaNoModoFalsoIniciaSemChecarACamera", () => {
+    const etapa: Etapa = { etapa: "falhaDoDetector", falha: "rosto", finalidade: "SELFIE" };
+
+    expect(proximaEtapa(etapa, { tipo: "comecar", modo: "falso" })).toEqual({
+      etapa: "iniciando",
+      finalidade: "SELFIE",
+    });
+  });
+
+  it("repetirComecaUmaNovaSelfie", () => {
+    expect(proximaEtapa({ etapa: "desfecho", tipo: "repetir" }, { tipo: "comecar", modo: "aws" })).toEqual({
+      etapa: "checandoCamera",
+      finalidade: "SELFIE",
+    });
+  });
+
+  it("sessaoInvalidaVoltaParaExplicacao", () => {
+    expect(proximaEtapa({ etapa: "desfecho", tipo: "sessaoInvalida" }, { tipo: "tentarDeNovo" })).toEqual({
+      etapa: "explicacao",
+    });
+  });
+
+  it.each(["aprovada", "analise", "menor"] as const)("desfecho %s é final", (tipo) => {
+    const final: Etapa = { etapa: "desfecho", tipo };
+
+    expect(proximaEtapa(final, { tipo: "comecar", modo: "aws" })).toBe(final);
+    expect(proximaEtapa(final, { tipo: "tentarDeNovo" })).toBe(final);
   });
 });

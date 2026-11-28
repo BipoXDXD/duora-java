@@ -49,6 +49,27 @@ class AxeContaIT extends ContaE2eBase {
       "modo":"falso"}\
       """;
 
+  private static final String SITUACAO_EM_ANALISE =
+      """
+      {"estado":"DUVIDA","tentativasRestantesHoje":0,"enviosDeDocumentoRestantesHoje":0,\
+      "modo":"falso"}\
+      """;
+
+  private static final String RESULTADO_REPETIR =
+      """
+      {"resultado":"REPETIR","pedeDocumento":false,"tentativasRestantesHoje":1,\
+      "enviosDeDocumentoRestantesHoje":2}\
+      """;
+
+  private static final String RESULTADO_REPETIR_SEM_TENTATIVAS =
+      """
+      {"resultado":"REPETIR","pedeDocumento":false,"tentativasRestantesHoje":0,\
+      "enviosDeDocumentoRestantesHoje":2}\
+      """;
+
+  /** O pedaço do detector do modo falso, que a página só baixa quando a captura começa. */
+  private static final String PEDACO_DO_DETECTOR_FALSO = "**/app/DetectorFalso-*.js";
+
   /** Base64url com o tamanho de um token de 32 bytes, que nunca foi emitido. */
   private static final String TOKEN_INEXISTENTE = "A".repeat(43);
 
@@ -197,6 +218,123 @@ class AxeContaIT extends ContaE2eBase {
     assertThat(verificacao.botao("Tentar de novo")).isVisible();
 
     assertSemViolacoes(verificacao.page(), "verificação: serviço fora");
+  }
+
+  @Test
+  void verificacaoCapturaSimulada(Participantes participantes) {
+    VerificacaoPagina verificacao = verificacaoSimulada(participantes, api -> {});
+
+    verificacao.consentirEComecar().textoVisivel("Modo de teste: nenhuma câmera é usada.");
+    assertThat(verificacao.botao("Simular captura")).isVisible();
+
+    assertSemViolacoes(verificacao.page(), "verificação: captura simulada");
+  }
+
+  @Test
+  void verificacaoAprovada(Participantes participantes) {
+    VerificacaoPagina verificacao = verificacaoSimulada(participantes, api -> {});
+
+    verificacao.consentirEComecar().simularCaptura();
+    assertThat(verificacao.heading("Idade confirmada")).isFocused();
+    assertThat(
+            verificacao
+                .page()
+                .getByRole(AriaRole.LINK, new Page.GetByRoleOptions().setName("Continuar")))
+        .hasAttribute("href", "/");
+
+    assertSemViolacoes(verificacao.page(), "verificação: aprovada");
+  }
+
+  @Test
+  void verificacaoRepetir(Participantes participantes) {
+    VerificacaoPagina verificacao =
+        verificacaoSimulada(
+            participantes,
+            api ->
+                api.comResultado(ApiDeVerificacaoSimulada.Resposta.json(200, RESULTADO_REPETIR)));
+
+    verificacao.consentirEComecar().simularCaptura();
+    assertThat(verificacao.heading("Não deu para confirmar")).isVisible();
+    verificacao.textoVisivel("Tentativas restantes hoje: 1");
+    assertThat(verificacao.botao("Tentar de novo")).isVisible();
+
+    assertSemViolacoes(verificacao.page(), "verificação: repetir");
+  }
+
+  @Test
+  void verificacaoRepetirSemTentativas(Participantes participantes) {
+    VerificacaoPagina verificacao =
+        verificacaoSimulada(
+            participantes,
+            api ->
+                api.comResultado(
+                    ApiDeVerificacaoSimulada.Resposta.json(200, RESULTADO_REPETIR_SEM_TENTATIVAS)));
+
+    verificacao.consentirEComecar().simularCaptura();
+    assertThat(verificacao.heading("Não deu para confirmar")).isVisible();
+    verificacao.textoVisivel("Você chegou ao limite de tentativas de hoje. Tente de novo amanhã.");
+
+    assertSemViolacoes(verificacao.page(), "verificação: repetir sem tentativas");
+  }
+
+  @Test
+  void verificacaoFalhaDoDetector(Participantes participantes) {
+    VerificacaoPagina verificacao = verificacaoSimulada(participantes, api -> {});
+    // Sem o pedaço do detector, a captura falha por carregamento, como numa conexão que caiu.
+    verificacao.page().route(PEDACO_DO_DETECTOR_FALSO, Route::abort);
+
+    verificacao
+        .consentirEComecar()
+        .textoVisivel("Não conseguimos carregar a selfie. Confira a conexão e tente de novo.");
+    assertThat(verificacao.botao("Tentar de novo")).isVisible();
+
+    assertSemViolacoes(verificacao.page(), "verificação: falha do detector");
+  }
+
+  @Test
+  void verificacaoSessaoInvalida(Participantes participantes) {
+    VerificacaoPagina verificacao =
+        verificacaoSimulada(
+            participantes,
+            api ->
+                api.comResultado(
+                    ApiDeVerificacaoSimulada.Resposta.problema(
+                        404,
+                        "SESSAO_DE_VERIFICACAO_INVALIDA",
+                        "A sessão de verificação não vale mais.")));
+
+    verificacao.consentirEComecar().simularCaptura();
+    verificacao.textoVisivel("Esta selfie não vale mais. Comece de novo.");
+    assertThat(verificacao.botao("Tentar de novo")).isVisible();
+
+    assertSemViolacoes(verificacao.page(), "verificação: sessão inválida");
+  }
+
+  @Test
+  void verificacaoMenor(Participantes participantes) {
+    VerificacaoPagina verificacao =
+        verificacaoSimulada(
+            participantes,
+            api ->
+                api.comResultado(
+                    ApiDeVerificacaoSimulada.Resposta.problema(
+                        422, "MENOR_DE_IDADE", "O Duora é só para maiores de 18 anos.")));
+
+    verificacao.consentirEComecar().simularCaptura();
+    assertThat(verificacao.heading("Cadastro não concluído")).isVisible();
+    verificacao.textoVisivel("O Duora é só para maiores de 18 anos. Encerramos o cadastro.");
+
+    assertSemViolacoes(verificacao.page(), "verificação: menor");
+  }
+
+  @Test
+  void verificacaoEmAnalise(Participantes participantes) {
+    VerificacaoPagina verificacao =
+        verificacaoSimulada(participantes, api -> api.comSituacao(SITUACAO_EM_ANALISE));
+
+    assertThat(verificacao.heading("Conta em análise")).isVisible();
+
+    assertSemViolacoes(verificacao.page(), "verificação: em análise");
   }
 
   @Test

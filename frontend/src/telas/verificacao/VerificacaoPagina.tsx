@@ -1,15 +1,17 @@
-import { useMutation } from "@tanstack/react-query";
-import { useEffect, useReducer, useRef, type ReactElement } from "react";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useEffect, useReducer, useRef, useState, type ReactElement } from "react";
 import { useLoaderData } from "react-router";
 import type { Conta } from "../../api/estadoDaConta";
 import { ErroHttp } from "../../api/http";
 import type { VersoesLegais } from "../../api/legal";
-import { iniciarSessao, type Finalidade, type SituacaoDaVerificacao } from "../../api/verificacao";
-import { BOTAO_SECUNDARIO_SEM_MARGEM, LINK_DE_ACAO, TITULO_DA_CASCA } from "../../componentes/estilos";
+import { concluirSelfie, iniciarSessao, type Finalidade, type SituacaoDaVerificacao } from "../../api/verificacao";
+import { BOTAO_SECUNDARIO_SEM_MARGEM, TITULO_DA_CASCA } from "../../componentes/estilos";
+import { consultaDaConta, consultaDaVerificacao } from "../../rotas/consultas";
 import { CASCA, textoDeEspera } from "../conta/textos";
 import { checarCamera, navegadorTemSuporte, type MotivoSemCamera, type ResultadoDaCamera } from "./camera";
 import { CapturaDeVida } from "./CapturaDeVida";
-import { etapaInicial, proximaEtapa, type Etapa, type Evento } from "./etapas";
+import { Desfecho, DesfechoDaVerificacao, Repeticao, VoltarAoTerraco } from "./Desfecho";
+import { etapaInicial, proximaEtapa, recusaDaConferencia, type Etapa, type Evento } from "./etapas";
 import { Explicacao } from "./Explicacao";
 import { VERIFICACAO_DE_IDADE } from "./textos";
 
@@ -103,10 +105,16 @@ interface PropsDasEtapas {
   temSuporte: () => boolean;
 }
 
+/** As etapas que trazem o próprio título (o Desfecho), que recebe o foco no lugar do h1. */
+function temTituloProprio(etapa: Etapa): boolean {
+  return (etapa.etapa === "desfecho" && etapa.tipo !== "sessaoInvalida") || etapa.etapa === "documento";
+}
+
 /**
- * Cada etapa tem a sua ação de entrada: a checagem da câmera roda em `checandoCamera` e o POST da
- * sessão em `iniciando`. A sessão (com a credencial curta) só entra no redutor: a mutação devolve
- * nada, e o cache de mutações nunca a vê.
+ * Cada etapa tem a sua ação de entrada: a checagem da câmera roda em `checandoCamera`, o POST da
+ * sessão em `iniciando` e o do resultado em `conferindo`. A sessão (com a credencial curta) só entra
+ * no redutor: as mutações devolvem nada, e o cache de mutações nunca a vê. As tentativas começam na
+ * situação, caem a cada sessão de selfie aberta (o servidor reserva a tentativa ali) e seguem o Desfecho.
  */
 function Etapas({
   inicial,
@@ -116,15 +124,24 @@ function Etapas({
   checar,
   temSuporte,
 }: PropsDasEtapas): ReactElement {
-  const [etapa, despachar] = useReducer(proximaEtapa, inicial);
+  // A etapa de abertura, guardada: o título de um desfecho só toma o foco quando a pessoa chegou nele.
+  const [abertura] = useState(inicial);
+  const [etapa, despachar] = useReducer(proximaEtapa, abertura);
+  const [tentativas, definirTentativas] = useState(situacao.tentativasRestantesHoje);
+  const clienteDeConsulta = useQueryClient();
   const titulo = useRef<HTMLHeadingElement>(null);
   const primeiraEtapa = useRef(true);
-  // Trava síncrona do POST da sessão: abre só quando a etapa sai de `iniciando`.
+  // Travas síncronas dos POSTs: cada uma abre só quando a etapa sai de `iniciando` ou de `conferindo`.
   const iniciando = useRef(false);
+  const conferindo = useRef(false);
 
   const sessao = useMutation({
     mutationFn: async (finalidade: Finalidade) => {
-      despachar({ tipo: "sessaoCriada", sessao: await iniciarSessao(finalidade) });
+      const criada = await iniciarSessao(finalidade);
+      if (finalidade === "SELFIE") {
+        definirTentativas((restantes) => Math.max(0, restantes - 1));
+      }
+      despachar({ tipo: "sessaoCriada", sessao: criada });
     },
     gcTime: 0,
     onError: (erro) => {
@@ -137,17 +154,50 @@ function Etapas({
   });
   const abrirSessao = sessao.mutate;
 
+  const conferencia = useMutation({
+    mutationFn: async (sessaoId: string) => {
+      const desfecho = await concluirSelfie(sessaoId);
+      definirTentativas(desfecho.tentativasRestantesHoje);
+      despachar({ tipo: "conferido", desfecho });
+      void clienteDeConsulta.invalidateQueries({ queryKey: consultaDaVerificacao.queryKey });
+    },
+    gcTime: 0,
+    onError: (erro, sessaoId) => {
+      if (erro instanceof ErroHttp && CODIGOS_DE_RECARGA.includes(erro.codigo)) {
+        navegarParaPagina(CAMINHO_DA_CONTA);
+        return;
+      }
+      // Uma recusa que vira desfecho (a mesma decisão do redutor) diz que a situação no servidor mudou.
+      const resultado = recusaDaConferencia(sessaoId, erro);
+      if (resultado.etapa === "desfecho") {
+        // O servidor encerrou o cadastro do menor: a conta lida antes não vale mais.
+        if (resultado.tipo === "menor") {
+          clienteDeConsulta.removeQueries({ queryKey: consultaDaConta.queryKey, exact: true });
+        }
+        void clienteDeConsulta.invalidateQueries({ queryKey: consultaDaVerificacao.queryKey });
+      }
+      despachar({ tipo: "conferenciaRecusada", erro });
+    },
+  });
+  const conferir = conferencia.mutate;
+
+  const tituloProprio = temTituloProprio(etapa);
   useEffect(() => {
     if (primeiraEtapa.current) {
       primeiraEtapa.current = false;
       return;
     }
-    titulo.current?.focus();
-  }, [etapa.etapa]);
+    if (!tituloProprio) {
+      titulo.current?.focus();
+    }
+  }, [etapa.etapa, tituloProprio]);
 
   useEffect(() => {
     if (etapa.etapa !== "iniciando") {
       iniciando.current = false;
+    }
+    if (etapa.etapa !== "conferindo") {
+      conferindo.current = false;
     }
     if (etapa.etapa === "checandoCamera") {
       let valendo = true;
@@ -167,11 +217,15 @@ function Etapas({
       iniciando.current = true;
       abrirSessao(etapa.finalidade);
     }
+    if (etapa.etapa === "conferindo" && !conferindo.current) {
+      conferindo.current = true;
+      conferir(etapa.sessaoId);
+    }
     return undefined;
-  }, [etapa, checar, abrirSessao]);
+  }, [etapa, checar, abrirSessao, conferir]);
 
   const espera = textoDaEspera(etapa);
-  const ocupado = etapa.etapa === "checandoCamera" || etapa.etapa === "iniciando";
+  const ocupado = etapa.etapa === "checandoCamera" || etapa.etapa === "iniciando" || etapa.etapa === "conferindo";
 
   return (
     <>
@@ -185,7 +239,9 @@ function Etapas({
       <div aria-busy={ocupado ? true : undefined}>
         <ConteudoDaEtapa
           etapa={etapa}
+          abertura={etapa === abertura}
           situacao={situacao}
+          tentativas={tentativas}
           emailDoEncarregado={emailDoEncarregado}
           temSuporte={temSuporte}
           despachar={despachar}
@@ -197,7 +253,10 @@ function Etapas({
 
 interface PropsDoConteudo {
   etapa: Etapa;
+  /** Ainda na etapa em que a página abriu: o título do desfecho não toma o foco. */
+  abertura: boolean;
   situacao: SituacaoDaVerificacao;
+  tentativas: number;
   emailDoEncarregado: string;
   temSuporte: () => boolean;
   despachar: (evento: Evento) => void;
@@ -210,10 +269,11 @@ function textoDaEspera(etapa: Etapa): string | null {
       return VERIFICACAO_DE_IDADE.abrindoCamera;
     case "iniciando":
       return VERIFICACAO_DE_IDADE.preparando;
+    case "conferindo":
+      return VERIFICACAO_DE_IDADE.conferindo;
     case "captura":
     case "explicacao":
     case "semCamera":
-    case "conferindo":
     case "falhaDoDetector":
     case "desfecho":
     case "documento":
@@ -224,22 +284,35 @@ function textoDaEspera(etapa: Etapa): string | null {
   }
 }
 
-function FalhaComRepeticao({ texto, aoRepetir }: { texto: string; aoRepetir: () => void }): ReactElement {
+interface PropsDaFalha {
+  texto: string;
+  aoRepetir: () => void;
+  /** Quando a repetição gasta uma tentativa: mostra quantas sobram, e o limite do dia quando acabaram. */
+  tentativas?: number;
+}
+
+function FalhaComRepeticao({ texto, aoRepetir, tentativas }: PropsDaFalha): ReactElement {
   return (
     <div className="mt-(--e-5) grid gap-(--e-4)">
       <p role="alert" className={AVISO}>
         {texto}
       </p>
-      <button type="button" className={BOTAO_SECUNDARIO_SEM_MARGEM} onClick={aoRepetir}>
-        {VERIFICACAO_DE_IDADE.tentarDeNovo}
-      </button>
+      {tentativas === undefined ? (
+        <button type="button" className={BOTAO_SECUNDARIO_SEM_MARGEM} onClick={aoRepetir}>
+          {VERIFICACAO_DE_IDADE.tentarDeNovo}
+        </button>
+      ) : (
+        <Repeticao tentativas={tentativas} aoRepetir={aoRepetir} />
+      )}
     </div>
   );
 }
 
 function ConteudoDaEtapa({
   etapa,
+  abertura,
   situacao,
+  tentativas,
   emailDoEncarregado,
   temSuporte,
   despachar,
@@ -247,17 +320,18 @@ function ConteudoDaEtapa({
   const tentarDeNovo = () => {
     despachar({ tipo: "tentarDeNovo" });
   };
+  const novaSelfie = () => {
+    despachar({ tipo: "comecar", modo: situacao.modo });
+  };
   switch (etapa.etapa) {
     case "explicacao":
       return (
         <Explicacao
-          tentativas={situacao.tentativasRestantesHoje}
+          tentativas={tentativas}
           emailDoEncarregado={emailDoEncarregado}
           // Sem a AWS, o detector falso não usa câmera nem wasm.
           temSuporte={situacao.modo === "falso" || temSuporte()}
-          aoComecar={() => {
-            despachar({ tipo: "comecar", modo: situacao.modo });
-          }}
+          aoComecar={novaSelfie}
         />
       );
     case "semCamera":
@@ -268,10 +342,7 @@ function ConteudoDaEtapa({
           <p className={AVISO}>
             {etapa.segundos === null ? VERIFICACAO_DE_IDADE.limiteDoDia : textoDeEspera(etapa.segundos)}
           </p>
-          {/* Página inteira: o terraço não é rota da casca. */}
-          <a href="/" className={`justify-self-start ${LINK_DE_ACAO}`}>
-            {VERIFICACAO_DE_IDADE.voltarAoTerraco}
-          </a>
+          <VoltarAoTerraco />
         </div>
       );
     case "indisponivel":
@@ -292,13 +363,35 @@ function ConteudoDaEtapa({
           }}
         />
       );
+    case "falhaDoDetector":
+      return (
+        <FalhaComRepeticao
+          texto={VERIFICACAO_DE_IDADE.falhas[etapa.falha]}
+          tentativas={tentativas}
+          aoRepetir={novaSelfie}
+        />
+      );
+    case "desfecho":
+      if (etapa.tipo === "sessaoInvalida") {
+        // Volta para a explicação: o consentimento vale para uma selfie nova.
+        return <FalhaComRepeticao texto={VERIFICACAO_DE_IDADE.sessaoInvalida} aoRepetir={tentarDeNovo} />;
+      }
+      return (
+        <DesfechoDaVerificacao
+          tipo={etapa.tipo}
+          focar={!abertura}
+          tentativas={tentativas}
+          emailDoEncarregado={emailDoEncarregado}
+          aoRepetir={novaSelfie}
+        />
+      );
+    case "documento":
+      // O envio das fotos completa esta etapa; aqui só o título.
+      return <Desfecho titulo={VERIFICACAO_DE_IDADE.documento.titulo} focar={!abertura} />;
     // As esperas falam na região viva da página, fora daqui.
     case "checandoCamera":
     case "iniciando":
     case "conferindo":
-    case "falhaDoDetector":
-    case "desfecho":
-    case "documento":
     case "enviandoDocumento":
       return null;
   }

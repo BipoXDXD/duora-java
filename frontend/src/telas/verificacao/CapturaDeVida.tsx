@@ -64,7 +64,7 @@ export function CapturaDeVida(props: PropsDoDetector): ReactElement {
         <Suspense
           fallback={
             <p role="status" className={ESPERA}>
-              {VERIFICACAO_DE_IDADE.abrindoCamera}
+              {VERIFICACAO_DE_IDADE.carregandoSelfie}
             </p>
           }
         >

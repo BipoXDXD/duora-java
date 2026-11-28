@@ -51,4 +51,10 @@ final class VerificacaoPagina {
     comecar.click();
     return this;
   }
+
+  /** Termina a selfie do detector falso (modo de teste): a página pede o resultado ao servidor. */
+  VerificacaoPagina simularCaptura() {
+    botao("Simular captura").click();
+    return this;
+  }
 }
