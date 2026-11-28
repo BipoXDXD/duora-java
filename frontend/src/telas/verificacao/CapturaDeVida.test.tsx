@@ -70,12 +70,14 @@ describe("CapturaDeVida", () => {
     expect(carregados).toEqual({ amplify: 0, falso: 1 });
   });
 
-  it("esperaAbrindoACameraEnquantoCarrega", async () => {
+  it("esperaAvisaQueACargaPodeDemorar", async () => {
     vi.doMock("./DetectorAmplify", () => new Promise<never>(() => undefined));
 
     await renderizar("aws");
 
-    expect(screen.getByRole("status")).toHaveTextContent("Abrindo a câmera…");
+    expect(screen.getByRole("status")).toHaveTextContent(
+      "Carregando a selfie. Com internet lenta, pode demorar um pouco.",
+    );
   });
 
   it("falhaNoDownloadViraCarregamento", async () => {

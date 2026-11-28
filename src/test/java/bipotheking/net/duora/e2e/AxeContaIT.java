@@ -49,6 +49,18 @@ class AxeContaIT extends ContaE2eBase {
       "modo":"falso"}\
       """;
 
+  private static final String SITUACAO_EM_ANALISE =
+      """
+      {"estado":"DUVIDA","tentativasRestantesHoje":0,"enviosDeDocumentoRestantesHoje":0,\
+      "modo":"falso"}\
+      """;
+
+  private static final String RESULTADO_REPETIR =
+      """
+      {"resultado":"REPETIR","pedeDocumento":false,"tentativasRestantesHoje":1,\
+      "enviosDeDocumentoRestantesHoje":2}\
+      """;
+
   /** Base64url com o tamanho de um token de 32 bytes, que nunca foi emitido. */
   private static final String TOKEN_INEXISTENTE = "A".repeat(43);
 
@@ -197,6 +209,74 @@ class AxeContaIT extends ContaE2eBase {
     assertThat(verificacao.botao("Tentar de novo")).isVisible();
 
     assertSemViolacoes(verificacao.page(), "verificação: serviço fora");
+  }
+
+  @Test
+  void verificacaoCapturaSimulada(Participantes participantes) {
+    VerificacaoPagina verificacao = verificacaoSimulada(participantes, api -> {});
+
+    verificacao.consentirEComecar().textoVisivel("Modo de teste: nenhuma câmera é usada.");
+    assertThat(verificacao.botao("Simular captura")).isVisible();
+
+    assertSemViolacoes(verificacao.page(), "verificação: captura simulada");
+  }
+
+  @Test
+  void verificacaoAprovada(Participantes participantes) {
+    VerificacaoPagina verificacao = verificacaoSimulada(participantes, api -> {});
+
+    verificacao.consentirEComecar().simularCaptura();
+    assertThat(verificacao.heading("Idade confirmada")).isFocused();
+    assertThat(
+            verificacao
+                .page()
+                .getByRole(AriaRole.LINK, new Page.GetByRoleOptions().setName("Continuar")))
+        .hasAttribute("href", "/");
+
+    assertSemViolacoes(verificacao.page(), "verificação: aprovada");
+  }
+
+  @Test
+  void verificacaoRepetir(Participantes participantes) {
+    VerificacaoPagina verificacao =
+        verificacaoSimulada(
+            participantes,
+            api ->
+                api.comResultado(ApiDeVerificacaoSimulada.Resposta.json(200, RESULTADO_REPETIR)));
+
+    verificacao.consentirEComecar().simularCaptura();
+    assertThat(verificacao.heading("Não deu para confirmar")).isVisible();
+    verificacao.textoVisivel("Tentativas restantes hoje: 1");
+    assertThat(verificacao.botao("Tentar de novo")).isVisible();
+
+    assertSemViolacoes(verificacao.page(), "verificação: repetir");
+  }
+
+  @Test
+  void verificacaoMenor(Participantes participantes) {
+    VerificacaoPagina verificacao =
+        verificacaoSimulada(
+            participantes,
+            api ->
+                api.comResultado(
+                    ApiDeVerificacaoSimulada.Resposta.problema(
+                        422, "MENOR_DE_IDADE", "O Duora é só para maiores de 18 anos.")));
+
+    verificacao.consentirEComecar().simularCaptura();
+    assertThat(verificacao.heading("Cadastro não concluído")).isVisible();
+    verificacao.textoVisivel("O Duora é só para maiores de 18 anos. Encerramos o cadastro.");
+
+    assertSemViolacoes(verificacao.page(), "verificação: menor");
+  }
+
+  @Test
+  void verificacaoEmAnalise(Participantes participantes) {
+    VerificacaoPagina verificacao =
+        verificacaoSimulada(participantes, api -> api.comSituacao(SITUACAO_EM_ANALISE));
+
+    assertThat(verificacao.heading("Conta em análise")).isVisible();
+
+    assertSemViolacoes(verificacao.page(), "verificação: em análise");
   }
 
   @Test

@@ -3,7 +3,13 @@
 // dentro, na etapa da captura.
 
 import { ErroHttp } from "../../api/http";
-import type { Finalidade, ModoDaVerificacao, SessaoDeCaptura, SituacaoDaVerificacao } from "../../api/verificacao";
+import type {
+  Desfecho,
+  Finalidade,
+  ModoDaVerificacao,
+  SessaoDeCaptura,
+  SituacaoDaVerificacao,
+} from "../../api/verificacao";
 import type { MotivoSemCamera, ResultadoDaCamera } from "./camera";
 
 /** Por que o detector de prova de vida desistiu da selfie. */
@@ -26,6 +32,10 @@ export type Evento =
   | { tipo: "falhou"; falha: FalhaDoDetector }
   /** A pessoa desistiu da selfie: volta para a explicação (a tentativa já foi gasta no servidor). */
   | { tipo: "cancelou" }
+  /** Pede (de novo) o resultado da selfie da sessão: a repetição depois de um 503 ou de um 409 em andamento. */
+  | { tipo: "conferir"; sessaoId: string }
+  | { tipo: "conferido"; desfecho: Desfecho }
+  | { tipo: "conferenciaRecusada"; erro: unknown }
   | { tipo: "tentarDeNovo" };
 
 export type Etapa =
@@ -78,16 +88,46 @@ function recusaDaSessao(finalidade: Finalidade, erro: unknown): Etapa {
   return { etapa: "indisponivel", repetir: { tipo: "iniciar", finalidade } };
 }
 
+/** O resultado da selfie: a DUVIDA só vai para o envio do documento quando o servidor ainda o aceita hoje. */
+function etapaDoDesfecho(desfecho: Desfecho): Etapa {
+  switch (desfecho.resultado) {
+    case "APROVADA":
+      return { etapa: "desfecho", tipo: "aprovada" };
+    case "REPETIR":
+      return { etapa: "desfecho", tipo: "repetir" };
+    case "DUVIDA":
+      return desfecho.pedeDocumento ? { etapa: "documento" } : { etapa: "desfecho", tipo: "analise" };
+  }
+}
+
+/**
+ * A recusa da conferência: o 422 de menor e o 404 de sessão vencida são desfechos; os 429 seguem a regra
+ * da sessão; o resto (503, 409 em andamento, rede) repete o pedido com a mesma sessão, sem gastar outra
+ * tentativa.
+ */
+function recusaDaConferencia(sessaoId: string, erro: unknown): Etapa {
+  if (erro instanceof ErroHttp && erro.codigo === "MENOR_DE_IDADE") {
+    return { etapa: "desfecho", tipo: "menor" };
+  }
+  if (erro instanceof ErroHttp && erro.codigo === "SESSAO_DE_VERIFICACAO_INVALIDA") {
+    return { etapa: "desfecho", tipo: "sessaoInvalida" };
+  }
+  const recusa = recusaDaSessao("SELFIE", erro);
+  return recusa.etapa === "limite" ? recusa : { etapa: "indisponivel", repetir: { tipo: "conferir", sessaoId } };
+}
+
+/** Uma nova selfie, depois de uma falha ou de um REPETIR: com a AWS, a câmera é checada de novo. */
+function novaSelfie(modo: ModoDaVerificacao): Etapa {
+  return modo === "aws"
+    ? { etapa: "checandoCamera", finalidade: "SELFIE" }
+    : { etapa: "iniciando", finalidade: "SELFIE" };
+}
+
 /** A transição; um evento que não vale para a etapa atual (o segundo toque de um clique duplo) não muda nada. */
 export function proximaEtapa(etapa: Etapa, evento: Evento): Etapa {
   switch (etapa.etapa) {
     case "explicacao":
-      if (evento.tipo === "comecar") {
-        return evento.modo === "aws"
-          ? { etapa: "checandoCamera", finalidade: "SELFIE" }
-          : { etapa: "iniciando", finalidade: "SELFIE" };
-      }
-      return etapa;
+      return evento.tipo === "comecar" ? novaSelfie(evento.modo) : etapa;
     case "checandoCamera":
       if (evento.tipo === "cameraChecada") {
         return evento.resultado === "ok"
@@ -109,6 +149,9 @@ export function proximaEtapa(etapa: Etapa, evento: Evento): Etapa {
       if (evento.tipo === "tentarDeNovo") {
         return proximaEtapa(etapa, etapa.repetir);
       }
+      if (evento.tipo === "conferir") {
+        return { etapa: "conferindo", sessaoId: evento.sessaoId };
+      }
       return evento.tipo === "iniciar" ? { etapa: "iniciando", finalidade: evento.finalidade } : etapa;
     case "captura":
       // A selfie do documento segue para o envio das fotos, não para a conferência da selfie.
@@ -120,8 +163,20 @@ export function proximaEtapa(etapa: Etapa, evento: Evento): Etapa {
       }
       return evento.tipo === "cancelou" ? { etapa: "explicacao" } : etapa;
     case "conferindo":
+      if (evento.tipo === "conferido") {
+        return etapaDoDesfecho(evento.desfecho);
+      }
+      return evento.tipo === "conferenciaRecusada" ? recusaDaConferencia(etapa.sessaoId, evento.erro) : etapa;
     case "falhaDoDetector":
+      return evento.tipo === "comecar" ? novaSelfie(evento.modo) : etapa;
     case "desfecho":
+      if (etapa.tipo === "repetir" && evento.tipo === "comecar") {
+        return novaSelfie(evento.modo);
+      }
+      if (etapa.tipo === "sessaoInvalida" && evento.tipo === "tentarDeNovo") {
+        return { etapa: "explicacao" };
+      }
+      return etapa;
     case "documento":
     case "enviandoDocumento":
     case "limite":
