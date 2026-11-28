@@ -38,6 +38,17 @@ record Retrato(
         Optional.empty());
   }
 
+  /** Sala pareada: só o criador sentado e nenhum convite. */
+  static Retrato reservado(Participante criador, Instant agora) {
+    return new Retrato(
+        Estado.inicial(),
+        Map.of(criador.assento(), criador),
+        Optional.empty(),
+        agora,
+        Map.of(),
+        Optional.empty());
+  }
+
   Optional<Participante> participante(Assento assento) {
     return Optional.ofNullable(participantes.get(assento));
   }
@@ -64,6 +75,15 @@ record Retrato(
     todos.put(parceiro.assento(), parceiro);
     return new Retrato(novo, todos, Optional.empty(), agora, ultimoContato, encerramento)
         .comContato(parceiro.assento(), agora);
+  }
+
+  /** Troca o resumo do token de um assento já ocupado: o token anterior deixa de valer. */
+  Retrato comResumo(Assento assento, String resumoToken) {
+    Participante atual = participantes.get(assento);
+    Map<Assento, Participante> todos = new EnumMap<>(Assento.class);
+    todos.putAll(participantes);
+    todos.put(assento, new Participante(assento, atual.apelido(), resumoToken, atual.conta()));
+    return new Retrato(estado, todos, convite, ultimaAcao, ultimoContato, encerramento);
   }
 
   Retrato encerrado(MotivoEncerramento motivo, Instant em) {
