@@ -48,6 +48,18 @@ class PrazosDaPlataformaTest extends BancoDeTeste {
           entry("Arquivo de foto trocada, recusada ou removida", List.of("fotos-orfas")),
           entry("Localização (área de cerca de 5 km)", List.of("localizacoes-paradas")));
 
+  /**
+   * Linhas dos dados do perfil que não têm política de retenção: ficam até a pessoa apagar,
+   * desligar ou excluir a conta, e saem pelos ganchos da exclusão. Preferências, namoro e
+   * orientação são tabelas que dependem de {@code perfil}.
+   */
+  private static final List<String> LINHAS_SEM_POLITICA_DO_PERFIL =
+      List.of(
+          "Conta, perfil e foto",
+          "Preferências de pareamento (idade e distância)",
+          "Gênero e quem você quer conhecer",
+          "Orientação");
+
   private static final Pattern PRAZO = Pattern.compile("(\\d+) (minutos?|horas?|dias?|mês|meses)");
 
   /** Seis meses são os 183 dias do Marco Civil: um mês conta 30,5 dias (732 horas). */
@@ -70,6 +82,18 @@ class PrazosDaPlataformaTest extends BancoDeTeste {
     });
 
     assertThat(expiracao.prazos()).containsExactlyInAnyOrderEntriesOf(esperados);
+  }
+
+  @Test
+  void linhasDoPerfilSemPoliticaEstaoNaTabela() throws IOException {
+    Map<String, String> tabela = tabelaDeRetencao();
+
+    assertThat(LINHAS_SEM_POLITICA_DO_PERFIL)
+        .allSatisfy(dado -> {
+          assertThat(tabela).as(dado).containsKey(dado);
+          assertThat(tabela.get(dado)).as(dado).contains("até");
+        })
+        .doesNotContainAnyElementsOf(POLITICAS_POR_LINHA.keySet());
   }
 
   /** As linhas da tabela da seção de retenção: dado para o texto do prazo. */

@@ -129,3 +129,61 @@ _Evitar_: config, descrição do cenário
 **Geometria**:
 Onde ficam os lugares e os props no render de um cenário.
 _Evitar_: cena (cena é o componente visual)
+
+### Perfil
+
+**Perfil**:
+O que a pessoa mostra de si: apelido, pronomes, intenções, bio e foto. Pertence à conta, mas não é a conta.
+_Evitar_: conta, cadastro (para o perfil)
+
+**Intenção**:
+Como a pessoa quer usar o Duora: amizade, namoro ou os dois. Ao menos uma.
+_Evitar_: objetivo, modo
+
+**Ajustes de busca**:
+A faixa de idade e o raio que a pessoa escolhe para quem quer conhecer, e se o raio é obrigatório.
+_Evitar_: filtros
+
+**Preferências de pareamento**:
+O que o pareamento lê de uma conta: intenções, ajustes de busca e, com namoro, o gênero próprio e os buscados. Fica só no servidor; nunca é serializada nem logada.
+_Evitar_: ajustes (ajustes são o que a pessoa edita), filtros
+
+**Dados de namoro**:
+O gênero da pessoa e quem ela quer conhecer. Dado sensível (LGPD, art. 11): só com consentimento, só com a intenção namoro, só para o pareamento; some quando a pessoa desliga o namoro.
+_Evitar_: preferências sexuais, interesses (sozinho)
+
+**Orientação**:
+Dado opcional e sensível, com consentimento próprio. Nunca entra no pareamento; aparece só para conexões e só se a pessoa escolher mostrar.
+_Evitar_: sexualidade, preferência
+
+**Pronomes**:
+Como a pessoa quer ser chamada (ela/dela, ele/dele, elu/delu ou uma descrição curta). Opcionais; aparecem para quem a encontra.
+_Evitar_: gênero (pronomes não são gênero)
+
+**Célula**:
+A área de cerca de 5 km (geohash de 5 caracteres) em que a localização vira; a coordenada é descartada. Só o pareamento a lê.
+_Evitar_: localização exata, posição, coordenada
+
+**Faixa de distância**:
+O que a tela mostra no lugar da distância: até 5 km, até 20 km, até 50 km ou mais de 50 km, entre células.
+_Evitar_: distância (sozinho), quilômetros
+
+**Pausa**:
+Tira a pessoa da fila de encontros sem mexer na conta nem no perfil; ela volta quando quiser.
+_Evitar_: desativar, ocultar
+
+**Selo verificado**:
+A marca, no perfil, de que a verificação de idade da conta foi aprovada.
+_Evitar_: verificado (sozinho, sem dizer de quê), conta verificada
+
+**Projeção**:
+O recorte do perfil para uma audiência: público (encontro), completo (conexão) e preferências de pareamento (servidor). Cada uma só tem o que aquela audiência pode ver (ADR 0008).
+_Evitar_: DTO, visão
+
+**Foto pendente**:
+Foto enviada que ainda espera a moderação. Não aparece para ninguém além do titular; a aprovada anterior vale até a nova ser aprovada.
+_Evitar_: foto em análise, rascunho
+
+**Borrada**:
+A variante da foto para quem ainda não é conexão: reduzida a 32 px e ampliada, sem detalhe a recuperar. A outra é a nítida.
+_Evitar_: desfocada, miniatura
