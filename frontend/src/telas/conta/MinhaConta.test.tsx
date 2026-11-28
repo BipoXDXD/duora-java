@@ -101,6 +101,30 @@ afterEach(() => {
 });
 
 describe("MinhaConta", () => {
+  it("contaAtivaTemLinksDoPerfil", async () => {
+    prepararFetch();
+    renderizar("ATIVA", true);
+
+    const secao = await screen.findByRole("region", { name: "Seu perfil" });
+    expect(within(secao).getByRole("heading", { level: 2, name: "Seu perfil" })).toBeInTheDocument();
+    expect(within(secao).getByRole("link", { name: "Meu perfil" })).toHaveAttribute("href", "/perfil");
+    expect(within(secao).getByRole("link", { name: "Preferências de encontro" })).toHaveAttribute(
+      "href",
+      "/perfil/preferencias",
+    );
+    // Antes do Sair, na ordem do documento.
+    expect(secao.compareDocumentPosition(await botaoSair()) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
+
+  it("contaAguardandoNaoTemLinksDoPerfil", async () => {
+    prepararFetch();
+    renderizar("AGUARDANDO_VERIFICACAO");
+
+    expect(await screen.findByText(FALTA_CONFIRMAR)).toBeInTheDocument();
+    expect(screen.queryByRole("region", { name: "Seu perfil" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: "Meu perfil" })).not.toBeInTheDocument();
+  });
+
   it("mostraOsTextosDoContrato", async () => {
     prepararFetch();
     renderizar();

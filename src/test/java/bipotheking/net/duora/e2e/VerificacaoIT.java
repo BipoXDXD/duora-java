@@ -37,14 +37,14 @@ class VerificacaoIT extends ContaE2eBase {
   private static final String ENCARREGADO = "encarregado@exemplo.invalid";
 
   @Test
-  void aprovadaPelaSelfieChegaAoTerracoComSelo(Participantes participantes) {
+  void aprovadaPelaSelfieLevaAoPerfilEMostraOSelo(Participantes participantes) {
     ContaPagina conta = novaConta(participantes);
     VerificacaoPagina verificacao = verificacaoDeContaNova(conta, emailNovo());
 
     verificacao.consentirEComecar().simularCaptura();
     assertThat(verificacao.heading("Idade confirmada")).isVisible();
-    conta.link("Continuar").click();
-    assertThat(conta.page()).hasURL(raiz());
+    conta.link("Montar meu perfil").click();
+    assertThat(conta.page()).hasURL(raiz() + "perfil");
 
     conta.abrir(raiz() + "conta");
     assertThat(
@@ -122,8 +122,10 @@ class VerificacaoIT extends ContaE2eBase {
     VerificacaoPagina verificacao = VerificacaoPagina.de(conta.page());
     verificacao.consentirEComecar().simularCaptura();
     assertThat(verificacao.heading("Idade confirmada")).isVisible();
-    Response daRaiz = respostaDeDocumento(conta.page(), "", () -> conta.link("Continuar").click());
-    assertThat(daRaiz.headerValue("content-security-policy")).isEqualTo(CabecalhosDeSeguranca.CSP);
+    Response doPerfil =
+        respostaDeDocumento(conta.page(), "perfil", () -> conta.link("Montar meu perfil").click());
+    assertThat(doPerfil.headerValue("content-security-policy"))
+        .isEqualTo(CabecalhosDeSeguranca.CSP);
   }
 
   @ParameterizedTest(name = "{0}")

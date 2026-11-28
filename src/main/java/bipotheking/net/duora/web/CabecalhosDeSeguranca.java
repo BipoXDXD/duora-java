@@ -51,11 +51,18 @@ public final class CabecalhosDeSeguranca extends OncePerRequestFilter {
           + "worker-src 'none'; base-uri 'none'; form-action 'self'; frame-ancestors 'none'; "
           + "object-src 'none'; require-trusted-types-for 'script'; trusted-types 'none'";
 
-  /** A prova de vida usa só a câmera; o microfone fica fechado por menor privilégio. */
-  public static final String PERMISSIONS_POLICY_VERIFICACAO = "camera=(self), microphone=()";
+  /**
+   * A prova de vida usa só a câmera; o microfone e a localização ficam fechados por menor
+   * privilégio.
+   */
+  public static final String PERMISSIONS_POLICY_VERIFICACAO =
+      "camera=(self), microphone=(), geolocation=()";
 
-  /** Nenhuma outra resposta usa câmera nem microfone. */
-  public static final String PERMISSIONS_POLICY = "camera=(), microphone=()";
+  /**
+   * Nenhuma outra resposta usa câmera nem microfone; a localização fica liberada só para a própria
+   * origem (a área aproximada das preferências de encontro, com consentimento na tela).
+   */
+  public static final String PERMISSIONS_POLICY = "camera=(), microphone=(), geolocation=(self)";
 
   /**
    * O index.html, o service worker, o manifest e as rotas do SPA, que o Spring encaminha ao
@@ -67,6 +74,15 @@ public final class CabecalhosDeSeguranca extends OncePerRequestFilter {
               RotasDoSpa.CAMINHOS.stream())
           .collect(Collectors.toUnmodifiableSet());
 
+  private static boolean sempreRevalidado(String caminho) {
+    return SEMPRE_REVALIDADOS.contains(caminho)
+        || RotasDoSpa.PREFIXOS.stream().anyMatch(caminho::startsWith);
+  }
+
+  /**
+   * Todos os cabeçalhos entram por {@code setHeader}, antes da cadeia: quem responde depois (como a
+   * foto borrada, com cache privado) troca o valor com outro {@code setHeader}, sem deixar dois.
+   */
   @Override
   protected void doFilterInternal(
       HttpServletRequest request, HttpServletResponse response, FilterChain chain)
@@ -80,7 +96,7 @@ public final class CabecalhosDeSeguranca extends OncePerRequestFilter {
     response.setHeader("Cross-Origin-Resource-Policy", "same-origin");
     if (MesmaOrigem.ehApi(request)) {
       response.setHeader(HttpHeaders.CACHE_CONTROL, "no-store");
-    } else if (SEMPRE_REVALIDADOS.contains(request.getRequestURI())) {
+    } else if (sempreRevalidado(request.getRequestURI())) {
       response.setHeader(HttpHeaders.CACHE_CONTROL, "no-cache");
     }
     chain.doFilter(request, response);

@@ -28,6 +28,20 @@ describe("rotaDoPedido", () => {
     expect(rota({ caminho: "/api/sala" })).toBe("ignorar");
   });
 
+  it("fotoDePerfilNuncaPassaPeloWorker", () => {
+    // A nítida é no-store e a borrada é privada da sessão: nenhuma entra no cache do worker.
+    expect(rota({ caminho: "/api/fotos/3f2a9c1e-0000-4000-8000-000000000001/nitida", modo: "no-cors" })).toBe(
+      "ignorar",
+    );
+    expect(rota({ caminho: "/api/fotos/3f2a9c1e-0000-4000-8000-000000000001/borrada", modo: "no-cors" })).toBe(
+      "ignorar",
+    );
+  });
+
+  it("navegacaoParaPerfisVemDaRede", () => {
+    expect(rota({ caminho: "/perfis/3f2a9c1e-0000-4000-8000-000000000001", modo: "navigate" })).toBe("navegacao");
+  });
+
   it("pedido com Range é ignorado", () => {
     expect(rota({ caminho: "/assets/cenarios/terraco/audio/trilha.mp3", temRange: true })).toBe("ignorar");
   });

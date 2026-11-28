@@ -1,6 +1,6 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useRef, useState, type MouseEvent, type ReactElement } from "react";
-import { useLoaderData, useNavigate } from "react-router";
+import { Link, useLoaderData, useNavigate } from "react-router";
 import { excluirConta, sairDaConta } from "../../api/conta";
 import type { Conta } from "../../api/estadoDaConta";
 import { ErroHttp } from "../../api/http";
@@ -12,6 +12,7 @@ import { CONFIRMAR, MINHA_CONTA } from "./textos";
 
 const ID_DA_FALHA_AO_SAIR = "minha-conta-falha-ao-sair";
 const ID_DA_EXCLUSAO = "minha-conta-exclusao";
+const ID_DO_PERFIL = "minha-conta-perfil";
 const ID_DA_FALHA_AO_EXCLUIR = "minha-conta-falha-ao-excluir";
 
 const AVISO_DE_FALHA = "m-0 text-[0.9375rem] leading-[1.45] text-coral";
@@ -52,7 +53,8 @@ function sessaoJaEncerrada(erro: Error): boolean {
  * A conta da sessão (aguardando verificação ou ativa, pelo guarda da rota): sair e excluir. Excluir
  * pede confirmação num diálogo, um par só de botão e diálogo. Depois de sair ou excluir, a conta sai
  * do cache para não deixar estado logado fantasma. Quem aguarda a verificação recebe o link para
- * ela (página inteira: a verificação vive num documento próprio); a conta verificada mostra o selo.
+ * ela (página inteira: a verificação vive num documento próprio); a conta verificada mostra o selo, e
+ * a conta ativa, a entrada para o perfil.
  */
 export function MinhaConta(): ReactElement {
   const conta = useLoaderData<Conta>();
@@ -188,6 +190,19 @@ export function MinhaConta(): ReactElement {
             <p className="m-0 text-texto-2 leading-[1.5]">{MINHA_CONTA.descricaoDoSelo}</p>
           </div>
         </div>
+      )}
+      {conta.estado === "ATIVA" && (
+        <section aria-labelledby={ID_DO_PERFIL} className="mt-(--e-6) grid gap-(--e-1) justify-items-start">
+          <h2 id={ID_DO_PERFIL} className="m-0 font-titulo font-semibold text-[1.375rem] leading-[1.2]">
+            {MINHA_CONTA.tituloDoPerfil}
+          </h2>
+          <Link to="/perfil" className={LINK_DE_ACAO}>
+            {MINHA_CONTA.meuPerfil}
+          </Link>
+          <Link to="/perfil/preferencias" className={LINK_DE_ACAO}>
+            {MINHA_CONTA.preferencias}
+          </Link>
+        </section>
       )}
       <div className="mt-(--e-6) grid gap-(--e-2)">
         <button

@@ -84,6 +84,14 @@ class AxeContaIT extends ContaE2eBase {
   /** O pedaço do detector do modo falso, que a página só baixa quando a captura começa. */
   private static final String PEDACO_DO_DETECTOR_FALSO = "**/app/DetectorFalso-*.js";
 
+  /** O {@code GET /api/perfil} de quem ainda não salvou o perfil. */
+  private static final String PERFIL_NAO_SALVO =
+      """
+      {"versao":null,"apelido":null,"pronomes":null,"descricaoPronomes":null,"intencoes":[],\
+      "bio":"","pausada":false,"prontoParaFila":false,"pendencias":["PERFIL"],\
+      "foto":{"aprovada":null,"pendente":null,"recusadaEm":null}}\
+      """;
+
   /** Base64url com o tamanho de um token de 32 bytes, que nunca foi emitido. */
   private static final String TOKEN_INEXISTENTE = "A".repeat(43);
 
@@ -253,8 +261,8 @@ class AxeContaIT extends ContaE2eBase {
     assertThat(
             verificacao
                 .page()
-                .getByRole(AriaRole.LINK, new Page.GetByRoleOptions().setName("Continuar")))
-        .hasAttribute("href", "/");
+                .getByRole(AriaRole.LINK, new Page.GetByRoleOptions().setName("Montar meu perfil")))
+        .hasAttribute("href", "/perfil");
 
     assertSemViolacoes(verificacao.page(), "verificação: aprovada");
   }
@@ -431,6 +439,49 @@ class AxeContaIT extends ContaE2eBase {
     assertThat(conta.page().getByText("Falta confirmar sua idade.")).isVisible();
     assertThat(conta.link("Confirmar minha idade")).hasAttribute("href", "/verificacao");
     assertSemViolacoes(conta.page(), "minha conta");
+  }
+
+  @Test
+  void minhaContaAtiva(Participantes participantes) {
+    ContaPagina conta =
+        logado(participantes, EstadoConta.ATIVA, NASCIMENTO_DE_ADULTO).abrir(raiz() + "conta");
+
+    assertThat(conta.heading("Seu perfil")).isVisible();
+    assertThat(conta.link("Meu perfil")).hasAttribute("href", "/perfil");
+    assertThat(conta.link("Preferências de encontro")).hasAttribute("href", "/perfil/preferencias");
+    assertSemViolacoes(conta.page(), "minha conta ativa");
+  }
+
+  /**
+   * A navegação das telas de perfil. O {@code GET /api/perfil} vem do Playwright (perfil ainda não
+   * salvo), para a moldura não depender do back do perfil.
+   */
+  @Test
+  void navegacaoDoPerfil(Participantes participantes) {
+    ContaPagina conta = logado(participantes, EstadoConta.ATIVA, NASCIMENTO_DE_ADULTO);
+    conta
+        .page()
+        .route(
+            "**/api/perfil",
+            rota ->
+                rota.fulfill(
+                    new Route.FulfillOptions()
+                        .setStatus(200)
+                        .setContentType("application/json")
+                        .setBody(PERFIL_NAO_SALVO)));
+
+    conta.abrir(raiz() + "perfil");
+
+    Locator navegacao =
+        conta
+            .page()
+            .getByRole(AriaRole.NAVIGATION, new Page.GetByRoleOptions().setName("Seu perfil"));
+    assertThat(conta.heading("Meu perfil")).isVisible();
+    assertThat(
+            navegacao.getByRole(
+                AriaRole.LINK, new Locator.GetByRoleOptions().setName("Meu perfil")))
+        .hasAttribute("aria-current", "page");
+    assertSemViolacoes(conta.page(), "navegação do perfil");
   }
 
   @Test

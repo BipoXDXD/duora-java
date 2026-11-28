@@ -3,9 +3,18 @@ import { type LoaderFunctionArgs, redirectDocument, type RouteObject } from "rea
 import type { DadosDaConfirmacao } from "../telas/conta/ConfirmarEntrada";
 import type { DadosDaVerificacao } from "../telas/verificacao/VerificacaoPagina";
 import { CAMINHO_DA_VERIFICACAO } from "./caminhosDaCasca";
-import { consultaDasVersoesLegais, consultaDaVerificacao } from "./consultas";
+import {
+  consultaDaLocalizacao,
+  consultaDaOrientacao,
+  consultaDasPreferencias,
+  consultaDasVersoesLegais,
+  consultaDaVerificacao,
+  consultaDoMeuPerfil,
+  consultaDoNamoro,
+  consultaDoPerfilPublico,
+} from "./consultas";
 import { ErroDaConta } from "./ErroDaConta";
-import { exigirConta } from "./guardas";
+import { comContaAtiva, exigirConta } from "./guardas";
 import { CarregandoDaCasca, LARGURA_DE_LEITURA, LayoutDeConta } from "./LayoutDeConta";
 import { NaoEncontrada } from "./NaoEncontrada";
 
@@ -118,6 +127,56 @@ export function criarRotas({ clienteDeConsulta, tomarTokenDoLink, caminhoDaCarga
           {
             path: "encarregado",
             lazy: async () => ({ Component: (await import("../telas/legal/Encarregado")).Encarregado }),
+          },
+          {
+            // As telas de perfil: só a conta ATIVA. Cada loader passa pelo guarda antes de pedir os
+            // dados e deixa a resposta no cache das consultas, que a tela lê.
+            path: "perfil",
+            loader: () => comContaAtiva(clienteDeConsulta, () => clienteDeConsulta.query(consultaDoMeuPerfil)),
+            lazy: async () => ({ Component: (await import("../telas/perfil/LayoutDoPerfil")).LayoutDoPerfil }),
+            children: [
+              {
+                index: true,
+                lazy: async () => ({ Component: (await import("../telas/perfil/MeuPerfil")).MeuPerfil }),
+              },
+              {
+                path: "preferencias",
+                loader: () =>
+                  comContaAtiva(clienteDeConsulta, () =>
+                    Promise.all([
+                      clienteDeConsulta.query(consultaDasPreferencias),
+                      clienteDeConsulta.query(consultaDaLocalizacao),
+                    ]),
+                  ),
+                lazy: async () => ({ Component: (await import("../telas/perfil/Preferencias")).Preferencias }),
+              },
+              {
+                path: "namoro",
+                // Sem Namoro nas intenções, a tela só aponta para Meu perfil: o loader nem pede os dados.
+                loader: () =>
+                  comContaAtiva(clienteDeConsulta, async () => {
+                    const perfil = await clienteDeConsulta.query(consultaDoMeuPerfil);
+                    return perfil.intencoes.includes("NAMORO") ? clienteDeConsulta.query(consultaDoNamoro) : null;
+                  }),
+                lazy: async () => ({ Component: (await import("../telas/perfil/Namoro")).Namoro }),
+              },
+              {
+                path: "orientacao",
+                loader: () => comContaAtiva(clienteDeConsulta, () => clienteDeConsulta.query(consultaDaOrientacao)),
+                lazy: async () => ({ Component: (await import("../telas/perfil/Orientacao")).Orientacao }),
+              },
+            ],
+          },
+          {
+            // Espelha PREFIXOS_DA_CASCA: o back encaminha /perfis/{contaId} ao index.html.
+            path: "perfis/:contaId",
+            loader: ({ params }: LoaderFunctionArgs) =>
+              comContaAtiva(clienteDeConsulta, () =>
+                clienteDeConsulta.query(consultaDoPerfilPublico(params.contaId ?? "")),
+              ),
+            lazy: async () => ({
+              Component: (await import("../telas/perfil/PerfilDeOutraPessoa")).PerfilDeOutraPessoa,
+            }),
           },
           { path: "*", Component: NaoEncontrada },
         ],

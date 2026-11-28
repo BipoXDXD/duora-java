@@ -19,6 +19,16 @@ export const CAMINHOS_DA_CASCA = [
   "/privacidade",
   "/denunciar",
   "/encarregado",
+  "/perfil",
+  "/perfil/preferencias",
+  "/perfil/namoro",
+  "/perfil/orientacao",
 ] as const;
 
 export type CaminhoDaCasca = (typeof CAMINHOS_DA_CASCA)[number];
+
+/**
+ * Prefixos de rotas da casca com um segmento variável depois (o id da conta no perfil de outra
+ * pessoa); o back espelha a lista em web/RotasDoSpa.PREFIXOS.
+ */
+export const PREFIXOS_DA_CASCA = ["/perfis/"] as const;

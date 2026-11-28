@@ -618,7 +618,7 @@ describe("VerificacaoPagina", () => {
     expect(pedidosDeResultado()).toBe(1);
   });
 
-  it("aprovadaMostraContinuarParaOTerraco", async () => {
+  it("aprovadaMostraMontarMeuPerfil", async () => {
     const usuario = userEvent.setup();
     abrirAPagina({ sessoes: [json(201, SESSAO_CRIADA)], resultados: [desfecho()] });
 
@@ -626,7 +626,7 @@ describe("VerificacaoPagina", () => {
 
     expect(await screen.findByRole("heading", { level: 2, name: "Idade confirmada" })).toHaveFocus();
     expect(screen.getByText("Confirmamos que você tem 18 anos ou mais. Sua conta está ativa.")).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "Continuar" })).toHaveAttribute("href", "/");
+    expect(screen.getByRole("link", { name: "Montar meu perfil" })).toHaveAttribute("href", "/perfil");
   });
 
   it("desfechoAtualizaASituacaoDaVerificacao", async () => {

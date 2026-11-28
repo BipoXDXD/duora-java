@@ -10,7 +10,7 @@ import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
  * encaminha cada uma ao index.html, e o despacho do front decide quem monta. Espelha {@code
  * frontend/src/rotas/caminhosDaCasca.ts} ({@code RotasDoSpaTest} trava a igualdade). Nenhuma começa
  * por /app/, reservado aos bundles com cache imutável; o {@link CabecalhosDeSeguranca} serve estas
- * rotas com {@code no-cache}, como o index.html.
+ * rotas e as dos {@link #PREFIXOS} com {@code no-cache}, como o index.html.
  */
 @Configuration
 public class RotasDoSpa implements WebMvcConfigurer {
@@ -32,12 +32,25 @@ public class RotasDoSpa implements WebMvcConfigurer {
           "/termos",
           "/privacidade",
           "/denunciar",
-          "/encarregado");
+          "/encarregado",
+          "/perfil",
+          "/perfil/preferencias",
+          "/perfil/namoro",
+          "/perfil/orientacao");
+
+  /**
+   * Prefixos de rotas com um segmento variável depois (o id da conta em {@code /perfis/{contaId}}).
+   * Cada um é registrado com um único segmento a mais: {@code /perfis/} sozinho e {@code
+   * /perfis/a/b} continuam 404. Espelha {@code PREFIXOS_DA_CASCA} de {@code caminhosDaCasca.ts}.
+   */
+  public static final List<String> PREFIXOS = List.of("/perfis/");
 
   private static final String INDEX = "forward:/index.html";
 
   @Override
   public void addViewControllers(ViewControllerRegistry registro) {
     CAMINHOS.forEach(caminho -> registro.addViewController(caminho).setViewName(INDEX));
+    PREFIXOS.forEach(
+        prefixo -> registro.addViewController(prefixo + "{contaId}").setViewName(INDEX));
   }
 }
