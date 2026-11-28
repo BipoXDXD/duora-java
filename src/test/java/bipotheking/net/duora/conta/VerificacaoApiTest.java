@@ -51,10 +51,12 @@ class VerificacaoApiTest extends BancoDeTeste {
 
   @Autowired private ContasDeTeste contas;
   @Autowired private ProvaDeVidaDeTeste provaDeVida;
+  @Autowired private ConferenciaDeDocumentoDeTeste conferencia;
 
   @BeforeEach
   void zerarDubles() {
     provaDeVida.zerar();
+    conferencia.zerar();
   }
 
   @Test
