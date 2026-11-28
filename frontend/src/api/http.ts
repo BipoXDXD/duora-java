@@ -102,7 +102,7 @@ function erroDaResposta(resposta: Response, dados: unknown): ErroHttp {
 
 /** `caminho` é relativo a /api. 2xx e 304 resolvem; o resto rejeita com ErroHttp. */
 export async function requisitarHttp(
-  metodo: "GET" | "POST",
+  metodo: "GET" | "POST" | "PUT" | "DELETE",
   caminho: string,
   { corpo, formulario, cabecalhos = {}, etag }: OpcoesDaRequisicao = {},
 ): Promise<RespostaHttp> {

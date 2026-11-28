@@ -136,6 +136,31 @@ describe("requisitarHttp", () => {
     expect(Object.keys(cabecalhosEnviados(fetchFalso)).map((nome) => nome.toLowerCase())).not.toContain("content-type");
   });
 
+  it("putEnviaJsonComXDuora", async () => {
+    const fetchFalso = responder(200);
+
+    await requisitarHttp("PUT", "/perfil", { corpo: { apelido: "Ana" } });
+
+    const [, init] = fetchFalso.mock.calls[0] ?? [];
+    expect(init?.method).toBe("PUT");
+    expect(init?.body).toBe(JSON.stringify({ apelido: "Ana" }));
+    expect(cabecalhosEnviados(fetchFalso)["Content-Type"]).toBe("application/json");
+    expect(cabecalhosEnviados(fetchFalso)["X-Duora"]).toBe("1");
+  });
+
+  it("deleteSemCorpo", async () => {
+    const fetchFalso = responder(204);
+
+    const resposta = await requisitarHttp("DELETE", "/perfil/namoro");
+
+    const [, init] = fetchFalso.mock.calls[0] ?? [];
+    expect(init?.method).toBe("DELETE");
+    expect(init?.body).toBeUndefined();
+    expect(Object.keys(cabecalhosEnviados(fetchFalso)).map((nome) => nome.toLowerCase())).not.toContain("content-type");
+    expect(cabecalhosEnviados(fetchFalso)["X-Duora"]).toBe("1");
+    expect(resposta.status).toBe(204);
+  });
+
   it("corpoEFormularioJuntosLancamTypeError", async () => {
     const fetchFalso = responder(200);
 
