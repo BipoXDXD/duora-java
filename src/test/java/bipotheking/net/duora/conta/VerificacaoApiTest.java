@@ -327,6 +327,27 @@ class VerificacaoApiTest extends BancoDeTeste {
     assertThat(provaDeVida.chamadasDeResultado()).isOne();
   }
 
+  /**
+   * A resposta guardada na idempotência venceu: o reenvio da tentativa já concluída recebe 404 sem
+   * ler a prova de vida de novo.
+   */
+  @Test
+  void tentativaConcluidaSemRespostaGuardadaRecebe404SemChamarFornecedor() throws Exception {
+    ContaDeTeste conta = aguardando();
+    provaDeVida.programar(ProvaDeVidaDeTeste.concluida(99.0, new FaixaEstimada(17, 24)));
+    String sessaoId = sessao(conta);
+    concluir(conta, sessaoId)
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.resultado").value("DUVIDA"));
+    jdbc.sql("delete from chave_de_idempotencia").update();
+
+    concluir(conta, sessaoId)
+        .andExpect(status().isNotFound())
+        .andExpect(jsonPath("$.codigo").value("SESSAO_DE_VERIFICACAO_INVALIDA"));
+
+    assertThat(provaDeVida.chamadasDeResultado()).isOne();
+  }
+
   @Test
   void resultadosSimultaneosDecidemUmaVez() throws Exception {
     ContaDeTeste conta = aguardando();

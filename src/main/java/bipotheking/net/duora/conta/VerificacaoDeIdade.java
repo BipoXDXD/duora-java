@@ -111,27 +111,25 @@ public class VerificacaoDeIdade {
       verificacoes.associarSessao(tentativa, sessao.id());
       return new SessaoDeCaptura(sessao.id(), sessao.regiao(), provaDeVida.modo(), credencial);
     } catch (FornecedorIndisponivel e) {
-      descartar(tentativa, e);
+      descartar(tentativa, conta, e);
       LOG.warn("Prova de vida indisponível ao abrir sessão da conta {}: {}", conta, e.getMessage());
-      for (Throwable falha : e.getSuppressed()) {
-        // O 503 não carrega a falha (ErroDeNegocio não guarda suprimidas): ela sai aqui.
-        LOG.error("Tentativa {} da conta {} não foi descartada", tentativa, conta, falha);
-      }
       throw CodigoVerificacao.PROVA_DE_VIDA_INDISPONIVEL.erro();
     } catch (RuntimeException e) {
-      descartar(tentativa, e);
+      descartar(tentativa, conta, e);
       throw e;
     }
   }
 
   /**
-   * Descarta a tentativa depois de uma falha sem trocar a exceção original: se o descarte também
-   * falhar, a falha dele vai como suprimida na original.
+   * Descarta a tentativa depois de uma falha sem trocar a exceção original. Se o descarte também
+   * falhar, a falha sai sempre no log de erro (uma {@link ErroDeNegocio} não guarda suprimidas) e
+   * vai como suprimida na original.
    */
-  private void descartar(UUID tentativa, RuntimeException original) {
+  private void descartar(UUID tentativa, ContaId conta, RuntimeException original) {
     try {
       verificacoes.descartar(tentativa);
     } catch (RuntimeException falha) {
+      LOG.error("Tentativa {} da conta {} não foi descartada", tentativa, conta, falha);
       original.addSuppressed(falha);
     }
   }
@@ -207,6 +205,7 @@ public class VerificacaoDeIdade {
   private DesfechoDaVerificacao decidirSelfie(Tentativa tentativa, String sessaoId, UUID dono) {
     boolean concluida = false;
     try {
+      exigirNaoConcluida(tentativa);
       Conta conta = conta(tentativa.conta());
       exigirAguardando(conta);
       ResultadoDaVerificacao resultado = DecisaoDeIdade.pelaSelfie(lerResultado(sessaoId, conta));
@@ -267,6 +266,16 @@ public class VerificacaoDeIdade {
     return contas
         .porId(id)
         .orElseThrow(() -> new IllegalStateException("Sessão de conta inexistente: " + id));
+  }
+
+  /**
+   * Tentativa já concluída não chama fornecedor de novo. A repetição dentro do prazo da
+   * idempotência devolve a resposta guardada antes daqui; depois dele, a sessão não serve mais.
+   */
+  static void exigirNaoConcluida(Tentativa tentativa) {
+    if (tentativa.resultado() != null) {
+      throw CodigoVerificacao.SESSAO_DE_VERIFICACAO_INVALIDA.erro();
+    }
   }
 
   /** Só a conta aguardando verificação abre sessão, conclui selfie ou envia documento. */

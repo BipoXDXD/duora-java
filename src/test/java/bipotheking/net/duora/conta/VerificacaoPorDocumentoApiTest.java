@@ -2,6 +2,7 @@ package bipotheking.net.duora.conta;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.hamcrest.Matchers.containsString;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.multipart;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
@@ -177,10 +178,15 @@ class VerificacaoPorDocumentoApiTest extends BancoDeTeste {
         .andExpect(jsonPath("$.codigo").value("REFAZER_PROVA_DE_VIDA"));
 
     assertThat(conferencia.chamadas()).isZero();
-    assertThat(tentativaSemResultado(preparo.documento())).isTrue();
+    assertThat(tentativasDaSessao(preparo.documento())).isZero();
+    enviosRestantesHoje(preparo.conta())
+        .andExpect(jsonPath("$.enviosDeDocumentoRestantesHoje").value(2));
   }
 
-  /** O 409 não conclui nem guarda resposta: o mesmo envio repetido lê a prova de novo. */
+  /**
+   * D14: o 409 descarta a tentativa e não gasta envio do dia (os 2 voltam a caber); a sessão
+   * descartada não serve mais, e o mesmo envio repetido recebe 404.
+   */
   @Test
   void sessaoExpiradaPedeSelfieNovaSemConcluir() throws Exception {
     Preparo preparo = emDuvidaComSessaoDeDocumento();
@@ -191,13 +197,37 @@ class VerificacaoPorDocumentoApiTest extends BancoDeTeste {
     enviar(preparo.conta(), preparo.documento())
         .andExpect(status().isConflict())
         .andExpect(jsonPath("$.codigo").value("REFAZER_PROVA_DE_VIDA"));
-    assertThat(tentativaSemResultado(preparo.documento())).isTrue();
+    assertThat(tentativasDaSessao(preparo.documento())).isZero();
+    enviosRestantesHoje(preparo.conta())
+        .andExpect(jsonPath("$.enviosDeDocumentoRestantesHoje").value(2));
 
     enviar(preparo.conta(), preparo.documento())
-        .andExpect(status().isConflict())
-        .andExpect(jsonPath("$.codigo").value("REFAZER_PROVA_DE_VIDA"));
-    assertThat(tentativaSemResultado(preparo.documento())).isTrue();
+        .andExpect(status().isNotFound())
+        .andExpect(jsonPath("$.codigo").value("SESSAO_DE_VERIFICACAO_INVALIDA"));
     assertThat(conferencia.chamadas()).isZero();
+  }
+
+  /**
+   * A resposta guardada na idempotência venceu: o reenvio da tentativa já concluída recebe 404 sem
+   * chamar prova de vida nem conferência.
+   */
+  @Test
+  void tentativaConcluidaSemRespostaGuardadaRecebe404SemChamarFornecedor() throws Exception {
+    Preparo preparo = emDuvidaComSessaoDeDocumento();
+    conferencia.programar(
+        new ResultadoDoDocumento(true, Optional.of(LocalDate.of(1991, 5, 10)), true));
+    enviar(preparo.conta(), preparo.documento())
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.resultado").value("DUVIDA"));
+    jdbc.sql("delete from chave_de_idempotencia").update();
+    int leiturasAntes = provaDeVida.chamadasDeResultado();
+
+    enviar(preparo.conta(), preparo.documento())
+        .andExpect(status().isNotFound())
+        .andExpect(jsonPath("$.codigo").value("SESSAO_DE_VERIFICACAO_INVALIDA"));
+
+    assertThat(provaDeVida.chamadasDeResultado()).isEqualTo(leiturasAntes);
+    assertThat(conferencia.chamadas()).isOne();
   }
 
   @Test
@@ -417,6 +447,18 @@ class VerificacaoPorDocumentoApiTest extends BancoDeTeste {
     MockMultipartHttpServletRequestBuilder pedido = multipart("/api/conta/verificacao/documento");
     pedido.header(MesmaOrigem.CABECALHO, "1").cookie(cookieDe(conta));
     return pedido;
+  }
+
+  private int tentativasDaSessao(String sessaoId) {
+    return jdbc.sql("select count(*) from tentativa_verificacao where sessao_id = :sessao")
+        .param("sessao", sessaoId)
+        .query(Integer.class)
+        .single();
+  }
+
+  private ResultActions enviosRestantesHoje(ContaDeTeste conta) throws Exception {
+    return mvc.perform(get("/api/conta/verificacao").cookie(cookieDe(conta)))
+        .andExpect(status().isOk());
   }
 
   private boolean tentativaSemResultado(String sessaoId) {

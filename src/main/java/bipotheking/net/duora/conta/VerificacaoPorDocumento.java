@@ -123,9 +123,10 @@ public class VerificacaoPorDocumento {
       Tentativa tentativa, String sessaoId, Documento documento, UUID dono) {
     boolean concluida = false;
     try {
+      VerificacaoDeIdade.exigirNaoConcluida(tentativa);
       Conta conta = conta(tentativa.conta());
       VerificacaoDeIdade.exigirAguardando(conta);
-      Imagem referencia = referenciaDaProva(sessaoId, conta);
+      Imagem referencia = referenciaDaProva(tentativa, sessaoId, conta);
       ResultadoDoDocumento lido = conferir(documento, referencia, conta);
       LocalDate hoje = LocalDate.ofInstant(relogio.instant(), FUSO);
       ResultadoDaVerificacao resultado =
@@ -160,9 +161,10 @@ public class VerificacaoPorDocumento {
 
   /**
    * A referência da selfie nova da sessão. Prova vencida, ruim ou sem referência pede outra selfie
-   * sem concluir nada: o front mantém as fotos do documento e reenvia com a sessão nova.
+   * sem concluir nada (D14): a tentativa é descartada e não gasta envio do dia; o front mantém as
+   * fotos do documento e reenvia com uma sessão nova.
    */
-  private Imagem referenciaDaProva(String sessaoId, Conta conta) {
+  private Imagem referenciaDaProva(Tentativa tentativa, String sessaoId, Conta conta) {
     ResultadoDaProva prova;
     try {
       prova = provaDeVida.resultado(sessaoId);
@@ -176,9 +178,22 @@ public class VerificacaoPorDocumento {
           "Prova de vida da sessão de documento da conta {} não serve: {}",
           conta.id(),
           prova.situacao());
+      descartar(tentativa, conta);
       throw CodigoVerificacao.REFAZER_PROVA_DE_VIDA.erro();
     }
     return prova.referencia().orElseThrow();
+  }
+
+  /**
+   * A falha do descarte não troca o 409: a pessoa ainda precisa de uma selfie nova. Ela sai no log
+   * de erro, porque a tentativa que ficou gasta um envio do dia.
+   */
+  private void descartar(Tentativa tentativa, Conta conta) {
+    try {
+      verificacoes.descartar(tentativa.id());
+    } catch (RuntimeException falha) {
+      LOG.error("Tentativa {} da conta {} não foi descartada", tentativa.id(), conta.id(), falha);
+    }
   }
 
   private ResultadoDoDocumento conferir(Documento documento, Imagem referencia, Conta conta) {
