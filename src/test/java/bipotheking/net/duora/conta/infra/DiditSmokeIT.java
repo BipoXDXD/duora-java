@@ -4,7 +4,6 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import bipotheking.net.duora.conta.dominio.Imagem;
 import bipotheking.net.duora.conta.dominio.ResultadoDoDocumento;
-import bipotheking.net.duora.conta.dominio.TipoDeImagem;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import java.awt.image.BufferedImage;
 import java.io.ByteArrayOutputStream;
@@ -14,8 +13,10 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Duration;
 import java.util.Objects;
+import java.util.Set;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Function;
+import java.util.function.Predicate;
 import java.util.regex.Pattern;
 import javax.imageio.ImageIO;
 import org.junit.jupiter.api.Test;
@@ -25,6 +26,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.http.MediaType;
 import org.springframework.http.client.MultipartBodyBuilder;
 import org.springframework.web.client.RestClient;
+import tools.jackson.core.JacksonException;
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.json.JsonMapper;
 
@@ -42,7 +44,11 @@ class DiditSmokeIT {
 
   private static final Logger LOG = LoggerFactory.getLogger(DiditSmokeIT.class);
   private static final URI URL = URI.create("https://verification.didit.me");
-  private static final Pattern CODIGO = Pattern.compile("[A-Za-z_ ]{1,60}");
+  private static final Pattern CODIGO_DE_ERRO = Pattern.compile("[A-Z_]{1,60}");
+  private static final Set<String> STATUS_DO_ROSTO = Set.of("Approved", "Declined", "In Review");
+
+  /** Erros que a Didit documenta em texto (o Face Search devolve este para imagem sem rosto). */
+  private static final Set<String> ERROS_EM_TEXTO = Set.of("No face detected in the image");
 
   @Test
   void sandboxAceitaFormatoEChave() throws IOException {
@@ -78,39 +84,68 @@ class DiditSmokeIT {
 
   /**
    * Responde a dúvida da A9: com um retrato sem rosto, o Face Match responde 200 {@code Declined}
-   * ou 4xx? Só registra o status HTTP, o {@code status} e o código de erro; não afirma o resultado.
+   * ou 4xx? Registra o status HTTP, o {@code status} e o código de erro sem afirmar o resultado; só
+   * afirma que a chave foi aceita (nem 401 nem 403).
    */
   @Test
   void faceMatchComRetratoSemRostoRegistraAResposta() throws IOException {
     Imagem rosto = imagem("DUORA_SMOKE_ROSTO");
     byte[] semRosto = cinzaLiso();
 
-    comBuilderDoBoot(builder -> {
-      MultipartBodyBuilder partes = new MultipartBodyBuilder();
-      partes.part("user_image", rosto.bytes(), tipo(rosto)).filename("selfie");
-      partes.part("ref_image", semRosto, MediaType.IMAGE_JPEG).filename("retrato");
-      partes.part("save_api_request", "false");
-      RestClient cliente =
-          builder
-              .clone()
-              .baseUrl(URL.toString())
-              .defaultHeader("x-api-key", variavel("DUORA_DIDIT_API_KEY"))
-              .build();
-      return cliente
-          .post()
-          .uri("/v3/face-match/")
-          .contentType(MediaType.MULTIPART_FORM_DATA)
-          .body(partes.build())
-          .exchangeForRequiredValue((pedido, resposta) -> {
-            JsonNode corpo = JsonMapper.builder().build().readTree(resposta.getBody());
-            LOG.info(
-                "Face Match com retrato sem rosto: HTTP {}, status {}, erro {}",
-                resposta.getStatusCode().value(),
-                codigo(corpo.path("face_match").path("status")),
-                codigo(corpo.path("error")));
-            return resposta.getStatusCode().value();
-          });
-    });
+    int status =
+        comBuilderDoBoot(builder -> {
+          MultipartBodyBuilder partes = new MultipartBodyBuilder();
+          partes
+              .part(
+                  ConferenciaDeDocumentoDidit.CAMPO_DA_SELFIE,
+                  rosto.bytes(),
+                  ConferenciaDeDocumentoDidit.tipo(rosto))
+              .filename("selfie");
+          partes
+              .part(ConferenciaDeDocumentoDidit.CAMPO_DO_RETRATO, semRosto, MediaType.IMAGE_JPEG)
+              .filename("retrato");
+          partes.part(ConferenciaDeDocumentoDidit.CAMPO_SALVAR_PEDIDO, "false");
+          RestClient cliente =
+              builder
+                  .clone()
+                  .baseUrl(URL.toString())
+                  .defaultHeader(
+                      ConferenciaDeDocumentoDidit.CABECALHO_DA_CHAVE,
+                      variavel("DUORA_DIDIT_API_KEY"))
+                  .build();
+          return cliente
+              .post()
+              .uri(ConferenciaDeDocumentoDidit.CAMINHO_DO_ROSTO)
+              .contentType(MediaType.MULTIPART_FORM_DATA)
+              .body(partes.build())
+              .exchangeForRequiredValue((pedido, resposta) -> {
+                int codigoHttp = resposta.getStatusCode().value();
+                registrar(codigoHttp, resposta.getBody().readAllBytes());
+                return codigoHttp;
+              });
+        });
+
+    assertThat(status).as("status HTTP do Face Match (chave aceita)").isNotIn(401, 403);
+  }
+
+  /** Só status, {@code face_match.status} e {@code error} conhecidos; nunca o corpo. */
+  private static void registrar(int codigoHttp, byte[] corpo) {
+    JsonNode json;
+    try {
+      json = JsonMapper.builder().build().readTree(corpo);
+    } catch (JacksonException e) {
+      LOG.info("Face Match com retrato sem rosto: HTTP {}, corpo não JSON", codigoHttp);
+      return;
+    }
+    LOG.info(
+        "Face Match com retrato sem rosto: HTTP {}, status {}, erro {}",
+        codigoHttp,
+        conhecido(json.path("face_match").path("status"), STATUS_DO_ROSTO::contains),
+        conhecido(json.path("error"), DiditSmokeIT::erroConhecido));
+  }
+
+  private static boolean erroConhecido(String erro) {
+    return CODIGO_DE_ERRO.matcher(erro).matches() || ERROS_EM_TEXTO.contains(erro);
   }
 
   private static <T> T comBuilderDoBoot(Function<RestClient.Builder, T> uso) {
@@ -120,13 +155,13 @@ class DiditSmokeIT {
     return Objects.requireNonNull(resultado.get());
   }
 
-  /** Só valores com cara de código; qualquer outra coisa vira "(omitido)". */
-  private static String codigo(JsonNode valor) {
+  /** O valor só sai no log se for conhecido; o resto vira "(omitido)". */
+  private static String conhecido(JsonNode valor, Predicate<String> aceito) {
     if (valor.isMissingNode() || valor.isNull()) {
       return "(ausente)";
     }
     String texto = valor.asString();
-    return CODIGO.matcher(texto).matches() ? texto : "(omitido)";
+    return aceito.test(texto) ? texto : "(omitido)";
   }
 
   /** JPEG cinza liso, gerado em memória: não há rosto nele e nada vai para o repositório. */
@@ -140,10 +175,6 @@ class DiditSmokeIT {
     ByteArrayOutputStream saida = new ByteArrayOutputStream();
     ImageIO.write(imagem, "jpg", saida);
     return saida.toByteArray();
-  }
-
-  private static MediaType tipo(Imagem imagem) {
-    return imagem.tipo() == TipoDeImagem.PNG ? MediaType.IMAGE_PNG : MediaType.IMAGE_JPEG;
   }
 
   private static Imagem imagem(String variavel) throws IOException {

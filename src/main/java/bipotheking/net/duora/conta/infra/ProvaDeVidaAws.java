@@ -81,7 +81,8 @@ final class ProvaDeVidaAws implements ProvaDeVida, CredencialDoNavegador, AutoCl
   private static final String CREDENCIAL = "credencial";
   private static final String RESULTADO = "resultado";
   private static final String ESTIMATIVA = "estimativa";
-  private static final String PREFIXO_DA_SESSAO_DO_PAPEL = "duora-";
+  // Package-private: o VerificacaoAwsSmokeIT confere o RoleSessionName inteiro.
+  static final String PREFIXO_DA_SESSAO_DO_PAPEL = "duora-";
 
   private final RekognitionClient rekognition;
   private final StsClient sts;

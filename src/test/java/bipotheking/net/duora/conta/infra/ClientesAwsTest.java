@@ -16,6 +16,8 @@ import java.util.Optional;
 import java.util.concurrent.atomic.AtomicReference;
 import org.jspecify.annotations.Nullable;
 import org.junit.jupiter.api.Test;
+import software.amazon.awssdk.auth.credentials.AwsSessionCredentials;
+import software.amazon.awssdk.auth.credentials.StaticCredentialsProvider;
 import software.amazon.awssdk.core.exception.SdkClientException;
 import software.amazon.awssdk.services.rekognition.RekognitionClient;
 import software.amazon.awssdk.services.sts.StsClient;
@@ -25,6 +27,10 @@ import software.amazon.awssdk.services.sts.StsClient;
  * assinatura, credencial só da configuração e desistência pelo timeout da chamada.
  */
 class ClientesAwsTest {
+
+  private static final StaticCredentialsProvider CURTA =
+      StaticCredentialsProvider.create(
+          AwsSessionCredentials.create("ASIACURTA", "segredo-curto", "token-curto"));
 
   private static final String CHAVE = "AKIACONFIG";
   private static final String ASSINATURA_EM_US_EAST_1 = "/us-east-1/";
@@ -67,6 +73,34 @@ class ClientesAwsTest {
       assertThat(servidor.assinatura())
           .contains("Credential=" + CHAVE + "/")
           .contains(ASSINATURA_EM_US_EAST_1 + "sts/aws4_request");
+    }
+  }
+
+  @Test
+  void credencialInformadaAssinaNoLugarDaConfiguracao() {
+    try (ServidorQueGuardaAssinatura servidor =
+            ServidorQueGuardaAssinatura.iniciar("application/x-amz-json-1.1", "{}");
+        RekognitionClient rekognition =
+            ClientesAws.rekognition(configuracao(), CURTA, Optional.of(servidor.uri()))) {
+
+      rekognition.getFaceLivenessSessionResults(r -> r.sessionId("sessao"));
+
+      assertThat(servidor.assinatura())
+          .contains("Credential=ASIACURTA/")
+          .contains(ASSINATURA_EM_US_EAST_1 + "rekognition/aws4_request");
+    }
+  }
+
+  @Test
+  void credencialInformadaMantemOTimeout() {
+    try (ServidorHttpLento lento = ServidorHttpLento.iniciar(Duration.ofSeconds(3));
+        StsClient sts = ClientesAws.sts(configuracaoApertada(), CURTA, Optional.of(lento.uri()))) {
+
+      long inicio = System.nanoTime();
+      assertThatThrownBy(sts::getCallerIdentity).isInstanceOf(SdkClientException.class);
+      Duration decorrido = Duration.ofNanos(System.nanoTime() - inicio);
+
+      assertThat(decorrido).isLessThan(Duration.ofSeconds(1));
     }
   }
 
