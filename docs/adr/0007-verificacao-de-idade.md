@@ -44,7 +44,7 @@ As opções avaliadas:
 ### Credenciais
 
 - **Back:** usuário IAM `duora-java-verificacao`, com chaves por variável de ambiente em produção e no Keychain em desenvolvimento. A credencial é explícita (`StaticCredentialsProvider`), nunca de `~/.aws` nem de `AWS_*`. A chave da Didit segue o mesmo caminho.
-- **Navegador:** credencial curta de 900 s do papel `duora-java-liveness-captura`, emitida por `AssumeRole` com `RoleSessionName = "duora-" + tentativa` e uma política de sessão que só permite `rekognition:StartFaceLivenessSession`.
+- **Navegador:** credencial curta de 900 s do papel `duora-java-liveness-captura`, emitida por `AssumeRole` com `RoleSessionName = "duora-" + tentativa` e uma política de sessão que só permite `rekognition:StartFaceLivenessSession`. A política usa `Resource: "*"` porque o Rekognition não aceita o ARN da sessão nessa ação (ela não tem recurso no nível de ARN); quem limita a credencial é a ação única, os 900 s e o `RoleSessionName` ligado à tentativa.
 
 ### Custos (preços de 2026-11-27)
 
