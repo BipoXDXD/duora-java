@@ -3,10 +3,14 @@ package bipotheking.net.duora.conta;
 import java.util.Arrays;
 import java.util.Optional;
 
-/** Documento legal versionado que a pessoa aceita no cadastro. */
+/**
+ * Documento legal versionado que a pessoa aceita: termos e privacidade no cadastro, o consentimento
+ * biométrico ao abrir a primeira sessão de verificação de idade de cada versão.
+ */
 public enum DocumentoLegal {
   TERMOS("termos"),
-  PRIVACIDADE("privacidade");
+  PRIVACIDADE("privacidade"),
+  BIOMETRIA("biometria");
 
   private final String caminho;
 

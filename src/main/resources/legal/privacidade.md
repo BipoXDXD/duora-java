@@ -14,7 +14,7 @@ O controlador dos dados é o responsável pelo Duora. Para dúvidas e pedidos so
 
 - **E-mail:** para você entrar e receber avisos da conta.
 - **Data de nascimento:** só para confirmar que você tem 18 anos ou mais. Ela não aparece para ninguém.
-- **Aceites:** qual versão dos termos e desta política você aceitou, e quando.
+- **Aceites:** qual versão dos termos, desta política e do consentimento biométrico da verificação de idade você aceitou, e quando.
 - **Apelido, intenção e bio:** para apresentar você nos encontros.
 - **Foto:** reprocessada sem metadados e aprovada pela moderação. Quem ainda não é sua conexão vê uma versão borrada; só conexões veem a foto nítida.
 - **Gênero e quem você quer conhecer:** dado sensível, tratado só com seu consentimento e só para o pareamento. Nunca aparece para ninguém e é apagado quando você desliga o namoro.
@@ -44,6 +44,7 @@ O controlador dos dados é o responsável pelo Duora. Para dúvidas e pedidos so
 | Chaves de repetição de pedidos | 1 dia |
 | Arquivos temporários de imagem | 1 hora |
 | Conta, perfil e foto | até a exclusão da conta |
+| Aceites dos termos, desta política e do consentimento biométrico | até a exclusão da conta |
 | Selfie e documento da verificação de idade | apagados logo após a checagem; fica só o resultado, a data e o método |
 | Tentativas de verificação de idade | 1 dia |
 | Registros de acesso (IP, porta e horário) | 6 meses |

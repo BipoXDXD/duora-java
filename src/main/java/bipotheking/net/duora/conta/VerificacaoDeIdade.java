@@ -8,6 +8,7 @@ import bipotheking.net.duora.conta.dominio.FinalidadeDaTentativa;
 import bipotheking.net.duora.conta.dominio.FornecedorIndisponivel;
 import bipotheking.net.duora.conta.dominio.MetodoDeVerificacao;
 import bipotheking.net.duora.conta.dominio.ProvaDeVida;
+import bipotheking.net.duora.conta.dominio.RepositorioDeAceites;
 import bipotheking.net.duora.conta.dominio.RepositorioDeContas;
 import bipotheking.net.duora.conta.dominio.RepositorioDeVerificacoes;
 import bipotheking.net.duora.conta.dominio.ReservaDeTentativa;
@@ -55,6 +56,8 @@ public class VerificacaoDeIdade {
   private final LimitesDaVerificacao limites;
   private final EfeitosDaVerificacao efeitos;
   private final Idempotencia idempotencia;
+  private final RepositorioDeAceites aceites;
+  private final DocumentosLegais documentos;
   private final TransactionTemplate transacao;
   private final Clock relogio;
 
@@ -67,6 +70,8 @@ public class VerificacaoDeIdade {
       LimitesDaVerificacao limites,
       EfeitosDaVerificacao efeitos,
       Idempotencia idempotencia,
+      RepositorioDeAceites aceites,
+      DocumentosLegais documentos,
       TransactionTemplate transacao,
       Clock relogio) {
     this.limiteDeTaxa = limiteDeTaxa;
@@ -77,6 +82,8 @@ public class VerificacaoDeIdade {
     this.limites = limites;
     this.efeitos = efeitos;
     this.idempotencia = idempotencia;
+    this.aceites = aceites;
+    this.documentos = documentos;
     this.transacao = transacao;
     this.relogio = relogio;
   }
@@ -84,9 +91,10 @@ public class VerificacaoDeIdade {
   /**
    * Abre uma sessão de prova de vida. Confere, nesta ordem, o limite de taxa, o consentimento, o
    * estado da conta e, para o documento, a dúvida de selfie nas últimas 24 h; então reserva a
-   * tentativa numa transação curta (a trava da conta serializa as reservas concorrentes) e, já fora
-   * dela, abre a sessão e emite a credencial. Se o fornecedor falhar, a tentativa é descartada e
-   * não conta no limite do dia.
+   * tentativa numa transação curta (a trava da conta serializa as reservas concorrentes), que
+   * também grava o aceite da versão atual do consentimento biométrico (uma vez por versão), e, já
+   * fora dela, abre a sessão e emite a credencial. Se o fornecedor falhar, a tentativa é descartada
+   * e não conta no limite do dia.
    *
    * @throws ErroDeNegocio {@code LIMITE_DE_TAXA}, {@code CONSENTIMENTO_BIOMETRICO_NECESSARIO},
    *     {@code VERIFICACAO_FORA_DE_ORDEM}, {@link LimiteDeVerificacaoExcedido} ou {@code
@@ -192,6 +200,8 @@ public class VerificacaoDeIdade {
           // A checagem de iniciar é só atalho: a conta pode ter mudado enquanto a reserva esperava
           // a trava. Relida já com a trava, a recusa desfaz a tentativa inserida.
           exigirAguardando(conta(conta));
+          aceites.gravar(
+              conta, DocumentoLegal.BIOMETRIA, documentos.atual(DocumentoLegal.BIOMETRIA), agora);
           return feita;
         });
     return switch (reserva) {

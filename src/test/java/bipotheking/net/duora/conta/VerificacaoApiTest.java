@@ -56,6 +56,7 @@ class VerificacaoApiTest extends BancoDeTeste {
   @Autowired private ProvaDeVidaDeTeste provaDeVida;
   @Autowired private ConferenciaDeDocumentoDeTeste conferencia;
   @Autowired private TransactionTemplate transacao;
+  @Autowired private DocumentosLegais documentos;
 
   @BeforeEach
   void zerarDubles() {
@@ -72,6 +73,40 @@ class VerificacaoApiTest extends BancoDeTeste {
         .andExpect(jsonPath("$.codigo").value("CONSENTIMENTO_BIOMETRICO_NECESSARIO"));
 
     assertThat(contar("select count(*) from tentativa_verificacao")).isZero();
+    assertThat(contar("select count(*) from aceite_documento where documento = 'BIOMETRIA'"))
+        .isZero();
+  }
+
+  /** LGPD art. 8 §2: o consentimento biométrico fica gravado com a versão e o resumo do texto. */
+  @Test
+  void iniciarGravaOAceiteDoConsentimentoBiometrico() throws Exception {
+    ContaDeTeste conta = aguardando();
+    VersaoDeDocumento atual = documentos.atual(DocumentoLegal.BIOMETRIA);
+
+    iniciar(conta, CORPO_SELFIE).andExpect(status().isCreated());
+
+    assertThat(
+            jdbc.sql(
+                    """
+                    select versao, resumo_sha256 from aceite_documento
+                    where conta_id = :conta and documento = 'BIOMETRIA'
+                    """)
+                .param("conta", conta.id().valor())
+                .query((linha, n) -> new VersaoDeDocumento(linha.getString(1), linha.getString(2)))
+                .list())
+        .containsExactly(atual);
+  }
+
+  /** A segunda sessão com a mesma versão não duplica o aceite nem falha pelo conflito da PK. */
+  @Test
+  void segundaSessaoNaoDuplicaOAceite() throws Exception {
+    ContaDeTeste conta = aguardando();
+    iniciar(conta, CORPO_SELFIE).andExpect(status().isCreated());
+
+    iniciar(conta, CORPO_SELFIE).andExpect(status().isCreated());
+
+    assertThat(contar("select count(*) from aceite_documento where documento = 'BIOMETRIA'"))
+        .isOne();
   }
 
   @Test
