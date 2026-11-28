@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { test } from 'node:test';
 
 import {
-  cabecalhoDaCsp, linkNaBase, passosDaRodada, ultimoLinkDoLog,
+  alvosPequenos, cabecalhoDaCsp, linkNaBase, passosDaRodada, tecladoNumericoAberto, ultimoLinkDoLog,
 } from './conta-check.mjs';
 
 const TOKEN_ANTIGO = 'AAAAaaaa_bbbb-cccc';
@@ -34,12 +34,54 @@ test('linkSemTokenIgnorado', () => {
 });
 
 test('passosParamNaTelaDaVerificacao', () => {
-  const passos = passosDaRodada();
+  const passos = passosDaRodada({ perfil: false });
 
   assert.equal(passos.at(-1), 'capturarVerificacao');
   for (const captura of ['capturarEntrar', 'capturarCadastro', 'capturarMinhaConta']) {
     assert.ok(passos.indexOf(captura) >= 0, `${captura} fora da rodada: ${passos.join(', ')}`);
   }
+});
+
+test('perfilAbreAsTelasDoPerfil', () => {
+  const passos = passosDaRodada({ perfil: true });
+  const depoisDe = (antes, depois) => passos.indexOf(antes) >= 0 && passos.indexOf(antes) < passos.indexOf(depois);
+
+  assert.deepEqual(passos.slice(0, passosDaRodada({ perfil: false }).length), passosDaRodada({ perfil: false }));
+  assert.ok(depoisDe('confirmarIdade', 'abrirPerfil'), passos.join(', '));
+  assert.ok(depoisDe('abrirPerfil', 'capturarPerfil'), passos.join(', '));
+  assert.ok(depoisDe('capturarPerfil', 'abrirPreferencias'), passos.join(', '));
+  assert.ok(depoisDe('abrirPreferencias', 'capturarPreferencias'), passos.join(', '));
+});
+
+test('alvoAbaixoDe44PxApontado', () => {
+  const medidas = [
+    { alvo: 'botão Salvar perfil', largura: 320, altura: 48 },
+    { alvo: 'link Minha conta', largura: 90, altura: 43.5 },
+    { alvo: 'rádio Ele/dele', largura: 30, altura: 44 },
+  ];
+
+  assert.deepEqual(alvosPequenos(medidas), [medidas[1], medidas[2]]);
+});
+
+/**
+ * Trecho do dumpsys input_method do Android 15: o histórico vem antes, com outros inputType, e o
+ * campo focado fica no mInputEditorInfo.
+ */
+const dumpsysDoTeclado = (mostrado, tipo) => `  mInputShown=${mostrado}
+  mStartInputHistory:
+    StartInput #0:
+      inputType=0x0 imeOptions=0x0 fieldId=0x0 fieldName=null actionId=0 actionLabel=null
+  mInputStarted=true mInputViewStarted=true mCandidatesViewStarted=false
+  mInputEditorInfo:
+    inputType=0x${tipo.toString(16)} imeOptions=0x12000005 privateImeOptions=null
+`;
+
+test('tecladoNumericoSoComCampoNumericoEAberto', () => {
+  assert.equal(tecladoNumericoAberto(dumpsysDoTeclado(true, 0x2)), true);
+  // TYPE_CLASS_NUMBER com flags de variação continua numérico.
+  assert.equal(tecladoNumericoAberto(dumpsysDoTeclado(true, 0x1002)), true);
+  assert.equal(tecladoNumericoAberto(dumpsysDoTeclado(true, 0x1)), false);
+  assert.equal(tecladoNumericoAberto(dumpsysDoTeclado(false, 0x2)), false);
 });
 
 test('linkVaiParaABaseDaRodada', () => {
