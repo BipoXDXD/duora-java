@@ -59,6 +59,20 @@ class ChunksDoFrontTest {
         .doesNotContain("FaceLivenessDetector");
   }
 
+  /**
+   * O DetectorAmplify importa o chunk do Amplify; a volta fecharia um ciclo, e o chunk do Amplify
+   * seria avaliado antes do corpo do DetectorAmplify, com as dependências que moram nele ainda
+   * indefinidas ("u is not a function" na captura).
+   */
+  @Test
+  void chunkDoAmplifyNaoImportaODetector() {
+    Pattern importDoDetector = Pattern.compile("(from|import)\\s*[\"'`]\\./DetectorAmplify-");
+
+    assertThat(importDoDetector.matcher(Estaticos.texto(chunkUnico(CHUNK_DO_AMPLIFY))).find())
+        .as("Import do DetectorAmplify no chunk do Amplify")
+        .isFalse();
+  }
+
   private static String chunkUnico(String padrao) {
     List<String> achados = jsDoApp().stream().filter(c -> c.matches(padrao)).toList();
     assertThat(achados).as("Chunk %s", padrao).hasSize(1);

@@ -54,6 +54,10 @@ export default defineConfig(({ command }) => ({
           // O detector de prova de vida (Amplify, SDK da AWS, TensorFlow, xstate) num chunk só dele
           // (app/verificacao-amplify-*), que só o import() do DetectorAmplify baixa, na captura: fica
           // fora do JS inicial e do chunk da rota, e o service worker não o guarda (src/sw/rotas.ts).
+          // O grupo leva também as dependências transitivas do liveness (Radix, Floating UI, ponte do
+          // useSyncExternalStore do @xstate/react, uuid, tslib, lodash, qrcode...): sem elas, caíam no
+          // chunk do DetectorAmplify, o chunk do Amplify importava de volta dele, e o ciclo deixava
+          // essas dependências indefinidas na avaliação (ChunksDoFrontTest.chunkDoAmplifyNaoImportaODetector).
           groups: [
             { name: "polling", test: /src\/api\/polling\.ts/ },
             {
@@ -63,7 +67,7 @@ export default defineConfig(({ command }) => ({
             },
             {
               name: "verificacao-amplify",
-              test: /node_modules\/(@aws-amplify|aws-amplify|@aws-sdk|@aws-crypto|@smithy|@tensorflow|@tensorflow-models|@mediapipe|xstate|@xstate)\//,
+              test: /node_modules\/(@aws-amplify|aws-amplify|@aws-sdk|@aws-crypto|@aws|@smithy|@tensorflow|@tensorflow-models|@mediapipe|xstate|@xstate|@radix-ui|@floating-ui|use-sync-external-store|use-isomorphic-layout-effect|use-callback-ref|use-sidecar|react-remove-scroll|react-remove-scroll-bar|react-style-singleton|react-hook-form|aria-hidden|get-nonce|detect-node-es|uuid|tslib|lodash|qrcode|dijkstrajs|pngjs|encode-utf8|bowser|seedrandom|long)\/|__vite-browser-external/,
               includeDependenciesRecursively: false,
             },
           ],
