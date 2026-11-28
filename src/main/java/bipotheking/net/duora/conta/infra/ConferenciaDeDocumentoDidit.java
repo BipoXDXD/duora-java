@@ -11,6 +11,7 @@ import java.time.Duration;
 import java.time.LocalDate;
 import java.time.format.DateTimeParseException;
 import java.util.Base64;
+import java.util.Locale;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
@@ -23,19 +24,25 @@ import org.springframework.http.MediaType;
 import org.springframework.http.client.MultipartBodyBuilder;
 import org.springframework.web.client.RestClient;
 import org.springframework.web.client.RestClient.RequestHeadersSpec.ConvertibleClientHttpResponse;
+import org.springframework.web.client.RestClient.RequestHeadersSpec.RequiredValueExchangeFunction;
 import org.springframework.web.client.RestClientException;
 
 /**
  * Conferência do documento pela Didit (API v3). O passo 1, ID Verification, lê frente e verso com a
  * prova de vida do documento ligada e {@code save_api_request=false}, sem {@code vendor_data} nem
- * {@code metadata}: a Didit não guarda nada e as imagens só passam pela memória. Os nomes de
- * arquivo das partes são fixos ({@code frente}, {@code verso}).
+ * {@code metadata}: a Didit não guarda nada e as imagens só passam pela memória. O passo 2, Face
+ * Match, só roda com documento aceito, data e retrato: compara a selfie ({@code user_image}) com o
+ * retrato do documento ({@code ref_image}) pelo limiar da configuração, também com {@code
+ * save_api_request=false}. Data de menor não pula o passo: o rosto vem antes da idade na decisão.
+ * Os nomes de arquivo das partes são fixos ({@code frente}, {@code verso}, {@code selfie}, {@code
+ * retrato}). Só o {@link ResultadoDoDocumento} sai do método; o retrato morre nele.
  *
  * <p>Sem repetição automática: 5xx, timeout, falha de rede, 401, 403, 429 e qualquer 4xx que não
  * seja o documento irreconhecível viram {@link FornecedorIndisponivel}, sem causa e com motivo
  * fixo. O 400 {@code COULD_NOT_RECOGNIZE_DOCUMENT} é foto ruim, não falha: o documento fica não
- * aceito. Os logs dizem só o passo e o status; nunca o corpo da resposta (dados do documento), a
- * chave ou as imagens.
+ * aceito. No passo 2, qualquer status diferente de 2xx vira {@link FornecedorIndisponivel}. Os logs
+ * dizem só o passo e o status; nunca o corpo da resposta (dados do documento), a chave ou as
+ * imagens.
  */
 final class ConferenciaDeDocumentoDidit implements ConferenciaDeDocumento {
 
@@ -43,17 +50,24 @@ final class ConferenciaDeDocumentoDidit implements ConferenciaDeDocumento {
 
   private static final String FORNECEDOR = "didit";
   private static final String DOCUMENTO = "documento";
+  private static final String ROSTO = "rosto";
   private static final String CAMINHO_DO_DOCUMENTO = "/v3/id-verification/";
+  private static final String CAMINHO_DO_ROSTO = "/v3/face-match/";
   private static final String CABECALHO_DA_CHAVE = "x-api-key";
   private static final String NAO_RECONHECIDO = "COULD_NOT_RECOGNIZE_DOCUMENT";
   private static final String APROVADO = "Approved";
   private static final Set<String> STATUS_CONHECIDOS = Set.of(APROVADO, "Declined", "In Review");
 
   private final RestClient documento;
+  private final RestClient rosto;
+  private final String limiarRosto;
   private final MedicaoDeFornecedor medicao;
 
-  private ConferenciaDeDocumentoDidit(RestClient documento, MedicaoDeFornecedor medicao) {
+  private ConferenciaDeDocumentoDidit(
+      RestClient documento, RestClient rosto, double limiarRosto, MedicaoDeFornecedor medicao) {
     this.documento = documento;
+    this.rosto = rosto;
+    this.limiarRosto = String.format(Locale.ROOT, "%s", limiarRosto);
     this.medicao = Objects.requireNonNull(medicao, "medicao");
   }
 
@@ -64,7 +78,10 @@ final class ConferenciaDeDocumentoDidit implements ConferenciaDeDocumento {
   static ConferenciaDeDocumentoDidit comTimeouts(
       RestClient.Builder builder, ConfiguracaoDidit config, MedicaoDeFornecedor medicao) {
     return new ConferenciaDeDocumentoDidit(
-        cliente(builder, config, config.leituraDoDocumento()), medicao);
+        cliente(builder, config, config.leituraDoDocumento()),
+        cliente(builder, config, config.leituraDoRosto()),
+        config.limiarRosto(),
+        medicao);
   }
 
   private static RestClient cliente(
@@ -84,7 +101,15 @@ final class ConferenciaDeDocumentoDidit implements ConferenciaDeDocumento {
   public ResultadoDoDocumento conferir(Imagem frente, Imagem verso, Imagem selfie) {
     LeituraDoDocumento leitura =
         medicao.medir(FORNECEDOR, DOCUMENTO, () -> lerDocumento(frente, verso));
-    return new ResultadoDoDocumento(leitura.aceito(), leitura.dataDeNascimento(), false);
+    Optional<Imagem> retratoParaComparar =
+        leitura.aceito() && leitura.dataDeNascimento().isPresent()
+            ? leitura.retrato()
+            : Optional.empty();
+    boolean rostoConfere =
+        retratoParaComparar
+            .map(retrato -> medicao.medir(FORNECEDOR, ROSTO, () -> compararRosto(selfie, retrato)))
+            .orElse(false);
+    return new ResultadoDoDocumento(leitura.aceito(), leitura.dataDeNascimento(), rostoConfere);
   }
 
   private LeituraDoDocumento lerDocumento(Imagem frente, Imagem verso) {
@@ -93,23 +118,63 @@ final class ConferenciaDeDocumentoDidit implements ConferenciaDeDocumento {
     partes.part("back_image", verso.bytes(), tipo(verso)).filename("verso");
     partes.part("perform_document_liveness", "true");
     partes.part("save_api_request", "false");
+    return enviar(
+        documento,
+        CAMINHO_DO_DOCUMENTO,
+        DOCUMENTO,
+        partes,
+        (pedido, resposta) -> interpretarDocumento(resposta));
+  }
+
+  private boolean compararRosto(Imagem selfie, Imagem retrato) {
+    MultipartBodyBuilder partes = new MultipartBodyBuilder();
+    partes.part("user_image", selfie.bytes(), tipo(selfie)).filename("selfie");
+    partes.part("ref_image", retrato.bytes(), tipo(retrato)).filename("retrato");
+    partes.part("face_match_score_decline_threshold", limiarRosto);
+    partes.part("save_api_request", "false");
+    return enviar(
+        rosto, CAMINHO_DO_ROSTO, ROSTO, partes, (pedido, resposta) -> interpretarRosto(resposta));
+  }
+
+  /**
+   * Um POST multipart, sem repetição; falha de rede, timeout e corpo ilegível ficam indisponíveis.
+   */
+  private static <T> T enviar(
+      RestClient cliente,
+      String caminho,
+      String passo,
+      MultipartBodyBuilder partes,
+      RequiredValueExchangeFunction<T> interpretacao) {
     try {
-      return documento
+      return cliente
           .post()
-          .uri(CAMINHO_DO_DOCUMENTO)
+          .uri(caminho)
           .contentType(MediaType.MULTIPART_FORM_DATA)
           .body(partes.build())
-          .exchangeForRequiredValue((pedido, resposta) -> interpretar(resposta));
+          .exchangeForRequiredValue(interpretacao);
     } catch (RestClientException e) {
       LOG.warn(
           "Didit fora de alcance ou com resposta ilegível em {} ({})",
-          DOCUMENTO,
+          passo,
           e.getMostSpecificCause().getClass().getSimpleName());
-      throw indisponivel(DOCUMENTO);
+      throw indisponivel(passo);
     }
   }
 
-  private static LeituraDoDocumento interpretar(ConvertibleClientHttpResponse resposta)
+  /**
+   * {@code Approved} confere; {@code Declined}, outro status ou corpo sem {@code face_match}, não.
+   */
+  private static Boolean interpretarRosto(ConvertibleClientHttpResponse resposta)
+      throws IOException {
+    if (!resposta.getStatusCode().is2xxSuccessful()) {
+      throw recusa(ROSTO, resposta.getStatusCode().value());
+    }
+    RespostaDoRosto corpo = resposta.bodyTo(RespostaDoRosto.class);
+    FaceMatch comparacao = corpo == null ? null : corpo.faceMatch();
+    return comparacao != null && APROVADO.equals(comparacao.status());
+  }
+
+  private static LeituraDoDocumento interpretarDocumento(ConvertibleClientHttpResponse resposta)
       throws IOException {
     int status = resposta.getStatusCode().value();
     if (resposta.getStatusCode().is2xxSuccessful()) {
@@ -208,7 +273,7 @@ final class ConferenciaDeDocumentoDidit implements ConferenciaDeDocumento {
     return new FornecedorIndisponivel("Didit indisponível em " + passo, null);
   }
 
-  /** O que o passo 1 leu; o retrato fica para o Face Match. */
+  /** O que o passo 1 leu; o retrato só serve ao Face Match. */
   private record LeituraDoDocumento(
       boolean aceito, Optional<LocalDate> dataDeNascimento, Optional<Imagem> retrato) {
 
@@ -236,4 +301,12 @@ final class ConferenciaDeDocumentoDidit implements ConferenciaDeDocumento {
 
   @JsonIgnoreProperties(ignoreUnknown = true)
   record ErroDaDidit(@Nullable String error) {}
+
+  /** Só o {@code face_match}; o resto (id da requisição, avisos) não interessa. */
+  @JsonIgnoreProperties(ignoreUnknown = true)
+  record RespostaDoRosto(@JsonProperty("face_match") @Nullable FaceMatch faceMatch) {}
+
+  /** Só o status; a pontuação não sai daqui. */
+  @JsonIgnoreProperties(ignoreUnknown = true)
+  record FaceMatch(@Nullable String status) {}
 }
