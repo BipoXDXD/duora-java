@@ -11,11 +11,14 @@ import java.io.UncheckedIOException;
 import java.net.InetSocketAddress;
 import java.net.URI;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.time.Duration;
 import java.util.Optional;
 import java.util.concurrent.atomic.AtomicReference;
 import org.jspecify.annotations.Nullable;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 import software.amazon.awssdk.auth.credentials.AwsSessionCredentials;
 import software.amazon.awssdk.auth.credentials.StaticCredentialsProvider;
 import software.amazon.awssdk.core.exception.SdkClientException;
@@ -121,7 +124,54 @@ class ClientesAwsTest {
 
       assertThat(resolvida).isEqualTo(CHAVE);
     } finally {
-      restaurar(anterior);
+      restaurar("aws.accessKeyId", anterior);
+    }
+  }
+
+  /** {@code AWS_ENDPOINT_URL*} e {@code aws.endpointUrl*} não desviam o cliente de produção. */
+  @Test
+  void endpointDoAmbienteNaoDesviaOCliente() {
+    String anterior = System.getProperty("aws.endpointUrl");
+    System.setProperty("aws.endpointUrl", "http://127.0.0.1:9/");
+    try (RekognitionClient rekognition = ClientesAws.rekognition(configuracao(), Optional.empty());
+        StsClient sts = ClientesAws.sts(configuracao(), Optional.empty())) {
+
+      assertThat(rekognition.serviceClientConfiguration().endpointOverride())
+          .contains(URI.create("https://rekognition.us-east-1.amazonaws.com"));
+      assertThat(sts.serviceClientConfiguration().endpointOverride())
+          .contains(URI.create("https://sts.us-east-1.amazonaws.com"));
+    } finally {
+      restaurar("aws.endpointUrl", anterior);
+    }
+  }
+
+  /**
+   * O {@code ~/.aws/config} (aqui, pelo {@code aws.configFile}) não liga FIPS, dual-stack nem
+   * endpoint: o cliente chama o endpoint informado como se o arquivo não existisse.
+   */
+  @Test
+  void arquivoDeConfiguracaoDaAwsNaoMudaOCliente(@TempDir Path pasta) throws IOException {
+    Path arquivo = pasta.resolve("config");
+    Files.writeString(
+        arquivo,
+        """
+        [default]
+        use_fips_endpoint = true
+        use_dualstack_endpoint = true
+        endpoint_url = http://127.0.0.1:9/
+        """);
+    String anterior = System.getProperty("aws.configFile");
+    System.setProperty("aws.configFile", arquivo.toString());
+    try (ServidorQueGuardaAssinatura servidor =
+            ServidorQueGuardaAssinatura.iniciar("application/x-amz-json-1.1", "{}");
+        RekognitionClient rekognition =
+            ClientesAws.rekognition(configuracao(), Optional.of(servidor.uri()))) {
+
+      rekognition.getFaceLivenessSessionResults(r -> r.sessionId("sessao"));
+
+      assertThat(servidor.assinatura()).contains(ASSINATURA_EM_US_EAST_1 + "rekognition/");
+    } finally {
+      restaurar("aws.configFile", anterior);
     }
   }
 
@@ -171,11 +221,11 @@ class ClientesAwsTest {
         chamada);
   }
 
-  private static void restaurar(@Nullable String anterior) {
+  private static void restaurar(String propriedade, @Nullable String anterior) {
     if (anterior == null) {
-      System.clearProperty("aws.accessKeyId");
+      System.clearProperty(propriedade);
     } else {
-      System.setProperty("aws.accessKeyId", anterior);
+      System.setProperty(propriedade, anterior);
     }
   }
 
