@@ -756,6 +756,29 @@ describe("VerificacaoPagina", () => {
     expect(camera).toHaveBeenCalledTimes(2);
   });
 
+  it("carregamentoRepeteSemNovaSessao", async () => {
+    const usuario = userEvent.setup();
+    vi.spyOn(console, "error").mockImplementation(() => undefined);
+    coreDoAmplify.quebrar = true;
+    const { pedidosDeSessao, camera } = abrirAPagina({
+      situacao: { modo: "aws" },
+      sessoes: [json(201, { ...SESSAO_CRIADA, modo: "aws" })],
+    });
+
+    await consentirEComecar(usuario);
+    expect(await screen.findByText(VERIFICACAO_DE_IDADE.falhas.carregamento)).toBeInTheDocument();
+    coreDoAmplify.quebrar = false;
+    await usuario.click(screen.getByRole("button", { name: "Tentar de novo" }));
+
+    expect(await screen.findByText("detector amplify")).toBeInTheDocument();
+    expect(pedidosDeSessao()).toBe(1);
+    expect(camera).toHaveBeenCalledTimes(1);
+    act(() => {
+      coreDoAmplify.onError?.({ state: "TIMEOUT", error: new Error("tempo") });
+    });
+    expect(await screen.findByText("Tentativas restantes hoje: 2")).toBeInTheDocument();
+  });
+
   it("cancelarMostraAsTentativasQueSobraram", async () => {
     const usuario = userEvent.setup();
     abrirAPagina({ sessoes: [json(201, SESSAO_CRIADA)] });

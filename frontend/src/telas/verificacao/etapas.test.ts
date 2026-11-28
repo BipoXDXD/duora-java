@@ -150,6 +150,36 @@ describe("proximaEtapa", () => {
     expect(proximaEtapa(captura, { tipo: "falhou", falha: "outraPessoa" })).toEqual({
       etapa: "falhaDoDetector",
       falha: "outraPessoa",
+      finalidade: "SELFIE",
+    });
+  });
+
+  // Falha de infraestrutura não custa tentativa: a sessão da AWS segue valendo e volta inteira.
+  it("carregamentoRepeteComAMesmaSessao", () => {
+    const captura: Etapa = { etapa: "captura", sessao: SESSAO, finalidade: "SELFIE" };
+
+    const falha = proximaEtapa(captura, { tipo: "falhou", falha: "carregamento" });
+
+    expect(falha).toEqual({ etapa: "falhaDoDetector", falha: "carregamento", finalidade: "SELFIE", sessao: SESSAO });
+    expect(proximaEtapa(falha, { tipo: "comecar", modo: "aws" })).toEqual(captura);
+  });
+
+  it.each<FalhaDoDetector>(["camera", "tempo", "servico"])("falha %s guarda a finalidade sem a sessão", (falha) => {
+    const captura: Etapa = { etapa: "captura", sessao: SESSAO, finalidade: "DOCUMENTO" };
+
+    expect(proximaEtapa(captura, { tipo: "falhou", falha })).toEqual({
+      etapa: "falhaDoDetector",
+      falha,
+      finalidade: "DOCUMENTO",
+    });
+  });
+
+  it("falhaNaSelfieDoDocumentoRecomecaComoDocumento", () => {
+    const falha: Etapa = { etapa: "falhaDoDetector", falha: "tempo", finalidade: "DOCUMENTO" };
+
+    expect(proximaEtapa(falha, { tipo: "comecar", modo: "aws" })).toEqual({
+      etapa: "checandoCamera",
+      finalidade: "DOCUMENTO",
     });
   });
 
@@ -254,18 +284,19 @@ describe("conferência da selfie", () => {
 });
 
 describe("depois da conferência", () => {
-  it.each<FalhaDoDetector>(["camera", "tempo", "carregamento"])(
-    "falha %s com a AWS checa a câmera de novo",
-    (falha) => {
-      expect(proximaEtapa({ etapa: "falhaDoDetector", falha }, { tipo: "comecar", modo: "aws" })).toEqual({
-        etapa: "checandoCamera",
-        finalidade: "SELFIE",
-      });
-    },
-  );
+  it.each<FalhaDoDetector>(["camera", "tempo", "conexao"])("falha %s com a AWS checa a câmera de novo", (falha) => {
+    const etapa: Etapa = { etapa: "falhaDoDetector", falha, finalidade: "SELFIE" };
+
+    expect(proximaEtapa(etapa, { tipo: "comecar", modo: "aws" })).toEqual({
+      etapa: "checandoCamera",
+      finalidade: "SELFIE",
+    });
+  });
 
   it("falhaNoModoFalsoIniciaSemChecarACamera", () => {
-    expect(proximaEtapa({ etapa: "falhaDoDetector", falha: "rosto" }, { tipo: "comecar", modo: "falso" })).toEqual({
+    const etapa: Etapa = { etapa: "falhaDoDetector", falha: "rosto", finalidade: "SELFIE" };
+
+    expect(proximaEtapa(etapa, { tipo: "comecar", modo: "falso" })).toEqual({
       etapa: "iniciando",
       finalidade: "SELFIE",
     });

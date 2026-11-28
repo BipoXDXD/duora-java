@@ -11,7 +11,7 @@ import { CASCA, textoDeEspera } from "../conta/textos";
 import { checarCamera, navegadorTemSuporte, type MotivoSemCamera, type ResultadoDaCamera } from "./camera";
 import { CapturaDeVida } from "./CapturaDeVida";
 import { Desfecho, DesfechoDaVerificacao, Repeticao, VoltarAoTerraco } from "./Desfecho";
-import { etapaInicial, proximaEtapa, type Etapa, type Evento } from "./etapas";
+import { etapaInicial, proximaEtapa, recusaDaConferencia, type Etapa, type Evento } from "./etapas";
 import { Explicacao } from "./Explicacao";
 import { VERIFICACAO_DE_IDADE } from "./textos";
 
@@ -31,9 +31,6 @@ interface PropsDaVerificacao {
 
 /** Recusas que dizem que esta página não vale mais para a conta: Minha conta leva à tela certa. */
 const CODIGOS_DE_RECARGA: readonly string[] = ["VERIFICACAO_FORA_DE_ORDEM", "NAO_AUTENTICADO", "CONTA_INDISPONIVEL"];
-
-/** Recusas da conferência que são desfechos: a situação no servidor mudou. */
-const CODIGOS_DE_DESFECHO: readonly string[] = ["MENOR_DE_IDADE", "SESSAO_DE_VERIFICACAO_INVALIDA"];
 
 const CAMINHO_DA_CONTA = "/conta";
 
@@ -165,14 +162,16 @@ function Etapas({
       void clienteDeConsulta.invalidateQueries({ queryKey: consultaDaVerificacao.queryKey });
     },
     gcTime: 0,
-    onError: (erro) => {
+    onError: (erro, sessaoId) => {
       if (erro instanceof ErroHttp && CODIGOS_DE_RECARGA.includes(erro.codigo)) {
         navegarParaPagina(CAMINHO_DA_CONTA);
         return;
       }
-      if (erro instanceof ErroHttp && CODIGOS_DE_DESFECHO.includes(erro.codigo)) {
+      // Uma recusa que vira desfecho (a mesma decisão do redutor) diz que a situação no servidor mudou.
+      const resultado = recusaDaConferencia(sessaoId, erro);
+      if (resultado.etapa === "desfecho") {
         // O servidor encerrou o cadastro do menor: a conta lida antes não vale mais.
-        if (erro.codigo === "MENOR_DE_IDADE") {
+        if (resultado.tipo === "menor") {
           clienteDeConsulta.removeQueries({ queryKey: consultaDaConta.queryKey, exact: true });
         }
         void clienteDeConsulta.invalidateQueries({ queryKey: consultaDaVerificacao.queryKey });

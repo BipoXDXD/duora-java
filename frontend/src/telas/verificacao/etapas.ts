@@ -45,7 +45,11 @@ export type Etapa =
   | { etapa: "iniciando"; finalidade: Finalidade }
   | { etapa: "captura"; sessao: SessaoDeCaptura; finalidade: Finalidade }
   | { etapa: "conferindo"; sessaoId: string }
-  | { etapa: "falhaDoDetector"; falha: FalhaDoDetector }
+  /**
+   * finalidade: a da captura que falhou, para a nova selfie ser do mesmo tipo. sessao: só na falha de
+   * carregamento, em que a sessão da AWS segue valendo e a repetição não gasta outra tentativa.
+   */
+  | { etapa: "falhaDoDetector"; falha: FalhaDoDetector; finalidade: Finalidade; sessao?: SessaoDeCaptura }
   | { etapa: "desfecho"; tipo: TipoDeDesfecho }
   | { etapa: "documento"; frente?: Blob; verso?: Blob; aviso?: AvisoDoDocumento }
   | { etapa: "enviandoDocumento" }
@@ -105,7 +109,7 @@ function etapaDoDesfecho(desfecho: Desfecho): Etapa {
  * da sessão; o resto (503, 409 em andamento, rede) repete o pedido com a mesma sessão, sem gastar outra
  * tentativa.
  */
-function recusaDaConferencia(sessaoId: string, erro: unknown): Etapa {
+export function recusaDaConferencia(sessaoId: string, erro: unknown): Etapa {
   if (erro instanceof ErroHttp && erro.codigo === "MENOR_DE_IDADE") {
     return { etapa: "desfecho", tipo: "menor" };
   }
@@ -117,10 +121,18 @@ function recusaDaConferencia(sessaoId: string, erro: unknown): Etapa {
 }
 
 /** Uma nova selfie, depois de uma falha ou de um REPETIR: com a AWS, a câmera é checada de novo. */
-function novaSelfie(modo: ModoDaVerificacao): Etapa {
-  return modo === "aws"
-    ? { etapa: "checandoCamera", finalidade: "SELFIE" }
-    : { etapa: "iniciando", finalidade: "SELFIE" };
+function novaSelfie(modo: ModoDaVerificacao, finalidade: Finalidade = "SELFIE"): Etapa {
+  return modo === "aws" ? { etapa: "checandoCamera", finalidade } : { etapa: "iniciando", finalidade };
+}
+
+/**
+ * A falha do detector. A de carregamento (o chunk não veio) não chegou a usar a sessão: ela fica guardada
+ * para a repetição. Se a sessão tiver vencido, o detector falha de novo por tempo ou serviço, sem ela.
+ */
+function falhaNaCaptura(captura: Extract<Etapa, { etapa: "captura" }>, falha: FalhaDoDetector): Etapa {
+  return falha === "carregamento"
+    ? { etapa: "falhaDoDetector", falha, finalidade: captura.finalidade, sessao: captura.sessao }
+    : { etapa: "falhaDoDetector", falha, finalidade: captura.finalidade };
 }
 
 /** A transição; um evento que não vale para a etapa atual (o segundo toque de um clique duplo) não muda nada. */
@@ -159,7 +171,7 @@ export function proximaEtapa(etapa: Etapa, evento: Evento): Etapa {
         return { etapa: "conferindo", sessaoId: etapa.sessao.sessaoId };
       }
       if (evento.tipo === "falhou") {
-        return { etapa: "falhaDoDetector", falha: evento.falha };
+        return falhaNaCaptura(etapa, evento.falha);
       }
       return evento.tipo === "cancelou" ? { etapa: "explicacao" } : etapa;
     case "conferindo":
@@ -168,7 +180,12 @@ export function proximaEtapa(etapa: Etapa, evento: Evento): Etapa {
       }
       return evento.tipo === "conferenciaRecusada" ? recusaDaConferencia(etapa.sessaoId, evento.erro) : etapa;
     case "falhaDoDetector":
-      return evento.tipo === "comecar" ? novaSelfie(evento.modo) : etapa;
+      if (evento.tipo !== "comecar") {
+        return etapa;
+      }
+      return etapa.sessao === undefined
+        ? novaSelfie(evento.modo, etapa.finalidade)
+        : { etapa: "captura", sessao: etapa.sessao, finalidade: etapa.finalidade };
     case "desfecho":
       if (etapa.tipo === "repetir" && evento.tipo === "comecar") {
         return novaSelfie(evento.modo);

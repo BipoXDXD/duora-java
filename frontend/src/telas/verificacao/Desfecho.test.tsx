@@ -19,4 +19,16 @@ describe("Desfecho", () => {
 
     expect(screen.getByRole("heading", { level: 2, name: "Conta em análise" })).not.toHaveFocus();
   });
+
+  it("cadaSecaoTemONomeDoProprioTitulo", () => {
+    render(
+      <>
+        <Desfecho titulo="Primeiro" focar={false} />
+        <Desfecho titulo="Segundo" focar={false} />
+      </>,
+    );
+
+    expect(screen.getByRole("region", { name: "Primeiro" })).toBeInTheDocument();
+    expect(screen.getByRole("region", { name: "Segundo" })).toBeInTheDocument();
+  });
 });

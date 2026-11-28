@@ -61,6 +61,15 @@ class AxeContaIT extends ContaE2eBase {
       "enviosDeDocumentoRestantesHoje":2}\
       """;
 
+  private static final String RESULTADO_REPETIR_SEM_TENTATIVAS =
+      """
+      {"resultado":"REPETIR","pedeDocumento":false,"tentativasRestantesHoje":0,\
+      "enviosDeDocumentoRestantesHoje":2}\
+      """;
+
+  /** O pedaço do detector do modo falso, que a página só baixa quando a captura começa. */
+  private static final String PEDACO_DO_DETECTOR_FALSO = "**/app/DetectorFalso-*.js";
+
   /** Base64url com o tamanho de um token de 32 bytes, que nunca foi emitido. */
   private static final String TOKEN_INEXISTENTE = "A".repeat(43);
 
@@ -250,6 +259,55 @@ class AxeContaIT extends ContaE2eBase {
     assertThat(verificacao.botao("Tentar de novo")).isVisible();
 
     assertSemViolacoes(verificacao.page(), "verificação: repetir");
+  }
+
+  @Test
+  void verificacaoRepetirSemTentativas(Participantes participantes) {
+    VerificacaoPagina verificacao =
+        verificacaoSimulada(
+            participantes,
+            api ->
+                api.comResultado(
+                    ApiDeVerificacaoSimulada.Resposta.json(200, RESULTADO_REPETIR_SEM_TENTATIVAS)));
+
+    verificacao.consentirEComecar().simularCaptura();
+    assertThat(verificacao.heading("Não deu para confirmar")).isVisible();
+    verificacao.textoVisivel("Você chegou ao limite de tentativas de hoje. Tente de novo amanhã.");
+
+    assertSemViolacoes(verificacao.page(), "verificação: repetir sem tentativas");
+  }
+
+  @Test
+  void verificacaoFalhaDoDetector(Participantes participantes) {
+    VerificacaoPagina verificacao = verificacaoSimulada(participantes, api -> {});
+    // Sem o pedaço do detector, a captura falha por carregamento, como numa conexão que caiu.
+    verificacao.page().route(PEDACO_DO_DETECTOR_FALSO, Route::abort);
+
+    verificacao
+        .consentirEComecar()
+        .textoVisivel("Não conseguimos carregar a selfie. Confira a conexão e tente de novo.");
+    assertThat(verificacao.botao("Tentar de novo")).isVisible();
+
+    assertSemViolacoes(verificacao.page(), "verificação: falha do detector");
+  }
+
+  @Test
+  void verificacaoSessaoInvalida(Participantes participantes) {
+    VerificacaoPagina verificacao =
+        verificacaoSimulada(
+            participantes,
+            api ->
+                api.comResultado(
+                    ApiDeVerificacaoSimulada.Resposta.problema(
+                        404,
+                        "SESSAO_DE_VERIFICACAO_INVALIDA",
+                        "A sessão de verificação não vale mais.")));
+
+    verificacao.consentirEComecar().simularCaptura();
+    verificacao.textoVisivel("Esta selfie não vale mais. Comece de novo.");
+    assertThat(verificacao.botao("Tentar de novo")).isVisible();
+
+    assertSemViolacoes(verificacao.page(), "verificação: sessão inválida");
   }
 
   @Test

@@ -1,4 +1,4 @@
-import { useEffect, useRef, type ReactElement, type ReactNode } from "react";
+import { useEffect, useId, useRef, type ReactElement, type ReactNode } from "react";
 import { BOTAO_SECUNDARIO_SEM_MARGEM, LINK_DE_ACAO, TITULO_DE_RESULTADO } from "../../componentes/estilos";
 import type { TipoDeDesfecho } from "./etapas";
 import { VERIFICACAO_DE_IDADE } from "./textos";
@@ -19,6 +19,7 @@ interface PropsDoTitulo {
  * pelo que aconteceu. A página não devolve o foco ao h1 quando a etapa tem este título.
  */
 export function Desfecho({ titulo, focar = true, children }: PropsDoTitulo): ReactElement {
+  const idDoTitulo = useId();
   const cabecalho = useRef<HTMLHeadingElement>(null);
   useEffect(() => {
     if (focar) {
@@ -26,8 +27,8 @@ export function Desfecho({ titulo, focar = true, children }: PropsDoTitulo): Rea
     }
   }, [focar]);
   return (
-    <section className="mt-(--e-5) grid gap-(--e-4)" aria-labelledby="verificacao-desfecho">
-      <h2 id="verificacao-desfecho" ref={cabecalho} tabIndex={-1} className={TITULO_DE_RESULTADO}>
+    <section className="mt-(--e-5) grid gap-(--e-4)" aria-labelledby={idDoTitulo}>
+      <h2 id={idDoTitulo} ref={cabecalho} tabIndex={-1} className={TITULO_DE_RESULTADO}>
         {titulo}
       </h2>
       {children}
