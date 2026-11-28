@@ -3,6 +3,7 @@ package bipotheking.net.duora.perfil;
 import bipotheking.net.duora.conta.ContaId;
 import bipotheking.net.duora.perfil.dominio.EdicaoDoPerfil;
 import bipotheking.net.duora.perfil.dominio.Perfil;
+import bipotheking.net.duora.perfil.dominio.RepositorioDeNamoro;
 import bipotheking.net.duora.perfil.dominio.RepositorioDePerfis;
 import java.time.Clock;
 import java.time.Instant;
@@ -19,11 +20,20 @@ public class ServicoDePerfil {
   private static final long PRIMEIRA_VERSAO = 1;
 
   private final RepositorioDePerfis perfis;
+  private final RepositorioDeNamoro namoro;
   private final TransactionTemplate transacao;
   private final Clock relogio;
 
-  ServicoDePerfil(RepositorioDePerfis perfis, TransactionTemplate transacao, Clock relogio) {
+  /**
+   * Público para o teste de concorrência montar o serviço com um repositório de namoro que pausa.
+   */
+  public ServicoDePerfil(
+      RepositorioDePerfis perfis,
+      RepositorioDeNamoro namoro,
+      TransactionTemplate transacao,
+      Clock relogio) {
     this.perfis = perfis;
+    this.namoro = namoro;
     this.transacao = transacao;
     this.relogio = relogio;
   }
@@ -34,11 +44,11 @@ public class ServicoDePerfil {
 
   /**
    * Sem versão, cria o perfil na versão 1; com a versão que a pessoa leu, troca os dados e sobe a
-   * versão.
+   * versão. Sem {@code NAMORO}, os dados de namoro saem na mesma transação, antes da troca.
    *
    * @throws bipotheking.net.duora.nucleo.ErroDeNegocio {@code VERSAO_OBSOLETA} se a versão não bate
    *     com a gravada: perfil já existente na criação, inexistente na edição ou editado por outra
-   *     aba no meio do caminho
+   *     aba no meio do caminho (inclusive dados de namoro gravados entre o apagar e a troca)
    */
   public Perfil salvar(ContaId conta, @Nullable Long versaoEsperada, EdicaoDoPerfil dados) {
     Instant agora = relogio.instant();
@@ -57,6 +67,9 @@ public class ServicoDePerfil {
     }
     if (versaoEsperada < PRIMEIRA_VERSAO) {
       throw CodigoPerfil.VERSAO_OBSOLETA.erro();
+    }
+    if (!dados.intencoes().querNamoro()) {
+      namoro.apagar(conta);
     }
     return perfis
         .atualizar(new Perfil(conta, dados, versaoEsperada), agora)

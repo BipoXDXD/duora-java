@@ -20,6 +20,7 @@ import java.util.EnumSet;
 import java.util.Optional;
 import java.util.Set;
 import org.jspecify.annotations.Nullable;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.stereotype.Component;
 
@@ -72,10 +73,22 @@ class PerfisJdbc implements RepositorioDePerfis {
 
   /**
    * Em {@code READ COMMITTED}, uma edição concorrente espera a primeira e reavalia o {@code where}
-   * com a versão nova: sobe só uma das duas.
+   * com a versão nova: sobe só uma das duas. Tirar o namoro com dados de namoro gravados no meio do
+   * caminho viola {@code namoro_exige_intencao_fk}: também é outra edição que chegou antes.
    */
   @Override
   public Optional<Perfil> atualizar(Perfil perfil, Instant agora) {
+    try {
+      return trocar(perfil, agora);
+    } catch (DataIntegrityViolationException violacao) {
+      if (NamoroJdbc.violouIntencao(violacao)) {
+        return Optional.empty();
+      }
+      throw violacao;
+    }
+  }
+
+  private Optional<Perfil> trocar(Perfil perfil, Instant agora) {
     EdicaoDoPerfil dados = perfil.dados();
     int linhas =
         jdbc.sql(
@@ -108,6 +121,19 @@ class PerfisJdbc implements RepositorioDePerfis {
         .param("conta", conta.valor())
         .query(Boolean.class)
         .single();
+  }
+
+  @Override
+  public void trocarIntencoesPorAmizade(ContaId conta, Instant agora) {
+    jdbc.sql(
+            """
+            update perfil set quer_amizade = true, quer_namoro = false, versao = versao + 1,
+                atualizado_em = :agora
+            where conta_id = :conta and quer_namoro
+            """)
+        .param("conta", conta.valor())
+        .param("agora", OffsetDateTime.ofInstant(agora, ZoneOffset.UTC))
+        .update();
   }
 
   private static Perfil perfil(ContaId conta, ResultSet rs) throws SQLException {

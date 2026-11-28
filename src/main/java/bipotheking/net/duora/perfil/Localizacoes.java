@@ -16,11 +16,17 @@ import org.springframework.transaction.support.TransactionTemplate;
 public class Localizacoes {
 
   private final RepositorioDeLocalizacao repositorio;
+  private final ServicoDePreferencias preferencias;
   private final TransactionTemplate transacao;
   private final Clock relogio;
 
-  Localizacoes(RepositorioDeLocalizacao repositorio, TransactionTemplate transacao, Clock relogio) {
+  Localizacoes(
+      RepositorioDeLocalizacao repositorio,
+      ServicoDePreferencias preferencias,
+      TransactionTemplate transacao,
+      Clock relogio) {
     this.repositorio = repositorio;
+    this.preferencias = preferencias;
     this.transacao = transacao;
     this.relogio = relogio;
   }
@@ -61,10 +67,14 @@ public class Localizacoes {
   }
 
   /**
-   * Apaga a célula e o consentimento; idempotente. Roda numa transação para a Task D2 juntar a
-   * volta do raio para {@code SEM_LIMITE}.
+   * Apaga a célula e o consentimento e volta o raio para {@code SEM_LIMITE} (versão +1), na mesma
+   * transação; idempotente. O {@code DELETE} vem primeiro: ele espera uma gravação de raio em curso
+   * (que trava a linha com {@code for key share}) e, depois, o reajuste pega a linha nova.
    */
   public void revogar(ContaId conta) {
-    transacao.executeWithoutResult(_ -> repositorio.apagar(conta));
+    transacao.executeWithoutResult(_ -> {
+      repositorio.apagar(conta);
+      preferencias.voltarParaSemLimite(conta);
+    });
   }
 }
