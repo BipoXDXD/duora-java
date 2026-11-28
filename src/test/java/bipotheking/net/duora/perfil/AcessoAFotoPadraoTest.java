@@ -2,11 +2,13 @@ package bipotheking.net.duora.perfil;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import bipotheking.net.duora.conta.ConsultaDeContas;
 import bipotheking.net.duora.conta.ContaId;
 import bipotheking.net.duora.conta.ContaResumo;
 import bipotheking.net.duora.conta.EstadoConta;
 import java.time.Instant;
 import java.time.LocalDate;
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
@@ -20,7 +22,18 @@ class AcessoAFotoPadraoTest {
 
   private final Map<ContaId, ContaResumo> contas = new HashMap<>();
   private final AcessoAFoto acesso =
-      new AcessoAFotoPadrao(id -> Optional.ofNullable(contas.get(id)));
+      new AcessoAFotoPadrao(
+          new ConsultaDeContas() {
+            @Override
+            public Optional<ContaResumo> porId(ContaId id) {
+              return Optional.ofNullable(contas.get(id));
+            }
+
+            @Override
+            public Map<ContaId, ContaResumo> porIds(Collection<ContaId> ids) {
+              throw new UnsupportedOperationException("o acesso à foto lê uma conta por vez");
+            }
+          });
 
   @Test
   void titularVeNitida() {
@@ -60,7 +73,12 @@ class AcessoAFotoPadraoTest {
     contas.put(
         id,
         new ContaResumo(
-            id, estado, LocalDate.of(1990, 5, 10), true, Instant.parse("2026-11-22T12:00:00Z")));
+            id,
+            estado,
+            LocalDate.of(1990, 5, 10),
+            true,
+            Instant.parse("2026-11-22T12:00:00Z"),
+            false));
     return id;
   }
 }

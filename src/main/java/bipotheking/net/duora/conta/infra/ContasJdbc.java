@@ -14,6 +14,7 @@ import java.time.LocalDate;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
 import java.util.Arrays;
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -77,6 +78,17 @@ class ContasJdbc implements RepositorioDeContas {
         .param("id", id.valor())
         .query((rs, linha) -> conta(rs))
         .optional();
+  }
+
+  @Override
+  public List<Conta> porIds(Collection<ContaId> ids) {
+    if (ids.isEmpty()) {
+      return List.of();
+    }
+    return jdbc.sql(COLUNAS + " where id = any(:ids)")
+        .param("ids", ids.stream().map(ContaId::valor).toArray(UUID[]::new))
+        .query((rs, linha) -> conta(rs))
+        .list();
   }
 
   @Override

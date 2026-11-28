@@ -8,7 +8,8 @@ import org.jspecify.annotations.Nullable;
 
 /**
  * O que outros módulos sabem de uma conta. {@code verificada} diz se a verificação de idade da
- * conta foi aprovada (há linha em {@code verificacao_idade}). O {@code toString} omite a data de
+ * conta foi aprovada (há linha em {@code verificacao_idade}). {@code deTeste} marca a conta criada
+ * pelos testes, que só encontra outras contas de teste. O {@code toString} omite a data de
  * nascimento, que nunca vai para o log.
  */
 public record ContaResumo(
@@ -16,7 +17,8 @@ public record ContaResumo(
     EstadoConta estado,
     @Nullable LocalDate dataDeNascimento,
     boolean verificada,
-    @Nullable Instant ativadaEm) {
+    @Nullable Instant ativadaEm,
+    boolean deTeste) {
 
   /**
    * Anos completos em {@code hoje}; vazio enquanto o cadastro não gravou a data de nascimento.
@@ -37,7 +39,7 @@ public record ContaResumo(
 
   @Override
   public String toString() {
-    return "ContaResumo[id=%s, estado=%s, verificada=%s, ativadaEm=%s]"
-        .formatted(id, estado, verificada, ativadaEm);
+    return "ContaResumo[id=%s, estado=%s, verificada=%s, ativadaEm=%s, deTeste=%s]"
+        .formatted(id, estado, verificada, ativadaEm, deTeste);
   }
 }

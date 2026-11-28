@@ -3,6 +3,8 @@ package bipotheking.net.duora.conta;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+import bipotheking.net.duora.conta.dominio.Conta;
+import bipotheking.net.duora.conta.dominio.Email;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.util.UUID;
@@ -30,7 +32,7 @@ class ContaResumoTest {
 
   @Test
   void semNascimentoNaoTemIdade() {
-    ContaResumo resumo = new ContaResumo(ID, EstadoConta.PENDENTE, null, false, null);
+    ContaResumo resumo = new ContaResumo(ID, EstadoConta.PENDENTE, null, false, null, false);
 
     assertThat(resumo.idadeEm(HOJE)).isEmpty();
   }
@@ -50,15 +52,26 @@ class ContaResumoTest {
             EstadoConta.ATIVA,
             LocalDate.of(1990, 5, 10),
             false,
-            Instant.parse("2026-11-22T12:00:00Z"));
+            Instant.parse("2026-11-22T12:00:00Z"),
+            false);
 
     assertThat(resumo.toString())
         .isEqualTo(
             "ContaResumo[id="
                 + UUID_FIXO
                 + ", estado=ATIVA, verificada=false,"
-                + " ativadaEm=2026-11-22T12:00:00Z]")
+                + " ativadaEm=2026-11-22T12:00:00Z, deTeste=false]")
         .doesNotContain("1990");
+  }
+
+  @Test
+  void emailDoDominioDeTesteEDeTeste() {
+    assertThat(ativa("ana@teste.duora.invalid").resumo(false).deTeste()).isTrue();
+  }
+
+  @Test
+  void emailComumNaoE() {
+    assertThat(ativa("ana@exemplo.com.br").resumo(false).deTeste()).isFalse();
   }
 
   @Test
@@ -67,6 +80,12 @@ class ContaResumoTest {
   }
 
   private static ContaResumo resumo(LocalDate nascimento) {
-    return new ContaResumo(ID, EstadoConta.ATIVA, nascimento, false, null);
+    return new ContaResumo(ID, EstadoConta.ATIVA, nascimento, false, null, false);
+  }
+
+  private static Conta ativa(String email) {
+    Instant agora = Instant.parse("2026-11-22T12:00:00Z");
+    return new Conta(
+        ID, Email.de(email), EstadoConta.ATIVA, LocalDate.of(1990, 5, 10), agora, agora);
   }
 }

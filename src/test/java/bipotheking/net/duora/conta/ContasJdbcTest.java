@@ -116,7 +116,7 @@ class ContasJdbcTest extends BancoDeTeste {
     ContaId id = contas.criarAtiva().id();
 
     assertThat(consulta.porId(id))
-        .contains(new ContaResumo(id, EstadoConta.ATIVA, NASCIMENTO, false, INICIO));
+        .contains(new ContaResumo(id, EstadoConta.ATIVA, NASCIMENTO, false, INICIO, true));
   }
 
   @Test

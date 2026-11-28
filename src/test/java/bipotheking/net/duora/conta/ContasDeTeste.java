@@ -16,13 +16,15 @@ import org.springframework.stereotype.Component;
  * Cria contas direto no banco, já com uma sessão aberta, para os testes de quem precisa de alguém
  * logado (C4, F e as Etapas 3 e 4). O e-mail é {@code <id>@teste.duora.invalid}; a conta excluída
  * fica sem e-mail, como manda o esquema. Com marcador, o e-mail é {@code
- * <id>+<marcador>@teste.duora.invalid}, que os falsos da verificação de idade leem.
+ * <id>+<marcador>@teste.duora.invalid}, que os falsos da verificação de idade leem. Só {@link
+ * #criarReal} sai com {@code <id>@real.duora.invalid}, que não é marcado como conta de teste.
  */
 @Component
 public class ContasDeTeste {
 
   private static final LocalDate NASCIMENTO_PADRAO = LocalDate.of(1990, 5, 10);
   private static final String DOMINIO = "@teste.duora.invalid";
+  private static final String DOMINIO_REAL = "@real.duora.invalid";
 
   /** Estados de quem já passou pela ativação: eles têm {@code ativada_em}. */
   private static final Set<EstadoConta> JA_ATIVADAS =
@@ -48,7 +50,7 @@ public class ContasDeTeste {
    * {@code ativada_em} = agora; excluída sai sem e-mail e com {@code excluida_em} = agora.
    */
   public ContaDeTeste criar(EstadoConta estado, @Nullable LocalDate nascimento) {
-    return inserir(estado, nascimento, "");
+    return inserir(estado, nascimento, DOMINIO);
   }
 
   /**
@@ -57,11 +59,11 @@ public class ContasDeTeste {
    * ele. Vários marcadores se juntam com {@code +}, como em {@code idade19+docmenor}.
    */
   public ContaDeTeste criarAguardando(String marcador, LocalDate nascimento) {
-    return inserir(EstadoConta.AGUARDANDO_VERIFICACAO, nascimento, "+" + marcador);
+    return inserir(EstadoConta.AGUARDANDO_VERIFICACAO, nascimento, "+" + marcador + DOMINIO);
   }
 
   private ContaDeTeste inserir(
-      EstadoConta estado, @Nullable LocalDate nascimento, String sufixoDoEmail) {
+      EstadoConta estado, @Nullable LocalDate nascimento, String depoisDoId) {
     UUID id = geradorDeIds.novo();
     OffsetDateTime agora = OffsetDateTime.ofInstant(relogio.instant(), ZoneOffset.UTC);
     boolean excluida = estado == EstadoConta.EXCLUIDA;
@@ -72,7 +74,7 @@ public class ContasDeTeste {
             values (:id, :email, :estado, :nascimento, :agora, :ativadaEm, :excluidaEm)
             """)
         .param("id", id)
-        .param("email", excluida ? null : id + sufixoDoEmail + DOMINIO)
+        .param("email", excluida ? null : id + depoisDoId)
         .param("estado", estado.name())
         .param("nascimento", nascimento)
         .param("agora", agora)
@@ -93,7 +95,18 @@ public class ContasDeTeste {
    * dado e bio vazia: pronta para a fila. O perfil entra direto no banco, na versão 1.
    */
   public ContaDeTeste criar(String apelido, LocalDate nascimento) {
-    ContaDeTeste conta = criar(EstadoConta.ATIVA, nascimento);
+    return comPerfil(criar(EstadoConta.ATIVA, nascimento), apelido);
+  }
+
+  /**
+   * Como {@link #criar(String, LocalDate)}, mas com o e-mail {@code <id>@real.duora.invalid}: a
+   * conta não sai marcada como de teste, para os testes de "real × teste".
+   */
+  public ContaDeTeste criarReal(String apelido, LocalDate nascimento) {
+    return comPerfil(inserir(EstadoConta.ATIVA, nascimento, DOMINIO_REAL), apelido);
+  }
+
+  private ContaDeTeste comPerfil(ContaDeTeste conta, String apelido) {
     verificar(conta.id());
     OffsetDateTime agora = OffsetDateTime.ofInstant(relogio.instant(), ZoneOffset.UTC);
     jdbc.sql(

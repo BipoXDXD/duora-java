@@ -3,6 +3,8 @@ package bipotheking.net.duora.conta.dominio;
 import bipotheking.net.duora.conta.ContaId;
 import java.time.Instant;
 import java.time.LocalDate;
+import java.util.Collection;
+import java.util.List;
 import java.util.Optional;
 
 /** Porta das contas no banco. */
@@ -17,6 +19,9 @@ public interface RepositorioDeContas {
   Optional<Conta> porEmail(Email email);
 
   Optional<Conta> porId(ContaId id);
+
+  /** As contas pedidas que existem, numa consulta só, em qualquer ordem. */
+  List<Conta> porIds(Collection<ContaId> ids);
 
   /**
    * Trava a linha da conta ({@code for update}) até o fim da transação do chamador e a relê já com

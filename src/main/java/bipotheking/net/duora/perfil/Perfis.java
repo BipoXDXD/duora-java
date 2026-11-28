@@ -14,8 +14,12 @@ import bipotheking.net.duora.web.Variante;
 import java.time.Clock;
 import java.time.LocalDate;
 import java.time.ZoneId;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.EnumSet;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
@@ -23,9 +27,9 @@ import org.springframework.stereotype.Service;
 
 /**
  * O perfil das contas em projeções, uma por audiência: {@link PerfilPublico} para quem encontra,
- * {@link PerfilCompleto} para uma conexão e {@link Preferencias} e célula só para o pareamento.
- * Cada projeção é montada de uma leitura só do perfil (mais a conta e, nas que mostram foto, a URL
- * da aprovada).
+ * {@link PerfilCompleto} para uma conexão e {@link Preferencias} e célula (uma a uma ou em lote, no
+ * {@link PerfilDeFila}) só para o pareamento. Cada projeção é montada de uma leitura só do perfil
+ * (mais a conta e, nas que mostram foto, a URL da aprovada).
  *
  * <p>Só conta {@code ATIVA} aparece: as outras dão vazio ou falso. A pausa não esconde o perfil (a
  * conexão continua vendo); só tira a conta da fila.
@@ -116,26 +120,71 @@ public class Perfis {
     if (ficha.isEmpty()) {
       return new Prontidao(false, false, EnumSet.of(Pendencia.PERFIL));
     }
-    FichaDoPerfil lida = ficha.get();
-    boolean faltaNamoro = lida.perfil().dados().intencoes().querNamoro() && lida.namoro().isEmpty();
+    return prontidao(ficha.get());
+  }
+
+  /**
+   * As contas pedidas que estão prontas para a fila (a mesma regra de {@link #prontoParaFila}), com
+   * o que o pareamento usa delas. Lê as contas e os perfis em lote, sem uma consulta por conta; as
+   * que não estão prontas, ou não existem, ficam de fora do mapa.
+   */
+  public Map<ContaId, PerfilDeFila> paraFila(Collection<ContaId> ids) {
+    if (ids.isEmpty()) {
+      return Map.of();
+    }
+    List<ContaResumo> ativas =
+        contas.porIds(ids).values().stream()
+            .filter(resumo -> resumo.estado() == EstadoConta.ATIVA)
+            .toList();
+    if (ativas.isEmpty()) {
+      return Map.of();
+    }
+    Map<ContaId, FichaDoPerfil> fichas =
+        leitura.fichas(ativas.stream().map(ContaResumo::id).toList());
+    LocalDate hoje = hoje();
+    Map<ContaId, PerfilDeFila> prontas = new HashMap<>();
+    for (ContaResumo resumo : ativas) {
+      FichaDoPerfil ficha = fichas.get(resumo.id());
+      if (ficha != null && prontidao(ficha).prontoParaFila()) {
+        prontas.put(
+            resumo.id(),
+            new PerfilDeFila(
+                idade(resumo, hoje), preferencias(ficha), ficha.celula(), resumo.deTeste()));
+      }
+    }
+    return Map.copyOf(prontas);
+  }
+
+  private static Prontidao prontidao(FichaDoPerfil ficha) {
+    boolean faltaNamoro =
+        ficha.perfil().dados().intencoes().querNamoro() && ficha.namoro().isEmpty();
     Set<Pendencia> pendencias =
         faltaNamoro ? EnumSet.of(Pendencia.DADOS_DE_NAMORO) : EnumSet.noneOf(Pendencia.class);
-    return new Prontidao(lida.pausada(), pendencias.isEmpty() && !lida.pausada(), pendencias);
+    return new Prontidao(ficha.pausada(), pendencias.isEmpty() && !ficha.pausada(), pendencias);
+  }
+
+  /**
+   * A data de hoje em São Paulo, pelo instante do relógio: não depende de o {@link Clock} injetado
+   * respeitar {@code withZone}.
+   */
+  private LocalDate hoje() {
+    return LocalDate.ofInstant(relogio.instant(), FUSO);
+  }
+
+  private static int idade(ContaResumo resumo, LocalDate hoje) {
+    return resumo
+        .idadeEm(hoje)
+        .orElseThrow(() -> new IllegalStateException("Conta ativa sem data de nascimento"));
   }
 
   private PerfilCompleto completo(ContaId conta, Ativa ativa) {
     FichaDoPerfil ficha = ativa.ficha();
     EdicaoDoPerfil dados = ficha.perfil().dados();
-    LocalDate hoje = LocalDate.now(relogio.withZone(FUSO));
-    int idade =
-        ativa
-            .resumo()
-            .idadeEm(hoje)
-            .orElseThrow(() -> new IllegalStateException("Conta ativa sem data de nascimento"));
+    LocalDate hoje = hoje();
     return new PerfilCompleto(
         conta,
         apelido(ficha),
-        idade,
+        idade(ativa.resumo(), hoje),
         dados.intencoes().valores(),
         dados.bio().valor(),
         fotos.urlDaAprovada(conta, Variante.NITIDA),
