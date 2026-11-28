@@ -87,4 +87,45 @@ public class ContasDeTeste {
   public ContaDeTeste criarAtiva() {
     return criar(EstadoConta.ATIVA, NASCIMENTO_PADRAO);
   }
+
+  /**
+   * Conta ativa, com a idade verificada por estimativa facial e perfil só de amizade, com o apelido
+   * dado e bio vazia: pronta para a fila. O perfil entra direto no banco, na versão 1.
+   */
+  public ContaDeTeste criar(String apelido, LocalDate nascimento) {
+    ContaDeTeste conta = criar(EstadoConta.ATIVA, nascimento);
+    verificar(conta.id());
+    OffsetDateTime agora = OffsetDateTime.ofInstant(relogio.instant(), ZoneOffset.UTC);
+    jdbc.sql(
+            """
+            insert into perfil (conta_id, apelido, quer_amizade, quer_namoro, bio, versao,
+                criado_em, atualizado_em)
+            values (:conta, :apelido, true, false, '', 1, :agora, :agora)
+            """)
+        .param("conta", conta.id().valor())
+        .param("apelido", apelido)
+        .param("agora", agora)
+        .update();
+    return conta;
+  }
+
+  /**
+   * Conta ativa, nascida em 1990-05-10, com a idade verificada por estimativa facial e sem perfil.
+   */
+  public ContaDeTeste criarVerificada() {
+    ContaDeTeste conta = criarAtiva();
+    verificar(conta.id());
+    return conta;
+  }
+
+  private void verificar(ContaId conta) {
+    jdbc.sql(
+            """
+            insert into verificacao_idade (conta_id, metodo, aprovada_em)
+            values (:conta, 'ESTIMATIVA_FACIAL', :agora)
+            """)
+        .param("conta", conta.valor())
+        .param("agora", OffsetDateTime.ofInstant(relogio.instant(), ZoneOffset.UTC))
+        .update();
+  }
 }
