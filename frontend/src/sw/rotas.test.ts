@@ -71,6 +71,19 @@ describe("rotaDoPedido", () => {
     expect(rota({ caminho: "/app/verificacao-amplify-abc.css" })).toBe("ignorar");
   });
 
+  // Os chunks da verificação só servem ao documento /verificacao, que não fica no worker: nada deles
+  // entra no cache em tempo de execução.
+  it.each(["/app/DetectorAmplify-abc.js", "/app/DetectorFalso-abc.js", "/app/VerificacaoPagina-abc.js"])(
+    "o chunk da verificação %s é ignorado",
+    (caminho) => {
+      expect(rota({ caminho })).toBe("ignorar");
+    },
+  );
+
+  it("chunk de outra tela com nome parecido segue do cache primeiro", () => {
+    expect(rota({ caminho: "/app/Detector-abc.js" })).toBe("cache-primeiro");
+  });
+
   it("o resto vem da rede", () => {
     expect(rota({ caminho: "/manifest.webmanifest" })).toBe("rede");
   });

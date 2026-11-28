@@ -48,16 +48,21 @@ class ChunksDoFrontTest {
   @Test
   void amplifyNumChunkProprioForaDoJsInicial() {
     List<String> chunks = jsDoApp().stream().filter(c -> c.matches(CHUNK_DO_AMPLIFY)).toList();
-    String casca =
-        jsDoApp().stream()
-            .filter(c -> c.matches("app/casca-de-conta-[^/]+\\.js"))
-            .findFirst()
-            .orElseThrow();
 
     assertThat(chunks).hasSize(1);
     assertThat(Estaticos.texto(chunks.getFirst())).contains("FaceLivenessDetector");
     assertThat(Estaticos.jsInicial()).noneMatch(url -> url.contains("verificacao-amplify"));
-    assertThat(Estaticos.texto(casca)).doesNotContain("FaceLivenessDetector");
+    // Nem a casca nem o chunk da rota carregam o Amplify: ele só baixa na captura.
+    assertThat(Estaticos.texto(chunkUnico("app/casca-de-conta-[^/]+\\.js")))
+        .doesNotContain("FaceLivenessDetector");
+    assertThat(Estaticos.texto(chunkUnico("app/VerificacaoPagina-[^/]+\\.js")))
+        .doesNotContain("FaceLivenessDetector");
+  }
+
+  private static String chunkUnico(String padrao) {
+    List<String> achados = jsDoApp().stream().filter(c -> c.matches(padrao)).toList();
+    assertThat(achados).as("Chunk %s", padrao).hasSize(1);
+    return achados.getFirst();
   }
 
   @Test

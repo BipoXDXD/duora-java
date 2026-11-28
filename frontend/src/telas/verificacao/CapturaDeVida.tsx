@@ -2,7 +2,7 @@
 // sob demanda. O do Amplify (vários MB, no chunk verificacao-amplify) só baixa aqui, na captura; o
 // falso só baixa com modo "falso". Nenhum gancho global decide o detector.
 
-import { Component, lazy, Suspense, useId, type ReactElement, type ReactNode } from "react";
+import { Component, lazy, Suspense, useId, useState, type ReactElement, type ReactNode } from "react";
 import type { SessaoDeCaptura } from "../../api/verificacao";
 import type { FalhaDoDetector } from "./etapas";
 import { VERIFICACAO_DE_IDADE } from "./textos";
@@ -14,8 +14,8 @@ export interface PropsDoDetector {
   aoCancelar: () => void;
 }
 
-const DetectorAmplify = lazy(() => import("./DetectorAmplify"));
-const DetectorFalso = lazy(() => import("./DetectorFalso"));
+const carregarAmplify = () => import("./DetectorAmplify");
+const carregarFalso = () => import("./DetectorFalso");
 
 const TITULO = "m-0 font-titulo font-semibold text-[1.375rem] leading-[1.2]";
 const ESPERA = "m-0 text-texto-2 text-[1.0625rem] leading-[1.5]";
@@ -47,7 +47,9 @@ class LimiteDoDetector extends Component<PropsDoLimite, { falhou: boolean }> {
 
 export function CapturaDeVida(props: PropsDoDetector): ReactElement {
   const idDoTitulo = useId();
-  const Detector = props.sessao.modo === "falso" ? DetectorFalso : DetectorAmplify;
+  // Um lazy por montagem: o lazy guarda o import() rejeitado para sempre, e o "Tentar de novo" depois
+  // de uma falha de carregamento monta a captura outra vez e precisa voltar à rede.
+  const [Detector] = useState(() => lazy(props.sessao.modo === "falso" ? carregarFalso : carregarAmplify));
   const { aoFalhar } = props;
   return (
     <section aria-labelledby={idDoTitulo} className="mt-(--e-5) grid gap-(--e-4)">

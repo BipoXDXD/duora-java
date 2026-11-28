@@ -90,6 +90,32 @@ describe("CapturaDeVida", () => {
     });
   });
 
+  // O "Tentar de novo" depois de falhaDoDetector{carregamento} monta a captura outra vez: o import()
+  // precisa ir de novo à rede, não relançar o erro guardado da primeira montagem.
+  it("novaMontagemTentaBaixarDeNovo", async () => {
+    vi.spyOn(console, "error").mockImplementation(() => undefined);
+    let tentativas = 0;
+    vi.doMock("./DetectorAmplify", () => {
+      tentativas += 1;
+      if (tentativas === 1) {
+        throw new Error("Failed to fetch dynamically imported module");
+      }
+      return { default: () => <p>detector amplify</p> };
+    });
+    const { CapturaDeVida } = await import("./CapturaDeVida");
+    const props = { sessao: sessao("aws"), aoConcluir: vi.fn(), aoFalhar: vi.fn(), aoCancelar: vi.fn() };
+    const { unmount } = render(<CapturaDeVida {...props} />);
+    await vi.waitFor(() => {
+      expect(props.aoFalhar).toHaveBeenCalledExactlyOnceWith("carregamento");
+    });
+    unmount();
+
+    render(<CapturaDeVida {...props} />);
+
+    expect(await screen.findByText("detector amplify")).toBeInTheDocument();
+    expect(props.aoFalhar).toHaveBeenCalledOnce();
+  });
+
   it("regiaoComTituloSelfieEmVideo", async () => {
     detectoresQueCarregam();
 

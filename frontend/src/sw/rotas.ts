@@ -12,16 +12,24 @@ export interface PedidoDoWorker {
   temRange: boolean;
 }
 
-/** O chunk (JS e CSS) do grupo verificacao-amplify do vite.config.ts. */
-const PREFIXO_DO_AMPLIFY = "/app/verificacao-amplify-";
+/**
+ * Os chunks que só a verificação usa: o grupo verificacao-amplify do vite.config.ts (JS e CSS) e os
+ * chunks com o nome dos módulos da tela (o Rolldown nomeia o chunk pelo módulo de entrada).
+ */
+const PREFIXOS_DA_VERIFICACAO = [
+  "/app/verificacao-amplify-",
+  "/app/DetectorAmplify-",
+  "/app/DetectorFalso-",
+  "/app/VerificacaoPagina-",
+];
 
 /**
  * Decide a rota de um pedido.
  * - Ignorados (o navegador segue sozinho): escrita, outra origem, a API (nunca há cache de /api),
  *   pedidos parciais (o áudio pede por faixa de bytes, e o Cache API não guarda resposta 206) e a
  *   verificação: a navegação para /verificacao precisa da CSP e da Permissions-Policy dela, que só o
- *   servidor manda (o shell guardado traz as de "/"), e o chunk do Amplify, de vários MB, só serve à
- *   captura e não entra no cache.
+ *   servidor manda (o shell guardado traz as de "/"), e os chunks da tela (o do Amplify tem vários MB)
+ *   só servem a esse documento e não entram no cache.
  * - A navegação vem da rede, com o shell guardado de reserva: um HTML novo chega mesmo com o
  *   worker antigo no controle (sem skipWaiting).
  * - O JSON de /assets/ vem da rede e renova a cópia guardada: o JS novo não pode ler dados velhos.
@@ -32,7 +40,10 @@ export function rotaDoPedido({ url, origem, metodo, modo, temRange }: PedidoDoWo
   if (metodo !== "GET" || url.origin !== origem || url.pathname.startsWith("/api/") || temRange) {
     return "ignorar";
   }
-  if (url.pathname === CAMINHO_DA_VERIFICACAO || url.pathname.startsWith(PREFIXO_DO_AMPLIFY)) {
+  if (
+    url.pathname === CAMINHO_DA_VERIFICACAO ||
+    PREFIXOS_DA_VERIFICACAO.some((prefixo) => url.pathname.startsWith(prefixo))
+  ) {
     return "ignorar";
   }
   if (modo === "navigate") {

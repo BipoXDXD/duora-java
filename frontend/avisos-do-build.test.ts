@@ -29,8 +29,7 @@ beforeAll(async () => {
     .filter((arquivo) => arquivo.endsWith(".css"))
     .map((arquivo) => readFileSync(join(pastaApp, arquivo), "utf-8"))
     .join("\n");
-  // O build com o detector do Amplify (milhares de módulos) passa de um minuto em máquina ocupada.
-}, 180_000);
+}, 180_000); // O build com o Amplify (milhares de módulos) passa de um minuto em máquina ocupada.
 
 afterAll(() => {
   vi.unstubAllEnvs();
