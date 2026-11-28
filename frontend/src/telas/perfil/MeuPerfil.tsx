@@ -9,6 +9,8 @@ import {
   type MeuPerfil as Perfil,
   type PerfilPublico,
   type Pronomes,
+  INTENCOES,
+  PRONOMES,
 } from "../../api/perfil";
 import { CartaoDoPerfil } from "../../componentes/CartaoDoPerfil";
 import {
@@ -23,6 +25,8 @@ import {
 } from "../../componentes/estilos";
 import { consultaDaConta, consultaDoMeuPerfil, consultaDoNamoro } from "../../rotas/consultas";
 import { contarCaracteres } from "./contar";
+import { useTravaDeEnvio } from "./useTravaDeEnvio";
+import { camposComErro } from "./camposComErro";
 import { EnviarFoto } from "./EnviarFoto";
 import { BIO_MAXIMA, bioNormalizada, deMeuPerfil, tiraNamoro, validar, type ErrosDoPerfil } from "./formularioDoPerfil";
 import { FaixaDaPausa, PausaDaConta } from "./PausaDaConta";
@@ -33,8 +37,6 @@ type Campo = keyof ErrosDoPerfil;
 /** A ordem do formulário: o foco vai ao primeiro campo com erro. */
 const ORDEM_DOS_CAMPOS: readonly Campo[] = ["apelido", "descricaoPronomes", "intencoes", "bio"];
 
-const PRONOMES = Object.keys(ROTULO_DOS_PRONOMES) as Pronomes[];
-const INTENCOES = Object.keys(ROTULO_DAS_INTENCOES) as Intencao[];
 
 /** O código de cada recusa do servidor e o campo em que a mensagem aparece. */
 const CAMPO_DO_CODIGO: Readonly<Record<string, Campo>> = {
@@ -93,8 +95,7 @@ export function MeuPerfil(): ReactElement {
   const [erros, setErros] = useState<ErrosDoPerfil>({});
   const [erroGeral, setErroGeral] = useState("");
   const [salvo, setSalvo] = useState(false);
-  // Trava síncrona: o isPending só chega no render seguinte.
-  const enviando = useRef(false);
+  const trava = useTravaDeEnvio();
   const campoDoApelido = useRef<HTMLInputElement>(null);
   const campoDaDescricao = useRef<HTMLInputElement>(null);
   const primeiraIntencao = useRef<HTMLInputElement>(null);
@@ -161,13 +162,13 @@ export function MeuPerfil(): ReactElement {
       focarEm.current = "alerta";
     },
     onSettled: () => {
-      enviando.current = false;
+      trava.abrir();
     },
   });
 
   function enviar(evento: SubmitEvent<HTMLFormElement>) {
     evento.preventDefault();
-    if (enviando.current) {
+    if (trava.fechada()) {
       return;
     }
     setSalvo(false);
@@ -178,7 +179,7 @@ export function MeuPerfil(): ReactElement {
       return;
     }
     setErros({});
-    enviando.current = true;
+    trava.fechar();
     salvar.mutate(paraEnvio(edicao));
   }
 
@@ -205,22 +206,8 @@ export function MeuPerfil(): ReactElement {
     mudar({ intencoes: INTENCOES.filter((i) => escolhidas.has(i)) });
   }
 
-  /** As descrições de um campo: as fixas e, se houver, o erro dele. */
-  function descricao(campo: Campo, ...fixas: string[]): string | undefined {
-    const ids = erros[campo] === undefined ? fixas : [...fixas, ID.erro(campo)];
-    return ids.length > 0 ? ids.join(" ") : undefined;
-  }
+  const { descricao, erroDo, invalido } = camposComErro(erros, ID.erro, ERRO);
 
-  function erroDo(campo: Campo): ReactElement | null {
-    const texto = erros[campo];
-    return texto === undefined ? null : (
-      <p className={ERRO} id={ID.erro(campo)}>
-        {texto}
-      </p>
-    );
-  }
-
-  const invalido = (campo: Campo) => (erros[campo] === undefined ? undefined : true);
   const caracteresDaBio = contarCaracteres(bioNormalizada(edicao.bio));
   const avisarNamoro = tiraNamoro(perfil, edicao);
   const prefereDescrever = edicao.pronomes === "OUTROS";

@@ -24,6 +24,7 @@ import {
 } from "./etapasDaFoto";
 import { lerPrevia } from "./lerPrevia";
 import { FOTO } from "./textos";
+import { useTravaDeEnvio } from "./useTravaDeEnvio";
 
 interface Props {
   apelido: string | null;
@@ -101,8 +102,7 @@ function avisoDa(etapa: EtapaDaFoto): AvisoDaFoto | undefined {
 export function EnviarFoto({ apelido, foto }: Props): ReactElement {
   const clienteDeConsulta = useQueryClient();
   const [etapa, despachar] = useReducer(reduzir, ETAPA_INICIAL);
-  // Trava síncrona: a etapa "enviando" só chega no render seguinte.
-  const emEnvio = useRef(false);
+  const trava = useTravaDeEnvio();
   const confirmacao = useRef<HTMLParagraphElement>(null);
   const botaoDeEnviar = useRef<HTMLButtonElement>(null);
   const [remocao, setRemocao] = useState<Remocao>("fechada");
@@ -129,7 +129,7 @@ export function EnviarFoto({ apelido, foto }: Props): ReactElement {
       despachar({ tipo: "envioRecusado", erro });
     },
     onSettled: () => {
-      emEnvio.current = false;
+      trava.abrir();
     },
   });
 
@@ -173,10 +173,10 @@ export function EnviarFoto({ apelido, foto }: Props): ReactElement {
   }
 
   function enviar() {
-    if (emEnvio.current || (etapa.tipo !== "previa" && etapa.tipo !== "falhou")) {
+    if (trava.fechada() || (etapa.tipo !== "previa" && etapa.tipo !== "falhou")) {
       return;
     }
-    emEnvio.current = true;
+    trava.fechar();
     despachar({ tipo: "enviar" });
     envio.mutate({ arquivo: etapa.arquivo, chave: etapa.chave });
   }

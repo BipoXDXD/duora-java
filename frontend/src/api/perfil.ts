@@ -5,11 +5,12 @@
 import * as v from "valibot";
 import { ErroHttp, requisitarHttp } from "./http";
 
-const INTENCOES = ["AMIZADE", "NAMORO"] as const;
-const PRONOMES = ["ELA_DELA", "ELE_DELE", "ELU_DELU", "OUTROS"] as const;
-const RAIOS = ["ATE_5_KM", "ATE_20_KM", "ATE_50_KM", "SEM_LIMITE"] as const;
-const GENEROS = ["MULHER", "HOMEM", "PESSOA_NAO_BINARIA", "OUTRO"] as const;
-const ORIENTACOES = [
+/** As opções na ordem em que as telas as mostram; os tipos saem delas. */
+export const INTENCOES = ["AMIZADE", "NAMORO"] as const;
+export const PRONOMES = ["ELA_DELA", "ELE_DELE", "ELU_DELU", "OUTROS"] as const;
+export const RAIOS = ["ATE_5_KM", "ATE_20_KM", "ATE_50_KM", "SEM_LIMITE"] as const;
+export const GENEROS = ["MULHER", "HOMEM", "PESSOA_NAO_BINARIA", "OUTRO"] as const;
+export const ORIENTACOES = [
   "HETEROSSEXUAL",
   "GAY",
   "LESBICA",
