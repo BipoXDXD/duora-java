@@ -37,7 +37,6 @@ type Campo = keyof ErrosDoPerfil;
 /** A ordem do formulário: o foco vai ao primeiro campo com erro. */
 const ORDEM_DOS_CAMPOS: readonly Campo[] = ["apelido", "descricaoPronomes", "intencoes", "bio"];
 
-
 /** O código de cada recusa do servidor e o campo em que a mensagem aparece. */
 const CAMPO_DO_CODIGO: Readonly<Record<string, Campo>> = {
   APELIDO_INVALIDO: "apelido",

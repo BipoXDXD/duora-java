@@ -47,7 +47,12 @@ export const consultaDoNamoro = queryOptions({ queryKey: ["perfil", "namoro"], q
 export const consultaDaOrientacao = queryOptions({ queryKey: ["perfil", "orientacao"], queryFn: obterOrientacao });
 
 /** null quando a pessoa não existe ou não está visível. */
-type ConsultaDoPerfilPublico = UndefinedInitialDataOptions<PerfilPublico | null, Error, PerfilPublico | null, string[]> & {
+type ConsultaDoPerfilPublico = UndefinedInitialDataOptions<
+  PerfilPublico | null,
+  Error,
+  PerfilPublico | null,
+  string[]
+> & {
   queryKey: DataTag<string[], PerfilPublico | null, Error>;
 };
 

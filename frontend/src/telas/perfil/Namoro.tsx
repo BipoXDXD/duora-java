@@ -2,12 +2,7 @@ import { useMutation, useQueryClient, useSuspenseQuery } from "@tanstack/react-q
 import { useEffect, useRef, useState, type ReactElement, type SubmitEvent } from "react";
 import { Link } from "react-router";
 import { ErroHttp } from "../../api/http";
-import {
-  apagarNamoro,
-  salvarNamoro,
-  type Genero,
-  GENEROS,
-} from "../../api/perfil";
+import { apagarNamoro, salvarNamoro, type Genero, GENEROS } from "../../api/perfil";
 import { DialogoDeConfirmacao } from "../../componentes/DialogoDeConfirmacao";
 import {
   BOTAO_PRIMARIO,
@@ -38,7 +33,6 @@ type Campo = keyof ErrosDoNamoro;
 
 /** A ordem do formulário: o foco vai ao primeiro campo com erro. */
 const ORDEM_DOS_CAMPOS: readonly Campo[] = ["genero", "descricaoGenero", "interesses"];
-
 
 const ID = {
   dicaDoGenero: "namoro-dica-genero",

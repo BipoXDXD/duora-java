@@ -222,7 +222,10 @@ describe("EnviarFoto", () => {
   });
 
   it("indisponivelPermiteTentarDeNovoComAMesmaChave", async () => {
-    const envios = prepararFetch([{ status: 503, corpo: { codigo: "PROCESSAMENTO_INDISPONIVEL" } }, { status: 202, corpo: PENDENTE }]);
+    const envios = prepararFetch([
+      { status: 503, corpo: { codigo: "PROCESSAMENTO_INDISPONIVEL" } },
+      { status: 202, corpo: PENDENTE },
+    ]);
     renderizar();
     const usuario = userEvent.setup();
     await usuario.upload(seletor(), jpeg());

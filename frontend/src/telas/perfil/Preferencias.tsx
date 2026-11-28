@@ -1,13 +1,7 @@
 import { useMutation, useQueryClient, useSuspenseQuery } from "@tanstack/react-query";
 import { useEffect, useRef, useState, type ReactElement, type SubmitEvent } from "react";
 import { ErroHttp } from "../../api/http";
-import {
-  salvarPreferencias,
-  versaoObsoleta,
-  type PreferenciasDeEncontro,
-  type Raio,
-  RAIOS,
-} from "../../api/perfil";
+import { salvarPreferencias, versaoObsoleta, type PreferenciasDeEncontro, type Raio, RAIOS } from "../../api/perfil";
 import { BOTAO_PRIMARIO, DICA, ENTRADA_DE_TEXTO, ROTULO, TITULO_DA_CASCA } from "../../componentes/estilos";
 import { consultaDaLocalizacao, consultaDasPreferencias } from "../../rotas/consultas";
 import { raioDisponivel, transicao, type EtapaDaLocalizacao, type EventoDaLocalizacao } from "./etapasDaLocalizacao";
@@ -17,7 +11,6 @@ import { PREFERENCIAS, ROTULO_DOS_RAIOS } from "./textos";
 
 const IDADE_MINIMA = 18;
 const IDADE_MAXIMA = 99;
-
 
 /** As idades ficam como o texto digitado: a validação decide no envio. */
 interface Edicao {

@@ -58,7 +58,8 @@ export const FOTO = {
   removendo: "Removendo…",
   removida: "Foto removida. Outras pessoas voltam a ver uma silhueta.",
   removerTitulo: "Remover a foto?",
-  removerTexto: "A foto sai do seu perfil e outras pessoas passam a ver uma silhueta. Você pode enviar outra quando quiser.",
+  removerTexto:
+    "A foto sai do seu perfil e outras pessoas passam a ver uma silhueta. Você pode enviar outra quando quiser.",
   removerConfirmar: "Remover",
   removerFalhou: "Não conseguimos remover a foto agora. Tente de novo em instantes.",
   grande: "A foto pode ter até 5 MB. Escolha uma menor.",
