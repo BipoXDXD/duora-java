@@ -44,7 +44,8 @@ class PrazosDaPlataformaTest extends BancoDeTeste {
           entry("Denúncias feitas sem conta", List.of("denuncias-publicas")),
           entry("Contagens diárias de conta nova", List.of("uso-conta-nova")),
           entry("Tentativas de verificação de idade", List.of("tentativas-de-verificacao")),
-          entry("Arquivos temporários de imagem", List.of("imagens-temporarias")));
+          entry("Arquivos temporários de imagem", List.of("imagens-temporarias")),
+          entry("Localização (área de cerca de 5 km)", List.of("localizacoes-paradas")));
 
   private static final Pattern PRAZO = Pattern.compile("(\\d+) (minutos?|horas?|dias?|mês|meses)");
 
