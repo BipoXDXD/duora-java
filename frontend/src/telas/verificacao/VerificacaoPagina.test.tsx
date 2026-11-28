@@ -13,6 +13,12 @@ import type { ResultadoDaCamera } from "./camera";
 import { VERIFICACAO_DE_IDADE } from "./textos";
 import { VerificacaoPagina, type DadosDaVerificacao } from "./VerificacaoPagina";
 
+/** O jsdom não decodifica imagem: a foto escolhida sobe como veio, e a prévia não desenha. */
+vi.mock("./fotos", () => ({
+  reduzirFoto: (arquivo: File) => Promise.resolve(arquivo),
+  desenharPrevia: () => Promise.resolve(),
+}));
+
 /** O Core do Amplify abriria a câmera: o teste guarda as props e chama os callbacks à mão. */
 const coreDoAmplify = vi.hoisted(() => ({
   onError: undefined as ((erro: { state: string; error: Error }) => void) | undefined,
@@ -39,6 +45,7 @@ const SITUACAO: SituacaoDaVerificacao = {
 };
 const ROTA_DA_SESSAO = "/api/conta/verificacao/sessao";
 const ROTA_DO_RESULTADO = "/api/conta/verificacao/sessao/abc/resultado";
+const ROTA_DO_DOCUMENTO = "/api/conta/verificacao/documento";
 
 function desfecho(campos: Record<string, unknown> = {}) {
   return json(200, {
@@ -108,6 +115,8 @@ interface OpcoesDaPagina {
   sessoes?: Response[];
   /** As respostas do POST do resultado da selfie, na ordem; sem mais respostas, fica sem resposta. */
   resultados?: Response[];
+  /** As respostas do POST do documento, na ordem; sem mais respostas, fica sem resposta. */
+  documentos?: Response[];
   checarCamera?: () => Promise<ResultadoDaCamera>;
   temSuporte?: boolean;
 }
@@ -149,11 +158,13 @@ function abrirAPagina({
   situacao = {},
   sessoes = [],
   resultados = [],
+  documentos = [],
   checarCamera,
   temSuporte = true,
 }: OpcoesDaPagina = {}) {
   const fila = [...sessoes];
   const filaDeResultados = [...resultados];
+  const filaDeDocumentos = [...documentos];
   const fetchFalso = stubarFetch((entrada) => {
     if (entrada === ROTA_DA_SESSAO) {
       const resposta = fila.shift();
@@ -161,6 +172,10 @@ function abrirAPagina({
     }
     if (entrada === ROTA_DO_RESULTADO) {
       const resposta = filaDeResultados.shift();
+      return resposta === undefined ? new Promise<Response>(() => undefined) : Promise.resolve(resposta);
+    }
+    if (entrada === ROTA_DO_DOCUMENTO) {
+      const resposta = filaDeDocumentos.shift();
       return resposta === undefined ? new Promise<Response>(() => undefined) : Promise.resolve(resposta);
     }
     return Promise.reject(new Error("pedido inesperado"));
@@ -197,6 +212,17 @@ function abrirAPagina({
   );
   const pedidosDeSessao = () => fetchFalso.mock.calls.filter(([entrada]) => entrada === ROTA_DA_SESSAO).length;
   const pedidosDeResultado = () => fetchFalso.mock.calls.filter(([entrada]) => entrada === ROTA_DO_RESULTADO).length;
+  /** Os corpos multipart do POST do documento, na ordem. */
+  const envios = () =>
+    fetchFalso.mock.calls
+      .filter(([entrada]) => entrada === ROTA_DO_DOCUMENTO)
+      .map(([, opcoes]) => opcoes?.body as FormData);
+  /** As finalidades pedidas no POST da sessão, na ordem. */
+  const finalidades = () =>
+    fetchFalso.mock.calls
+      .filter(([entrada]) => entrada === ROTA_DA_SESSAO)
+      .map(([, opcoes]) => (JSON.parse(opcoes?.body as string) as { finalidade: string }).finalidade);
+  const pedidos = () => fetchFalso.mock.calls.map(([entrada]) => (typeof entrada === "string" ? entrada : ""));
   /** Renderiza o pai de novo e espera uma macrotarefa: o POST da mutação sai depois de algumas microtarefas. */
   const recarregar = async () => {
     await act(async () => {
@@ -204,7 +230,17 @@ function abrirAPagina({
       await new Promise((resolver) => setTimeout(resolver, 0));
     });
   };
-  return { camera, navegarParaPagina, clienteDeConsulta, pedidosDeSessao, pedidosDeResultado, recarregar };
+  return {
+    camera,
+    navegarParaPagina,
+    clienteDeConsulta,
+    pedidosDeSessao,
+    pedidosDeResultado,
+    envios,
+    finalidades,
+    pedidos,
+    recarregar,
+  };
 }
 
 async function consentirEComecar(usuario: ReturnType<typeof userEvent.setup>) {
@@ -217,6 +253,24 @@ async function consentirEComecar(usuario: ReturnType<typeof userEvent.setup>) {
 /** Do consentimento até o fim da selfie falsa: a página vai para a conferência. */
 async function simularASelfie(usuario: ReturnType<typeof userEvent.setup>) {
   await consentirEComecar(usuario);
+  await usuario.click(await screen.findByRole("button", { name: "Simular captura" }));
+}
+
+const DOCUMENTO = VERIFICACAO_DE_IDADE.documento;
+const SITUACAO_DO_DOCUMENTO: Partial<SituacaoDaVerificacao> = { estado: "DUVIDA", enviosDeDocumentoRestantesHoje: 2 };
+const SESSAO_DO_DOCUMENTO = { ...SESSAO_CRIADA, sessaoId: "s2" };
+const FOTO_DA_FRENTE = new File(["frente"], "frente.jpg", { type: "image/jpeg" });
+const FOTO_DO_VERSO = new File(["verso"], "verso.jpg", { type: "image/jpeg" });
+
+/** Escolhe a frente e o verso, faz a selfie falsa e espera o envio sair. */
+async function escolherAsFotos(usuario: ReturnType<typeof userEvent.setup>) {
+  await usuario.upload(await screen.findByLabelText(/Frente do documento/), FOTO_DA_FRENTE);
+  await usuario.upload(screen.getByLabelText(/Verso do documento/), FOTO_DO_VERSO);
+  await screen.findByLabelText(`Verso do documento ${DOCUMENTO.trocarFoto}`);
+}
+
+async function fazerASelfieDoDocumento(usuario: ReturnType<typeof userEvent.setup>) {
+  await usuario.click(screen.getByRole("button", { name: DOCUMENTO.fazerSelfie }));
   await usuario.click(await screen.findByRole("button", { name: "Simular captura" }));
 }
 
@@ -787,6 +841,159 @@ describe("VerificacaoPagina", () => {
     await usuario.click(await screen.findByRole("button", { name: "Cancelar" }));
 
     expect(screen.getByText("Tentativas restantes hoje: 2")).toBeInTheDocument();
+  });
+
+  it("voltaNoMesmoDiaAbreNoDocumento", async () => {
+    abrirAPagina({ situacao: { estado: "DUVIDA", enviosDeDocumentoRestantesHoje: 1 } });
+
+    expect(await screen.findByRole("heading", { level: 2, name: DOCUMENTO.titulo })).not.toHaveFocus();
+    expect(screen.getByLabelText(/Frente do documento/)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: DOCUMENTO.fazerSelfie })).toHaveAttribute("aria-disabled", "true");
+  });
+
+  it("envioSaiLogoDepoisDaSelfieComASessaoNova", async () => {
+    const usuario = userEvent.setup();
+    const { envios, finalidades, pedidos } = abrirAPagina({
+      situacao: SITUACAO_DO_DOCUMENTO,
+      sessoes: [json(201, SESSAO_DO_DOCUMENTO)],
+      documentos: [desfecho({ resultado: "APROVADA" })],
+    });
+
+    await escolherAsFotos(usuario);
+    await fazerASelfieDoDocumento(usuario);
+
+    expect(await screen.findByRole("heading", { level: 2, name: "Idade confirmada" })).toHaveFocus();
+    expect(finalidades()).toEqual(["DOCUMENTO"]);
+    const [corpo] = envios();
+    expect(corpo?.get("sessaoId")).toBe("s2");
+    expect(corpo?.get("frente")).toBeInstanceOf(Blob);
+    expect(corpo?.get("verso")).toBeInstanceOf(Blob);
+    expect(pedidos().some((pedido) => pedido.includes("/sessao/s2/resultado"))).toBe(false);
+  });
+
+  it("envioAnunciaAEspera", async () => {
+    const usuario = userEvent.setup();
+    abrirAPagina({ situacao: SITUACAO_DO_DOCUMENTO, sessoes: [json(201, SESSAO_DO_DOCUMENTO)] });
+
+    await escolherAsFotos(usuario);
+    await fazerASelfieDoDocumento(usuario);
+
+    expect(await screen.findByRole("status")).toHaveTextContent(DOCUMENTO.enviando);
+  });
+
+  it("cliqueDuploEnviaUmaVez", async () => {
+    const usuario = userEvent.setup();
+    const { envios } = abrirAPagina({ situacao: SITUACAO_DO_DOCUMENTO, sessoes: [json(201, SESSAO_DO_DOCUMENTO)] });
+
+    await escolherAsFotos(usuario);
+    await usuario.dblClick(screen.getByRole("button", { name: DOCUMENTO.fazerSelfie }));
+    await usuario.dblClick(await screen.findByRole("button", { name: "Simular captura" }));
+
+    await screen.findByText(DOCUMENTO.enviando);
+    expect(envios()).toHaveLength(1);
+  });
+
+  it("refazerProvaDeVidaVoltaParaASelfieComAsFotos", async () => {
+    const usuario = userEvent.setup();
+    const { envios, finalidades } = abrirAPagina({
+      situacao: SITUACAO_DO_DOCUMENTO,
+      sessoes: [json(201, SESSAO_DO_DOCUMENTO), json(201, { ...SESSAO_DO_DOCUMENTO, sessaoId: "s3" })],
+      documentos: [problema(409, "REFAZER_PROVA_DE_VIDA")],
+    });
+
+    await escolherAsFotos(usuario);
+    await fazerASelfieDoDocumento(usuario);
+
+    expect(await screen.findByRole("alert")).toHaveTextContent(DOCUMENTO.selfieVenceu);
+    expect(screen.getByLabelText(`Frente do documento ${DOCUMENTO.trocarFoto}`)).toBeInTheDocument();
+    await fazerASelfieDoDocumento(usuario);
+
+    await waitFor(() => {
+      expect(envios()).toHaveLength(2);
+    });
+    expect(finalidades()).toEqual(["DOCUMENTO", "DOCUMENTO"]);
+    expect(envios()[1]?.get("sessaoId")).toBe("s3");
+  });
+
+  it("naoLeuApagaAsFotosEMostraEnvios", async () => {
+    const usuario = userEvent.setup();
+    abrirAPagina({
+      situacao: SITUACAO_DO_DOCUMENTO,
+      sessoes: [json(201, SESSAO_DO_DOCUMENTO)],
+      documentos: [desfecho({ resultado: "REPETIR", enviosDeDocumentoRestantesHoje: 1 })],
+    });
+
+    await escolherAsFotos(usuario);
+    await fazerASelfieDoDocumento(usuario);
+
+    expect(await screen.findByRole("alert")).toHaveTextContent(DOCUMENTO.naoLeu);
+    expect(screen.getByText("Envios restantes hoje: 1")).toBeInTheDocument();
+    expect(screen.getByLabelText(`Frente do documento ${DOCUMENTO.escolherFoto}`)).toBeInTheDocument();
+    expect(screen.getByLabelText(`Verso do documento ${DOCUMENTO.escolherFoto}`)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: DOCUMENTO.fazerSelfie })).toHaveAttribute("aria-disabled", "true");
+  });
+
+  it("conferenciaForaReenviaAsMesmasFotosSemNovaSessao", async () => {
+    const usuario = userEvent.setup();
+    const { envios, pedidosDeSessao } = abrirAPagina({
+      situacao: SITUACAO_DO_DOCUMENTO,
+      sessoes: [json(201, SESSAO_DO_DOCUMENTO)],
+      documentos: [problema(503, "CONFERENCIA_DE_DOCUMENTO_INDISPONIVEL"), desfecho({ resultado: "DUVIDA" })],
+    });
+
+    await escolherAsFotos(usuario);
+    await fazerASelfieDoDocumento(usuario);
+    expect(await screen.findByText(DOCUMENTO.conferenciaFora)).toBeInTheDocument();
+    await usuario.click(screen.getByRole("button", { name: "Tentar de novo" }));
+
+    expect(await screen.findByRole("heading", { level: 2, name: "Conta em análise" })).toBeInTheDocument();
+    expect(pedidosDeSessao()).toBe(1);
+    expect(envios().map((corpo) => corpo.get("sessaoId"))).toEqual(["s2", "s2"]);
+  });
+
+  it("menorNoEnvioEsqueceAConta", async () => {
+    const usuario = userEvent.setup();
+    const { clienteDeConsulta } = abrirAPagina({
+      situacao: SITUACAO_DO_DOCUMENTO,
+      sessoes: [json(201, SESSAO_DO_DOCUMENTO)],
+      documentos: [problema(422, "MENOR_DE_IDADE")],
+    });
+    clienteDeConsulta.setQueryData(consultaDaConta.queryKey, CONTA);
+
+    await escolherAsFotos(usuario);
+    await fazerASelfieDoDocumento(usuario);
+
+    expect(await screen.findByRole("heading", { level: 2, name: "Cadastro não concluído" })).toBeInTheDocument();
+    expect(clienteDeConsulta.getQueryData(consultaDaConta.queryKey)).toBeUndefined();
+  });
+
+  it("falhaNaSelfieDoDocumentoMostraOsEnvios", async () => {
+    const usuario = userEvent.setup();
+    abrirAPagina({
+      situacao: { ...SITUACAO_DO_DOCUMENTO, modo: "aws" },
+      sessoes: [json(201, { ...SESSAO_DO_DOCUMENTO, modo: "aws" })],
+    });
+
+    await escolherAsFotos(usuario);
+    await usuario.click(screen.getByRole("button", { name: DOCUMENTO.fazerSelfie }));
+    await screen.findByText("detector amplify");
+    act(() => {
+      coreDoAmplify.onError?.({ state: "TIMEOUT", error: new Error("tempo") });
+    });
+
+    expect(await screen.findByText("Envios restantes hoje: 1")).toBeInTheDocument();
+  });
+
+  it("fotosDoDocumentoNuncaVaoParaOStorage", async () => {
+    const usuario = userEvent.setup();
+    const criarUrl = vi.spyOn(URL, "createObjectURL");
+    abrirAPagina({ situacao: SITUACAO_DO_DOCUMENTO });
+
+    await escolherAsFotos(usuario);
+
+    expect(conteudoDo(localStorage) + conteudoDo(sessionStorage)).toBe("[][]");
+    expect(criarUrl).not.toHaveBeenCalled();
+    criarUrl.mockRestore();
   });
 
   it("credencialNuncaVaiParaOStorage", async () => {

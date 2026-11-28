@@ -4,14 +4,29 @@ import { useLoaderData } from "react-router";
 import type { Conta } from "../../api/estadoDaConta";
 import { ErroHttp } from "../../api/http";
 import type { VersoesLegais } from "../../api/legal";
-import { concluirSelfie, iniciarSessao, type Finalidade, type SituacaoDaVerificacao } from "../../api/verificacao";
+import {
+  concluirSelfie,
+  enviarDocumento,
+  iniciarSessao,
+  type Finalidade,
+  type SituacaoDaVerificacao,
+} from "../../api/verificacao";
 import { BOTAO_SECUNDARIO_SEM_MARGEM, TITULO_DA_CASCA } from "../../componentes/estilos";
 import { consultaDaConta, consultaDaVerificacao } from "../../rotas/consultas";
 import { CASCA, textoDeEspera } from "../conta/textos";
 import { checarCamera, navegadorTemSuporte, type MotivoSemCamera, type ResultadoDaCamera } from "./camera";
 import { CapturaDeVida } from "./CapturaDeVida";
-import { Desfecho, DesfechoDaVerificacao, Repeticao, VoltarAoTerraco } from "./Desfecho";
-import { etapaInicial, proximaEtapa, recusaDaConferencia, type Etapa, type Evento } from "./etapas";
+import { DesfechoDaVerificacao, Repeticao, VoltarAoTerraco } from "./Desfecho";
+import { EnvioDeDocumento } from "./EnvioDeDocumento";
+import {
+  etapaInicial,
+  proximaEtapa,
+  recusaDaConferencia,
+  recusaDoEnvio,
+  type Etapa,
+  type Evento,
+  type FotosDoDocumento,
+} from "./etapas";
 import { Explicacao } from "./Explicacao";
 import { VERIFICACAO_DE_IDADE } from "./textos";
 
@@ -33,6 +48,11 @@ interface PropsDaVerificacao {
 const CODIGOS_DE_RECARGA: readonly string[] = ["VERIFICACAO_FORA_DE_ORDEM", "NAO_AUTENTICADO", "CONTA_INDISPONIVEL"];
 
 const CAMINHO_DA_CONTA = "/conta";
+
+interface PedidoDeEnvio {
+  sessaoId: string;
+  fotos: FotosDoDocumento;
+}
 
 /** O título recebe o foco a cada etapa; o anel só aparece quando o foco veio do teclado. */
 const TITULO = [
@@ -115,6 +135,8 @@ function temTituloProprio(etapa: Etapa): boolean {
  * sessão em `iniciando` e o do resultado em `conferindo`. A sessão (com a credencial curta) só entra
  * no redutor: as mutações devolvem nada, e o cache de mutações nunca a vê. As tentativas começam na
  * situação, caem a cada sessão de selfie aberta (o servidor reserva a tentativa ali) e seguem o Desfecho.
+ * O envio do documento sai em `enviandoDocumento`, logo depois da selfie dele; as fotos vão por uma ref,
+ * nunca como variável da mutação. Os envios seguem a mesma regra das tentativas, pela sessão DOCUMENTO.
  */
 function Etapas({
   inicial,
@@ -128,19 +150,22 @@ function Etapas({
   const [abertura] = useState(inicial);
   const [etapa, despachar] = useReducer(proximaEtapa, abertura);
   const [tentativas, definirTentativas] = useState(situacao.tentativasRestantesHoje);
+  const [envios, definirEnvios] = useState(situacao.enviosDeDocumentoRestantesHoje);
   const clienteDeConsulta = useQueryClient();
   const titulo = useRef<HTMLHeadingElement>(null);
   const primeiraEtapa = useRef(true);
   // Travas síncronas dos POSTs: cada uma abre só quando a etapa sai de `iniciando` ou de `conferindo`.
   const iniciando = useRef(false);
   const conferindo = useRef(false);
+  const enviando = useRef(false);
+  // O multipart em curso; some quando o envio termina, com sucesso ou não.
+  const pedidoDeEnvio = useRef<PedidoDeEnvio | null>(null);
 
   const sessao = useMutation({
     mutationFn: async (finalidade: Finalidade) => {
       const criada = await iniciarSessao(finalidade);
-      if (finalidade === "SELFIE") {
-        definirTentativas((restantes) => Math.max(0, restantes - 1));
-      }
+      const contador = finalidade === "SELFIE" ? definirTentativas : definirEnvios;
+      contador((restantes) => Math.max(0, restantes - 1));
       despachar({ tipo: "sessaoCriada", sessao: criada });
     },
     gcTime: 0,
@@ -181,6 +206,49 @@ function Etapas({
   });
   const conferir = conferencia.mutate;
 
+  const envio = useMutation({
+    mutationFn: async () => {
+      const pedido = pedidoDeEnvio.current;
+      if (pedido === null) {
+        return;
+      }
+      const desfecho = await enviarDocumento({
+        sessaoId: pedido.sessaoId,
+        frente: pedido.fotos.frente,
+        verso: pedido.fotos.verso,
+      });
+      definirEnvios(desfecho.enviosDeDocumentoRestantesHoje);
+      despachar({ tipo: "enviado", desfecho });
+      void clienteDeConsulta.invalidateQueries({ queryKey: consultaDaVerificacao.queryKey });
+    },
+    gcTime: 0,
+    onError: (erro) => {
+      if (erro instanceof ErroHttp && CODIGOS_DE_RECARGA.includes(erro.codigo)) {
+        navegarParaPagina(CAMINHO_DA_CONTA);
+        return;
+      }
+      const pedido = pedidoDeEnvio.current;
+      if (pedido !== null) {
+        const resultado = recusaDoEnvio(pedido, erro);
+        if (resultado.etapa === "desfecho") {
+          if (resultado.tipo === "menor") {
+            clienteDeConsulta.removeQueries({ queryKey: consultaDaConta.queryKey, exact: true });
+          }
+          void clienteDeConsulta.invalidateQueries({ queryKey: consultaDaVerificacao.queryKey });
+        }
+      }
+      // A selfie vencida (D14) descarta a tentativa no servidor, sem gastar o envio reservado na sessão.
+      if (erro instanceof ErroHttp && erro.codigo === "REFAZER_PROVA_DE_VIDA") {
+        definirEnvios((restantes) => restantes + 1);
+      }
+      despachar({ tipo: "envioRecusado", erro });
+    },
+    onSettled: () => {
+      pedidoDeEnvio.current = null;
+    },
+  });
+  const enviar = envio.mutate;
+
   const tituloProprio = temTituloProprio(etapa);
   useEffect(() => {
     if (primeiraEtapa.current) {
@@ -198,6 +266,9 @@ function Etapas({
     }
     if (etapa.etapa !== "conferindo") {
       conferindo.current = false;
+    }
+    if (etapa.etapa !== "enviandoDocumento") {
+      enviando.current = false;
     }
     if (etapa.etapa === "checandoCamera") {
       let valendo = true;
@@ -221,11 +292,20 @@ function Etapas({
       conferindo.current = true;
       conferir(etapa.sessaoId);
     }
+    if (etapa.etapa === "enviandoDocumento" && !enviando.current) {
+      enviando.current = true;
+      pedidoDeEnvio.current = { sessaoId: etapa.sessaoId, fotos: etapa.fotos };
+      enviar();
+    }
     return undefined;
-  }, [etapa, checar, abrirSessao, conferir]);
+  }, [etapa, checar, abrirSessao, conferir, enviar]);
 
   const espera = textoDaEspera(etapa);
-  const ocupado = etapa.etapa === "checandoCamera" || etapa.etapa === "iniciando" || etapa.etapa === "conferindo";
+  const ocupado =
+    etapa.etapa === "checandoCamera" ||
+    etapa.etapa === "iniciando" ||
+    etapa.etapa === "conferindo" ||
+    etapa.etapa === "enviandoDocumento";
 
   return (
     <>
@@ -242,6 +322,7 @@ function Etapas({
           abertura={etapa === abertura}
           situacao={situacao}
           tentativas={tentativas}
+          envios={envios}
           emailDoEncarregado={emailDoEncarregado}
           temSuporte={temSuporte}
           despachar={despachar}
@@ -257,6 +338,7 @@ interface PropsDoConteudo {
   abertura: boolean;
   situacao: SituacaoDaVerificacao;
   tentativas: number;
+  envios: number;
   emailDoEncarregado: string;
   temSuporte: () => boolean;
   despachar: (evento: Evento) => void;
@@ -271,13 +353,14 @@ function textoDaEspera(etapa: Etapa): string | null {
       return VERIFICACAO_DE_IDADE.preparando;
     case "conferindo":
       return VERIFICACAO_DE_IDADE.conferindo;
+    case "enviandoDocumento":
+      return VERIFICACAO_DE_IDADE.documento.enviando;
     case "captura":
     case "explicacao":
     case "semCamera":
     case "falhaDoDetector":
     case "desfecho":
     case "documento":
-    case "enviandoDocumento":
     case "limite":
     case "indisponivel":
       return null;
@@ -289,9 +372,11 @@ interface PropsDaFalha {
   aoRepetir: () => void;
   /** Quando a repetição gasta uma tentativa: mostra quantas sobram, e o limite do dia quando acabaram. */
   tentativas?: number;
+  /** O texto da contagem, quando o que a repetição gasta é um envio do documento. */
+  contagem?: (n: number) => string;
 }
 
-function FalhaComRepeticao({ texto, aoRepetir, tentativas }: PropsDaFalha): ReactElement {
+function FalhaComRepeticao({ texto, aoRepetir, tentativas, contagem }: PropsDaFalha): ReactElement {
   return (
     <div className="mt-(--e-5) grid gap-(--e-4)">
       <p role="alert" className={AVISO}>
@@ -302,7 +387,7 @@ function FalhaComRepeticao({ texto, aoRepetir, tentativas }: PropsDaFalha): Reac
           {VERIFICACAO_DE_IDADE.tentarDeNovo}
         </button>
       ) : (
-        <Repeticao tentativas={tentativas} aoRepetir={aoRepetir} />
+        <Repeticao tentativas={tentativas} aoRepetir={aoRepetir} {...(contagem === undefined ? {} : { contagem })} />
       )}
     </div>
   );
@@ -313,6 +398,7 @@ function ConteudoDaEtapa({
   abertura,
   situacao,
   tentativas,
+  envios,
   emailDoEncarregado,
   temSuporte,
   despachar,
@@ -346,7 +432,16 @@ function ConteudoDaEtapa({
         </div>
       );
     case "indisponivel":
-      return <FalhaComRepeticao texto={VERIFICACAO_DE_IDADE.servicoFora} aoRepetir={tentarDeNovo} />;
+      return (
+        <FalhaComRepeticao
+          texto={
+            etapa.repetir.tipo === "enviar"
+              ? VERIFICACAO_DE_IDADE.documento.conferenciaFora
+              : VERIFICACAO_DE_IDADE.servicoFora
+          }
+          aoRepetir={tentarDeNovo}
+        />
+      );
     case "captura":
       // O detector vem do modo que o servidor mandou na sessão (D-F2).
       return (
@@ -364,7 +459,15 @@ function ConteudoDaEtapa({
         />
       );
     case "falhaDoDetector":
-      return (
+      // A selfie do documento gasta um envio, não uma tentativa: a contagem mostra os envios.
+      return etapa.finalidade === "DOCUMENTO" ? (
+        <FalhaComRepeticao
+          texto={VERIFICACAO_DE_IDADE.falhas[etapa.falha]}
+          tentativas={envios}
+          contagem={VERIFICACAO_DE_IDADE.documento.envios}
+          aoRepetir={novaSelfie}
+        />
+      ) : (
         <FalhaComRepeticao
           texto={VERIFICACAO_DE_IDADE.falhas[etapa.falha]}
           tentativas={tentativas}
@@ -386,8 +489,19 @@ function ConteudoDaEtapa({
         />
       );
     case "documento":
-      // O envio das fotos completa esta etapa; aqui só o título.
-      return <Desfecho titulo={VERIFICACAO_DE_IDADE.documento.titulo} focar={!abertura} />;
+      return (
+        <EnvioDeDocumento
+          frente={etapa.frente}
+          verso={etapa.verso}
+          aviso={etapa.aviso}
+          envios={envios}
+          focar={!abertura}
+          aoEscolher={(lado, foto) => {
+            despachar({ tipo: "foto", lado, foto });
+          }}
+          aoFazerSelfie={novaSelfie}
+        />
+      );
     // As esperas falam na região viva da página, fora daqui.
     case "checandoCamera":
     case "iniciando":

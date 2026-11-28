@@ -67,6 +67,19 @@ class AxeContaIT extends ContaE2eBase {
       "enviosDeDocumentoRestantesHoje":2}\
       """;
 
+  /** A faixa de dúvida com envios de documento hoje: a página abre no envio das fotos. */
+  private static final String SITUACAO_DO_DOCUMENTO =
+      """
+      {"estado":"DUVIDA","tentativasRestantesHoje":0,"enviosDeDocumentoRestantesHoje":2,\
+      "modo":"falso"}\
+      """;
+
+  private static final String DOCUMENTO_NAO_LIDO =
+      """
+      {"resultado":"REPETIR","pedeDocumento":true,"tentativasRestantesHoje":0,\
+      "enviosDeDocumentoRestantesHoje":1}\
+      """;
+
   /** O pedaço do detector do modo falso, que a página só baixa quando a captura começa. */
   private static final String PEDACO_DO_DETECTOR_FALSO = "**/app/DetectorFalso-*.js";
 
@@ -325,6 +338,65 @@ class AxeContaIT extends ContaE2eBase {
     verificacao.textoVisivel("O Duora é só para maiores de 18 anos. Encerramos o cadastro.");
 
     assertSemViolacoes(verificacao.page(), "verificação: menor");
+  }
+
+  @Test
+  void verificacaoDocumento(Participantes participantes) {
+    VerificacaoPagina verificacao =
+        verificacaoSimulada(participantes, api -> api.comSituacao(SITUACAO_DO_DOCUMENTO));
+
+    assertThat(verificacao.heading("Falta pouco")).isVisible();
+    verificacao.textoVisivel("Escolha as fotos da frente e do verso.");
+    verificacao.escolherDocumento(
+        DocumentoSintetico.jpeg("frente"), DocumentoSintetico.jpeg("verso"));
+    verificacao.textoVisivel("Logo depois da selfie, enviamos tudo de uma vez.");
+
+    assertSemViolacoes(verificacao.page(), "verificação: documento");
+  }
+
+  @Test
+  void verificacaoDocumentoNaoLido(Participantes participantes) {
+    VerificacaoPagina verificacao =
+        verificacaoSimulada(
+            participantes,
+            api ->
+                api.comSituacao(SITUACAO_DO_DOCUMENTO)
+                    .comDocumento(ApiDeVerificacaoSimulada.Resposta.json(200, DOCUMENTO_NAO_LIDO)));
+
+    verificacao
+        .escolherDocumento(DocumentoSintetico.jpeg("frente"), DocumentoSintetico.jpeg("verso"))
+        .fazerSelfieDoDocumento()
+        .simularCaptura()
+        .textoVisivel(
+            "Não conseguimos ler o documento. Use boa luz, sem reflexo, com as quatro pontas"
+                + " aparecendo.")
+        .textoVisivel("Envios restantes hoje: 1");
+    assertThat(verificacao.heading("Falta pouco")).isFocused();
+
+    assertSemViolacoes(verificacao.page(), "verificação: documento não lido");
+  }
+
+  @Test
+  void verificacaoSelfieVenceu(Participantes participantes) {
+    VerificacaoPagina verificacao =
+        verificacaoSimulada(
+            participantes,
+            api ->
+                api.comSituacao(SITUACAO_DO_DOCUMENTO)
+                    .comDocumento(
+                        ApiDeVerificacaoSimulada.Resposta.problema(
+                            409,
+                            "REFAZER_PROVA_DE_VIDA",
+                            "A selfie venceu antes do envio. Faça uma nova.")));
+
+    verificacao
+        .escolherDocumento(DocumentoSintetico.jpeg("frente"), DocumentoSintetico.jpeg("verso"))
+        .fazerSelfieDoDocumento()
+        .simularCaptura()
+        .textoVisivel("A selfie venceu antes do envio. Faça uma nova; as fotos continuam aqui.");
+    assertThat(verificacao.botao("Fazer a selfie")).not().hasAttribute("aria-disabled", "true");
+
+    assertSemViolacoes(verificacao.page(), "verificação: selfie venceu");
   }
 
   @Test

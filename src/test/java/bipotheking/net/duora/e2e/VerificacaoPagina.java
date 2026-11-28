@@ -5,6 +5,7 @@ import static com.microsoft.playwright.assertions.PlaywrightAssertions.assertTha
 import com.microsoft.playwright.Locator;
 import com.microsoft.playwright.Page;
 import com.microsoft.playwright.options.AriaRole;
+import com.microsoft.playwright.options.FilePayload;
 
 /** Page Object da verificação de idade: fala com a página só por papéis, rótulos e textos. */
 final class VerificacaoPagina {
@@ -49,6 +50,29 @@ final class VerificacaoPagina {
     Locator comecar = botao("Começar a selfie");
     assertThat(comecar).not().hasAttribute("aria-disabled", "true");
     comecar.click();
+    return this;
+  }
+
+  /**
+   * Escolhe as fotos da frente e do verso pelas entradas de arquivo e espera as duas reduzidas (o
+   * botão do campo vira "Trocar foto").
+   */
+  VerificacaoPagina escolherDocumento(byte[] frente, byte[] verso) {
+    // O Playwright casa cada elemento do aria-labelledby à parte: o lado acha a entrada certa.
+    page.getByLabel("Frente do documento")
+        .setInputFiles(new FilePayload("frente.jpg", "image/jpeg", frente));
+    page.getByLabel("Verso do documento")
+        .setInputFiles(new FilePayload("verso.jpg", "image/jpeg", verso));
+    assertThat(page.getByText("Trocar foto", new Page.GetByTextOptions().setExact(true)))
+        .hasCount(2);
+    return this;
+  }
+
+  /** Toca em "Fazer a selfie", já disponível com as duas fotos: abre a selfie do documento. */
+  VerificacaoPagina fazerSelfieDoDocumento() {
+    Locator fazer = botao("Fazer a selfie");
+    assertThat(fazer).not().hasAttribute("aria-disabled", "true");
+    fazer.click();
     return this;
   }
 

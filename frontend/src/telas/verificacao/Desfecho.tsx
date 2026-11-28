@@ -45,8 +45,19 @@ export function VoltarAoTerraco(): ReactElement {
   );
 }
 
+interface PropsDaRepeticao {
+  tentativas: number;
+  aoRepetir: () => void;
+  /** O texto da contagem: as tentativas de selfie, ou os envios do documento na selfie dele. */
+  contagem?: (n: number) => string;
+}
+
 /** Com tentativas, mostra quantas sobram e o "Tentar de novo"; sem nenhuma, o limite do dia e a saída. */
-export function Repeticao({ tentativas, aoRepetir }: { tentativas: number; aoRepetir: () => void }): ReactElement {
+export function Repeticao({
+  tentativas,
+  aoRepetir,
+  contagem = VERIFICACAO_DE_IDADE.tentativas,
+}: PropsDaRepeticao): ReactElement {
   if (tentativas === 0) {
     return (
       <>
@@ -60,7 +71,7 @@ export function Repeticao({ tentativas, aoRepetir }: { tentativas: number; aoRep
   }
   return (
     <>
-      <p className={CONTAGEM}>{VERIFICACAO_DE_IDADE.tentativas(tentativas)}</p>
+      <p className={CONTAGEM}>{contagem(tentativas)}</p>
       <button type="button" className={BOTAO_SECUNDARIO_SEM_MARGEM} onClick={aoRepetir}>
         {VERIFICACAO_DE_IDADE.tentarDeNovo}
       </button>
