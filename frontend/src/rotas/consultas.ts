@@ -1,7 +1,9 @@
 // Consultas do TanStack Query que mais de uma tela da casca lê: a mesma chave, o mesmo cache.
 
 import { queryOptions } from "@tanstack/react-query";
+import { obterCenariosDoConvite } from "../api/encontros";
 import { obterConta } from "../api/estadoDaConta";
+import { obterFila, obterMovimento } from "../api/fila";
 import { obterVersoesLegais } from "../api/legal";
 import {
   obterLocalizacao,
@@ -48,3 +50,20 @@ export const consultaDaOrientacao = queryOptions({ queryKey: ["perfil", "orienta
 export function consultaDoPerfilPublico(contaId: string) {
   return queryOptions({ queryKey: ["perfis", contaId], queryFn: () => obterPerfilPublico(contaId) });
 }
+
+// Encontros (Etapa 4).
+
+/** O estado na fila (null fora dela). Os eventos fila.estado e fila.pareado escrevem nesta chave. */
+export const consultaDaFila = queryOptions({ queryKey: ["fila"], queryFn: obterFila });
+
+/** Espera típica e horários com mais gente: o servidor guarda 5 min em cache, o front também. */
+export const consultaDoMovimento = queryOptions({
+  queryKey: ["fila", "movimento"],
+  queryFn: obterMovimento,
+  staleTime: 300_000,
+});
+
+export const consultaDosCenariosDoConvite = queryOptions({
+  queryKey: ["encontros", "cenarios"],
+  queryFn: obterCenariosDoConvite,
+});

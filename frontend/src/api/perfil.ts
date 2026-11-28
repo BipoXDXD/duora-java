@@ -4,6 +4,7 @@
 
 import * as v from "valibot";
 import { ErroHttp, requisitarHttp } from "./http";
+import { lerResposta } from "./lerResposta";
 
 const INTENCOES = ["AMIZADE", "NAMORO"] as const;
 const PRONOMES = ["ELA_DELA", "ELE_DELE", "ELU_DELU", "OUTROS"] as const;
@@ -126,17 +127,9 @@ export interface EdicaoDaOrientacao {
   consentimento: true;
 }
 
-function ler<S extends v.GenericSchema>(esquema: S, status: number, dados: unknown): v.InferOutput<S> {
-  const resultado = v.safeParse(esquema, dados);
-  if (!resultado.success) {
-    throw new ErroHttp({ status, codigo: "RESPOSTA_INVALIDA" });
-  }
-  return resultado.output;
-}
-
 async function obter<S extends v.GenericSchema>(caminho: string, esquema: S): Promise<v.InferOutput<S>> {
   const resposta = await requisitarHttp("GET", caminho);
-  return ler(esquema, resposta.status, resposta.dados);
+  return lerResposta(esquema, resposta.status, resposta.dados);
 }
 
 async function gravar<S extends v.GenericSchema>(
@@ -145,7 +138,7 @@ async function gravar<S extends v.GenericSchema>(
   esquema: S,
 ): Promise<v.InferOutput<S>> {
   const resposta = await requisitarHttp("PUT", caminho, { corpo });
-  return ler(esquema, resposta.status, resposta.dados);
+  return lerResposta(esquema, resposta.status, resposta.dados);
 }
 
 async function semResposta(metodo: "POST" | "PUT" | "DELETE", caminho: string, corpo?: unknown): Promise<void> {
@@ -216,7 +209,7 @@ export async function obterNamoro(): Promise<DadosDeNamoro | null> {
   if (v.is(EsquemaSemNamoro, resposta.dados)) {
     return null;
   }
-  return ler(EsquemaNamoro, resposta.status, resposta.dados);
+  return lerResposta(EsquemaNamoro, resposta.status, resposta.dados);
 }
 
 export function salvarNamoro(d: EdicaoDoNamoro): Promise<DadosDeNamoro> {
@@ -233,7 +226,7 @@ export async function obterOrientacao(): Promise<DadosDeOrientacao | null> {
   if (v.is(EsquemaSemOrientacao, resposta.dados)) {
     return null;
   }
-  return ler(EsquemaOrientacao, resposta.status, resposta.dados);
+  return lerResposta(EsquemaOrientacao, resposta.status, resposta.dados);
 }
 
 export function salvarOrientacao(d: EdicaoDaOrientacao): Promise<DadosDeOrientacao> {
