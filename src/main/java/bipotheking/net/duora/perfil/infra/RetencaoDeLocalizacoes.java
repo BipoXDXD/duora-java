@@ -14,7 +14,8 @@ import org.springframework.transaction.support.TransactionTemplate;
 
 /**
  * A célula some 90 dias depois da última atualização ({@code atualizada_em}): quem não usa o Duora
- * por esse tempo perde a localização e precisa ativá-la de novo.
+ * por esse tempo perde a localização e precisa ativá-la de novo. O raio dessas contas volta para
+ * {@code SEM_LIMITE} (versão +1) na mesma instrução.
  */
 @Component
 class RetencaoDeLocalizacoes implements PoliticaDeRetencao {
@@ -48,15 +49,28 @@ class RetencaoDeLocalizacoes implements PoliticaDeRetencao {
         () -> Objects.requireNonNull(transacao.execute(status -> apagarLote(antesDe))));
   }
 
-  /** Apaga por {@code conta_id}, a chave que a Task D2 trava com {@code for key share}. */
+  /**
+   * Apaga por {@code conta_id}, a chave que a gravação do raio trava com {@code for key share}, e
+   * volta o raio das contas apagadas; devolve quantas localizações saíram.
+   */
   private int apagarLote(OffsetDateTime antesDe) {
     return jdbc.sql(
             """
-            delete from localizacao where conta_id in (
-                select conta_id from localizacao where atualizada_em < :limite limit 1000)
+            with apagadas as (
+                delete from localizacao where conta_id in (
+                    select conta_id from localizacao where atualizada_em < :limite limit 1000)
+                returning conta_id),
+            reajustadas as (
+                update preferencias set raio = 'SEM_LIMITE', raio_obrigatorio = false,
+                    versao = versao + 1, atualizado_em = :agora
+                where conta_id in (select conta_id from apagadas) and raio <> 'SEM_LIMITE'
+                returning 1)
+            select count(*) from apagadas
             """)
         .param("limite", antesDe)
-        .update();
+        .param("agora", OffsetDateTime.ofInstant(relogio.instant(), ZoneOffset.UTC))
+        .query(Integer.class)
+        .single();
   }
 
   @Override

@@ -19,4 +19,10 @@ public interface RepositorioDePerfis {
   Optional<Perfil> atualizar(Perfil perfil, Instant agora);
 
   boolean existe(ContaId conta);
+
+  /**
+   * Troca as intenções por só amizade e sobe a versão, se o perfil tinha namoro; sem perfil ou sem
+   * namoro, nada muda. Os dados de namoro precisam ter saído antes (a chave estrangeira recusa).
+   */
+  void trocarIntencoesPorAmizade(ContaId conta, Instant agora);
 }
