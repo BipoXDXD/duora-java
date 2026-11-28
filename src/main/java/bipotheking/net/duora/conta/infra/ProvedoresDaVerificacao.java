@@ -34,7 +34,7 @@ class ProvedoresDaVerificacao implements BeanFactoryPostProcessor, EnvironmentAw
   public void postProcessBeanFactory(ConfigurableListableBeanFactory beans) {
     Environment configurado = Objects.requireNonNull(ambiente, "Environment não injetado");
     exigir(configurado, PROVA_DE_VIDA, List.of("aws", "falso"));
-    exigir(configurado, DOCUMENTO, List.of("didit", "falso"));
+    exigir(configurado, DOCUMENTO, List.of("aws", "falso"));
   }
 
   private static void exigir(Environment ambiente, String chave, List<String> aceitos) {

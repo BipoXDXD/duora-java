@@ -446,10 +446,9 @@
                                 <exclude>**/VisualIT.java</exclude>
                                 <!-- Rede real (Cloudflare): roda só com -Dit.test=TurnstileChavesDeTesteIT -->
                                 <exclude>**/TurnstileChavesDeTesteIT.java</exclude>
-                                <!-- Serviços reais (AWS e Didit, com custo): rodam só com
-                                     -Pe2e -DskipUnitTests=true -Dit.test='VerificacaoAwsSmokeIT,DiditSmokeIT' verify -->
+                                <!-- Serviços reais (AWS, com custo): rodam só com
+                                     -Pe2e -DskipUnitTests=true -Dit.test=VerificacaoAwsSmokeIT verify -->
                                 <exclude>**/VerificacaoAwsSmokeIT.java</exclude>
-                                <exclude>**/DiditSmokeIT.java</exclude>
                             </excludes>
                             <systemPropertyVariables>
                                 <navegador>${navegador}</navegador>

@@ -33,7 +33,7 @@ class ProvedoresDaVerificacaoTest {
   @Test
   void semProvaDeVidaOBootCaiComAChave() {
     contexto
-        .withPropertyValues(DOCUMENTO + "=didit")
+        .withPropertyValues(DOCUMENTO + "=aws")
         .run(boot -> caiuCom(boot, PROVEDOR + " sem valor; use aws ou falso"));
   }
 
@@ -41,20 +41,20 @@ class ProvedoresDaVerificacaoTest {
   void semDocumentoOBootCaiComAChave() {
     contexto
         .withPropertyValues(PROVEDOR + "=aws")
-        .run(boot -> caiuCom(boot, DOCUMENTO + " sem valor; use didit ou falso"));
+        .run(boot -> caiuCom(boot, DOCUMENTO + " sem valor; use aws ou falso"));
   }
 
   @Test
   void provedorDesconhecidoDerrubaOBoot() {
     contexto
-        .withPropertyValues(PROVEDOR + "=azure", DOCUMENTO + "=didit")
+        .withPropertyValues(PROVEDOR + "=azure", DOCUMENTO + "=aws")
         .run(boot -> caiuCom(boot, PROVEDOR + "=azure não existe; use aws ou falso"));
   }
 
   @Test
   void provedoresReaisSobem() {
     contexto
-        .withPropertyValues(PROVEDOR + "=aws", DOCUMENTO + "=didit")
+        .withPropertyValues(PROVEDOR + "=aws", DOCUMENTO + "=aws")
         .run(boot -> assertThat(boot).hasNotFailed());
   }
 
