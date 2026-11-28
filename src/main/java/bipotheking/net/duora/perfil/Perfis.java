@@ -3,7 +3,6 @@ package bipotheking.net.duora.perfil;
 import bipotheking.net.duora.conta.ConsultaDeContas;
 import bipotheking.net.duora.conta.ContaId;
 import bipotheking.net.duora.conta.ContaResumo;
-import bipotheking.net.duora.conta.EstadoConta;
 import bipotheking.net.duora.perfil.dominio.DadosDeNamoro;
 import bipotheking.net.duora.perfil.dominio.DadosDeOrientacao;
 import bipotheking.net.duora.perfil.dominio.EdicaoDoPerfil;
@@ -215,12 +214,12 @@ public class Perfis {
   private Optional<Ativa> ativa(ContaId conta) {
     return contas
         .porId(conta)
-        .filter(resumo -> resumo.estado() == EstadoConta.ATIVA)
+        .filter(ContaResumo::ativa)
         .flatMap(resumo -> leitura.ficha(conta).map(ficha -> new Ativa(resumo, ficha)));
   }
 
   private boolean estaAtiva(ContaId conta) {
-    return contas.porId(conta).map(resumo -> resumo.estado() == EstadoConta.ATIVA).orElse(false);
+    return contas.porId(conta).map(ContaResumo::ativa).orElse(false);
   }
 
   /** A conta ativa e o perfil dela, lidos juntos. */

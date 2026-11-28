@@ -20,8 +20,11 @@ import bipotheking.net.duora.web.CodigoWeb;
 import bipotheking.net.duora.web.Idempotencia;
 import bipotheking.net.duora.web.ImagemProcessada;
 import bipotheking.net.duora.web.LimiteDeTaxa;
+import bipotheking.net.duora.web.ModeracaoDeImagem;
+import bipotheking.net.duora.web.ModeracaoDeImagem.Veredito;
 import bipotheking.net.duora.web.ProcessadorDeImagem;
 import bipotheking.net.duora.web.Variante;
+import io.micrometer.core.instrument.MeterRegistry;
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.time.Clock;
@@ -39,6 +42,8 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import org.jspecify.annotations.Nullable;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.EnumSource;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.core.io.Resource;
 import org.springframework.transaction.support.TransactionTemplate;
@@ -62,6 +67,7 @@ class FotosDoPerfilTest extends BancoDeTeste {
   @Autowired private TransactionTemplate transacao;
   @Autowired private Clock relogioDoSistema;
   @Autowired private AcessoAFoto acesso;
+  @Autowired private MeterRegistry metricas;
 
   private final byte[] retrato = FotosDeTeste.fixture(FotosDeTeste.RETRATO);
 
@@ -76,9 +82,63 @@ class FotosDoPerfilTest extends BancoDeTeste {
     assertThat(foto.largura()).isEqualTo(800);
     assertThat(foto.altura()).isEqualTo(1200);
     assertThat(enviada)
-        .isEqualTo(new FotoEnviada("PENDENTE", UrlDaFoto.de(foto.id(), Variante.NITIDA)));
+        .isEqualTo(
+            new FotoEnviada(EstadoDaFoto.PENDENTE, UrlDaFoto.de(foto.id(), Variante.NITIDA)));
     assertThat(variante(foto.id(), Variante.NITIDA)).isPresent();
     assertThat(variante(foto.id(), Variante.BORRADA)).isPresent();
+  }
+
+  @Test
+  void liberadaPelaModeracaoEntraAprovada() {
+    ContaId conta = contas.criarAtiva().id();
+
+    FotoEnviada enviada = fotosCom(_ -> Veredito.LIBERADA).enviar(conta, retrato, null);
+
+    FotoDePerfil foto = unicaDa(conta);
+    assertThat(foto.estado()).isEqualTo(EstadoDaFoto.APROVADA);
+    assertThat(enviada.estado()).isEqualTo(EstadoDaFoto.APROVADA);
+    assertThat(variante(foto.id(), Variante.NITIDA)).isPresent();
+  }
+
+  @Test
+  void liberadaTrocaAAprovadaAnterior() {
+    ContaId conta = contas.criarAtiva().id();
+    FotoId antiga = fotosDeTeste.enviar(conta);
+    transacao.executeWithoutResult(
+        _ -> repositorio.decidir(antiga, EstadoDaFoto.APROVADA, relogio.instant()));
+
+    fotosCom(_ -> Veredito.LIBERADA).enviar(conta, retrato, null);
+
+    FotoDePerfil nova = unicaDa(conta);
+    assertThat(nova.id()).isNotEqualTo(antiga);
+    assertThat(nova.estado()).isEqualTo(EstadoDaFoto.APROVADA);
+    assertThat(variante(antiga, Variante.NITIDA)).isEmpty();
+  }
+
+  @ParameterizedTest
+  @EnumSource(
+      value = Veredito.class,
+      names = {"SINALIZADA", "INDISPONIVEL"})
+  void semLiberacaoFicaPendente(Veredito veredito) {
+    ContaId conta = contas.criarAtiva().id();
+
+    FotoEnviada enviada = fotosCom(_ -> veredito).enviar(conta, retrato, null);
+
+    assertThat(unicaDa(conta).estado()).isEqualTo(EstadoDaFoto.PENDENTE);
+    assertThat(enviada.estado()).isEqualTo(EstadoDaFoto.PENDENTE);
+  }
+
+  @Test
+  void moderacaoQueLancaFicaPendente() {
+    ContaId conta = contas.criarAtiva().id();
+    ModeracaoDeImagem quebrada =
+        _ -> {
+          throw new IllegalStateException("falha simulada");
+        };
+
+    fotosCom(quebrada).enviar(conta, retrato, null);
+
+    assertThat(unicaDa(conta).estado()).isEqualTo(EstadoDaFoto.PENDENTE);
   }
 
   @Test
@@ -155,7 +215,7 @@ class FotosDoPerfilTest extends BancoDeTeste {
     }
 
     FotoDePerfil pendente = unicaDa(conta);
-    assertThat(respostas).extracting(FotoEnviada::estado).containsOnly("PENDENTE");
+    assertThat(respostas).extracting(FotoEnviada::estado).containsOnly(EstadoDaFoto.PENDENTE);
     Set<UUID> novas = new HashSet<>(guardadas());
     novas.removeAll(antes);
     assertThat(novas).containsExactly(pendente.id().valor());
@@ -181,7 +241,8 @@ class FotosDoPerfilTest extends BancoDeTeste {
   @Test
   void discoCheioVira503ELiberaAChave() {
     ContaId conta = contas.criarAtiva().id();
-    FotosDoPerfil comDiscoCheio = fotosCom(new ArmazemSemEspaco(armazem));
+    FotosDoPerfil comDiscoCheio =
+        fotosCom(new ArmazemSemEspaco(armazem), _ -> Veredito.INDISPONIVEL);
 
     assertThatThrownBy(() -> comDiscoCheio.enviar(conta, retrato, "disco-cheio-0001"))
         .isInstanceOfSatisfying(
@@ -192,7 +253,8 @@ class FotosDoPerfilTest extends BancoDeTeste {
             });
     assertThat(repositorio.daConta(conta)).isEmpty();
 
-    assertThat(fotos.enviar(conta, retrato, "disco-cheio-0001").estado()).isEqualTo("PENDENTE");
+    assertThat(fotos.enviar(conta, retrato, "disco-cheio-0001").estado())
+        .isEqualTo(EstadoDaFoto.PENDENTE);
   }
 
   @Test
@@ -243,18 +305,23 @@ class FotosDoPerfilTest extends BancoDeTeste {
     }
   }
 
-  private FotosDoPerfil fotosCom(ArmazemDeImagens outroArmazem) {
+  private FotosDoPerfil fotosCom(ArmazemDeImagens outroArmazem, ModeracaoDeImagem moderacao) {
+    TriagemDeFoto triagem = new TriagemDeFoto(processador, moderacao, metricas);
+    EnvioDeFoto envio =
+        new EnvioDeFoto(
+            repositorio,
+            consultaDeContas,
+            triagem,
+            outroArmazem,
+            geradorDeIds,
+            transacao,
+            relogioDoSistema);
     return new FotosDoPerfil(
-        repositorio,
-        consultaDeContas,
-        processador,
-        outroArmazem,
-        limiteDeTaxa,
-        idempotencia,
-        geradorDeIds,
-        transacao,
-        relogioDoSistema,
-        acesso);
+        repositorio, outroArmazem, transacao, acesso, limiteDeTaxa, idempotencia, envio);
+  }
+
+  private FotosDoPerfil fotosCom(ModeracaoDeImagem moderacao) {
+    return fotosCom(armazem, moderacao);
   }
 
   /** Armazém com o disco cheio: {@code guardar} falha como o {@code ArmazemEmDisco} falharia. */

@@ -2,7 +2,7 @@
 // contada por code point, e só com Prefiro descrever.
 
 import type { DadosDeNamoro, EdicaoDoNamoro, Genero } from "../../api/perfil";
-import { contarCaracteres } from "./contar";
+import { semEspacosNasPontas, textoCurtoCabe } from "./textoDigitado";
 import { ERROS_DO_NAMORO } from "./textos";
 
 /** O formulário como a tela o guarda: sem gênero até a escolha, e a descrição como digitada. */
@@ -22,8 +22,7 @@ export function validarNamoro(d: EdicaoDoNamoroNaTela): ErrosDoNamoro {
   if (d.genero === null) {
     erros.genero = ERROS_DO_NAMORO.semGenero;
   } else if (d.genero === "OUTRO") {
-    const tamanho = contarCaracteres(d.descricaoGenero.trim());
-    if (tamanho < 1 || tamanho > DESCRICAO_MAXIMA) {
+    if (!textoCurtoCabe(d.descricaoGenero, DESCRICAO_MAXIMA)) {
       erros.descricaoGenero = ERROS_DO_NAMORO.descricao;
     }
   }
@@ -44,7 +43,7 @@ export function deDadosDeNamoro(d: DadosDeNamoro | null): EdicaoDoNamoroNaTela {
 export function paraEnvio(d: EdicaoDoNamoroNaTela & { genero: Genero }): EdicaoDoNamoro {
   return {
     genero: d.genero,
-    descricaoGenero: d.genero === "OUTRO" ? d.descricaoGenero.trim() : null,
+    descricaoGenero: d.genero === "OUTRO" ? semEspacosNasPontas(d.descricaoGenero) : null,
     interesses: d.interesses,
     consentimento: true,
   };

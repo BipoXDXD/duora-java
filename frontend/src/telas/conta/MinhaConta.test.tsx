@@ -64,6 +64,9 @@ function renderizar(estado: EstadoDaConta = "ATIVA", verificada = false) {
   const conta: Conta = { estado, cadastroConcluido: estado === "ATIVA", verificada };
   const cliente = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   cliente.setQueryData(["conta"], conta);
+  cliente.setQueryData(["perfil"], { apelido: "Lua" });
+  cliente.setQueryData(["perfil", "namoro"], { genero: "MULHER" });
+  cliente.setQueryData(["perfis", "outra-conta"], { apelido: "Sol" });
   const roteador = createMemoryRouter(
     [
       { path: "/conta", loader: () => conta, Component: MinhaConta },
@@ -186,6 +189,17 @@ describe("MinhaConta", () => {
     expect(roteador.state.historyAction).toBe("REPLACE");
   });
 
+  it("sairEsqueceOsPerfisDoCache", async () => {
+    prepararFetch();
+    const { cliente } = renderizar();
+
+    await userEvent.click(await botaoSair());
+
+    await screen.findByRole("heading", { name: "Tela de entrar" });
+    expect(cliente.getQueryCache().findAll({ queryKey: ["perfil"] })).toHaveLength(0);
+    expect(cliente.getQueryCache().findAll({ queryKey: ["perfis"] })).toHaveLength(0);
+  });
+
   it("duploToqueEmSairEnviaUmaVez", async () => {
     const pedidos = prepararFetch();
     renderizar();
@@ -263,6 +277,8 @@ describe("MinhaConta", () => {
     expect(screen.getByRole("link", { name: "Voltar ao terraço" })).toHaveAttribute("href", "/");
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
     expect(cliente.getQueryData(["conta"])).toBeUndefined();
+    expect(cliente.getQueryCache().findAll({ queryKey: ["perfil"] })).toHaveLength(0);
+    expect(cliente.getQueryCache().findAll({ queryKey: ["perfis"] })).toHaveLength(0);
   });
 
   it("duploToqueNaConfirmacaoEnviaUmaVez", async () => {

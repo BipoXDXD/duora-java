@@ -6,11 +6,12 @@ import * as v from "valibot";
 import { ErroHttp, requisitarHttp } from "./http";
 import { lerResposta } from "./lerResposta";
 
-const INTENCOES = ["AMIZADE", "NAMORO"] as const;
-const PRONOMES = ["ELA_DELA", "ELE_DELE", "ELU_DELU", "OUTROS"] as const;
-const RAIOS = ["ATE_5_KM", "ATE_20_KM", "ATE_50_KM", "SEM_LIMITE"] as const;
-const GENEROS = ["MULHER", "HOMEM", "PESSOA_NAO_BINARIA", "OUTRO"] as const;
-const ORIENTACOES = [
+/** As opções na ordem em que as telas as mostram; os tipos saem delas. */
+export const INTENCOES = ["AMIZADE", "NAMORO"] as const;
+export const PRONOMES = ["ELA_DELA", "ELE_DELE", "ELU_DELU", "OUTROS"] as const;
+export const RAIOS = ["ATE_5_KM", "ATE_20_KM", "ATE_50_KM", "SEM_LIMITE"] as const;
+export const GENEROS = ["MULHER", "HOMEM", "PESSOA_NAO_BINARIA", "OUTRO"] as const;
+export const ORIENTACOES = [
   "HETEROSSEXUAL",
   "GAY",
   "LESBICA",
@@ -155,19 +156,31 @@ export function obterMeuPerfil(): Promise<MeuPerfil> {
 }
 
 /** Manda só os campos do contrato; `versao` nula cria o perfil. */
-export function salvarPerfil(e: EdicaoDoPerfil): Promise<MeuPerfil> {
-  const { versao, apelido, pronomes, descricaoPronomes, intencoes, bio } = e;
+export function salvarPerfil(edicao: EdicaoDoPerfil): Promise<MeuPerfil> {
+  const { versao, apelido, pronomes, descricaoPronomes, intencoes, bio } = edicao;
   return gravar("/perfil", { versao, apelido, pronomes, descricaoPronomes, intencoes, bio }, EsquemaMeuPerfil);
 }
 
+const EsquemaFotoEnviada = v.object({ estado: v.picklist(["PENDENTE", "APROVADA"]) });
+
 /**
- * 202 com o corpo ignorado: a foto entra pendente e o próximo GET do perfil a mostra. O nome fixo
- * evita mandar ao servidor o nome do arquivo no aparelho.
+ * 202 com o estado em que a foto entrou: APROVADA se a moderação automática a liberou, senão
+ * PENDENTE (espera a revisão). O próximo GET do perfil a mostra. O nome fixo evita mandar ao
+ * servidor o nome do arquivo no aparelho.
  */
-export async function enviarFoto(arquivo: Blob, chave: string): Promise<void> {
+export async function enviarFoto(arquivo: Blob, chave: string): Promise<{ aprovada: boolean }> {
   const formulario = new FormData();
   formulario.append("arquivo", arquivo, "foto");
-  await requisitarHttp("POST", "/perfil/foto", { formulario, cabecalhos: { "Idempotency-Key": chave } });
+  const resposta = await requisitarHttp("POST", "/perfil/foto", {
+    formulario,
+    cabecalhos: { "Idempotency-Key": chave },
+  });
+  return { aprovada: ler(EsquemaFotoEnviada, resposta.status, resposta.dados).estado === "APROVADA" };
+}
+
+/** Apaga a foto aprovada, a pendente e a marca de recusa; o perfil volta à silhueta. */
+export function removerFoto(): Promise<void> {
+  return semResposta("DELETE", "/perfil/foto");
 }
 
 export function pausarConta(): Promise<void> {
@@ -182,8 +195,8 @@ export function obterPreferencias(): Promise<PreferenciasDeEncontro> {
   return obter("/perfil/preferencias", EsquemaPreferencias);
 }
 
-export function salvarPreferencias(p: PreferenciasDeEncontro): Promise<PreferenciasDeEncontro> {
-  const { versao, idadeMinima, idadeMaxima, raio, raioObrigatorio } = p;
+export function salvarPreferencias(preferencias: PreferenciasDeEncontro): Promise<PreferenciasDeEncontro> {
+  const { versao, idadeMinima, idadeMaxima, raio, raioObrigatorio } = preferencias;
   return gravar(
     "/perfil/preferencias",
     { versao, idadeMinima, idadeMaxima, raio, raioObrigatorio },
@@ -196,8 +209,8 @@ export function obterLocalizacao(): Promise<SituacaoDaLocalizacao> {
 }
 
 /** Só latitude e longitude saem, mesmo que o objeto traga mais (precisão, altitude). */
-export function ativarLocalizacao(c: Coordenada): Promise<void> {
-  return semResposta("PUT", "/perfil/localizacao", { latitude: c.latitude, longitude: c.longitude });
+export function ativarLocalizacao(coordenada: Coordenada): Promise<void> {
+  return semResposta("PUT", "/perfil/localizacao", { latitude: coordenada.latitude, longitude: coordenada.longitude });
 }
 
 export function desativarLocalizacao(): Promise<void> {
@@ -212,8 +225,8 @@ export async function obterNamoro(): Promise<DadosDeNamoro | null> {
   return lerResposta(EsquemaNamoro, resposta.status, resposta.dados);
 }
 
-export function salvarNamoro(d: EdicaoDoNamoro): Promise<DadosDeNamoro> {
-  const { genero, descricaoGenero, interesses, consentimento } = d;
+export function salvarNamoro(edicao: EdicaoDoNamoro): Promise<DadosDeNamoro> {
+  const { genero, descricaoGenero, interesses, consentimento } = edicao;
   return gravar("/perfil/namoro", { genero, descricaoGenero, interesses, consentimento }, EsquemaNamoro);
 }
 
@@ -229,8 +242,8 @@ export async function obterOrientacao(): Promise<DadosDeOrientacao | null> {
   return lerResposta(EsquemaOrientacao, resposta.status, resposta.dados);
 }
 
-export function salvarOrientacao(d: EdicaoDaOrientacao): Promise<DadosDeOrientacao> {
-  const { orientacao, descricaoOrientacao, mostrarOrientacao, consentimento } = d;
+export function salvarOrientacao(edicao: EdicaoDaOrientacao): Promise<DadosDeOrientacao> {
+  const { orientacao, descricaoOrientacao, mostrarOrientacao, consentimento } = edicao;
   return gravar(
     "/perfil/orientacao",
     { orientacao, descricaoOrientacao, mostrarOrientacao, consentimento },

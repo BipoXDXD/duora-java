@@ -2,6 +2,7 @@ package bipotheking.net.duora.web;
 
 import java.nio.file.Path;
 import java.time.Duration;
+import java.util.Objects;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.boot.context.properties.bind.DefaultValue;
 
@@ -25,6 +26,7 @@ public record ConfigDeImagens(
     @DefaultValue("2") int simultaneos) {
 
   public ConfigDeImagens {
+    Objects.requireNonNull(dir, "duora.imagens.dir é obrigatório");
     if (simultaneos < 1) {
       throw new IllegalArgumentException("simultaneos precisa ser pelo menos 1: " + simultaneos);
     }

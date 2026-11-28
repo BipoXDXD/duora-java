@@ -19,6 +19,13 @@ describe("CartaoDoPerfil", () => {
     expect(screen.getByRole("img", { name: "Foto de Lua" })).toHaveAttribute("loading", "lazy");
   });
 
+  it("semApelidoNaoRepeteOTitulo", () => {
+    render(<CartaoDoPerfil perfil={LUA} semApelido />);
+
+    expect(screen.queryByText("Lua")).toBeNull();
+    expect(screen.getByRole("img", { name: "Foto de Lua" })).toBeInTheDocument();
+  });
+
   it("semFotoMostraSilhueta", () => {
     render(<CartaoDoPerfil perfil={{ ...LUA, foto: null }} />);
 

@@ -1,17 +1,16 @@
 import { useMutation, useQueryClient, useSuspenseQuery } from "@tanstack/react-query";
 import { useEffect, useRef, useState, type ReactElement, type SubmitEvent } from "react";
 import { ErroHttp } from "../../api/http";
-import { salvarPreferencias, versaoObsoleta, type PreferenciasDeEncontro, type Raio } from "../../api/perfil";
+import { salvarPreferencias, versaoObsoleta, type PreferenciasDeEncontro, type Raio, RAIOS } from "../../api/perfil";
 import { BOTAO_PRIMARIO, DICA, ENTRADA_DE_TEXTO, ROTULO, TITULO_DA_CASCA } from "../../componentes/estilos";
 import { consultaDaLocalizacao, consultaDasPreferencias } from "../../rotas/consultas";
 import { raioDisponivel, transicao, type EtapaDaLocalizacao, type EventoDaLocalizacao } from "./etapasDaLocalizacao";
+import { useTravaDeEnvio } from "./useTravaDeEnvio";
 import { Localizacao } from "./Localizacao";
 import { PREFERENCIAS, ROTULO_DOS_RAIOS } from "./textos";
 
 const IDADE_MINIMA = 18;
 const IDADE_MAXIMA = 99;
-
-const RAIOS = Object.keys(ROTULO_DOS_RAIOS) as Raio[];
 
 /** As idades ficam como o texto digitado: a validação decide no envio. */
 interface Edicao {
@@ -96,7 +95,7 @@ export function Preferencias(): ReactElement {
   const [erroDaDistancia, setErroDaDistancia] = useState("");
   const [erroGeral, setErroGeral] = useState("");
   const [salvas, setSalvas] = useState(false);
-  const enviando = useRef(false);
+  const trava = useTravaDeEnvio();
   const campoDe = useRef<HTMLInputElement>(null);
   const campoAte = useRef<HTMLInputElement>(null);
   const semLimite = useRef<HTMLInputElement>(null);
@@ -177,13 +176,13 @@ export function Preferencias(): ReactElement {
       focarEm.current = "alerta";
     },
     onSettled: () => {
-      enviando.current = false;
+      trava.abrir();
     },
   });
 
   function enviar(evento: SubmitEvent<HTMLFormElement>) {
     evento.preventDefault();
-    if (enviando.current) {
+    if (trava.fechada()) {
       return;
     }
     setSalvas(false);
@@ -195,7 +194,7 @@ export function Preferencias(): ReactElement {
       focarEm.current = invalidas.de ? "de" : "ate";
       return;
     }
-    enviando.current = true;
+    trava.fechar();
     salvar.mutate(paraEnvio(edicao));
   }
 

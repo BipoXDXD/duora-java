@@ -2,7 +2,7 @@ import { useMutation, useQueryClient, useSuspenseQuery } from "@tanstack/react-q
 import { useEffect, useRef, useState, type ReactElement, type SubmitEvent } from "react";
 import { Link } from "react-router";
 import { ErroHttp } from "../../api/http";
-import { apagarNamoro, salvarNamoro, type Genero } from "../../api/perfil";
+import { apagarNamoro, salvarNamoro, type Genero, GENEROS } from "../../api/perfil";
 import { DialogoDeConfirmacao } from "../../componentes/DialogoDeConfirmacao";
 import {
   BOTAO_PRIMARIO,
@@ -26,13 +26,13 @@ import {
   type ErrosDoNamoro,
 } from "./formularioDoNamoro";
 import { NAMORO, ROTULO_DO_GENERO, ROTULO_DO_INTERESSE } from "./textos";
+import { useTravaDeEnvio } from "./useTravaDeEnvio";
+import { camposComErro } from "./camposComErro";
 
 type Campo = keyof ErrosDoNamoro;
 
 /** A ordem do formulário: o foco vai ao primeiro campo com erro. */
 const ORDEM_DOS_CAMPOS: readonly Campo[] = ["genero", "descricaoGenero", "interesses"];
-
-const GENEROS = Object.keys(ROTULO_DO_GENERO) as Genero[];
 
 const ID = {
   dicaDoGenero: "namoro-dica-genero",
@@ -115,10 +115,9 @@ function FormularioDoNamoro({ aoApagar }: { aoApagar: () => void }): ReactElemen
   const [consentimento, setConsentimento] = useState(dados !== null);
   const [erros, setErros] = useState<ErrosDoNamoro>({});
   const [erroGeral, setErroGeral] = useState("");
-  const [salvos, setSalvos] = useState(false);
-  const [confirmando, setConfirmando] = useState(false);
-  // Trava síncrona: o isPending só chega no render seguinte.
-  const enviando = useRef(false);
+  // "salvos" mostra o aviso de salvos; "confirmando" abre o diálogo de apagar.
+  const [situacao, setSituacao] = useState<"editando" | "salvos" | "confirmando">("editando");
+  const trava = useTravaDeEnvio();
   const primeiroGenero = useRef<HTMLInputElement>(null);
   const campoDaDescricao = useRef<HTMLInputElement>(null);
   const primeiroInteresse = useRef<HTMLInputElement>(null);
@@ -158,7 +157,7 @@ function FormularioDoNamoro({ aoApagar }: { aoApagar: () => void }): ReactElemen
       // A pendência de dados de namoro do perfil pode ter mudado.
       void clienteDeConsulta.invalidateQueries({ queryKey: consultaDoMeuPerfil.queryKey, exact: true });
       setEdicao(deDadosDeNamoro(novos));
-      setSalvos(true);
+      setSituacao("salvos");
     },
     onError: (erro) => {
       if (erro instanceof ErroHttp && erro.status === 422) {
@@ -172,33 +171,32 @@ function FormularioDoNamoro({ aoApagar }: { aoApagar: () => void }): ReactElemen
       mostrarFalha(NAMORO.falha);
     },
     onSettled: () => {
-      enviando.current = false;
+      trava.abrir();
     },
   });
 
   const apagar = useMutation({
     mutationFn: apagarNamoro,
     onSuccess: () => {
-      setConfirmando(false);
+      setSituacao("editando");
       setEdicao(deDadosDeNamoro(null));
       setConsentimento(false);
-      setSalvos(false);
       aoApagar();
       // Por prefixo: o perfil (intenções, versão, pendências) e os dados de namoro mudaram.
       void clienteDeConsulta.invalidateQueries({ queryKey: consultaDoMeuPerfil.queryKey });
     },
     onError: () => {
-      setConfirmando(false);
+      setSituacao("editando");
       mostrarFalha(NAMORO.falhaAoApagar);
     },
   });
 
   function enviar(evento: SubmitEvent<HTMLFormElement>) {
     evento.preventDefault();
-    if (enviando.current || !consentimento) {
+    if (trava.fechada() || !consentimento) {
       return;
     }
-    setSalvos(false);
+    setSituacao("editando");
     setErroGeral("");
     const recusas = validarNamoro(edicao);
     if (Object.keys(recusas).length > 0 || edicao.genero === null) {
@@ -206,13 +204,13 @@ function FormularioDoNamoro({ aoApagar }: { aoApagar: () => void }): ReactElemen
       return;
     }
     setErros({});
-    enviando.current = true;
+    trava.fechar();
     salvar.mutate(paraEnvio({ ...edicao, genero: edicao.genero }));
   }
 
   /** Editar de novo tira o "salvos": ele valeria para o que já mudou. */
   function mudar(parte: Partial<EdicaoDoNamoroNaTela>) {
-    setSalvos(false);
+    setSituacao("editando");
     setEdicao((atual) => ({ ...atual, ...parte }));
   }
 
@@ -233,22 +231,8 @@ function FormularioDoNamoro({ aoApagar }: { aoApagar: () => void }): ReactElemen
     mudar({ interesses: GENEROS.filter((g) => escolhidos.has(g)) });
   }
 
-  /** As descrições de um campo: as fixas e, se houver, o erro dele. */
-  function descricao(campo: Campo, ...fixas: string[]): string | undefined {
-    const ids = erros[campo] === undefined ? fixas : [...fixas, ID.erro(campo)];
-    return ids.length > 0 ? ids.join(" ") : undefined;
-  }
+  const { descricao, erroDo, invalido } = camposComErro(erros, ID.erro, `${ERRO_DE_CAMPO} mt-(--e-2)`);
 
-  function erroDo(campo: Campo): ReactElement | null {
-    const texto = erros[campo];
-    return texto === undefined ? null : (
-      <p className={`${ERRO_DE_CAMPO} mt-(--e-2)`} id={ID.erro(campo)}>
-        {texto}
-      </p>
-    );
-  }
-
-  const invalido = (campo: Campo) => (erros[campo] === undefined ? undefined : true);
   const borda = (...campos: Campo[]) =>
     campos.some((campo) => erros[campo] !== undefined) ? "border-coral" : "border-transparent";
   const prefereDescrever = edicao.genero === "OUTRO";
@@ -351,7 +335,7 @@ function FormularioDoNamoro({ aoApagar }: { aoApagar: () => void }): ReactElemen
               name="consentimento"
               checked={consentimento}
               onChange={(evento) => {
-                setSalvos(false);
+                setSituacao("editando");
                 setConsentimento(evento.target.checked);
               }}
               aria-describedby={dados === null ? undefined : ID.concordouEm}
@@ -380,7 +364,7 @@ function FormularioDoNamoro({ aoApagar }: { aoApagar: () => void }): ReactElemen
             </p>
           )}
           <p className={STATUS} role="status">
-            {salvos ? NAMORO.salvos : ""}
+            {situacao === "salvos" ? NAMORO.salvos : ""}
           </p>
           <p
             ref={alerta}
@@ -402,13 +386,13 @@ function FormularioDoNamoro({ aoApagar }: { aoApagar: () => void }): ReactElemen
             className={`${BOTAO_SECUNDARIO_SEM_MARGEM} text-marfim`}
             onClick={() => {
               setErroGeral("");
-              setConfirmando(true);
+              setSituacao("confirmando");
             }}
           >
             {NAMORO.apagar}
           </button>
           <DialogoDeConfirmacao
-            aberto={confirmando}
+            aberto={situacao === "confirmando"}
             titulo={NAMORO.tituloDoApagar}
             texto={NAMORO.textoDoApagar}
             acao={apagar.isPending ? NAMORO.apagando : NAMORO.acaoDoApagar}
@@ -416,7 +400,7 @@ function FormularioDoNamoro({ aoApagar }: { aoApagar: () => void }): ReactElemen
               apagar.mutate();
             })}
             aoCancelar={() => {
-              setConfirmando(false);
+              setSituacao("editando");
             }}
             enviando={apagar.isPending}
           />

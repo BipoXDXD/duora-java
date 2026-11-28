@@ -7,6 +7,7 @@ import {
   type DadosDeOrientacao,
   type EdicaoDaOrientacao,
   type Orientacao as OpcaoDeOrientacao,
+  ORIENTACOES,
 } from "../../api/perfil";
 import {
   BOTAO_PRIMARIO,
@@ -20,7 +21,9 @@ import {
   TITULO_DA_CASCA,
 } from "../../componentes/estilos";
 import { consultaDaOrientacao } from "../../rotas/consultas";
-import { contarCaracteres } from "./contar";
+import { semEspacosNasPontas, textoCurtoCabe } from "./textoDigitado";
+import { useTravaDeEnvio } from "./useTravaDeEnvio";
+import { camposComErro } from "./camposComErro";
 import { ERROS_DA_ORIENTACAO, ORIENTACAO, ROTULO_DA_ORIENTACAO } from "./textos";
 
 /** O formulário como a tela o guarda: sem orientação até a escolha, e a descrição como digitada. */
@@ -33,7 +36,6 @@ interface EdicaoNaTela {
 type Campo = "orientacao" | "descricaoOrientacao";
 type Erros = Partial<Record<Campo, string>>;
 
-const OPCOES = Object.keys(ROTULO_DA_ORIENTACAO) as OpcaoDeOrientacao[];
 const DESCRICAO_MAXIMA = 40;
 
 const ID = {
@@ -75,8 +77,7 @@ function validar(e: EdicaoNaTela): Erros {
     return { orientacao: ERROS_DA_ORIENTACAO.semOrientacao };
   }
   if (e.orientacao === "OUTRA") {
-    const tamanho = contarCaracteres(e.descricaoOrientacao.trim());
-    if (tamanho < 1 || tamanho > DESCRICAO_MAXIMA) {
+    if (!textoCurtoCabe(e.descricaoOrientacao, DESCRICAO_MAXIMA)) {
       return { descricaoOrientacao: ERROS_DA_ORIENTACAO.descricao };
     }
   }
@@ -87,7 +88,7 @@ function validar(e: EdicaoNaTela): Erros {
 function paraEnvio(e: EdicaoNaTela & { orientacao: OpcaoDeOrientacao }): EdicaoDaOrientacao {
   return {
     orientacao: e.orientacao,
-    descricaoOrientacao: e.orientacao === "OUTRA" ? e.descricaoOrientacao.trim() : null,
+    descricaoOrientacao: e.orientacao === "OUTRA" ? semEspacosNasPontas(e.descricaoOrientacao) : null,
     mostrarOrientacao: e.mostrarOrientacao,
     consentimento: true,
   };
@@ -108,8 +109,7 @@ export function Orientacao(): ReactElement {
   const [erroAoSalvar, setErroAoSalvar] = useState("");
   const [erroAoApagar, setErroAoApagar] = useState("");
   const [situacao, setSituacao] = useState<"salva" | "apagada" | null>(null);
-  // Trava síncrona: o isPending só chega no render seguinte.
-  const enviando = useRef(false);
+  const trava = useTravaDeEnvio();
   const primeiraOpcao = useRef<HTMLInputElement>(null);
   const campoDaDescricao = useRef<HTMLInputElement>(null);
   const alertaAoSalvar = useRef<HTMLParagraphElement>(null);
@@ -148,7 +148,7 @@ export function Orientacao(): ReactElement {
       focarEm.current = "alertaAoSalvar";
     },
     onSettled: () => {
-      enviando.current = false;
+      trava.abrir();
     },
   });
 
@@ -173,7 +173,7 @@ export function Orientacao(): ReactElement {
 
   function enviar(evento: SubmitEvent<HTMLFormElement>) {
     evento.preventDefault();
-    if (enviando.current || !consentimento) {
+    if (trava.fechada() || !consentimento) {
       return;
     }
     setSituacao(null);
@@ -186,7 +186,7 @@ export function Orientacao(): ReactElement {
       return;
     }
     setErros({});
-    enviando.current = true;
+    trava.fechar();
     salvar.mutate(paraEnvio({ ...edicao, orientacao: edicao.orientacao }));
   }
 
@@ -202,20 +202,7 @@ export function Orientacao(): ReactElement {
     setErros({});
   }
 
-  /** As descrições de um campo: as fixas e, se houver, o erro dele. */
-  function descricao(campo: Campo, ...fixas: string[]): string | undefined {
-    const ids = erros[campo] === undefined ? fixas : [...fixas, ID.erro(campo)];
-    return ids.length > 0 ? ids.join(" ") : undefined;
-  }
-
-  function erroDo(campo: Campo): ReactElement | null {
-    const texto = erros[campo];
-    return texto === undefined ? null : (
-      <p className={`${ERRO_DE_CAMPO} mt-(--e-2)`} id={ID.erro(campo)}>
-        {texto}
-      </p>
-    );
-  }
+  const { descricao, erroDo } = camposComErro(erros, ID.erro, `${ERRO_DE_CAMPO} mt-(--e-2)`);
 
   const prefereDescrever = edicao.orientacao === "OUTRA";
   const temErro = erros.orientacao !== undefined || erros.descricaoOrientacao !== undefined;
@@ -240,7 +227,7 @@ export function Orientacao(): ReactElement {
           aria-describedby={descricao("orientacao")}
         >
           <legend className={LEGENDA}>{ORIENTACAO.rotulo}</legend>
-          {OPCOES.map((opcao, indice) => (
+          {ORIENTACOES.map((opcao, indice) => (
             <label key={opcao} className={OPCAO}>
               <input
                 ref={indice === 0 ? primeiraOpcao : undefined}

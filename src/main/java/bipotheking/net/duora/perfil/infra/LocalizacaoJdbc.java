@@ -20,6 +20,10 @@ class LocalizacaoJdbc implements RepositorioDeLocalizacao {
     this.jdbc = jdbc;
   }
 
+  /**
+   * O relógio pode voltar (NTP, outro contêiner): {@code greatest} segura a atualização no
+   * consentimento, que o check da tabela exige como mínimo.
+   */
   @Override
   public void consentirEGravar(ContaId conta, CelulaGeohash celula, Instant agora) {
     jdbc.sql(
@@ -27,7 +31,8 @@ class LocalizacaoJdbc implements RepositorioDeLocalizacao {
             insert into localizacao (conta_id, celula, consentida_em, atualizada_em)
             values (:conta, :celula, :agora, :agora)
             on conflict (conta_id) do update
-                set celula = excluded.celula, atualizada_em = excluded.atualizada_em
+                set celula = excluded.celula,
+                    atualizada_em = greatest(excluded.atualizada_em, localizacao.consentida_em)
             """)
         .param("conta", conta.valor())
         .param("celula", celula.valor())
@@ -39,7 +44,8 @@ class LocalizacaoJdbc implements RepositorioDeLocalizacao {
   public boolean atualizar(ContaId conta, CelulaGeohash celula, Instant agora) {
     return jdbc.sql(
                 """
-                update localizacao set celula = :celula, atualizada_em = :agora
+                update localizacao
+                set celula = :celula, atualizada_em = greatest(:agora, consentida_em)
                 where conta_id = :conta
                 """)
             .param("conta", conta.valor())

@@ -8,7 +8,7 @@ import { DialogoDeConfirmacao } from "../../componentes/DialogoDeConfirmacao";
 import { MarcaDoSelo } from "../../componentes/SeloVerificado";
 import { BOTAO_PERIGO, BOTAO_SECUNDARIO_SEM_MARGEM, LINK_DE_ACAO, TITULO_DA_CASCA } from "../../componentes/estilos";
 import { CAMINHO_DA_VERIFICACAO } from "../../rotas/caminhosDaCasca";
-import { consultaDaConta } from "../../rotas/consultas";
+import { esquecerASessao } from "../../rotas/consultas";
 import { CONFIRMAR, MINHA_CONTA } from "./textos";
 
 const ID_DA_FALHA_AO_SAIR = "minha-conta-falha-ao-sair";
@@ -58,7 +58,7 @@ export function MinhaConta(): ReactElement {
   }, [excluida]);
 
   function esquecerAConta() {
-    clienteDeConsulta.removeQueries({ queryKey: consultaDaConta.queryKey, exact: true });
+    esquecerASessao(clienteDeConsulta);
   }
 
   function irParaEntrar() {

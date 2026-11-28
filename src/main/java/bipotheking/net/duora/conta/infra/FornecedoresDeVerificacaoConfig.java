@@ -35,6 +35,17 @@ class FornecedoresDeVerificacaoConfig {
         medicao);
   }
 
+  /**
+   * A moderação automática das fotos ({@code duora.imagens.moderacao.provedor=aws}), com as chaves
+   * da verificação: chave ausente derruba a subida, como nos outros beans reais. Sem o provedor, o
+   * {@code SemModeracaoDeImagem} deixa toda foto para a revisão humana.
+   */
+  @Bean
+  @ConditionalOnProperty(name = "duora.imagens.moderacao.provedor", havingValue = "aws")
+  ModeracaoDeImagemRekognition moderacaoDeImagemRekognition(ConfiguracaoAws config) {
+    return new ModeracaoDeImagemRekognition(ClientesAws.rekognition(config, Optional.empty()));
+  }
+
   @Bean
   @ConditionalOnProperty(name = "duora.verificacao.documento.provedor", havingValue = "didit")
   ConferenciaDeDocumentoDidit conferenciaDeDocumentoDidit(

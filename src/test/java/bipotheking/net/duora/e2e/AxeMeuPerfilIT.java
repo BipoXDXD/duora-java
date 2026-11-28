@@ -291,6 +291,55 @@ class AxeMeuPerfilIT extends ContaE2eBase {
   }
 
   @Test
+  void fotoAprovadaNaHora(Participantes participantes) {
+    ContaPagina conta = meuPerfil(participantes, PERFIL_MINIMO, false);
+    Page page = conta.page();
+    page.route(
+        "**/api/perfil/foto",
+        rota ->
+            rota.fulfill(
+                new Route.FulfillOptions()
+                    .setStatus(202)
+                    .setContentType("application/json")
+                    .setBody("{\"estado\":\"APROVADA\",\"url\":\"/api/fotos/p/nitida\"}")));
+
+    escolherFoto(page, "image/png", FOTO);
+    enviarFoto(page).click();
+
+    assertThat(page.getByText("Foto aprovada. Ela já aparece no seu perfil.")).isFocused();
+    assertSemViolacoes(page, "meu perfil: foto aprovada na hora");
+  }
+
+  @Test
+  void confirmacaoDeRemoverAFoto(Participantes participantes) {
+    ContaPagina conta = meuPerfil(participantes, PERFIL_COM_FOTO_PENDENTE, false);
+    Page page = conta.page();
+
+    page.getByRole(AriaRole.BUTTON, new Page.GetByRoleOptions().setName("Remover foto")).click();
+
+    assertThat(
+            page.getByRole(AriaRole.DIALOG, new Page.GetByRoleOptions().setName("Remover a foto?")))
+        .isVisible();
+    assertSemViolacoes(page, "meu perfil: confirmação de remover a foto");
+  }
+
+  @Test
+  void fotoRemovida(Participantes participantes) {
+    ContaPagina conta = meuPerfil(participantes, PERFIL_COM_FOTO_PENDENTE, false);
+    Page page = conta.page();
+    page.route(
+        "**/api/perfil/foto", rota -> rota.fulfill(new Route.FulfillOptions().setStatus(204)));
+
+    page.getByRole(AriaRole.BUTTON, new Page.GetByRoleOptions().setName("Remover foto")).click();
+    page.getByRole(AriaRole.BUTTON, new Page.GetByRoleOptions().setName("Remover").setExact(true))
+        .click();
+
+    assertThat(page.getByText("Foto removida. Outras pessoas voltam a ver uma silhueta."))
+        .isFocused();
+    assertSemViolacoes(page, "meu perfil: foto removida");
+  }
+
+  @Test
   void envioDaFotoIndisponivel(Participantes participantes) {
     ContaPagina conta = meuPerfil(participantes, PERFIL_MINIMO, false);
     Page page = conta.page();

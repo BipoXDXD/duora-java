@@ -26,13 +26,22 @@ import org.springframework.beans.factory.annotation.Autowired;
 /**
  * Guarda da exclusão (foco 2 da etapa): a conta vira lápide e a linha dela não sai, então nenhum
  * {@code on delete cascade} a partir de {@code conta} dispara. Cada tabela do perfil precisa sair
- * por um gancho, e os arquivos das fotos também.
+ * por um gancho, e os arquivos das fotos também. As tabelas vêm do {@code information_schema}: uma
+ * tabela nova com {@code conta_id} entra no teste sozinha, até alguém a declarar de outro módulo.
  */
 class ExclusaoApagaTudoDoPerfilTest extends BancoDeTeste {
 
   private static final String CATEGORIA = "perfil";
-  private static final List<String> TABELAS_DO_PERFIL =
-      List.of("perfil", "preferencias", "namoro", "orientacao", "localizacao", "foto");
+
+  /** Tabelas com {@code conta_id} de outros módulos, cada um com a sua guarda de exclusão. */
+  private static final Set<String> DE_OUTROS_MODULOS =
+      Set.of(
+          "sessao",
+          "aceite_documento",
+          "registro_acesso",
+          "uso_conta_nova",
+          "verificacao_idade",
+          "tentativa_verificacao");
 
   @Autowired private ExclusaoDeConta exclusao;
   @Autowired private ContasDeTeste contas;
@@ -85,12 +94,34 @@ class ExclusaoApagaTudoDoPerfilTest extends BancoDeTeste {
     assertThat(contaExiste(conta)).as("lápide").isTrue();
   }
 
+  @Test
+  void descobreAsTabelasDoPerfil() {
+    assertThat(tabelasDoPerfil())
+        .contains("perfil", "preferencias", "namoro", "orientacao", "localizacao", "foto");
+  }
+
   private Map<String, Long> linhasPorTabela(ContaId conta) {
-    return TABELAS_DO_PERFIL.stream()
+    return tabelasDoPerfil().stream()
         .collect(Collectors.toMap(tabela -> tabela, tabela -> linhas(tabela, conta)));
   }
 
-  /** O nome da tabela vem da lista fixa acima, nunca de fora. */
+  /** Toda tabela do esquema com {@code conta_id}, menos as de outros módulos. */
+  private List<String> tabelasDoPerfil() {
+    return jdbc
+        .sql(
+            """
+            select table_name from information_schema.columns
+            where table_schema = current_schema() and column_name = 'conta_id'
+            order by table_name
+            """)
+        .query(String.class)
+        .list()
+        .stream()
+        .filter(tabela -> !DE_OUTROS_MODULOS.contains(tabela))
+        .toList();
+  }
+
+  /** O nome da tabela vem do catálogo do próprio banco, nunca de fora. */
   private long linhas(String tabela, ContaId conta) {
     return jdbc.sql("select count(*) from " + tabela + " where conta_id = :conta")
         .param("conta", conta.valor())

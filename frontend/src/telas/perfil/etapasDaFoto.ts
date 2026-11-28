@@ -28,14 +28,14 @@ export type EtapaDaFoto =
   | ({ tipo: "previa" } & Escolha)
   | ({ tipo: "enviando" } & Escolha)
   | ({ tipo: "falhou"; aviso: AvisoDaFoto } & Escolha)
-  | { tipo: "enviada" };
+  | { tipo: "enviada"; aprovada: boolean };
 
 export type EventoDaFoto =
   | ({ tipo: "escolheu" } & Escolha)
   | { tipo: "recusadaNoCliente"; aviso: AvisoDaFoto }
   | { tipo: "previaFalhou" }
   | { tipo: "enviar" }
-  | { tipo: "enviado" }
+  | { tipo: "enviado"; aprovada: boolean }
   | { tipo: "envioRecusado"; erro: unknown }
   | { tipo: "descartar" };
 
@@ -108,7 +108,7 @@ export function transicao(
 ): EtapaDaFoto {
   if (e.tipo === "enviando") {
     if (ev.tipo === "enviado") {
-      return { tipo: "enviada" };
+      return { tipo: "enviada", aprovada: ev.aprovada };
     }
     if (ev.tipo === "envioRecusado") {
       return {
