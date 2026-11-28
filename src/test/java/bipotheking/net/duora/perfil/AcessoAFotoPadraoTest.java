@@ -60,7 +60,12 @@ class AcessoAFotoPadraoTest {
     contas.put(
         id,
         new ContaResumo(
-            id, estado, LocalDate.of(1990, 5, 10), true, Instant.parse("2026-11-22T12:00:00Z")));
+            id,
+            estado,
+            LocalDate.of(1990, 5, 10),
+            true,
+            Instant.parse("2026-11-22T12:00:00Z"),
+            false));
     return id;
   }
 }

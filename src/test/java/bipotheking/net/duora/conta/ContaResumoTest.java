@@ -30,7 +30,7 @@ class ContaResumoTest {
 
   @Test
   void semNascimentoNaoTemIdade() {
-    ContaResumo resumo = new ContaResumo(ID, EstadoConta.PENDENTE, null, false, null);
+    ContaResumo resumo = new ContaResumo(ID, EstadoConta.PENDENTE, null, false, null, false);
 
     assertThat(resumo.idadeEm(HOJE)).isEmpty();
   }
@@ -50,14 +50,15 @@ class ContaResumoTest {
             EstadoConta.ATIVA,
             LocalDate.of(1990, 5, 10),
             false,
-            Instant.parse("2026-11-22T12:00:00Z"));
+            Instant.parse("2026-11-22T12:00:00Z"),
+            false);
 
     assertThat(resumo.toString())
         .isEqualTo(
             "ContaResumo[id="
                 + UUID_FIXO
                 + ", estado=ATIVA, verificada=false,"
-                + " ativadaEm=2026-11-22T12:00:00Z]")
+                + " ativadaEm=2026-11-22T12:00:00Z, deTeste=false]")
         .doesNotContain("1990");
   }
 
@@ -67,6 +68,6 @@ class ContaResumoTest {
   }
 
   private static ContaResumo resumo(LocalDate nascimento) {
-    return new ContaResumo(ID, EstadoConta.ATIVA, nascimento, false, null);
+    return new ContaResumo(ID, EstadoConta.ATIVA, nascimento, false, null, false);
   }
 }

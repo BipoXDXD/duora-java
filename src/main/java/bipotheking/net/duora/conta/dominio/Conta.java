@@ -82,7 +82,7 @@ public record Conta(
    * @param verificada se a conta tem a verificação de idade aprovada, que fica fora deste registro
    */
   public ContaResumo resumo(boolean verificada) {
-    return new ContaResumo(id, estado, dataDeNascimento, verificada, ativadaEm);
+    return new ContaResumo(id, estado, dataDeNascimento, verificada, ativadaEm, false);
   }
 
   @Override
