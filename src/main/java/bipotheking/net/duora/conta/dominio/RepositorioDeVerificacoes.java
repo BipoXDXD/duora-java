@@ -50,8 +50,8 @@ public interface RepositorioDeVerificacoes {
   /** Quantas tentativas da finalidade a conta criou depois de {@code desde} (estrito). */
   int contarDesde(ContaId conta, FinalidadeDaTentativa finalidade, Instant desde);
 
-  /** Se a conta tem tentativa {@code SELFIE} com {@code DUVIDA} criada depois de {@code desde}. */
-  boolean duvidaDeSelfieDesde(ContaId conta, Instant desde);
+  /** Se a conta tem tentativa da finalidade com {@code DUVIDA} criada depois de {@code desde}. */
+  boolean duvidaDesde(ContaId conta, FinalidadeDaTentativa finalidade, Instant desde);
 
   /** Grava a aprovação da conta; se ela já tem uma, a primeira fica. */
   void gravarAprovacao(ContaId conta, MetodoDeVerificacao metodo, Instant agora);

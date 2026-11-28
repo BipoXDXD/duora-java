@@ -71,6 +71,12 @@ describe("obterVerificacao", () => {
     expect(chamada(fetchFalso).init?.method).toBe("GET");
   });
 
+  it("obterVerificacaoLeAAnalise", async () => {
+    responder(200, { estado: "ANALISE", tentativasRestantesHoje: 2, enviosDeDocumentoRestantesHoje: 1, modo: "falso" });
+
+    expect(await obterVerificacao()).toMatchObject({ estado: "ANALISE" });
+  });
+
   it("obterVerificacaoRecusaModoDesconhecido", async () => {
     responder(200, { estado: "AGUARDANDO", tentativasRestantesHoje: 3, enviosDeDocumentoRestantesHoje: 2, modo: "x" });
 

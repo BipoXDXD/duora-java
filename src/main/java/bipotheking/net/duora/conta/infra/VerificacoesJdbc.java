@@ -159,15 +159,16 @@ class VerificacoesJdbc implements RepositorioDeVerificacoes {
   }
 
   @Override
-  public boolean duvidaDeSelfieDesde(ContaId conta, Instant desde) {
+  public boolean duvidaDesde(ContaId conta, FinalidadeDaTentativa finalidade, Instant desde) {
     return jdbc.sql(
             """
             select exists (
                 select 1 from tentativa_verificacao
-                where conta_id = :conta and finalidade = 'SELFIE' and resultado = 'DUVIDA'
+                where conta_id = :conta and finalidade = :finalidade and resultado = 'DUVIDA'
                   and criada_em > :desde)
             """)
         .param("conta", conta.valor())
+        .param("finalidade", finalidade.name())
         .param("desde", utc(desde))
         .query(Boolean.class)
         .single();

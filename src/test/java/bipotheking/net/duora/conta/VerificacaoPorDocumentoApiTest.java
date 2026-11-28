@@ -122,6 +122,31 @@ class VerificacaoPorDocumentoApiTest extends BancoDeTeste {
     assertThat(estadoDe(preparo.conta())).isEqualTo("AGUARDANDO_VERIFICACAO");
   }
 
+  /** Recarregar depois do "em análise" do documento não reabre o envio: a situação diz análise. */
+  @Test
+  void duvidaDoDocumentoDeixaASituacaoEmAnalise() throws Exception {
+    Preparo preparo = emDuvidaComSessaoDeDocumento();
+    conferencia.programar(
+        new ResultadoDoDocumento(true, Optional.of(LocalDate.of(1991, 5, 10)), true));
+    enviar(preparo.conta(), preparo.documento()).andExpect(status().isOk());
+
+    enviosRestantesHoje(preparo.conta())
+        .andExpect(jsonPath("$.estado").value("ANALISE"))
+        .andExpect(jsonPath("$.enviosDeDocumentoRestantesHoje").value(1));
+  }
+
+  /**
+   * O documento que pede repetição não é análise: com envio sobrando, a situação segue em dúvida.
+   */
+  @Test
+  void repeticaoDoDocumentoMantemADuvida() throws Exception {
+    Preparo preparo = emDuvidaComSessaoDeDocumento();
+    conferencia.programar(new ResultadoDoDocumento(false, Optional.empty(), false));
+    enviar(preparo.conta(), preparo.documento()).andExpect(status().isOk());
+
+    enviosRestantesHoje(preparo.conta()).andExpect(jsonPath("$.estado").value("DUVIDA"));
+  }
+
   @Test
   void rostoQueNaoConfereFicaEmDuvida() throws Exception {
     Preparo preparo = emDuvidaComSessaoDeDocumento();

@@ -44,6 +44,11 @@ describe("etapaInicial", () => {
       { estado: "DUVIDA", enviosDeDocumentoRestantesHoje: 0 },
       { etapa: "desfecho", tipo: "analise" },
     ],
+    [
+      "analiseComEnviosAbreNaAnalise",
+      { estado: "ANALISE", enviosDeDocumentoRestantesHoje: 1 },
+      { etapa: "desfecho", tipo: "analise" },
+    ],
     ["aprovadaNaoTemEtapaInicial", { estado: "APROVADA" }, null],
   ])("%s", (_nome, campos, esperada) => {
     expect(etapaInicial(situacao(campos))).toEqual(esperada);

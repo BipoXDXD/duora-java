@@ -118,7 +118,7 @@ public class VerificacaoDeIdade {
     exigirAguardando(conta(conta));
     Instant agora = relogio.instant();
     if (finalidade == FinalidadeDaTentativa.DOCUMENTO
-        && !verificacoes.duvidaDeSelfieDesde(conta, agora.minus(JANELA))) {
+        && !verificacoes.duvidaDesde(conta, FinalidadeDaTentativa.SELFIE, agora.minus(JANELA))) {
       throw CodigoVerificacao.VERIFICACAO_FORA_DE_ORDEM.erro();
     }
     UUID tentativa = reservar(conta, finalidade, versao, agora);
@@ -188,10 +188,7 @@ public class VerificacaoDeIdade {
     EstadoDaVerificacao estado =
         switch (conta.estado()) {
           case ATIVA -> EstadoDaVerificacao.APROVADA;
-          case AGUARDANDO_VERIFICACAO ->
-              verificacoes.duvidaDeSelfieDesde(id, agora.minus(JANELA))
-                  ? EstadoDaVerificacao.DUVIDA
-                  : EstadoDaVerificacao.AGUARDANDO;
+          case AGUARDANDO_VERIFICACAO -> aguardando(id, agora);
           default -> throw CodigoVerificacao.VERIFICACAO_FORA_DE_ORDEM.erro();
         };
     return new SituacaoDaVerificacao(
@@ -199,6 +196,20 @@ public class VerificacaoDeIdade {
         restantes(id, FinalidadeDaTentativa.SELFIE, agora),
         restantes(id, FinalidadeDaTentativa.DOCUMENTO, agora),
         provaDeVida.modo());
+  }
+
+  /**
+   * A dúvida do documento vale sobre a da selfie: o envio que voltou em dúvida já mostrou a
+   * análise, e recarregar a página não deve reabri-lo.
+   */
+  private EstadoDaVerificacao aguardando(ContaId id, Instant agora) {
+    Instant desde = agora.minus(JANELA);
+    if (verificacoes.duvidaDesde(id, FinalidadeDaTentativa.DOCUMENTO, desde)) {
+      return EstadoDaVerificacao.ANALISE;
+    }
+    return verificacoes.duvidaDesde(id, FinalidadeDaTentativa.SELFIE, desde)
+        ? EstadoDaVerificacao.DUVIDA
+        : EstadoDaVerificacao.AGUARDANDO;
   }
 
   private UUID reservar(

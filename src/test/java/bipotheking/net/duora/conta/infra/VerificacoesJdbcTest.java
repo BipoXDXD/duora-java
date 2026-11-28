@@ -116,13 +116,18 @@ class VerificacoesJdbcTest extends BancoDeTeste {
     verificacoes.associarSessao(documento, "sessao-documento");
     verificacoes.concluir(documento, ResultadoDaVerificacao.DUVIDA, INICIO);
 
-    assertThat(verificacoes.duvidaDeSelfieDesde(conta, INICIO.minus(Duration.ofDays(1)))).isFalse();
+    assertThat(verificacoes.duvidaDesde(conta, SELFIE, INICIO.minus(Duration.ofDays(1)))).isFalse();
+  }
 
+  @Test
+  void duvidaDeDocumentoIgnoraSelfie() {
     UUID selfie = feita(verificacoes.reservar(conta, SELFIE, 3, INICIO));
     verificacoes.associarSessao(selfie, "sessao-selfie");
     verificacoes.concluir(selfie, ResultadoDaVerificacao.DUVIDA, INICIO);
 
-    assertThat(verificacoes.duvidaDeSelfieDesde(conta, INICIO.minus(Duration.ofDays(1)))).isTrue();
+    assertThat(verificacoes.duvidaDesde(conta, DOCUMENTO, INICIO.minus(Duration.ofDays(1))))
+        .isFalse();
+    assertThat(verificacoes.duvidaDesde(conta, SELFIE, INICIO.minus(Duration.ofDays(1)))).isTrue();
   }
 
   @Test

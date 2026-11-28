@@ -90,6 +90,9 @@ export function etapaInicial(situacao: SituacaoDaVerificacao): Etapa | null {
       return situacao.enviosDeDocumentoRestantesHoje > 0
         ? { etapa: "documento" }
         : { etapa: "desfecho", tipo: "analise" };
+    case "ANALISE":
+      // O mesmo desfecho do envio que voltou em dúvida (etapaDoEnvio): recarregar não reabre o envio.
+      return { etapa: "desfecho", tipo: "analise" };
     case "APROVADA":
       return null;
   }

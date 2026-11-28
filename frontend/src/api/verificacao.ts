@@ -7,8 +7,9 @@ import { ErroHttp, requisitarHttp } from "./http";
 export type ModoDaVerificacao = "aws" | "falso";
 export type Finalidade = "SELFIE" | "DOCUMENTO";
 
+/** ANALISE: o documento já ficou em dúvida, e a página não reabre o envio. */
 export interface SituacaoDaVerificacao {
-  estado: "AGUARDANDO" | "DUVIDA" | "APROVADA";
+  estado: "AGUARDANDO" | "DUVIDA" | "ANALISE" | "APROVADA";
   tentativasRestantesHoje: number;
   enviosDeDocumentoRestantesHoje: number;
   modo: ModoDaVerificacao;
@@ -60,6 +61,7 @@ const DESVIO_MINIMO_MS = 300_000;
 const ESTADOS: readonly string[] = Object.keys({
   AGUARDANDO: true,
   DUVIDA: true,
+  ANALISE: true,
   APROVADA: true,
 } satisfies Record<SituacaoDaVerificacao["estado"], true>);
 const MODOS: readonly string[] = Object.keys({ aws: true, falso: true } satisfies Record<ModoDaVerificacao, true>);
