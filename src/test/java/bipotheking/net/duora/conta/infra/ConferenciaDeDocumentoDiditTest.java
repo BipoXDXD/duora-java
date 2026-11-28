@@ -143,6 +143,17 @@ class ConferenciaDeDocumentoDiditTest {
   }
 
   @ParameterizedTest
+  @ValueSource(strings = {"Approved", "Declined"})
+  void faceMatchComStatusConhecidoNaoAvisa(String status, CapturedOutput saida) {
+    responderAprovado();
+    responderRosto(status);
+
+    conferencia().conferir(FRENTE, VERSO, SELFIE);
+
+    assertThat(saida.getOut()).doesNotContain("status desconhecido");
+  }
+
+  @ParameterizedTest
   @ValueSource(
       strings = {
         "{\"face_match\": {\"status\": \"Talvez\", \"score\": 85.5}}",

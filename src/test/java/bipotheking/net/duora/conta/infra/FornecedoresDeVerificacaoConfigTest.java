@@ -14,12 +14,14 @@ import org.springframework.boot.http.converter.autoconfigure.HttpMessageConverte
 import org.springframework.boot.jackson.autoconfigure.JacksonAutoConfiguration;
 import org.springframework.boot.restclient.autoconfigure.RestClientAutoConfiguration;
 import org.springframework.boot.test.context.runner.ApplicationContextRunner;
+import org.springframework.core.env.StandardEnvironment;
 import org.springframework.core.io.ClassPathResource;
 import org.springframework.core.io.support.PropertiesLoaderUtils;
 
 /**
  * Os beans reais da verificação só sobem com o provedor real e as chaves completas. Nenhum teste
- * chama AWS ou Didit: montar os clientes não abre conexão.
+ * chama AWS ou Didit: montar os clientes não abre conexão. O contexto não enxerga as variáveis de
+ * ambiente, para que uma {@code DUORA_*} exportada na máquina não resolva os placeholders.
  */
 class FornecedoresDeVerificacaoConfigTest {
 
@@ -30,6 +32,11 @@ class FornecedoresDeVerificacaoConfigTest {
                   JacksonAutoConfiguration.class,
                   HttpMessageConvertersAutoConfiguration.class,
                   RestClientAutoConfiguration.class))
+          .withInitializer(contexto ->
+              contexto
+                  .getEnvironment()
+                  .getPropertySources()
+                  .remove(StandardEnvironment.SYSTEM_ENVIRONMENT_PROPERTY_SOURCE_NAME))
           .withBean(MeterRegistry.class, SimpleMeterRegistry::new)
           .withUserConfiguration(FornecedoresDeVerificacaoConfig.class);
 
@@ -96,6 +103,35 @@ class FornecedoresDeVerificacaoConfigTest {
             assertThat(contexto.getStartupFailure())
                 .rootCause()
                 .hasMessageContaining("duora.verificacao.aws.access-key-id"));
+  }
+
+  @Test
+  void diditSemChaveDerrubaOContexto() {
+    CONTEXTO
+        .withPropertyValues(
+            "duora.verificacao.documento.provedor=didit",
+            "duora.verificacao.didit.api-key=${DUORA_DIDIT_API_KEY}")
+        .run(contexto ->
+            assertThat(contexto.getStartupFailure())
+                .rootCause()
+                .hasMessageContaining("duora.verificacao.didit.api-key"));
+  }
+
+  @Test
+  void falhaDaAwsNaoTrazAChave() {
+    String chave = "chave-de-acesso-ficticia-visivel";
+    CONTEXTO
+        .withPropertyValues(
+            "duora.verificacao.provedor=aws", "duora.verificacao.aws.access-key-id=" + chave)
+        .run(contexto -> {
+          Throwable falha = contexto.getStartupFailure();
+          assertThat(falha)
+              .rootCause()
+              .hasMessageContaining("duora.verificacao.aws.secret-access-key");
+          for (Throwable causa = falha; causa != null; causa = causa.getCause()) {
+            assertThat(causa.toString()).doesNotContain(chave);
+          }
+        });
   }
 
   @Test

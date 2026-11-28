@@ -63,8 +63,8 @@ class ConfiguracaoDosFornecedoresTest {
   }
 
   @Test
-  void awsCompletaAceita() {
-    assertThatCode(aws(CHAVE, SEGREDO, ARN)::exigirCompleta).doesNotThrowAnyException();
+  void awsCompletaDevolveOArnValidado() {
+    assertThat(aws(CHAVE, SEGREDO, ARN).exigirCompleta()).isEqualTo(ARN);
   }
 
   @ParameterizedTest

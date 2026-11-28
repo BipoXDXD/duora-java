@@ -5,6 +5,7 @@ import static bipotheking.net.duora.conta.infra.Exigencias.exigir;
 import java.net.URI;
 import java.util.Optional;
 import software.amazon.awssdk.auth.credentials.AwsBasicCredentials;
+import software.amazon.awssdk.auth.credentials.AwsCredentialsProvider;
 import software.amazon.awssdk.auth.credentials.StaticCredentialsProvider;
 import software.amazon.awssdk.awscore.client.builder.AwsClientBuilder;
 import software.amazon.awssdk.awscore.client.builder.AwsSyncClientBuilder;
@@ -31,22 +32,43 @@ final class ClientesAws {
   private ClientesAws() {}
 
   static RekognitionClient rekognition(ConfiguracaoAws configuracao, Optional<URI> endpoint) {
-    return configurar(RekognitionClient.builder(), configuracao, endpoint).build();
+    return rekognition(configuracao, daConfiguracao(configuracao), endpoint);
   }
 
   static StsClient sts(ConfiguracaoAws configuracao, Optional<URI> endpoint) {
-    return configurar(StsClient.builder(), configuracao, endpoint).build();
+    return sts(configuracao, daConfiguracao(configuracao), endpoint);
+  }
+
+  /**
+   * Com outra credencial (a curta do navegador, nos smokes), mas com a região, o HTTP e os timeouts
+   * da {@link ConfiguracaoAws}.
+   */
+  static RekognitionClient rekognition(
+      ConfiguracaoAws configuracao, AwsCredentialsProvider credencial, Optional<URI> endpoint) {
+    return configurar(RekognitionClient.builder(), configuracao, credencial, endpoint).build();
+  }
+
+  /** Como {@link #rekognition(ConfiguracaoAws, AwsCredentialsProvider, Optional)}, para o STS. */
+  static StsClient sts(
+      ConfiguracaoAws configuracao, AwsCredentialsProvider credencial, Optional<URI> endpoint) {
+    return configurar(StsClient.builder(), configuracao, credencial, endpoint).build();
+  }
+
+  private static AwsCredentialsProvider daConfiguracao(ConfiguracaoAws configuracao) {
+    return StaticCredentialsProvider.create(
+        AwsBasicCredentials.create(
+            exigir(configuracao.accessKeyId(), PREFIXO + "access-key-id"),
+            exigir(configuracao.secretAccessKey(), PREFIXO + "secret-access-key")));
   }
 
   private static <B extends AwsClientBuilder<B, ?> & AwsSyncClientBuilder<B, ?>> B configurar(
-      B builder, ConfiguracaoAws configuracao, Optional<URI> endpoint) {
+      B builder,
+      ConfiguracaoAws configuracao,
+      AwsCredentialsProvider credencial,
+      Optional<URI> endpoint) {
     builder
         .region(REGIAO)
-        .credentialsProvider(
-            StaticCredentialsProvider.create(
-                AwsBasicCredentials.create(
-                    exigir(configuracao.accessKeyId(), PREFIXO + "access-key-id"),
-                    exigir(configuracao.secretAccessKey(), PREFIXO + "secret-access-key"))))
+        .credentialsProvider(credencial)
         .httpClientBuilder(
             UrlConnectionHttpClient.builder()
                 .connectionTimeout(configuracao.conexao())
