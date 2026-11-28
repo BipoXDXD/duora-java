@@ -37,6 +37,20 @@ class PreferenciasIT extends ContaE2eBase {
       } });
       """;
 
+  /**
+   * Geolocation que nunca responde: é o "Agora não" do Firefox, que fecha o pedido sem chamar
+   * nenhum callback (o mesmo de ignorar o pedido na barra do navegador).
+   */
+  private static final String IGNORAR =
+      """
+      Object.defineProperty(navigator, "geolocation", { configurable: true, value: {
+        getCurrentPosition: () => {},
+      } });
+      """;
+
+  /** Um pouco mais que o VIGIA_DA_PERMISSAO_MS (20 s) do front. */
+  private static final long ALEM_DA_VIGIA_MS = 21_000;
+
   @Autowired private ContasDeTeste contas;
 
   @Test
@@ -82,6 +96,37 @@ class PreferenciasIT extends ContaE2eBase {
         .isVisible();
     assertThat(opcao(pagina.page(), "Sem limite")).isChecked();
     assertThat(opcao(pagina.page(), "Até 5 km")).hasAttribute("aria-disabled", "true");
+  }
+
+  @Test
+  void pedidoIgnoradoDesisteEVoltaParaSemLimite(Participantes participantes) {
+    PerfilPagina pagina =
+        PerfilPagina.de(
+            Contas.comConta(
+                participantes.novo(page -> {
+                  page.clock().install();
+                  page.addInitScript(IGNORAR);
+                }),
+                contas.criar("Ana", NASCIMENTO_DE_ADULTO),
+                raiz()));
+    pagina.abrirPreferencias(raiz());
+
+    pagina.usarMinhaLocalizacao();
+    assertThat(pagina.page().getByText("Esperando a permissão do navegador…")).isVisible();
+    pagina.page().clock().fastForward(ALEM_DA_VIGIA_MS);
+
+    assertThat(
+            pagina
+                .page()
+                .getByText("Não conseguimos sua localização. A distância fica em \"Sem limite\"."))
+        .isVisible();
+    assertThat(opcao(pagina.page(), "Sem limite")).isChecked();
+    assertThat(
+            pagina
+                .page()
+                .getByRole(
+                    AriaRole.BUTTON, new Page.GetByRoleOptions().setName("Usar minha localização")))
+        .isEnabled();
   }
 
   @Test
