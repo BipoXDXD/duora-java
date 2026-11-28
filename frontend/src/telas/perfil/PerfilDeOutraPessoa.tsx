@@ -30,7 +30,7 @@ export function PerfilDeOutraPessoa(): ReactElement {
       <title>{TEXTOS.tituloDaAba(perfil.apelido)}</title>
       <h1 className={`${TITULO_DA_CASCA} [overflow-wrap:anywhere]`}>{perfil.apelido}</h1>
       <div className="mt-(--e-6)">
-        <CartaoDoPerfil perfil={perfil} carregamento="eager" />
+        <CartaoDoPerfil perfil={perfil} carregamento="eager" semApelido />
       </div>
       <ul className="mt-(--e-7) mb-0 p-0 list-none flex flex-wrap gap-x-(--e-5)">
         <li>
