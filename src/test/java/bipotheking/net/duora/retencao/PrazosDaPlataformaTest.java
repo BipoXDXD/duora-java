@@ -50,11 +50,11 @@ class PrazosDaPlataformaTest extends BancoDeTeste {
           entry("Avisos de tempo real (fila e encontro)", List.of("eventos-de-conta")));
 
   /**
-   * Linhas dos dados do perfil que não têm política de retenção: ficam até a pessoa apagar,
-   * desligar ou excluir a conta, e saem pelos ganchos da exclusão. Ajustes de busca (tabela {@code
-   * preferencias}), namoro e orientação dependem de {@code perfil}.
+   * Linhas sem política de retenção: os dados ficam até a pessoa apagar, desligar ou excluir a
+   * conta, e saem pelos ganchos da exclusão. Ajustes de busca (tabela {@code preferencias}), namoro
+   * e orientação dependem de {@code perfil}.
    */
-  private static final List<String> LINHAS_SEM_POLITICA_DO_PERFIL =
+  private static final List<String> LINHAS_SEM_POLITICA =
       List.of(
           "Conta, perfil e foto",
           "Ajustes de busca (idade e distância)",
@@ -86,10 +86,10 @@ class PrazosDaPlataformaTest extends BancoDeTeste {
   }
 
   @Test
-  void linhasDoPerfilSemPoliticaEstaoNaTabela() throws IOException {
+  void linhasSemPoliticaEstaoNaTabela() throws IOException {
     Map<String, String> tabela = tabelaDeRetencao();
 
-    assertThat(LINHAS_SEM_POLITICA_DO_PERFIL)
+    assertThat(LINHAS_SEM_POLITICA)
         .allSatisfy(dado -> {
           assertThat(tabela).as(dado).containsKey(dado);
           assertThat(tabela.get(dado)).as(dado).contains("até");
