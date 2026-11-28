@@ -39,7 +39,8 @@ export type Etapa =
   /** repetir: o evento que o "Tentar de novo" despacha, para refazer o pedido que o serviço não atendeu. */
   | { etapa: "indisponivel"; repetir: Exclude<Evento, { tipo: "tentarDeNovo" }> };
 
-const CODIGOS_DE_LIMITE: readonly string[] = ["LIMITE_DE_TAXA", "LIMITE_DE_VERIFICACAO"];
+/** Sem Retry-After, o 429 de taxa espera um minuto: nunca vira o texto do limite do dia. */
+const ESPERA_SEM_RETRY_AFTER = 60;
 
 /**
  * A etapa em que a página abre, pela situação lida do servidor. A situação APROVADA não tem etapa
@@ -58,10 +59,16 @@ export function etapaInicial(situacao: SituacaoDaVerificacao): Etapa | null {
   }
 }
 
-/** A recusa do POST da sessão: o 429 guarda a espera; o resto (503, rede, resposta estranha) pode repetir. */
+/**
+ * A recusa do POST da sessão: o limite do dia ignora o Retry-After (que conta horas) e mostra o texto do
+ * dia; o 429 de taxa guarda a espera; o resto (503, rede, resposta estranha) pode repetir.
+ */
 function recusaDaSessao(finalidade: Finalidade, erro: unknown): Etapa {
-  if (erro instanceof ErroHttp && CODIGOS_DE_LIMITE.includes(erro.codigo)) {
-    return { etapa: "limite", segundos: erro.tentarDeNovoEmSegundos };
+  if (erro instanceof ErroHttp && erro.codigo === "LIMITE_DE_VERIFICACAO") {
+    return { etapa: "limite", segundos: null };
+  }
+  if (erro instanceof ErroHttp && erro.codigo === "LIMITE_DE_TAXA") {
+    return { etapa: "limite", segundos: erro.tentarDeNovoEmSegundos ?? ESPERA_SEM_RETRY_AFTER };
   }
   return { etapa: "indisponivel", repetir: { tipo: "iniciar", finalidade } };
 }

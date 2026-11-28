@@ -150,11 +150,14 @@ function Etapas({
     }
     if (etapa.etapa === "checandoCamera") {
       let valendo = true;
-      void checar().then((resultado) => {
-        if (valendo) {
-          despachar({ tipo: "cameraChecada", resultado });
-        }
-      });
+      // Uma falha que a checagem não mapeou conta como câmera negada: o texto pede para liberar e tentar de novo.
+      void checar()
+        .catch((): ResultadoDaCamera => "negada")
+        .then((resultado) => {
+          if (valendo) {
+            despachar({ tipo: "cameraChecada", resultado });
+          }
+        });
       return () => {
         valendo = false;
       };
@@ -166,6 +169,7 @@ function Etapas({
     return undefined;
   }, [etapa, checar, abrirSessao]);
 
+  const espera = textoDaEspera(etapa);
   const ocupado = etapa.etapa === "checandoCamera" || etapa.etapa === "iniciando";
 
   return (
@@ -173,6 +177,10 @@ function Etapas({
       <h1 ref={titulo} tabIndex={-1} className={TITULO}>
         {VERIFICACAO_DE_IDADE.titulo}
       </h1>
+      {/* A região viva fica sempre montada e fora do trecho ocupado, para o leitor de tela anunciar a espera. */}
+      <p role="status" className={espera === null ? "m-0" : `mt-(--e-5) ${ESPERA}`}>
+        {espera}
+      </p>
       <div aria-busy={ocupado ? true : undefined}>
         <ConteudoDaEtapa
           etapa={etapa}
@@ -194,12 +202,25 @@ interface PropsDoConteudo {
   despachar: (evento: Evento) => void;
 }
 
-function Espera({ texto }: { texto: string }): ReactElement {
-  return (
-    <p role="status" className={`mt-(--e-5) ${ESPERA}`}>
-      {texto}
-    </p>
-  );
+/** O texto das etapas de espera; o detector da F6 troca a espera da captura. */
+function textoDaEspera(etapa: Etapa): string | null {
+  switch (etapa.etapa) {
+    case "checandoCamera":
+    case "captura":
+      return VERIFICACAO_DE_IDADE.abrindoCamera;
+    case "iniciando":
+      return VERIFICACAO_DE_IDADE.preparando;
+    case "explicacao":
+    case "semCamera":
+    case "conferindo":
+    case "falhaDoDetector":
+    case "desfecho":
+    case "documento":
+    case "enviandoDocumento":
+    case "limite":
+    case "indisponivel":
+      return null;
+  }
 }
 
 function FalhaComRepeticao({ texto, aoRepetir }: { texto: string; aoRepetir: () => void }): ReactElement {
@@ -238,15 +259,8 @@ function ConteudoDaEtapa({
           }}
         />
       );
-    case "checandoCamera":
-      return <Espera texto={VERIFICACAO_DE_IDADE.abrindoCamera} />;
     case "semCamera":
       return <FalhaComRepeticao texto={TEXTO_SEM_CAMERA[etapa.motivo]} aoRepetir={tentarDeNovo} />;
-    case "iniciando":
-      return <Espera texto={VERIFICACAO_DE_IDADE.preparando} />;
-    case "captura":
-      // O detector entra aqui; até lá, a espera dele.
-      return <Espera texto={VERIFICACAO_DE_IDADE.abrindoCamera} />;
     case "limite":
       return (
         <div className="mt-(--e-5) grid gap-(--e-5)">
@@ -261,6 +275,10 @@ function ConteudoDaEtapa({
       );
     case "indisponivel":
       return <FalhaComRepeticao texto={VERIFICACAO_DE_IDADE.servicoFora} aoRepetir={tentarDeNovo} />;
+    // As esperas falam na região viva da página, fora daqui.
+    case "checandoCamera":
+    case "iniciando":
+    case "captura":
     case "conferindo":
     case "falhaDoDetector":
     case "desfecho":

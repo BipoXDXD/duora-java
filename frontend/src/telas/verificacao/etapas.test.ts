@@ -104,12 +104,30 @@ describe("proximaEtapa", () => {
     });
   });
 
-  it.each(["LIMITE_DE_TAXA", "LIMITE_DE_VERIFICACAO"])("limite429GuardaOsSegundos: %s", (codigo) => {
-    const erro = new ErroHttp({ status: 429, codigo, tentarDeNovoEmSegundos: 120 });
+  it("limite429GuardaOsSegundos", () => {
+    const erro = new ErroHttp({ status: 429, codigo: "LIMITE_DE_TAXA", tentarDeNovoEmSegundos: 120 });
 
     expect(proximaEtapa({ etapa: "iniciando", finalidade: "SELFIE" }, { tipo: "sessaoRecusada", erro })).toEqual({
       etapa: "limite",
       segundos: 120,
+    });
+  });
+
+  it("limiteDeVerificacaoEOLimiteDoDia", () => {
+    const erro = new ErroHttp({ status: 429, codigo: "LIMITE_DE_VERIFICACAO", tentarDeNovoEmSegundos: 120 });
+
+    expect(proximaEtapa({ etapa: "iniciando", finalidade: "SELFIE" }, { tipo: "sessaoRecusada", erro })).toEqual({
+      etapa: "limite",
+      segundos: null,
+    });
+  });
+
+  it("limiteDeTaxaSemRetryAfterEsperaUmMinuto", () => {
+    const erro = new ErroHttp({ status: 429, codigo: "LIMITE_DE_TAXA" });
+
+    expect(proximaEtapa({ etapa: "iniciando", finalidade: "SELFIE" }, { tipo: "sessaoRecusada", erro })).toEqual({
+      etapa: "limite",
+      segundos: 60,
     });
   });
 

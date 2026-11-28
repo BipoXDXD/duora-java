@@ -1,6 +1,7 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { render, screen, waitFor } from "@testing-library/react";
+import { act, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { useEffect, useState, type ReactElement } from "react";
 import { createMemoryRouter, RouterProvider } from "react-router";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { SituacaoDaVerificacao } from "../../api/verificacao";
@@ -78,6 +79,38 @@ interface OpcoesDaPagina {
   temSuporte?: boolean;
 }
 
+interface PropsDaPaginaRecarregavel {
+  checarCamera: () => Promise<ResultadoDaCamera>;
+  navegarParaPagina: (url: string) => void;
+  temSuporte: boolean;
+  expor: (recarregar: () => void) => void;
+}
+
+/**
+ * A página sob um pai que o teste pode renderizar de novo: depois da recarga, cada render entrega uma
+ * checagem de câmera nova, e o efeito da etapa roda outra vez na mesma etapa.
+ */
+function PaginaRecarregavel({
+  checarCamera,
+  navegarParaPagina,
+  temSuporte,
+  expor,
+}: PropsDaPaginaRecarregavel): ReactElement {
+  const [recargas, setRecargas] = useState(0);
+  useEffect(() => {
+    expor(() => {
+      setRecargas((n) => n + 1);
+    });
+  }, [expor]);
+  return (
+    <VerificacaoPagina
+      navegarParaPagina={navegarParaPagina}
+      checarCamera={recargas === 0 ? checarCamera : () => checarCamera()}
+      temSuporte={() => temSuporte}
+    />
+  );
+}
+
 /** Só a página, com o loader já resolvido e a câmera, o suporte e a navegação injetados. */
 function abrirAPagina({ situacao = {}, sessoes = [], checarCamera, temSuporte = true }: OpcoesDaPagina = {}) {
   const fila = [...sessoes];
@@ -91,6 +124,7 @@ function abrirAPagina({ situacao = {}, sessoes = [], checarCamera, temSuporte = 
   const camera = vi.fn(checarCamera ?? (() => Promise.resolve<ResultadoDaCamera>("ok")));
   const navegarParaPagina = vi.fn<(url: string) => void>();
   const clienteDeConsulta = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  let recarregarPai: () => void = () => undefined;
   const dados: DadosDaVerificacao = { conta: CONTA, situacao: { ...SITUACAO, ...situacao }, legal: VERSOES_LEGAIS };
   const roteador = createMemoryRouter(
     [
@@ -99,10 +133,13 @@ function abrirAPagina({ situacao = {}, sessoes = [], checarCamera, temSuporte = 
         loader: () => dados,
         HydrateFallback: () => null,
         element: (
-          <VerificacaoPagina
+          <PaginaRecarregavel
             navegarParaPagina={navegarParaPagina}
             checarCamera={camera}
-            temSuporte={() => temSuporte}
+            temSuporte={temSuporte}
+            expor={(fn) => {
+              recarregarPai = fn;
+            }}
           />
         ),
       },
@@ -115,7 +152,14 @@ function abrirAPagina({ situacao = {}, sessoes = [], checarCamera, temSuporte = 
     </QueryClientProvider>,
   );
   const pedidosDeSessao = () => fetchFalso.mock.calls.filter(([entrada]) => entrada === ROTA_DA_SESSAO).length;
-  return { camera, navegarParaPagina, clienteDeConsulta, pedidosDeSessao };
+  /** Renderiza o pai de novo e espera uma macrotarefa: o POST da mutação sai depois de algumas microtarefas. */
+  const recarregar = async () => {
+    await act(async () => {
+      recarregarPai();
+      await new Promise((resolver) => setTimeout(resolver, 0));
+    });
+  };
+  return { camera, navegarParaPagina, clienteDeConsulta, pedidosDeSessao, recarregar };
 }
 
 async function consentirEComecar(usuario: ReturnType<typeof userEvent.setup>) {
@@ -234,6 +278,48 @@ describe("VerificacaoPagina", () => {
     expect(pedidosDeSessao()).toBe(1);
   });
 
+  it("efeitoRepetidoEmIniciandoFazUmPostSo", async () => {
+    const usuario = userEvent.setup();
+    const { pedidosDeSessao, recarregar } = abrirAPagina();
+    await consentirEComecar(usuario);
+    await screen.findByText("Preparando a selfie…");
+
+    await recarregar();
+    await recarregar();
+
+    expect(screen.getByText("Preparando a selfie…")).toBeInTheDocument();
+    expect(pedidosDeSessao()).toBe(1);
+  });
+
+  it("cameraQueFalhaViraCameraNegada", async () => {
+    const usuario = userEvent.setup();
+    const { pedidosDeSessao } = abrirAPagina({
+      situacao: { modo: "aws" },
+      checarCamera: () => Promise.reject(new Error("falha inesperada")),
+    });
+
+    await consentirEComecar(usuario);
+
+    expect(
+      await screen.findByText(
+        "Não conseguimos usar a câmera. Libere o acesso nas configurações do navegador e toque em Tentar de novo.",
+      ),
+    ).toBeInTheDocument();
+    expect(pedidosDeSessao()).toBe(0);
+  });
+
+  it("esperaFalaForaDoTrechoOcupado", async () => {
+    const usuario = userEvent.setup();
+    abrirAPagina();
+
+    await consentirEComecar(usuario);
+
+    const espera = await screen.findByRole("status");
+    expect(espera).toHaveTextContent("Preparando a selfie…");
+    expect(document.querySelector("[aria-busy='true']")).not.toBeNull();
+    expect(espera.closest("[aria-busy='true']")).toBeNull();
+  });
+
   it("servicoForaMostraTentarDeNovoQueRepete", async () => {
     const usuario = userEvent.setup();
     const { pedidosDeSessao } = abrirAPagina({ sessoes: [problema(503, "PROVA_DE_VIDA_INDISPONIVEL")] });
@@ -253,12 +339,34 @@ describe("VerificacaoPagina", () => {
 
   it("limiteMostraTextoDeEspera", async () => {
     const usuario = userEvent.setup();
-    abrirAPagina({ sessoes: [problema(429, "LIMITE_DE_VERIFICACAO", { "Retry-After": "120" })] });
+    abrirAPagina({ sessoes: [problema(429, "LIMITE_DE_TAXA", { "Retry-After": "120" })] });
 
     await consentirEComecar(usuario);
 
     expect(await screen.findByText("Muitas tentativas. Tente de novo em 2 minutos.")).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Começar a selfie" })).not.toBeInTheDocument();
+  });
+
+  it("limiteDeTaxaSemRetryAfterNaoFalaEmAmanha", async () => {
+    const usuario = userEvent.setup();
+    abrirAPagina({ sessoes: [problema(429, "LIMITE_DE_TAXA")] });
+
+    await consentirEComecar(usuario);
+
+    expect(await screen.findByText("Muitas tentativas. Tente de novo em 1 minuto.")).toBeInTheDocument();
+    expect(screen.queryByText(/amanhã/)).not.toBeInTheDocument();
+  });
+
+  it("limiteDeVerificacaoMostraOLimiteDoDia", async () => {
+    const usuario = userEvent.setup();
+    abrirAPagina({ sessoes: [problema(429, "LIMITE_DE_VERIFICACAO", { "Retry-After": "120" })] });
+
+    await consentirEComecar(usuario);
+
+    expect(
+      await screen.findByText("Você chegou ao limite de tentativas de hoje. Tente de novo amanhã."),
+    ).toBeInTheDocument();
+    expect(screen.queryByText(/minutos/)).not.toBeInTheDocument();
   });
 
   it("zeroTentativasAbreNoLimite", async () => {
