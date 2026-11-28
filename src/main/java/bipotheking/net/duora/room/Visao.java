@@ -10,6 +10,7 @@ import bipotheking.net.duora.game.Lugar;
 import bipotheking.net.duora.game.Peca;
 import bipotheking.net.duora.game.Regras;
 import bipotheking.net.duora.game.Resultado;
+import com.fasterxml.jackson.annotation.JsonInclude;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
@@ -22,7 +23,8 @@ import org.jspecify.annotations.Nullable;
  * anuláveis seguem o contrato: {@code parceiro} antes de alguém entrar, {@code convite} fora de A
  * em espera, {@code sinal}, {@code resultado}, {@code ajuste} e {@code abertura} quando não há.
  * {@code conviteDaSala} é o resumo SHA-256 (hex) do convite, nos dois assentos e em toda fase: o
- * front reconhece o próprio link sem receber o token depois do pareamento.
+ * front reconhece o próprio link sem receber o token depois do pareamento. {@code encontroId} é o
+ * id da sala ligada a contas; no terraço anônimo é nulo e fica fora do JSON.
  */
 record Visao(
     String cenario,
@@ -38,7 +40,8 @@ record Visao(
     @Nullable Map<String, String> resultado,
     @Nullable VisaoAjuste ajuste,
     @Nullable VisaoAbertura abertura,
-    String conviteDaSala) {
+    String conviteDaSala,
+    @JsonInclude(JsonInclude.Include.NON_NULL) @Nullable String encontroId) {
 
   private static final String BLOQUEIO_PORTAO = "ESPERE_PRIMEIRA_PECA";
 
@@ -89,7 +92,8 @@ record Visao(
       String resumoConvite,
       Assento quem,
       Instant agora,
-      LimitesSala limites) {
+      LimitesSala limites,
+      @Nullable String encontroId) {
     Estado estado = retrato.estado();
     Assento outro = quem.parceiro();
     return new Visao(
@@ -116,7 +120,8 @@ record Visao(
         Regras.resultado(cenario, estado).map(Resultado::valores).orElse(null),
         ajuste(estado),
         abertura(cenario, estado, quem, agora),
-        resumoConvite);
+        resumoConvite,
+        encontroId);
   }
 
   private static @Nullable VisaoAbertura abertura(
