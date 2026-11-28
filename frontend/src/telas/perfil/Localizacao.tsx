@@ -1,15 +1,13 @@
 import { useQueryClient } from "@tanstack/react-query";
 import { useEffect, useRef, useState, type ReactElement } from "react";
 import { ativarLocalizacao, desativarLocalizacao } from "../../api/perfil";
-import { BOTAO_SECUNDARIO_SEM_MARGEM, TEXTO_SECUNDARIO } from "../../componentes/estilos";
+import { BOTAO_SECUNDARIO_SEM_MARGEM, TEXTO_SECUNDARIO, TITULO_DE_SECAO } from "../../componentes/estilos";
 import { obterPosicao, type ResultadoDePosicao } from "../../geo/obterPosicao";
 import { consultaDaLocalizacao } from "../../rotas/consultas";
 import type { EtapaDaLocalizacao, EventoDaLocalizacao } from "./etapasDaLocalizacao";
 import { LOCALIZACAO } from "./textos";
 
 const ID_DO_TITULO = "preferencias-titulo-localizacao";
-
-const TITULO_DE_SECAO = "m-0 font-titulo font-semibold text-[1.375rem] leading-[1.2]";
 
 interface Props {
   etapa: EtapaDaLocalizacao;

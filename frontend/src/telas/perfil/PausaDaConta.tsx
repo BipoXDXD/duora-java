@@ -1,13 +1,16 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useRef, useState, type ReactElement, type Ref, type RefObject } from "react";
 import { pausarConta, voltarAAparecer, type MeuPerfil } from "../../api/perfil";
-import { BOTAO_SECUNDARIO_SEM_MARGEM, seDisponivel, TEXTO_SECUNDARIO } from "../../componentes/estilos";
+import {
+  BOTAO_SECUNDARIO_SEM_MARGEM,
+  seDisponivel,
+  TEXTO_SECUNDARIO,
+  TITULO_DE_SECAO,
+} from "../../componentes/estilos";
 import { consultaDoMeuPerfil } from "../../rotas/consultas";
 import { PAUSA } from "./textos";
 
 const ID_DO_TITULO = "perfil-titulo-pausa";
-
-const TITULO_DE_SECAO = "m-0 font-titulo font-semibold text-[1.375rem] leading-[1.2]";
 
 /**
  * A faixa do topo de Meu perfil enquanto a conta está pausada. Fica sempre na árvore (vazia, some

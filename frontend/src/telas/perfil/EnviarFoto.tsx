@@ -3,7 +3,13 @@ import { useEffect, useReducer, useRef, type ChangeEvent, type ReactElement } fr
 import { novaChaveDeIdempotencia } from "../../api/http";
 import { enviarFoto, type FotoDoPerfil } from "../../api/perfil";
 import { FotoOuSilhueta } from "../../componentes/FotoOuSilhueta";
-import { BOTAO_PRIMARIO, BOTAO_SECUNDARIO_SEM_MARGEM, DICA, TEXTO_SECUNDARIO } from "../../componentes/estilos";
+import {
+  BOTAO_PRIMARIO,
+  BOTAO_SECUNDARIO_SEM_MARGEM,
+  DICA,
+  TEXTO_SECUNDARIO,
+  TITULO_DE_SECAO,
+} from "../../componentes/estilos";
 import { consultaDoMeuPerfil } from "../../rotas/consultas";
 import { textoDeEspera } from "../conta/textos";
 import {
@@ -29,8 +35,6 @@ const ID = {
   dica: "perfil-dica-foto",
   politica: "perfil-politica-foto",
 } as const;
-
-const TITULO_DE_SECAO = "m-0 font-titulo font-semibold text-[1.375rem] leading-[1.2]";
 
 /** O seletor de arquivo fica escondido; o rótulo faz o papel do botão e mostra o foco dele. */
 const ROTULO_DO_SELETOR = [

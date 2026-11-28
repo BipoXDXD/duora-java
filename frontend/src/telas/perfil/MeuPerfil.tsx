@@ -19,6 +19,7 @@ import {
   ROTULO,
   TEXTO_SECUNDARIO,
   TITULO_DA_CASCA,
+  TITULO_DE_SECAO,
 } from "../../componentes/estilos";
 import { consultaDaConta, consultaDoMeuPerfil, consultaDoNamoro } from "../../rotas/consultas";
 import { contarCaracteres } from "./contar";
@@ -57,7 +58,6 @@ const ID = {
   erro: (campo: Campo) => `perfil-erro-${campo}`,
 } as const;
 
-const TITULO_DE_SECAO = "m-0 font-titulo font-semibold text-[1.375rem] leading-[1.2]";
 const GRUPO = "m-0 p-0 min-w-0 border-0 border-l-4 pl-(--e-3)";
 const OPCAO = "flex items-center gap-(--e-3) min-h-[44px] leading-[1.45] cursor-pointer";
 const MARCA = "size-5 flex-none accent-ambar cursor-pointer";
