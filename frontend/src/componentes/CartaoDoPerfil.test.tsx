@@ -13,6 +13,12 @@ describe("CartaoDoPerfil", () => {
     expect(screen.getByRole("img", { name: "Foto de Lua" })).toHaveAttribute("loading", "eager");
   });
 
+  it("carregamentoRepassadoAFoto", () => {
+    render(<CartaoDoPerfil perfil={LUA} carregamento="lazy" />);
+
+    expect(screen.getByRole("img", { name: "Foto de Lua" })).toHaveAttribute("loading", "lazy");
+  });
+
   it("semFotoMostraSilhueta", () => {
     render(<CartaoDoPerfil perfil={{ ...LUA, foto: null }} />);
 
