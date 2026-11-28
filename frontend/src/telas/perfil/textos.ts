@@ -1,6 +1,6 @@
 // Textos fixos das telas de perfil. As mensagens de negócio (validação do servidor) vêm da API.
 
-import type { Intencao, Pronomes, Raio } from "../../api/perfil";
+import type { Genero, Intencao, Pronomes, Raio } from "../../api/perfil";
 
 /** A navegação entre as telas de perfil, no topo de cada uma. */
 export const NAVEGACAO_DO_PERFIL = {
@@ -138,6 +138,52 @@ export const LOCALIZACAO = {
 export const NAMORO = {
   titulo: "Para namoro",
   tituloDaAba: "Para namoro · Duora",
+  desligado: "O namoro está desligado. Para usar, marque Namoro em Meu perfil.",
+  irParaMeuPerfil: "Ir para Meu perfil",
+  aviso:
+    "Gênero e interesse são dados sensíveis. Usamos só para encontrar pessoas compatíveis e nunca mostramos a ninguém. Você pode apagar quando quiser.",
+  rotuloDoGenero: "Seu gênero",
+  dicaDoGenero: "Escolha a opção com que você se identifica.",
+  rotuloDaDescricao: "Como você se descreve",
+  dicaDaDescricao: "Até 40 caracteres.",
+  rotuloDosInteresses: "Quem você quer conhecer",
+  consentimento: "Concordo com o uso desses dados para o pareamento",
+  concordouEm: (data: string) => `Você concordou em ${data}.`,
+  salvar: "Salvar dados de namoro",
+  salvando: "Salvando…",
+  semConsentimento: "Marque a caixa de consentimento para salvar.",
+  salvos: "Dados de namoro salvos.",
+  falha: "Não conseguimos salvar seus dados de namoro. Tente de novo em instantes.",
+  apagar: "Apagar dados de namoro",
+  tituloDoApagar: "Apagar dados de namoro?",
+  textoDoApagar:
+    "Apagamos seu gênero e quem você quer conhecer, e Namoro sai das suas intenções. Para voltar, preencha e concorde de novo.",
+  acaoDoApagar: "Apagar dados",
+  apagando: "Apagando…",
+  apagados: "Dados de namoro apagados.",
+  falhaAoApagar: "Não conseguimos apagar seus dados de namoro. Tente de novo em instantes.",
+} as const;
+
+/** Os rótulos do gênero e de quem conhecer, na ordem do contrato (G1). */
+export const ROTULO_DO_GENERO = {
+  MULHER: "Mulher",
+  HOMEM: "Homem",
+  PESSOA_NAO_BINARIA: "Pessoa não binária",
+  OUTRO: "Prefiro descrever",
+} as const satisfies Record<Genero, string>;
+
+export const ROTULO_DO_INTERESSE = {
+  MULHER: "Mulheres",
+  HOMEM: "Homens",
+  PESSOA_NAO_BINARIA: "Pessoas não binárias",
+  OUTRO: "Pessoas que se descrevem de outra forma",
+} as const satisfies Record<Genero, string>;
+
+/** As recusas do formulário de namoro antes do envio. */
+export const ERROS_DO_NAMORO = {
+  semGenero: "Escolha seu gênero.",
+  descricao: "Escreva como você se descreve, com até 40 caracteres.",
+  semInteresse: "Marque ao menos uma opção.",
 } as const;
 
 export const ORIENTACAO = {
