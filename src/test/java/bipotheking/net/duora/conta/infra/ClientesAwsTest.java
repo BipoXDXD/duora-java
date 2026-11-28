@@ -3,6 +3,7 @@ package bipotheking.net.duora.conta.infra;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+import bipotheking.net.duora.web.CabecalhosDeSeguranca;
 import bipotheking.net.duora.web.ServidorHttpLento;
 import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpServer;
@@ -30,6 +31,16 @@ import software.amazon.awssdk.services.sts.StsClient;
  * assinatura, credencial só da configuração e desistência pelo timeout da chamada.
  */
 class ClientesAwsTest {
+
+  /**
+   * O navegador abre o WebSocket da prova de vida na região dos clientes: a CSP da verificação
+   * precisa liberar essa mesma origem, senão a selfie para no navegador.
+   */
+  @Test
+  void cspDaVerificacaoLiberaOStreamingDaRegiaoDosClientes() {
+    assertThat(CabecalhosDeSeguranca.CSP_VERIFICACAO)
+        .contains("wss://streaming-rekognition." + ClientesAws.REGIAO.id() + ".amazonaws.com");
+  }
 
   private static final StaticCredentialsProvider CURTA =
       StaticCredentialsProvider.create(

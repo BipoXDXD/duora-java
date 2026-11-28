@@ -80,6 +80,14 @@ class ContasJdbc implements RepositorioDeContas {
   }
 
   @Override
+  public Optional<Conta> travar(ContaId id) {
+    return jdbc.sql(COLUNAS + " where id = :id for update")
+        .param("id", id.valor())
+        .query((rs, linha) -> conta(rs))
+        .optional();
+  }
+
+  @Override
   public boolean marcarAguardandoVerificacao(ContaId id, LocalDate nascimento) {
     return jdbc.sql(
                 """

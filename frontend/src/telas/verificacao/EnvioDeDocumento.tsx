@@ -26,6 +26,7 @@ const MOLDURA =
 const AVISOS: Record<AvisoDoDocumento, string> = {
   naoLeu: TEXTOS.naoLeu,
   selfieVenceu: TEXTOS.selfieVenceu,
+  selfieNaoDeuCerto: TEXTOS.selfieNaoDeuCerto,
   fotosIlegiveis: TEXTOS.fotosIlegiveis,
   fotosGrandes: TEXTOS.fotosGrandes,
 };

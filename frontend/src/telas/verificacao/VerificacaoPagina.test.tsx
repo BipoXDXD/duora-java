@@ -10,7 +10,7 @@ import { criarRotas } from "../../rotas/rotas";
 import { stubarFetch, VERSOES_LEGAIS } from "../../teste/fetchFalso";
 import { textoDeEspera } from "../conta/textos";
 import type { ResultadoDaCamera } from "./camera";
-import { VERIFICACAO_DE_IDADE } from "./textos";
+import { VERIFICACAO_DE_IDADE, VERSAO_DO_CONSENTIMENTO } from "./textos";
 import { VerificacaoPagina, type DadosDaVerificacao } from "./VerificacaoPagina";
 
 /** O jsdom não decodifica imagem: a foto escolhida sobe como veio, e a prévia não desenha. */
@@ -231,6 +231,11 @@ function abrirAPagina({
     fetchFalso.mock.calls
       .filter(([entrada]) => entrada === ROTA_DA_SESSAO)
       .map(([, opcoes]) => (JSON.parse(opcoes?.body as string) as { finalidade: string }).finalidade);
+  /** As versões do consentimento mandadas no POST da sessão, na ordem. */
+  const versoes = () =>
+    fetchFalso.mock.calls
+      .filter(([entrada]) => entrada === ROTA_DA_SESSAO)
+      .map(([, opcoes]) => (JSON.parse(opcoes?.body as string) as { versaoConsentimento: string }).versaoConsentimento);
   const pedidos = () => fetchFalso.mock.calls.map(([entrada]) => (typeof entrada === "string" ? entrada : ""));
   /** Renderiza o pai de novo e espera uma macrotarefa: o POST da mutação sai depois de algumas microtarefas. */
   const recarregar = async () => {
@@ -247,6 +252,7 @@ function abrirAPagina({
     pedidosDeResultado,
     envios,
     finalidades,
+    versoes,
     pedidos,
     recarregar,
   };
@@ -492,6 +498,28 @@ describe("VerificacaoPagina", () => {
       await screen.findByText("Você chegou ao limite de tentativas de hoje. Tente de novo amanhã."),
     ).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Começar a selfie" })).not.toBeInTheDocument();
+  });
+
+  it("sessaoMandaAVersaoDoConsentimentoExibido", async () => {
+    const usuario = userEvent.setup();
+    const { versoes } = abrirAPagina({ sessoes: [problema(409, "VERIFICACAO_FORA_DE_ORDEM")] });
+
+    await consentirEComecar(usuario);
+
+    await waitFor(() => {
+      expect(versoes()).toEqual([VERSAO_DO_CONSENTIMENTO]);
+    });
+  });
+
+  it("consentimentoDesatualizadoRecarregaOTexto", async () => {
+    const usuario = userEvent.setup();
+    const { navegarParaPagina } = abrirAPagina({ sessoes: [problema(409, "CONSENTIMENTO_DESATUALIZADO")] });
+
+    await consentirEComecar(usuario);
+
+    await waitFor(() => {
+      expect(navegarParaPagina).toHaveBeenCalledExactlyOnceWith("/conta");
+    });
   });
 
   it("foraDeOrdemRecarregaPelaConta", async () => {
@@ -1063,21 +1091,23 @@ describe("VerificacaoPagina", () => {
     expect(await screen.findByText("Envios restantes hoje: 1")).toBeInTheDocument();
   });
 
-  it("refazerComOEnvioGastoSegueOServidor", async () => {
+  it("selfieQueNaoDeuCertoMantemAsFotosESegueOServidor", async () => {
     const usuario = userEvent.setup();
     abrirAPagina({
       situacao: SITUACAO_DO_DOCUMENTO,
       sessoes: duasSessoesDoDocumento(),
-      documentos: [problema(409, "REFAZER_PROVA_DE_VIDA")],
+      documentos: [problema(409, "SELFIE_NAO_DEU_CERTO")],
       situacoes: [json(200, { ...SITUACAO, ...SITUACAO_DO_DOCUMENTO, enviosDeDocumentoRestantesHoje: 1 })],
     });
 
     await escolherAsFotos(usuario);
     await fazerASelfieDoDocumento(usuario);
-    await screen.findByText(DOCUMENTO.selfieVenceu);
+    expect(await screen.findByRole("alert")).toHaveTextContent(DOCUMENTO.selfieNaoDeuCerto);
+    expect(screen.queryByText(DOCUMENTO.selfieVenceu)).not.toBeInTheDocument();
+    expect(screen.getByLabelText(`Frente do documento ${DOCUMENTO.trocarFoto}`)).toBeInTheDocument();
     await falharASegundaSelfieDoDocumento(usuario);
 
-    // A prova ruim gastou o envio (D14-bis): a segunda selfie era a última de hoje.
+    // A selfie ruim encerrou a tentativa e gastou o envio (D14-bis): a segunda era a última de hoje.
     expect(await screen.findByRole("heading", { level: 2, name: "Conta em análise" })).toBeInTheDocument();
   });
 

@@ -7,6 +7,13 @@ const CAMERA_NEGADA =
   "Não conseguimos usar a câmera. Libere o acesso nas configurações do navegador e toque em Tentar de novo.";
 const SERVICO_FORA = "O serviço de verificação não respondeu. Tente de novo em instantes.";
 
+/**
+ * A versão de `legal/biometria.md` cujo texto a caixa do consentimento repete. Vai no pedido de sessão:
+ * com o documento já em outra versão, o servidor recusa com CONSENTIMENTO_DESATUALIZADO e a página
+ * recarrega o texto novo. O ConsentimentoBiometricoTest confere que ela segue o documento.
+ */
+export const VERSAO_DO_CONSENTIMENTO = "2026-11-28";
+
 /** Por falha do detector; cada uma vem com o "Tentar de novo" e as tentativas que sobram. */
 const FALHAS: Record<FalhaDoDetector, string> = {
   camera: CAMERA_NEGADA,
@@ -86,6 +93,7 @@ export const VERIFICACAO_DE_IDADE = {
     enviando: "Conferindo o documento… Pode levar até 30 segundos.",
     naoLeu: "Não conseguimos ler o documento. Use boa luz, sem reflexo, com as quatro pontas aparecendo.",
     selfieVenceu: "A selfie venceu antes do envio. Faça uma nova; as fotos continuam aqui.",
+    selfieNaoDeuCerto: "A selfie não deu certo. Faça uma nova; as fotos continuam aqui.",
     fotosIlegiveis: "Não conseguimos abrir as fotos. Tire as fotos de novo.",
     /** O 413: as fotos já saem reduzidas, então só um arquivo fora do comum chega aqui. */
     fotosGrandes: "As fotos ficaram grandes demais para enviar. Tire as fotos de novo.",

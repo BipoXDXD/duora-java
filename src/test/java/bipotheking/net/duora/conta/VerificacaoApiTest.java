@@ -10,12 +10,18 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import bipotheking.net.duora.conta.ContasDeTeste.ContaDeTeste;
+import bipotheking.net.duora.conta.dominio.Email;
 import bipotheking.net.duora.conta.dominio.FaixaEstimada;
+import bipotheking.net.duora.conta.dominio.FinalidadeDaTentativa;
+import bipotheking.net.duora.conta.dominio.MetodoDeVerificacao;
+import bipotheking.net.duora.conta.dominio.RepositorioDeContas;
+import bipotheking.net.duora.conta.dominio.RepositorioDeVerificacoes;
 import bipotheking.net.duora.web.BancoDeTeste;
 import bipotheking.net.duora.web.MesmaOrigem;
 import com.jayway.jsonpath.JsonPath;
 import jakarta.servlet.http.Cookie;
 import java.time.Duration;
+import java.time.Instant;
 import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -46,10 +52,8 @@ import org.springframework.transaction.support.TransactionTemplate;
 class VerificacaoApiTest extends BancoDeTeste {
 
   private static final LocalDate NASCIMENTO = LocalDate.of(1990, 5, 10);
-  private static final String CORPO_SELFIE =
-      "{\"consentimentoBiometrico\":true,\"finalidade\":\"SELFIE\"}";
-  private static final String CORPO_DOCUMENTO =
-      "{\"consentimentoBiometrico\":true,\"finalidade\":\"DOCUMENTO\"}";
+  private static final String CORPO_SELFIE = PedidosDeSessao.SELFIE;
+  private static final String CORPO_DOCUMENTO = PedidosDeSessao.DOCUMENTO;
   private static final Duration ESPERA = Duration.ofSeconds(5);
 
   @Autowired private ContasDeTeste contas;
@@ -57,6 +61,9 @@ class VerificacaoApiTest extends BancoDeTeste {
   @Autowired private ConferenciaDeDocumentoDeTeste conferencia;
   @Autowired private TransactionTemplate transacao;
   @Autowired private DocumentosLegais documentos;
+  @Autowired private RepositorioDeContas repositorioDeContas;
+  @Autowired private RepositorioDeVerificacoes repositorioDeVerificacoes;
+  @Autowired private ResumoDeEmail resumoDeEmail;
 
   @BeforeEach
   void zerarDubles() {
@@ -107,6 +114,55 @@ class VerificacaoApiTest extends BancoDeTeste {
 
     assertThat(contar("select count(*) from aceite_documento where documento = 'BIOMETRIA'"))
         .isOne();
+  }
+
+  /**
+   * O texto que a pessoa viu é de uma versão que já mudou: 409 sem tentativa nem aceite, e o front
+   * recarrega o texto novo.
+   */
+  @Test
+  void consentimentoDeVersaoVelhaRecebe409SemAceite() throws Exception {
+    ContaDeTeste conta = aguardando();
+
+    iniciar(
+            conta,
+            "{\"consentimentoBiometrico\":true,\"versaoConsentimento\":\"2000-01-01\","
+                + "\"finalidade\":\"SELFIE\"}")
+        .andExpect(status().isConflict())
+        .andExpect(jsonPath("$.codigo").value("CONSENTIMENTO_DESATUALIZADO"));
+
+    assertThat(contar("select count(*) from tentativa_verificacao")).isZero();
+    assertThat(contar("select count(*) from aceite_documento where documento = 'BIOMETRIA'"))
+        .isZero();
+  }
+
+  /** Sem versão, como o cadastro sem a versão dos termos: conta como desatualizada. */
+  @Test
+  void consentimentoSemVersaoRecebe409() throws Exception {
+    ContaDeTeste conta = aguardando();
+
+    iniciar(conta, "{\"consentimentoBiometrico\":true,\"finalidade\":\"SELFIE\"}")
+        .andExpect(status().isConflict())
+        .andExpect(jsonPath("$.codigo").value("CONSENTIMENTO_DESATUALIZADO"));
+  }
+
+  /** O 429 do limite do dia não abre sessão: o aceite só fica gravado com a reserva feita. */
+  @Test
+  void limiteEsgotadoNaoGravaAceite() throws Exception {
+    ContaDeTeste conta = aguardando();
+    transacao.executeWithoutResult(status -> {
+      for (int i = 0; i < 3; i++) {
+        repositorioDeVerificacoes.reservar(
+            conta.id(), FinalidadeDaTentativa.SELFIE, 3, relogio.instant());
+      }
+    });
+
+    iniciar(conta, CORPO_SELFIE)
+        .andExpect(status().isTooManyRequests())
+        .andExpect(jsonPath("$.codigo").value("LIMITE_DE_VERIFICACAO"));
+
+    assertThat(contar("select count(*) from aceite_documento where documento = 'BIOMETRIA'"))
+        .isZero();
   }
 
   @Test
@@ -510,6 +566,158 @@ class VerificacaoApiTest extends BancoDeTeste {
     assertThat(saida.getOut()).contains(conta.id().toString());
     assertThat(saida.getOut() + saida.getErr())
         .doesNotContain(ProvaDeVidaDeTeste.SEGREDO, ProvaDeVidaDeTeste.CONTEUDO_DA_REFERENCIA);
+  }
+
+  /**
+   * Outra tentativa da mesma conta aprova e ativa enquanto esta lê a prova (a checagem de antes do
+   * fornecedor já passou): a recusa que chega depois não exclui a conta ativa nem bloqueia o
+   * e-mail.
+   */
+  @Test
+  void recusaDepoisDeOutraAprovacaoNaoExcluiAConta() throws Exception {
+    ContaDeTeste conta = aguardando();
+    String recusada = sessao(conta);
+    provaDeVida.programarPorSessao(
+        recusada, ProvaDeVidaDeTeste.concluida(99.0, new FaixaEstimada(12, 17)));
+    provaDeVida.segurar();
+
+    MockHttpServletResponse resposta;
+    try (ExecutorService threads = Executors.newSingleThreadExecutor()) {
+      Future<MockHttpServletResponse> pedido =
+          threads.submit(() -> concluir(conta, recusada).andReturn().getResponse());
+      assertThat(provaDeVida.aguardarChamada(ESPERA)).isTrue();
+      aprovarPorOutraTentativa(conta);
+      provaDeVida.liberar();
+      resposta = pedido.get(ESPERA.toSeconds(), TimeUnit.SECONDS);
+    }
+
+    assertThat(resposta.getStatus()).isEqualTo(409);
+    assertThat(JsonPath.<String>read(resposta.getContentAsString(), "$.codigo"))
+        .isEqualTo("VERIFICACAO_FORA_DE_ORDEM");
+    assertThat(estadoDe(conta)).isEqualTo("ATIVA");
+    assertThat(contar("select count(*) from email_bloqueado")).isZero();
+    assertThat(contar("select count(*) from verificacao_idade")).isOne();
+  }
+
+  /**
+   * A conclusão trava a conta antes da tentativa, na ordem da exclusão (e-mail, conta, tentativas):
+   * parada na trava da conta, ela ainda não segura a linha da tentativa, e quem tem a conta
+   * consegue a tentativa sem esperar.
+   */
+  @Test
+  void conclusaoTravaAContaAntesDaTentativa() throws Exception {
+    ContaDeTeste conta = aguardando();
+    String sessaoId = sessao(conta);
+
+    MockHttpServletResponse resposta =
+        comTravaSegurada(
+            () -> travarConta(conta),
+            () -> concluir(conta, sessaoId),
+            () -> tentativaLivre(sessaoId));
+
+    assertThat(resposta.getStatus()).isEqualTo(200);
+  }
+
+  /**
+   * Na recusa, a conclusão trava o e-mail antes da conta e da tentativa, como a exclusão: parada na
+   * trava do e-mail, ela não segura nem a conta nem a tentativa.
+   */
+  @Test
+  void recusaTravaOEmailAntesDaContaEDaTentativa() throws Exception {
+    ContaDeTeste conta = aguardando();
+    provaDeVida.programar(ProvaDeVidaDeTeste.concluida(99.0, new FaixaEstimada(12, 17)));
+    String sessaoId = sessao(conta);
+    Email email = Email.de(emailDe(conta));
+
+    MockHttpServletResponse resposta =
+        comTravaSegurada(
+            () -> travarEmail(email),
+            () -> concluir(conta, sessaoId),
+            () -> contaLivre(conta) && tentativaLivre(sessaoId));
+
+    assertThat(resposta.getStatus()).isEqualTo(422);
+    assertThat(estadoDe(conta)).isEqualTo("EXCLUIDA");
+  }
+
+  /**
+   * Toma uma trava numa transação, dispara o pedido, espera ele parar numa trava do banco e, ainda
+   * com a trava tomada, confere o que estava livre; então solta e devolve a resposta do pedido.
+   */
+  private MockHttpServletResponse comTravaSegurada(
+      Runnable travar, Callable<ResultActions> pedido, Callable<Boolean> livre) throws Exception {
+    CountDownLatch travada = new CountDownLatch(1);
+    CountDownLatch conferida = new CountDownLatch(1);
+    try (ExecutorService threads = Executors.newFixedThreadPool(2)) {
+      Future<Boolean> trava =
+          threads.submit(() ->
+              transacao.execute(status -> {
+                travar.run();
+                travada.countDown();
+                aguardar(conferida);
+                try {
+                  return livre.call();
+                } catch (Exception e) {
+                  return false;
+                }
+              }));
+      assertThat(travada.await(ESPERA.toSeconds(), TimeUnit.SECONDS)).isTrue();
+      Future<MockHttpServletResponse> resposta =
+          threads.submit(() -> pedido.call().andReturn().getResponse());
+      aguardarAlguemEsperandoTrava();
+      conferida.countDown();
+      assertThat(trava.get(ESPERA.toSeconds(), TimeUnit.SECONDS)).isTrue();
+      return resposta.get(ESPERA.toSeconds(), TimeUnit.SECONDS);
+    }
+  }
+
+  /** O que a tentativa que aprova faz na transação dela: ativa a conta e grava a aprovação. */
+  private void aprovarPorOutraTentativa(ContaDeTeste conta) {
+    Instant agora = relogio.instant();
+    transacao.executeWithoutResult(status -> {
+      assertThat(repositorioDeContas.ativar(conta.id(), agora)).isTrue();
+      repositorioDeVerificacoes.gravarAprovacao(
+          conta.id(), MetodoDeVerificacao.ESTIMATIVA_FACIAL, agora);
+    });
+  }
+
+  private void travarConta(ContaDeTeste conta) {
+    jdbc.sql("select id from conta where id = :id for update")
+        .param("id", conta.id().valor())
+        .query(UUID.class)
+        .single();
+  }
+
+  private void travarEmail(Email email) {
+    jdbc.sql("select pg_advisory_xact_lock(hashtext(:resumo))")
+        .param("resumo", resumoDeEmail.hex(email))
+        .query((rs, linha) -> Boolean.TRUE)
+        .single();
+  }
+
+  /** Lança se outra transação segura a linha da conta. */
+  private boolean contaLivre(ContaDeTeste conta) {
+    return jdbc.sql("select id from conta where id = :id for update nowait")
+        .param("id", conta.id().valor())
+        .query(UUID.class)
+        .optional()
+        .isPresent();
+  }
+
+  /** Lança se outra transação segura a linha da tentativa da sessão. */
+  private boolean tentativaLivre(String sessaoId) {
+    return jdbc.sql(
+            "select id from tentativa_verificacao where sessao_id = :sessao for update nowait")
+        .param("sessao", sessaoId)
+        .query(UUID.class)
+        .optional()
+        .isPresent();
+  }
+
+  private String emailDe(ContaDeTeste conta) {
+    return jdbc.sql("select email from conta where id = :id")
+        .param("id", conta.id().valor())
+        .query(String.class)
+        .single();
   }
 
   /** Espera até uma sessão do banco ficar parada esperando uma trava de linha. */

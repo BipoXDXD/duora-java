@@ -13,6 +13,10 @@ public enum CodigoVerificacao implements CodigoDeErro {
       TipoDeErro.REGRA_DE_NEGOCIO,
       "Consentimento biométrico necessário",
       "Concorde com o uso da sua imagem para confirmar sua idade."),
+  CONSENTIMENTO_DESATUALIZADO(
+      TipoDeErro.CONFLITO,
+      "Texto do consentimento mudou",
+      "O texto do consentimento mudou. Leia de novo antes de continuar."),
   VERIFICACAO_FORA_DE_ORDEM(
       TipoDeErro.CONFLITO,
       "Verificação fora de ordem",
@@ -25,6 +29,8 @@ public enum CodigoVerificacao implements CodigoDeErro {
       TipoDeErro.CONFLITO,
       "Refazer prova de vida",
       "A selfie venceu antes do envio. Faça uma nova."),
+  SELFIE_NAO_DEU_CERTO(
+      TipoDeErro.CONFLITO, "Selfie não deu certo", "A selfie não deu certo. Faça uma nova."),
   DOCUMENTO_INVALIDO(
       TipoDeErro.REGRA_DE_NEGOCIO,
       "Documento inválido",

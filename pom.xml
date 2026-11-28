@@ -308,9 +308,16 @@
                     </execution>
                 </executions>
             </plugin>
+            <!-- O spring-boot:run do desenvolvimento liga a verificação falsa: a config base não escolhe
+                 provedor. O jar de produção não passa por aqui. -->
             <plugin>
                 <groupId>org.springframework.boot</groupId>
                 <artifactId>spring-boot-maven-plugin</artifactId>
+                <configuration>
+                    <profiles>
+                        <profile>verificacao-falsa</profile>
+                    </profiles>
+                </configuration>
             </plugin>
             <!-- Front (frontend/): lint, build do Vite em target/vite (servido em static/) e Vitest.
                  O plugin registra o stderr do pnpm como [ERROR]; o silent tira o eco "$ comando" que o

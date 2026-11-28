@@ -87,16 +87,16 @@ public class VerificacaoPorDocumento {
    * antes de qualquer consulta ou chamada. A chave de idempotência é o id da sessão: a repetição
    * devolve o mesmo desfecho sem chamar os fornecedores, e um envio concorrente recebe {@code
    * REQUISICAO_EM_ANDAMENTO}. Prova de vida vencida ou ruim, fornecedor fora do ar ou qualquer
-   * falha antes do commit libera a chave e não conclui nada. Com o fornecedor fora do ar, o mesmo
-   * id de sessão pode reenviar; com a prova expirada, a tentativa é descartada e o reenvio recebe
-   * {@code SESSAO_DE_VERIFICACAO_INVALIDA}; com a prova ruim, o reenvio recebe o mesmo {@code
-   * REFAZER_PROVA_DE_VIDA}.
+   * falha antes do commit libera a chave. Com o fornecedor fora do ar, nada é concluído e o mesmo
+   * id de sessão pode reenviar; com a prova expirada, a tentativa é descartada; com a prova ruim,
+   * ela é encerrada como {@code REPETIR}. Nos dois últimos, o reenvio recebe {@code
+   * SESSAO_DE_VERIFICACAO_INVALIDA}.
    *
    * @throws ErroDeNegocio {@code LIMITE_DE_TAXA}, {@code DOCUMENTO_INVALIDO}, {@code
    *     SESSAO_DE_VERIFICACAO_INVALIDA} (sessão inexistente, de outra conta, de selfie ou já
    *     concluída), {@code REQUISICAO_EM_ANDAMENTO}, {@code VERIFICACAO_FORA_DE_ORDEM}, {@code
-   *     REFAZER_PROVA_DE_VIDA}, {@code PROVA_DE_VIDA_INDISPONIVEL} ou {@code
-   *     CONFERENCIA_DE_DOCUMENTO_INDISPONIVEL}
+   *     REFAZER_PROVA_DE_VIDA}, {@code SELFIE_NAO_DEU_CERTO}, {@code PROVA_DE_VIDA_INDISPONIVEL} ou
+   *     {@code CONFERENCIA_DE_DOCUMENTO_INDISPONIVEL}
    */
   public DesfechoDaVerificacao concluir(
       ContaId conta, String sessaoId, byte[] frente, byte[] verso) {
@@ -138,10 +138,7 @@ public class VerificacaoPorDocumento {
       DesfechoDaVerificacao desfecho =
           transacao.execute(status -> {
             Instant agora = relogio.instant();
-            if (!verificacoes.concluir(tentativa.id(), resultado, agora)) {
-              throw CodigoVerificacao.SESSAO_DE_VERIFICACAO_INVALIDA.erro();
-            }
-            efeitos.aplicar(conta, resultado, MetodoDeVerificacao.DOCUMENTO, agora);
+            efeitos.concluir(tentativa, conta, resultado, MetodoDeVerificacao.DOCUMENTO, agora);
             DesfechoDaVerificacao novo = desfecho(conta.id(), resultado, agora);
             idempotencia.concluir(ESCOPO_DO_DOCUMENTO, sessaoId, dono, novo);
             return novo;
@@ -164,11 +161,15 @@ public class VerificacaoPorDocumento {
   }
 
   /**
-   * A referência da selfie nova da sessão. Prova vencida, ruim ou sem referência pede outra selfie
-   * sem concluir nada, e o front mantém as fotos do documento e reenvia com uma sessão nova. Só a
-   * prova {@code EXPIRADA} descarta a tentativa e devolve o envio do dia (D14-bis): o upload lento
-   * num 4G não é culpa da pessoa. Falha, confiança baixa ou prova ainda criada (envio sem selfie)
-   * gastam o envio.
+   * A referência da selfie nova da sessão. Prova vencida, ruim ou sem referência não chama a
+   * conferência, e o front mantém as fotos do documento e reenvia com uma sessão nova. Só a prova
+   * {@code EXPIRADA} descarta a tentativa e devolve o envio do dia (D14-bis): o upload lento num 4G
+   * não é culpa da pessoa. Falha, confiança baixa ou prova ainda criada (envio sem selfie) encerram
+   * a tentativa como {@code REPETIR}, que gasta o envio: o reenvio da mesma sessão recebe 404, e a
+   * selfie nova vem numa tentativa nova.
+   *
+   * @throws ErroDeNegocio {@code REFAZER_PROVA_DE_VIDA} (expirada), {@code SELFIE_NAO_DEU_CERTO}
+   *     (as outras) ou {@code PROVA_DE_VIDA_INDISPONIVEL}
    */
   private Imagem referenciaDaProva(Tentativa tentativa, String sessaoId, Conta conta) {
     ResultadoDaProva prova;
@@ -179,17 +180,25 @@ public class VerificacaoPorDocumento {
           "Prova de vida indisponível no documento da conta {}: {}", conta.id(), e.getMessage());
       throw CodigoVerificacao.PROVA_DE_VIDA_INDISPONIVEL.erro();
     }
-    if (!DecisaoDeIdade.provaServeParaDocumento(prova)) {
-      LOG.info(
-          "Prova de vida da sessão de documento da conta {} não serve: {}",
-          conta.id(),
-          prova.situacao());
-      if (prova.situacao() == SituacaoDaProva.EXPIRADA) {
-        descartar(tentativa, conta);
-      }
+    if (DecisaoDeIdade.provaServeParaDocumento(prova)) {
+      return prova.referencia().orElseThrow();
+    }
+    LOG.info(
+        "Prova de vida da sessão de documento da conta {} não serve: {}",
+        conta.id(),
+        prova.situacao());
+    if (prova.situacao() == SituacaoDaProva.EXPIRADA) {
+      descartar(tentativa, conta);
       throw CodigoVerificacao.REFAZER_PROVA_DE_VIDA.erro();
     }
-    return prova.referencia().orElseThrow();
+    transacao.executeWithoutResult(status ->
+        efeitos.concluir(
+            tentativa,
+            conta,
+            ResultadoDaVerificacao.REPETIR,
+            MetodoDeVerificacao.DOCUMENTO,
+            relogio.instant()));
+    throw CodigoVerificacao.SELFIE_NAO_DEU_CERTO.erro();
   }
 
   /**
@@ -234,9 +243,7 @@ public class VerificacaoPorDocumento {
   }
 
   private Conta conta(ContaId id) {
-    return contas
-        .porId(id)
-        .orElseThrow(() -> new IllegalStateException("Sessão de conta inexistente: " + id));
+    return VerificacaoDeIdade.contaDaSessao(contas, id);
   }
 
   /** A conta aguardando verificação sempre tem data: a invariante da {@link Conta} garante. */

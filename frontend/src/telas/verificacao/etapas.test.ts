@@ -44,6 +44,11 @@ describe("etapaInicial", () => {
       { estado: "DUVIDA", enviosDeDocumentoRestantesHoje: 0 },
       { etapa: "desfecho", tipo: "analise" },
     ],
+    [
+      "analiseComEnviosAbreNaAnalise",
+      { estado: "ANALISE", enviosDeDocumentoRestantesHoje: 1 },
+      { etapa: "desfecho", tipo: "analise" },
+    ],
     ["aprovadaNaoTemEtapaInicial", { estado: "APROVADA" }, null],
   ])("%s", (_nome, campos, esperada) => {
     expect(etapaInicial(situacao(campos))).toEqual(esperada);
@@ -502,6 +507,15 @@ describe("documento", () => {
       frente: FRENTE,
       verso: VERSO,
       aviso: "selfieVenceu",
+    });
+  });
+
+  it("selfieQueNaoDeuCertoMantemAsFotosComOutroAviso", () => {
+    expect(proximaEtapa(enviando, { tipo: "envioRecusado", erro: recusa(409, "SELFIE_NAO_DEU_CERTO") })).toEqual({
+      etapa: "documento",
+      frente: FRENTE,
+      verso: VERSO,
+      aviso: "selfieNaoDeuCerto",
     });
   });
 

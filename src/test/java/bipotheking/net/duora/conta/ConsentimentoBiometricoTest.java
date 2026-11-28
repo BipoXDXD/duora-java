@@ -15,7 +15,8 @@ import org.junit.jupiter.api.Test;
 /**
  * O aceite biométrico guarda o SHA-256 de {@code legal/biometria.md}, a única fonte do texto. A
  * caixa que a pessoa marca na verificação repete esse texto no front: os dois precisam ser iguais,
- * senão o aceite gravado apontaria para um texto que ninguém viu.
+ * senão o aceite gravado apontaria para um texto que ninguém viu. A versão que o front manda ao
+ * abrir a sessão também repete a do documento: com ela diferente, o servidor recusaria toda sessão.
  */
 class ConsentimentoBiometricoTest {
 
@@ -26,6 +27,8 @@ class ConsentimentoBiometricoTest {
       Pattern.compile("\\A---\\n.*?\\n---\\n", Pattern.DOTALL);
   private static final Pattern CONSENTIMENTO =
       Pattern.compile("^\\s*consentimento:\\s*\"([^\"]+)\",$", Pattern.MULTILINE);
+  private static final Pattern VERSAO_NO_FRONT =
+      Pattern.compile("^export const VERSAO_DO_CONSENTIMENTO = \"([^\"]+)\";$", Pattern.MULTILINE);
 
   @Test
   void caixaDoFrontTrazOTextoDoDocumento() throws IOException {
@@ -33,6 +36,14 @@ class ConsentimentoBiometricoTest {
 
     assertThat(noFront.find()).as("chave consentimento em %s", TEXTOS_DO_FRONT).isTrue();
     assertThat(noFront.group(1)).isEqualTo(corpoDoDocumento());
+  }
+
+  @Test
+  void versaoDoFrontEADoDocumento() throws IOException {
+    Matcher noFront = VERSAO_NO_FRONT.matcher(Files.readString(TEXTOS_DO_FRONT));
+
+    assertThat(noFront.find()).as("VERSAO_DO_CONSENTIMENTO em %s", TEXTOS_DO_FRONT).isTrue();
+    assertThat(noFront.group(1)).isEqualTo(PedidosDeSessao.VERSAO_DO_CONSENTIMENTO);
   }
 
   /** O texto do documento sem o front matter: o que a pessoa lê ao lado da caixa. */

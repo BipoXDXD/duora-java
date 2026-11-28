@@ -211,6 +211,7 @@ describe("EnvioDeDocumento", () => {
 
   it.each<[AvisoDoDocumento, string]>([
     ["selfieVenceu", TEXTOS.selfieVenceu],
+    ["selfieNaoDeuCerto", TEXTOS.selfieNaoDeuCerto],
     ["fotosIlegiveis", TEXTOS.fotosIlegiveis],
     ["fotosGrandes", TEXTOS.fotosGrandes],
   ])("aviso %s vem como alerta", (aviso, texto) => {

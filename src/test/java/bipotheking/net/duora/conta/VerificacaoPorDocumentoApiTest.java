@@ -59,10 +59,8 @@ class VerificacaoPorDocumentoApiTest extends BancoDeTeste {
   private static final String MARCADOR_DA_REFERENCIA = "referencia-do-documento";
   private static final byte[] FRENTE = jpeg(MARCADOR_DA_FRENTE);
   private static final byte[] VERSO = jpeg(MARCADOR_DO_VERSO);
-  private static final String CORPO_SELFIE =
-      "{\"consentimentoBiometrico\":true,\"finalidade\":\"SELFIE\"}";
-  private static final String CORPO_DOCUMENTO =
-      "{\"consentimentoBiometrico\":true,\"finalidade\":\"DOCUMENTO\"}";
+  private static final String CORPO_SELFIE = PedidosDeSessao.SELFIE;
+  private static final String CORPO_DOCUMENTO = PedidosDeSessao.DOCUMENTO;
   private static final Duration ESPERA = Duration.ofSeconds(5);
 
   @Autowired private ContasDeTeste contas;
@@ -124,6 +122,31 @@ class VerificacaoPorDocumentoApiTest extends BancoDeTeste {
     assertThat(estadoDe(preparo.conta())).isEqualTo("AGUARDANDO_VERIFICACAO");
   }
 
+  /** Recarregar depois do "em análise" do documento não reabre o envio: a situação diz análise. */
+  @Test
+  void duvidaDoDocumentoDeixaASituacaoEmAnalise() throws Exception {
+    Preparo preparo = emDuvidaComSessaoDeDocumento();
+    conferencia.programar(
+        new ResultadoDoDocumento(true, Optional.of(LocalDate.of(1991, 5, 10)), true));
+    enviar(preparo.conta(), preparo.documento()).andExpect(status().isOk());
+
+    enviosRestantesHoje(preparo.conta())
+        .andExpect(jsonPath("$.estado").value("ANALISE"))
+        .andExpect(jsonPath("$.enviosDeDocumentoRestantesHoje").value(1));
+  }
+
+  /**
+   * O documento que pede repetição não é análise: com envio sobrando, a situação segue em dúvida.
+   */
+  @Test
+  void repeticaoDoDocumentoMantemADuvida() throws Exception {
+    Preparo preparo = emDuvidaComSessaoDeDocumento();
+    conferencia.programar(new ResultadoDoDocumento(false, Optional.empty(), false));
+    enviar(preparo.conta(), preparo.documento()).andExpect(status().isOk());
+
+    enviosRestantesHoje(preparo.conta()).andExpect(jsonPath("$.estado").value("DUVIDA"));
+  }
+
   @Test
   void rostoQueNaoConfereFicaEmDuvida() throws Exception {
     Preparo preparo = emDuvidaComSessaoDeDocumento();
@@ -167,17 +190,17 @@ class VerificacaoPorDocumentoApiTest extends BancoDeTeste {
         .andExpect(jsonPath("$.enviosDeDocumentoRestantesHoje").value(1));
   }
 
-  /** D14-bis: a prova abaixo de 90,0 pede selfie nova, mas gasta o envio do dia. */
+  /** D14-bis: a prova abaixo de 90,0 encerra a tentativa e gasta o envio do dia. */
   @Test
   void confiancaBaixaNaoChamaADiditEGastaOEnvio() throws Exception {
     Preparo preparo = emDuvidaComSessaoDeDocumento();
     provaDeVida.programarPorSessao(
         preparo.documento(), ProvaDeVidaDeTeste.concluida(80.0, new FaixaEstimada(30, 40)));
 
-    exigirRefazerQueGastaOEnvio(preparo);
+    exigirSelfieNovaQueEncerraATentativa(preparo);
   }
 
-  /** D14-bis: a prova que falhou pede selfie nova, mas gasta o envio do dia. */
+  /** D14-bis: a prova que falhou encerra a tentativa e gasta o envio do dia. */
   @Test
   void provaQueFalhouGastaOEnvio() throws Exception {
     Preparo preparo = emDuvidaComSessaoDeDocumento();
@@ -185,10 +208,10 @@ class VerificacaoPorDocumentoApiTest extends BancoDeTeste {
         preparo.documento(),
         new ResultadoDaProva(SituacaoDaProva.FALHOU, 0.0, Optional.empty(), Optional.empty()));
 
-    exigirRefazerQueGastaOEnvio(preparo);
+    exigirSelfieNovaQueEncerraATentativa(preparo);
   }
 
-  /** D14-bis: o envio imediato, com a prova ainda criada, pede selfie nova e gasta o envio. */
+  /** D14-bis: o envio imediato, com a prova ainda criada, encerra a tentativa e gasta o envio. */
   @Test
   void provaAindaCriadaGastaOEnvio() throws Exception {
     Preparo preparo = emDuvidaComSessaoDeDocumento();
@@ -196,19 +219,25 @@ class VerificacaoPorDocumentoApiTest extends BancoDeTeste {
         preparo.documento(),
         new ResultadoDaProva(SituacaoDaProva.CRIADA, 0.0, Optional.empty(), Optional.empty()));
 
-    exigirRefazerQueGastaOEnvio(preparo);
+    exigirSelfieNovaQueEncerraATentativa(preparo);
   }
 
-  /** O 409 sem concluir nada nem chamar a Didit, com a tentativa mantida: o envio fica gasto. */
-  private void exigirRefazerQueGastaOEnvio(Preparo preparo) throws Exception {
+  /**
+   * O 409 sem chamar a Didit, com a tentativa encerrada como {@code REPETIR}: o envio fica gasto, e
+   * o mesmo envio repetido recebe 404, sem laço de 409. A selfie nova vem numa tentativa nova.
+   */
+  private void exigirSelfieNovaQueEncerraATentativa(Preparo preparo) throws Exception {
     enviar(preparo.conta(), preparo.documento())
         .andExpect(status().isConflict())
-        .andExpect(jsonPath("$.codigo").value("REFAZER_PROVA_DE_VIDA"));
+        .andExpect(jsonPath("$.codigo").value("SELFIE_NAO_DEU_CERTO"));
 
     assertThat(conferencia.chamadas()).isZero();
-    assertThat(tentativaSemResultado(preparo.documento())).isTrue();
+    assertThat(resultadoDaTentativa(preparo.documento())).isEqualTo("REPETIR");
     enviosRestantesHoje(preparo.conta())
         .andExpect(jsonPath("$.enviosDeDocumentoRestantesHoje").value(1));
+    enviar(preparo.conta(), preparo.documento())
+        .andExpect(status().isNotFound())
+        .andExpect(jsonPath("$.codigo").value("SESSAO_DE_VERIFICACAO_INVALIDA"));
   }
 
   /**
@@ -496,6 +525,13 @@ class VerificacaoPorDocumentoApiTest extends BancoDeTeste {
             """)
         .param("sessao", sessaoId)
         .query(Boolean.class)
+        .single();
+  }
+
+  private String resultadoDaTentativa(String sessaoId) {
+    return jdbc.sql("select resultado from tentativa_verificacao where sessao_id = :sessao")
+        .param("sessao", sessaoId)
+        .query(String.class)
         .single();
   }
 
