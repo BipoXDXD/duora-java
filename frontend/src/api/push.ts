@@ -3,6 +3,7 @@
 
 import * as v from "valibot";
 import { ErroHttp, requisitarHttp } from "./http";
+import { lerResposta } from "./lerResposta";
 
 const EsquemaChavePublica = v.strictObject({ chave: v.pipe(v.string(), v.nonEmpty()) });
 
@@ -16,11 +17,7 @@ export interface InscricaoDoNavegador {
 export async function obterChavePublica(): Promise<string | null> {
   try {
     const resposta = await requisitarHttp("GET", "/push/chave-publica");
-    const resultado = v.safeParse(EsquemaChavePublica, resposta.dados);
-    if (!resultado.success) {
-      throw new ErroHttp({ status: resposta.status, codigo: "RESPOSTA_INVALIDA" });
-    }
-    return resultado.output.chave;
+    return lerResposta(EsquemaChavePublica, resposta.status, resposta.dados).chave;
   } catch (erro) {
     if (erro instanceof ErroHttp && erro.status === 404) {
       return null;

@@ -4,6 +4,7 @@
 
 import * as v from "valibot";
 import { ErroHttp, requisitarHttp } from "./http";
+import { lerResposta } from "./lerResposta";
 import type { Coordenada } from "./perfil";
 
 export const SITUACOES = ["AGUARDANDO_COMPATIVEL", "AGUARDANDO_VAGA", "PAREADO"] as const;
@@ -43,22 +44,14 @@ export type EstadoNaFila = v.InferOutput<typeof EsquemaEstadoNaFila>;
 export type Pareado = v.InferOutput<typeof EsquemaPareado>;
 export type Movimento = v.InferOutput<typeof EsquemaMovimento>;
 
-function ler<S extends v.GenericSchema>(esquema: S, status: number, dados: unknown): v.InferOutput<S> {
-  const resultado = v.safeParse(esquema, dados);
-  if (!resultado.success) {
-    throw new ErroHttp({ status, codigo: "RESPOSTA_INVALIDA" });
-  }
-  return resultado.output;
-}
-
 /** Lê um EstadoNaFila da resposta HTTP ou do evento fila.estado; `status` só vai no erro. */
 export function lerEstadoNaFila(dados: unknown, status = 200): EstadoNaFila {
-  return ler(EsquemaEstadoNaFila, status, dados);
+  return lerResposta(EsquemaEstadoNaFila, status, dados);
 }
 
 /** Lê os dados do evento fila.pareado. */
 export function lerPareado(dados: unknown, status = 200): Pareado {
-  return ler(EsquemaPareado, status, dados);
+  return lerResposta(EsquemaPareado, status, dados);
 }
 
 /** Sem posição, o corpo vai vazio; com ela, só latitude e longitude. */
@@ -88,5 +81,5 @@ export async function sairDaFila(): Promise<void> {
 
 export async function obterMovimento(): Promise<Movimento> {
   const resposta = await requisitarHttp("GET", "/fila/movimento");
-  return ler(EsquemaMovimento, resposta.status, resposta.dados);
+  return lerResposta(EsquemaMovimento, resposta.status, resposta.dados);
 }

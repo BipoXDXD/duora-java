@@ -3,7 +3,8 @@
 // entrar devolvem só JSON; o cookie do assento vem de pedirAssento.
 
 import * as v from "valibot";
-import { ErroHttp, requisitarHttp } from "./http";
+import { requisitarHttp } from "./http";
+import { lerResposta } from "./lerResposta";
 
 const EsquemaCenario = v.strictObject({ id: v.string(), nome: v.string() });
 
@@ -17,17 +18,9 @@ export type CenarioDoConvite = v.InferOutput<typeof EsquemaCenario>;
 export type ConviteCriado = v.InferOutput<typeof EsquemaConviteCriado>;
 export type EntradaPorConvite = v.InferOutput<typeof EsquemaEntradaPorConvite>;
 
-function ler<S extends v.GenericSchema>(esquema: S, status: number, dados: unknown): v.InferOutput<S> {
-  const resultado = v.safeParse(esquema, dados);
-  if (!resultado.success) {
-    throw new ErroHttp({ status, codigo: "RESPOSTA_INVALIDA" });
-  }
-  return resultado.output;
-}
-
 export async function obterCenariosDoConvite(): Promise<CenarioDoConvite[]> {
   const resposta = await requisitarHttp("GET", "/encontros/privados/cenarios");
-  return ler(EsquemaCenarios, resposta.status, resposta.dados).cenarios;
+  return lerResposta(EsquemaCenarios, resposta.status, resposta.dados).cenarios;
 }
 
 /** `cenario` nulo deixa o servidor sortear. A mesma `chave` repete a criação sem abrir outro convite. */
@@ -36,7 +29,7 @@ export async function criarConvite(cenario: string | null, chave: string): Promi
     corpo: { cenario },
     cabecalhos: { "Idempotency-Key": chave },
   });
-  return ler(EsquemaConviteCriado, resposta.status, resposta.dados);
+  return lerResposta(EsquemaConviteCriado, resposta.status, resposta.dados);
 }
 
 /** A mesma `chave` repete a entrada sem gastar o convite de novo. */
@@ -45,7 +38,7 @@ export async function entrarPorConvite(convite: string, chave: string): Promise<
     corpo: { convite },
     cabecalhos: { "Idempotency-Key": chave },
   });
-  return ler(EsquemaEntradaPorConvite, resposta.status, resposta.dados);
+  return lerResposta(EsquemaEntradaPorConvite, resposta.status, resposta.dados);
 }
 
 /** Pede o cookie duora_assento; a Visao do corpo é ignorada (a sala lê a sua). */
