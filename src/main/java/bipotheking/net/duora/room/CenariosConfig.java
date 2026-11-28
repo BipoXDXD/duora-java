@@ -5,6 +5,7 @@ import bipotheking.net.duora.game.Cenario;
 import bipotheking.net.duora.game.Terraco;
 import java.time.Duration;
 import java.util.List;
+import org.springframework.boot.context.properties.bind.Bindable;
 import org.springframework.boot.context.properties.bind.Binder;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -21,6 +22,12 @@ class CenariosConfig {
    */
   private static final String MAXIMO_DA_ABERTURA = "duora.cenarios.abertura.maximo";
 
+  /**
+   * Os ids que os encontros podem sortear, na ordem de exibição. Id desconhecido, repetido ou lista
+   * vazia derrubam o boot; sem a propriedade, todos os registrados são sorteáveis.
+   */
+  private static final String SORTEAVEIS = "duora.cenarios.sorteaveis";
+
   @Bean
   Cenario terraco(Environment ambiente) {
     return Binder.get(ambiente)
@@ -30,7 +37,10 @@ class CenariosConfig {
   }
 
   @Bean
-  CatalogoDeCenarios catalogoDeCenarios(List<Cenario> cenarios) {
-    return new CatalogoDeCenarios(cenarios);
+  CatalogoDeCenarios catalogoDeCenarios(List<Cenario> cenarios, Environment ambiente) {
+    return Binder.get(ambiente)
+        .bind(SORTEAVEIS, Bindable.listOf(String.class))
+        .map(sorteaveis -> new CatalogoDeCenarios(cenarios, sorteaveis))
+        .orElseGet(() -> new CatalogoDeCenarios(cenarios));
   }
 }

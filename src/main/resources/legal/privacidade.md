@@ -53,6 +53,7 @@ O controlador dos dados é o responsável pelo Duora. Para dúvidas e pedidos so
 | Gênero e quem você quer conhecer | até você desligar o namoro, revogar o consentimento ou excluir a conta |
 | Orientação | até você apagar ou excluir a conta |
 | Pares que não voltam a se encontrar | até a exclusão da conta |
+| Cenários que você já jogou | até a exclusão da conta |
 | Localização (área de cerca de 5 km) | até você desativar a localização ou excluir a conta; apagada 90 dias depois da última atualização |
 | Aceites dos termos, desta política e do consentimento biométrico | até a exclusão da conta |
 | Selfie e documento da verificação de idade | apagados logo após a checagem; fica só o resultado, a data e o método |
