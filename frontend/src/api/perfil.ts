@@ -175,7 +175,7 @@ export async function enviarFoto(arquivo: Blob, chave: string): Promise<{ aprova
     formulario,
     cabecalhos: { "Idempotency-Key": chave },
   });
-  return { aprovada: ler(EsquemaFotoEnviada, resposta.status, resposta.dados).estado === "APROVADA" };
+  return { aprovada: lerResposta(EsquemaFotoEnviada, resposta.status, resposta.dados).estado === "APROVADA" };
 }
 
 /** Apaga a foto aprovada, a pendente e a marca de recusa; o perfil volta à silhueta. */
