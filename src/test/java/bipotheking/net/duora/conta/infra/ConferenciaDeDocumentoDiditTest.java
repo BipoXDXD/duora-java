@@ -127,7 +127,22 @@ class ConferenciaDeDocumentoDiditTest {
     responderComStatus("Talvez");
 
     assertThat(conferencia().conferir(FRENTE, VERSO, SELFIE).documentoAceito()).isFalse();
-    assertThat(saida.getOut()).contains("WARN");
+    assertThat(saida.getOut()).contains("status desconhecido");
+  }
+
+  @Test
+  void semIdVerificationNaoAceitaEAvisa(CapturedOutput saida) {
+    didit.responder(CAMINHO, 200, "{\"request_id\": \"r-1\"}");
+
+    assertThat(conferencia().conferir(FRENTE, VERSO, SELFIE).documentoAceito()).isFalse();
+    assertThat(saida.getOut()).contains("sem id_verification");
+  }
+
+  @Test
+  void jsonQuebradoViraIndisponivel() {
+    didit.responder(CAMINHO, 200, "{\"id_verification\": {\"status\": ");
+
+    assertThat(falhaDaConferencia()).isNotNull();
   }
 
   @Test
@@ -156,7 +171,25 @@ class ConferenciaDeDocumentoDiditTest {
 
     conferencia().conferir(FRENTE, VERSO, SELFIE);
 
-    assertThat(saida.getOut()).contains("WARN").contains("retrato");
+    assertThat(saida.getOut()).contains("retrato que não é JPEG nem PNG");
+  }
+
+  @Test
+  void retratoEmBase64QueNaoEImagemAvisa(CapturedOutput saida) {
+    String texto =
+        Base64.getEncoder().encodeToString("nao-e-imagem".getBytes(StandardCharsets.UTF_8));
+    didit.responder(
+        CAMINHO,
+        200,
+        """
+        {"id_verification": {"status": "Approved", "date_of_birth": "1990-05-10",
+         "portrait_image": "%s"}}
+        """
+            .formatted(texto));
+
+    conferencia().conferir(FRENTE, VERSO, SELFIE);
+
+    assertThat(saida.getOut()).contains("retrato que não é JPEG nem PNG");
   }
 
   @Test
@@ -166,7 +199,7 @@ class ConferenciaDeDocumentoDiditTest {
     ResultadoDoDocumento resultado = conferencia().conferir(FRENTE, VERSO, SELFIE);
 
     assertThat(resultado).isEqualTo(new ResultadoDoDocumento(false, Optional.empty(), false));
-    assertThat(saida.getOut()).contains("INFO");
+    assertThat(saida.getOut()).contains("Didit não reconheceu o documento");
   }
 
   @Test
@@ -186,7 +219,16 @@ class ConferenciaDeDocumentoDiditTest {
 
     assertThat(falha.getCause()).isNull();
     assertThat(falha.getMessage()).doesNotContain(CHAVE);
-    assertThat(saida.getOut()).contains("ERROR");
+    assertThat(saida.getOut()).contains("confira duora.verificacao.didit.api-key");
+  }
+
+  @Test
+  void limiteDeTaxaViraIndisponivelComAviso(CapturedOutput saida) {
+    didit.responder(CAMINHO, 429, "{\"detail\": \"Request was throttled.\"}");
+
+    falhaDaConferencia();
+
+    assertThat(saida.getOut()).contains("WARN").contains("Didit indisponível em documento (429)");
   }
 
   @Test
@@ -222,6 +264,15 @@ class ConferenciaDeDocumentoDiditTest {
     falhaDaConferencia();
     responderComStatus("corpo-canario");
     conferencia().conferir(FRENTE, VERSO, SELFIE);
+    didit.responder(
+        CAMINHO,
+        400,
+        "{\"error\": \"COULD_NOT_RECOGNIZE_DOCUMENT\", \"detail\": \"corpo-canario\"}");
+    conferencia().conferir(FRENTE, VERSO, SELFIE);
+    didit.responder(CAMINHO, 200, "{\"detail\": \"corpo-canario\"}", Duration.ofSeconds(2));
+    ConferenciaDeDocumentoDidit comLeituraCurta = conferencia(Duration.ofMillis(200));
+    catchThrowableOfType(
+        FornecedorIndisponivel.class, () -> comLeituraCurta.conferir(FRENTE, VERSO, SELFIE));
 
     assertThat(saida.getOut())
         .doesNotContain("corpo-canario")

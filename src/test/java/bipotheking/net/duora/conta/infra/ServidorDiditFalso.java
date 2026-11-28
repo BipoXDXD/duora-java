@@ -42,7 +42,8 @@ final class ServidorDiditFalso implements AutoCloseable {
 
     /**
      * Valor do campo de texto {@code nome} do corpo multipart: o que vem depois da linha em branco
-     * que fecha os cabeçalhos da parte, até a fronteira seguinte. Falha se o campo não existir.
+     * que fecha os cabeçalhos da parte, até a fronteira seguinte. Falha com {@link AssertionError}
+     * se o campo não existir ou se a parte estiver malformada.
      */
     String campo(String nome) {
       String texto = corpoComoTexto();
@@ -50,8 +51,17 @@ final class ServidorDiditFalso implements AutoCloseable {
       if (parte < 0) {
         throw new AssertionError("O corpo não tem o campo " + nome);
       }
-      int valor = texto.indexOf("\r\n\r\n", parte) + 4;
-      return texto.substring(valor, texto.indexOf("\r\n--", valor));
+      int fimDosCabecalhos = texto.indexOf("\r\n\r\n", parte);
+      if (fimDosCabecalhos < 0) {
+        throw new AssertionError(
+            "A parte " + nome + " não fecha os cabeçalhos com linha em branco");
+      }
+      int valor = fimDosCabecalhos + 4;
+      int fronteira = texto.indexOf("\r\n--", valor);
+      if (fronteira < 0) {
+        throw new AssertionError("A parte " + nome + " não termina numa fronteira");
+      }
+      return texto.substring(valor, fronteira);
     }
   }
 
