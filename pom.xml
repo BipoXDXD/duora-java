@@ -42,6 +42,8 @@
         <archunit.version>1.5.1</archunit.version>
         <!-- Conferida no Maven Central em 2026-11-27 (última da linha 2.59) -->
         <aws-sdk.version>2.59.10</aws-sdk.version>
+        <!-- Web Push (ADR 0009): cifra e VAPID; o envio HTTP é nosso -->
+        <webpush.version>1.3.0</webpush.version>
     </properties>
 
     <dependencyManagement>
@@ -120,6 +122,13 @@
             <groupId>org.commonmark</groupId>
             <artifactId>commonmark-ext-yaml-front-matter</artifactId>
             <version>${commonmark.version}</version>
+        </dependency>
+        <!-- Web Push (ADR 0009): só cifra (RFC 8291) e cabeçalhos VAPID (RFC 8292); o envio usa o
+             HttpClient do JDK com a allowlist de hosts -->
+        <dependency>
+            <groupId>com.interaso</groupId>
+            <artifactId>webpush</artifactId>
+            <version>${webpush.version}</version>
         </dependency>
         <!-- Verificação de idade (Etapa 2b): Rekognition Face Liveness e STS para a credencial curta
              do navegador. Cliente HTTP só o url-connection-client do JDK; Apache (4 e 5) e Netty

@@ -161,6 +161,12 @@ boot exige). A CI a constrói e confere no job `imagem` (`scripts/ci/checar-imag
   - legal: `DUORA_EMAIL_ENCARREGADO`;
   - verificação (AWS e Didit): `DUORA_AWS_VERIFICACAO_ACCESS_KEY_ID`,
     `DUORA_AWS_VERIFICACAO_SECRET_ACCESS_KEY`, `DUORA_AWS_PAPEL_CAPTURA_ARN`, `DUORA_DIDIT_API_KEY`.
+- **Web Push (opcional, ADR 0009):** nasce desligado, e o boot não depende dele. Para ligar, defina
+  `DUORA_PUSH_HABILITADO=true` com o par VAPID em `DUORA_VAPID_PUBLICA` e `DUORA_VAPID_PRIVADA`;
+  ligado sem as duas chaves, o boot falha. Gere o par com o teste manual `GerarChavesVapid`, que só
+  imprime as duas linhas na saída, sem gravar arquivo:
+  `./mvnw test -Dtest=GerarChavesVapid -Dvapid.gerar=sim -DenableOutErrElements=false` (a última
+  opção tira a saída do relatório XML em `target/`). Trocar o par invalida as inscrições existentes.
 
 ## Arquitetura
 
