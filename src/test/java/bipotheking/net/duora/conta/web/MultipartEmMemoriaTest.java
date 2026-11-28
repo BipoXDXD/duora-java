@@ -67,6 +67,8 @@ class MultipartEmMemoriaTest {
     HttpResponse<String> resposta = enviar(sessaoDeConta(), grande, JPEG);
 
     assertThat(resposta.statusCode()).isEqualTo(413);
+    assertThat(JsonPath.<String>read(resposta.body(), "$.codigo"))
+        .isEqualTo("IMAGEM_GRANDE_DEMAIS");
   }
 
   /** Entre 5 MB e 6 MB, o Tomcat aceita e o caso de uso recusa a imagem. */

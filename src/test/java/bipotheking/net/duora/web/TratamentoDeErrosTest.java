@@ -80,6 +80,22 @@ class TratamentoDeErrosTest {
         .andExpect(jsonPath("$.mensagem").value(not(emptyString())));
   }
 
+  /** A mensagem de foto é do processador de imagem; o 415 do Spring segue genérico. */
+  @Test
+  void formatoNaoSuportadoDoSpringMantemMensagemGenerica() throws Exception {
+    mvc.perform(post("/teste/erros/json").contentType(MediaType.TEXT_PLAIN).content("{}"))
+        .andExpect(jsonPath("$.mensagem").value("Envie o conteúdo num formato aceito."));
+  }
+
+  @Test
+  void uploadAcimaDoLimiteViraImagemGrandeDemais() throws Exception {
+    mvc.perform(post("/teste/erros/upload-grande"))
+        .andExpect(status().isContentTooLarge())
+        .andExpect(content().contentTypeCompatibleWith(PROBLEMA))
+        .andExpect(jsonPath("$.codigo").value("IMAGEM_GRANDE_DEMAIS"))
+        .andExpect(jsonPath("$.mensagem").value("A imagem pode ter até 5 MB."));
+  }
+
   @Test
   void metodoNaoPermitidoTemCodigo() throws Exception {
     mvc.perform(post("/teste/erros/so-get"))

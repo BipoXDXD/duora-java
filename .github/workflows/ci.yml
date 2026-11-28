@@ -19,7 +19,7 @@ env:
 jobs:
   verify:
     name: Build e testes
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -45,6 +45,12 @@ jobs:
       # baixada antes deixa o tempo do download fora dos testes.
       - name: Baixar a imagem do Postgres 18
         run: docker pull postgres:18
+      # Todo contexto Spring exige libvips >= 8.15 (ProcessadorDeImagemVips); o 24.04 traz o 8.15.1.
+      - name: Instalar o libvips (processamento de fotos)
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends libvips-tools
+          vips --version
       - name: Verificar (formatação, compilação, front, testes unitários e de API)
         run: ./mvnw -B -q verify
       # O Node é o que o verify acabou de baixar (ou restaurar do cache) em frontend/node.
@@ -61,7 +67,7 @@ jobs:
   e2e:
     name: Jornadas no navegador (${{ matrix.navegador }})
     needs: verify
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 20
     strategy:
       fail-fast: false
@@ -96,6 +102,12 @@ jobs:
       # baixada antes deixa o tempo do download fora dos testes.
       - name: Baixar a imagem do Postgres 18
         run: docker pull postgres:18
+      # Todo contexto Spring exige libvips >= 8.15 (ProcessadorDeImagemVips); o 24.04 traz o 8.15.1.
+      - name: Instalar o libvips (processamento de fotos)
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends libvips-tools
+          vips --version
       # O Chromium completo entra em todos os jobs: o InstalabilidadeIT sempre o usa.
       - name: Instalar o navegador do Playwright, o Chromium e as dependências do sistema
         run: >-
