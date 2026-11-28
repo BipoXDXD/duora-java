@@ -36,4 +36,12 @@ public interface RepositorioDeContas {
    * @return se a conta estava num estado disponível e foi excluída
    */
   boolean excluir(ContaId id, Instant agora);
+
+  /**
+   * Leva a conta a {@code ATIVA}, com {@code ativadaEm} = {@code agora}, num UPDATE condicional: só
+   * sai de {@code AGUARDANDO_VERIFICACAO}, e só um entre concorrentes vence.
+   *
+   * @return se a conta estava {@code AGUARDANDO_VERIFICACAO} e mudou
+   */
+  boolean ativar(ContaId id, Instant agora);
 }
