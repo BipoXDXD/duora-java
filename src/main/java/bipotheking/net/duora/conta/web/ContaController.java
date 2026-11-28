@@ -71,7 +71,7 @@ class ContaController {
       @ContaAtual(cadastroConcluido = false) ContaId conta,
       HttpServletRequest request,
       HttpServletResponse response) {
-    cookie.ler(request).ifPresent(sessoes::encerrar);
+    cookie.ler(request).ifPresent(token -> sessoes.sair(conta, token));
     response.setHeader(HttpHeaders.SET_COOKIE, cookie.expirar());
     return ResponseEntity.noContent().build();
   }

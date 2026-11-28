@@ -145,6 +145,12 @@ boot exige). A CI a constrói e confere no job `imagem` (`scripts/ci/checar-imag
   domínio e exatamente essa origem no `Origin`, além do loopback. Não use labels do Traefik que
   reescrevam `Host` ou `Origin` (por exemplo, para `127.0.0.1:8080`): elas não são necessárias e
   anulam a checagem de mesma origem. Se existirem de deploys anteriores, remova-as.
+- **Tempo real:** `GET /api/eventos` é um stream SSE (ADR 0002). O Traefik do Coolify não
+  bufferiza respostas por padrão, e o servidor ainda manda `X-Accel-Buffering: no` e um
+  `stream.batimento` a cada 25 s. O `readTimeout` do entrypoint (60 s no Traefik v3) pode cortar o
+  stream: o cliente volta com `ultimoId` sem perder evento, mas reconecta a cada minuto. A métrica
+  `duora.eventos.aberturas` por minuto muito acima do número de pessoas online denuncia o corte;
+  nesse caso, ponha `readTimeout=0` no entrypoint.
 - **Healthcheck:** a imagem declara `HEALTHCHECK` em `/actuator/health`. O Coolify só o usa com o
   Healthcheck do painel desligado; ligado, o do painel o substitui.
 - **Variáveis de ambiente** (a imagem já define `SPRING_PROFILES_ACTIVE=prod`,

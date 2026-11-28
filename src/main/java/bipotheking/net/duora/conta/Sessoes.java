@@ -8,6 +8,7 @@ import bipotheking.net.duora.nucleo.Origem;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
+import java.util.List;
 import java.util.Optional;
 import java.util.random.RandomGenerator;
 import org.springframework.stereotype.Service;
@@ -31,6 +32,7 @@ public class Sessoes {
   private final RandomGenerator aleatorio;
   private final RegistroDeAcessos acessos;
   private final TransactionTemplate transacao;
+  private final List<AoEncerrarSessoes> aoEncerrar;
 
   Sessoes(
       RepositorioDeSessoes repositorio,
@@ -38,13 +40,15 @@ public class Sessoes {
       GeradorDeIds geradorDeIds,
       RandomGenerator aleatorio,
       RegistroDeAcessos acessos,
-      TransactionTemplate transacao) {
+      TransactionTemplate transacao,
+      List<AoEncerrarSessoes> aoEncerrar) {
     this.repositorio = repositorio;
     this.relogio = relogio;
     this.geradorDeIds = geradorDeIds;
     this.aleatorio = aleatorio;
     this.acessos = acessos;
     this.transacao = transacao;
+    this.aoEncerrar = List.copyOf(aoEncerrar);
   }
 
   /**
@@ -79,9 +83,20 @@ public class Sessoes {
     repositorio.apagar(Token.de(token).resumo());
   }
 
-  /** Apaga todas as sessões da conta. */
+  /** Logout: apaga a sessão do token, que é da conta, e avisa os ganchos. */
+  public void sair(ContaId conta, String token) {
+    encerrar(token);
+    avisar(conta);
+  }
+
+  /** Apaga todas as sessões da conta e avisa os ganchos. */
   public void revogarTodas(ContaId conta) {
     repositorio.apagarDaConta(conta);
+    avisar(conta);
+  }
+
+  private void avisar(ContaId conta) {
+    aoEncerrar.forEach(gancho -> gancho.encerradas(conta));
   }
 
   /** Só tenta gravar se a renovação venceu, no máximo uma vez a cada 24 h por sessão. */
