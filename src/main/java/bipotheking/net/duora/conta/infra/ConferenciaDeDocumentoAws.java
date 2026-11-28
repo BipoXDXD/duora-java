@@ -5,10 +5,10 @@ import bipotheking.net.duora.conta.dominio.FornecedorIndisponivel;
 import bipotheking.net.duora.conta.dominio.Imagem;
 import bipotheking.net.duora.conta.dominio.ResultadoDoDocumento;
 import java.time.LocalDate;
+import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeParseException;
 import java.time.format.ResolverStyle;
-import java.util.Comparator;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
@@ -68,6 +68,9 @@ final class ConferenciaDeDocumentoAws implements ConferenciaDeDocumento, AutoClo
    * documento para a dúvida a cada foto de RG antiga.
    */
   static final float LIMIAR_DE_SEMELHANCA = 90f;
+
+  private static final ZoneId FUSO = ZoneId.of("America/Sao_Paulo");
+  private static final LocalDate PRIMEIRO_NASCIMENTO = LocalDate.of(1900, 1, 1);
 
   /**
    * Confiança mínima (0 a 100) da resposta do Textract. Uma data mal lida que passe daqui ainda vai
@@ -158,13 +161,31 @@ final class ConferenciaDeDocumentoAws implements ConferenciaDeDocumento, AutoClo
       LOG.info("AWS recusou o documento em {} ({})", passo, codigo(e.awsErrorDetails()));
       return Optional.empty();
     }
-    return blocos.stream()
-        .filter(b -> b.blockType() == BlockType.QUERY_RESULT)
-        .filter(b -> b.confidence() != null && b.confidence() >= CONFIANCA_MINIMA)
-        .sorted(Comparator.comparing(Block::confidence).reversed())
-        .map(b -> data(b.text()))
-        .flatMap(Optional::stream)
-        .findFirst();
+    List<LocalDate> lidas =
+        blocos.stream()
+            .filter(b -> b.blockType() == BlockType.QUERY_RESULT)
+            .filter(b -> b.confidence() != null && b.confidence() >= CONFIANCA_MINIMA)
+            .map(b -> data(b.text()))
+            .flatMap(Optional::stream)
+            .distinct()
+            .toList();
+    if (lidas.size() > 1) {
+      LOG.info("AWS leu datas diferentes em {}: não reconhecido", passo);
+      return Optional.empty();
+    }
+    if (lidas.size() == 1 && !plausivel(lidas.getFirst())) {
+      LOG.info("AWS leu data implausível em {}: não reconhecido", passo);
+      return Optional.empty();
+    }
+    return lidas.stream().findFirst();
+  }
+
+  /**
+   * Nascimento possível: de 1900 até hoje. Data futura é validade; o resto é erro de leitura que,
+   * aceito, poderia dar menor de idade a um adulto e recusá-lo para sempre.
+   */
+  private static boolean plausivel(LocalDate data) {
+    return !data.isBefore(PRIMEIRO_NASCIMENTO) && !data.isAfter(LocalDate.now(FUSO));
   }
 
   /** {@code dd/MM/aaaa} com data que existe; qualquer outra coisa fica vazia. */
@@ -202,11 +223,16 @@ final class ConferenciaDeDocumentoAws implements ConferenciaDeDocumento, AutoClo
                   e instanceof InvalidParameterException
                       || e instanceof InvalidImageFormatException
                       || e instanceof ImageTooLargeException);
-    } catch (InvalidParameterException | InvalidImageFormatException | ImageTooLargeException e) {
-      LOG.info(
-          "AWS não achou rosto ou recusou a imagem em {} ({}): rosto não confere",
+    } catch (InvalidParameterException e) {
+      // Sem rosto na frente, mas também pedido nosso malformado: warn para não sumir como DUVIDA.
+      LOG.warn(
+          "AWS não achou rosto ou recusou o pedido em {} ({}): rosto não confere",
           ROSTO,
           codigo(e.awsErrorDetails()));
+      return false;
+    } catch (InvalidImageFormatException | ImageTooLargeException e) {
+      LOG.info(
+          "AWS recusou a imagem em {} ({}): rosto não confere", ROSTO, codigo(e.awsErrorDetails()));
       return false;
     }
     return semelhantes.stream()

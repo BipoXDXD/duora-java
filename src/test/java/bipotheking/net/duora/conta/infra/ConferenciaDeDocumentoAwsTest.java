@@ -9,6 +9,7 @@ import bipotheking.net.duora.conta.dominio.ResultadoDoDocumento;
 import io.micrometer.core.instrument.Timer;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import java.time.LocalDate;
+import java.time.ZoneId;
 import java.util.Optional;
 import java.util.stream.Stream;
 import org.jspecify.annotations.Nullable;
@@ -52,6 +53,7 @@ class ConferenciaDeDocumentoAwsTest {
   private static final String VERSO = "verso-de-teste";
   private static final String SELFIE = "selfie-de-teste";
   private static final String NASCIMENTO = "10/05/1990";
+  private static final ZoneId FUSO = ZoneId.of("America/Sao_Paulo");
   private static final LocalDate DATA = LocalDate.of(1990, 5, 10);
 
   private final TextractFalso textract = new TextractFalso();
@@ -134,6 +136,23 @@ class ConferenciaDeDocumentoAwsTest {
     assertThat(saida).contains("rosto não confere");
   }
 
+  /** Pedido nosso malformado também chega como InvalidParameter: precisa aparecer no alerta. */
+  @Test
+  void semRostoLogaEmWarn(CapturedOutput saida) {
+    textract.respondendo(FRENTE, NASCIMENTO, 99f);
+    rekognition.falhandoNoCompareFaces(
+        erro(InvalidParameterException.builder(), 400, "InvalidParameterException"));
+
+    conferir();
+
+    assertThat(saida.getAll().lines().filter(l -> l.contains("rosto não confere")))
+        .singleElement()
+        .asString()
+        .contains("WARN")
+        .contains("InvalidParameterException")
+        .doesNotContain(NASCIMENTO, SELFIE, FRENTE);
+  }
+
   static Stream<RekognitionException> imagensQueORekognitionRecusa() {
     return Stream.of(
         (RekognitionException)
@@ -206,11 +225,52 @@ class ConferenciaDeDocumentoAwsTest {
     assertThat(conferir().dataDeNascimento()).contains(DATA);
   }
 
+  /** PT e EN concordando, a data vale. */
   @Test
-  void ficaComARespostaDeMaiorConfianca() {
-    textract.respondendo(FRENTE, "11/06/1991", 85f).respondendo(FRENTE, NASCIMENTO, 98f);
+  void respostasQueConcordamReconhecem() {
+    textract.respondendo(FRENTE, NASCIMENTO, 85f).respondendo(FRENTE, "10.05.1990", 98f);
 
     assertThat(conferir().dataDeNascimento()).contains(DATA);
+  }
+
+  /** PT e EN com datas diferentes: uma delas é outro campo (validade, emissão). */
+  @Test
+  void respostasQueDiscordamNaoReconhecem() {
+    textract.respondendo(FRENTE, "11/06/1991", 85f).respondendo(FRENTE, NASCIMENTO, 98f);
+
+    assertThat(conferir()).isEqualTo(naoReconhecido());
+  }
+
+  /** Data futura é a validade, não o nascimento. */
+  @Test
+  void dataFuturaNaoReconhece() {
+    textract.respondendo(FRENTE, texto(LocalDate.now(FUSO).plusDays(1)), 99f);
+
+    assertThat(conferir()).isEqualTo(naoReconhecido());
+  }
+
+  @Test
+  void dataAnteriorA1900NaoReconhece() {
+    textract.respondendo(FRENTE, "31/12/1899", 99f);
+
+    assertThat(conferir()).isEqualTo(naoReconhecido());
+  }
+
+  @Test
+  void dataEm1900Reconhece() {
+    textract.respondendo(FRENTE, "01/01/1900", 99f);
+
+    assertThat(conferir().dataDeNascimento()).contains(LocalDate.of(1900, 1, 1));
+  }
+
+  /** Uma das respostas implausível já tira a confiança da outra. */
+  @Test
+  void respostaImplausivelAoLadoDeUmaPlausivelNaoReconhece() {
+    textract
+        .respondendo(FRENTE, NASCIMENTO, 99f)
+        .respondendo(FRENTE, texto(LocalDate.now(FUSO).plusYears(5)), 90f);
+
+    assertThat(conferir()).isEqualTo(naoReconhecido());
   }
 
   @Test
@@ -247,11 +307,8 @@ class ConferenciaDeDocumentoAwsTest {
   /** Menor também passa pelo rosto: a decisão olha o rosto antes da idade. */
   @Test
   void menorDeIdadeDevolveADataEComparaORosto() {
-    LocalDate menor = LocalDate.now().minusYears(15);
-    textract.respondendo(
-        FRENTE,
-        "%02d/%02d/%d".formatted(menor.getDayOfMonth(), menor.getMonthValue(), menor.getYear()),
-        99f);
+    LocalDate menor = LocalDate.now(FUSO).minusYears(15);
+    textract.respondendo(FRENTE, texto(menor), 99f);
     rekognition.comparando(99f);
 
     ResultadoDoDocumento resultado = conferir();
@@ -430,6 +487,10 @@ class ConferenciaDeDocumentoAwsTest {
             .tags("fornecedor", "aws", "operacao", operacao, "desfecho", desfecho)
             .timer();
     return timer == null ? 0 : timer.count();
+  }
+
+  private static String texto(LocalDate data) {
+    return "%02d/%02d/%d".formatted(data.getDayOfMonth(), data.getMonthValue(), data.getYear());
   }
 
   private static ResultadoDoDocumento naoReconhecido() {
