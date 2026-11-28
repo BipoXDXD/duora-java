@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { ErroHttp } from "../../api/http";
 import type { Desfecho, SessaoDeCaptura, SituacaoDaVerificacao } from "../../api/verificacao";
-import { etapaInicial, proximaEtapa, type Etapa, type FalhaDoDetector } from "./etapas";
+import { etapaInicial, proximaEtapa, type Etapa, type FalhaDoDetector, type FotosDoDocumento } from "./etapas";
 
 function situacao(campos: Partial<SituacaoDaVerificacao>): SituacaoDaVerificacao {
   return {
@@ -20,6 +20,11 @@ const SESSAO: SessaoDeCaptura = {
   credencial: { accessKeyId: "AKIA", secretAccessKey: "segredo", sessionToken: "token", expiration: new Date(0) },
   desvioDoRelogioMs: undefined,
 };
+
+const FRENTE = new Blob(["frente"], { type: "image/jpeg" });
+const VERSO = new Blob(["verso"], { type: "image/jpeg" });
+const FOTOS: FotosDoDocumento = { frente: FRENTE, verso: VERSO };
+const SESSAO_DO_DOCUMENTO: SessaoDeCaptura = { ...SESSAO, sessaoId: "s2" };
 
 describe("etapaInicial", () => {
   it.each<[string, Partial<SituacaoDaVerificacao>, Etapa | null]>([
@@ -137,11 +142,15 @@ describe("proximaEtapa", () => {
     expect(proximaEtapa(captura, { tipo: "concluiu" })).toEqual({ etapa: "conferindo", sessaoId: SESSAO.sessaoId });
   });
 
-  // A selfie do documento segue para o envio das fotos (F7), não para a conferência da selfie.
-  it("concluirCapturaDoDocumentoNaoConfereASelfie", () => {
-    const captura: Etapa = { etapa: "captura", sessao: SESSAO, finalidade: "DOCUMENTO" };
+  // A selfie do documento segue para o envio das fotos, não para a conferência da selfie.
+  it("concluirCapturaDoDocumentoEnviaAsFotosComASessaoNova", () => {
+    const captura: Etapa = { etapa: "captura", sessao: SESSAO_DO_DOCUMENTO, finalidade: "DOCUMENTO", fotos: FOTOS };
 
-    expect(proximaEtapa(captura, { tipo: "concluiu" })).toBe(captura);
+    expect(proximaEtapa(captura, { tipo: "concluiu" })).toEqual({
+      etapa: "enviandoDocumento",
+      sessaoId: "s2",
+      fotos: FOTOS,
+    });
   });
 
   it("falhaDoDetectorVaiParaAFalha", () => {
@@ -165,21 +174,23 @@ describe("proximaEtapa", () => {
   });
 
   it.each<FalhaDoDetector>(["camera", "tempo", "servico"])("falha %s guarda a finalidade sem a sessão", (falha) => {
-    const captura: Etapa = { etapa: "captura", sessao: SESSAO, finalidade: "DOCUMENTO" };
+    const captura: Etapa = { etapa: "captura", sessao: SESSAO, finalidade: "DOCUMENTO", fotos: FOTOS };
 
     expect(proximaEtapa(captura, { tipo: "falhou", falha })).toEqual({
       etapa: "falhaDoDetector",
       falha,
       finalidade: "DOCUMENTO",
+      fotos: FOTOS,
     });
   });
 
   it("falhaNaSelfieDoDocumentoRecomecaComoDocumento", () => {
-    const falha: Etapa = { etapa: "falhaDoDetector", falha: "tempo", finalidade: "DOCUMENTO" };
+    const falha: Etapa = { etapa: "falhaDoDetector", falha: "tempo", finalidade: "DOCUMENTO", fotos: FOTOS };
 
     expect(proximaEtapa(falha, { tipo: "comecar", modo: "aws" })).toEqual({
       etapa: "checandoCamera",
       finalidade: "DOCUMENTO",
+      fotos: FOTOS,
     });
   });
 
@@ -320,5 +331,238 @@ describe("depois da conferência", () => {
 
     expect(proximaEtapa(final, { tipo: "comecar", modo: "aws" })).toBe(final);
     expect(proximaEtapa(final, { tipo: "tentarDeNovo" })).toBe(final);
+  });
+});
+
+describe("documento", () => {
+  const enviando: Etapa = { etapa: "enviandoDocumento", sessaoId: "s2", fotos: FOTOS };
+
+  function envio(campos: Partial<Desfecho>): Desfecho {
+    return {
+      resultado: "APROVADA",
+      pedeDocumento: false,
+      tentativasRestantesHoje: 0,
+      enviosDeDocumentoRestantesHoje: 1,
+      ...campos,
+    };
+  }
+
+  function recusa(status: number, codigo: string, tentarDeNovoEmSegundos?: number): ErroHttp {
+    return new ErroHttp({ status, codigo, tentarDeNovoEmSegundos });
+  }
+
+  it("fotoDaFrenteFicaNaEtapa", () => {
+    expect(proximaEtapa({ etapa: "documento" }, { tipo: "foto", lado: "frente", foto: FRENTE })).toEqual({
+      etapa: "documento",
+      frente: FRENTE,
+    });
+  });
+
+  it("fotoIlegivelTiraAFotoDoLado", () => {
+    const documento: Etapa = { etapa: "documento", frente: FRENTE, verso: VERSO };
+
+    expect(proximaEtapa(documento, { tipo: "foto", lado: "verso", foto: null })).toEqual({
+      etapa: "documento",
+      frente: FRENTE,
+    });
+  });
+
+  it("fotoNovaLimpaOAviso", () => {
+    const documento: Etapa = { etapa: "documento", frente: FRENTE, verso: VERSO, aviso: "selfieVenceu" };
+
+    expect(proximaEtapa(documento, { tipo: "foto", lado: "verso", foto: VERSO })).toEqual({
+      etapa: "documento",
+      frente: FRENTE,
+      verso: VERSO,
+    });
+  });
+
+  it("falhaNaSelfieDoDocumentoSemEnvioVaiParaAAnalise", () => {
+    const captura: Etapa = { etapa: "captura", sessao: SESSAO_DO_DOCUMENTO, finalidade: "DOCUMENTO", fotos: FOTOS };
+
+    expect(proximaEtapa(captura, { tipo: "falhou", falha: "tempo", semEnvio: true })).toEqual({
+      etapa: "desfecho",
+      tipo: "analise",
+    });
+  });
+
+  it("falhaDeCarregamentoSemEnvioGuardaASessao", () => {
+    const captura: Etapa = { etapa: "captura", sessao: SESSAO_DO_DOCUMENTO, finalidade: "DOCUMENTO", fotos: FOTOS };
+
+    expect(proximaEtapa(captura, { tipo: "falhou", falha: "carregamento", semEnvio: true })).toEqual({
+      etapa: "falhaDoDetector",
+      falha: "carregamento",
+      sessao: SESSAO_DO_DOCUMENTO,
+      finalidade: "DOCUMENTO",
+      fotos: FOTOS,
+    });
+  });
+
+  it("selfieSemAsDuasFotosNaoComeca", () => {
+    const documento: Etapa = { etapa: "documento", frente: FRENTE };
+
+    expect(proximaEtapa(documento, { tipo: "comecar", modo: "aws" })).toBe(documento);
+  });
+
+  it("selfieDoDocumentoUsaFinalidadeDocumento", () => {
+    const documento: Etapa = { etapa: "documento", frente: FRENTE, verso: VERSO, aviso: "selfieVenceu" };
+
+    expect(proximaEtapa(documento, { tipo: "comecar", modo: "aws" })).toEqual({
+      etapa: "checandoCamera",
+      finalidade: "DOCUMENTO",
+      fotos: FOTOS,
+    });
+  });
+
+  it("selfieDoDocumentoNoModoFalsoIniciaDireto", () => {
+    const documento: Etapa = { etapa: "documento", frente: FRENTE, verso: VERSO };
+
+    expect(proximaEtapa(documento, { tipo: "comecar", modo: "falso" })).toEqual({
+      etapa: "iniciando",
+      finalidade: "DOCUMENTO",
+      fotos: FOTOS,
+    });
+  });
+
+  it("cameraChecadaLevaAsFotos", () => {
+    const checando: Etapa = { etapa: "checandoCamera", finalidade: "DOCUMENTO", fotos: FOTOS };
+
+    expect(proximaEtapa(checando, { tipo: "cameraChecada", resultado: "ok" })).toEqual({
+      etapa: "iniciando",
+      finalidade: "DOCUMENTO",
+      fotos: FOTOS,
+    });
+  });
+
+  it("semCameraRepeteComAsFotos", () => {
+    const semCamera: Etapa = { etapa: "semCamera", motivo: "negada", finalidade: "DOCUMENTO", fotos: FOTOS };
+
+    expect(proximaEtapa(semCamera, { tipo: "tentarDeNovo" })).toEqual({
+      etapa: "checandoCamera",
+      finalidade: "DOCUMENTO",
+      fotos: FOTOS,
+    });
+  });
+
+  it("sessaoDoDocumentoVaiParaACaptura", () => {
+    const iniciando: Etapa = { etapa: "iniciando", finalidade: "DOCUMENTO", fotos: FOTOS };
+
+    expect(proximaEtapa(iniciando, { tipo: "sessaoCriada", sessao: SESSAO_DO_DOCUMENTO })).toEqual({
+      etapa: "captura",
+      sessao: SESSAO_DO_DOCUMENTO,
+      finalidade: "DOCUMENTO",
+      fotos: FOTOS,
+    });
+  });
+
+  it("sessaoDoDocumentoForaDoArRepeteComAsFotos", () => {
+    const iniciando: Etapa = { etapa: "iniciando", finalidade: "DOCUMENTO", fotos: FOTOS };
+
+    const fora = proximaEtapa(iniciando, { tipo: "sessaoRecusada", erro: recusa(503, "PROVA_DE_VIDA_INDISPONIVEL") });
+
+    expect(proximaEtapa(fora, { tipo: "tentarDeNovo" })).toEqual(iniciando);
+  });
+
+  it("cancelarASelfieDoDocumentoVoltaParaAsFotos", () => {
+    const captura: Etapa = { etapa: "captura", sessao: SESSAO_DO_DOCUMENTO, finalidade: "DOCUMENTO", fotos: FOTOS };
+
+    expect(proximaEtapa(captura, { tipo: "cancelou" })).toEqual({ etapa: "documento", frente: FRENTE, verso: VERSO });
+  });
+
+  it("aprovadaNoEnvioVaiParaOAprovado", () => {
+    expect(proximaEtapa(enviando, { tipo: "enviado", desfecho: envio({ resultado: "APROVADA" }) })).toEqual({
+      etapa: "desfecho",
+      tipo: "aprovada",
+    });
+  });
+
+  it("duvidaNoEnvioVaiParaAAnalise", () => {
+    expect(proximaEtapa(enviando, { tipo: "enviado", desfecho: envio({ resultado: "DUVIDA" }) })).toEqual({
+      etapa: "desfecho",
+      tipo: "analise",
+    });
+  });
+
+  it("repetirNoEnvioApagaAsFotosEAvisaQueNaoLeu", () => {
+    expect(proximaEtapa(enviando, { tipo: "enviado", desfecho: envio({ resultado: "REPETIR" }) })).toEqual({
+      etapa: "documento",
+      aviso: "naoLeu",
+    });
+  });
+
+  it("repetirSemEnviosVaiParaAAnalise", () => {
+    const desfecho = envio({ resultado: "REPETIR", enviosDeDocumentoRestantesHoje: 0 });
+
+    expect(proximaEtapa(enviando, { tipo: "enviado", desfecho })).toEqual({ etapa: "desfecho", tipo: "analise" });
+  });
+
+  it("refazerProvaDeVidaMantemAsFotos", () => {
+    expect(proximaEtapa(enviando, { tipo: "envioRecusado", erro: recusa(409, "REFAZER_PROVA_DE_VIDA") })).toEqual({
+      etapa: "documento",
+      frente: FRENTE,
+      verso: VERSO,
+      aviso: "selfieVenceu",
+    });
+  });
+
+  it("sessaoDoEnvioVencidaMantemAsFotos", () => {
+    const erro = recusa(404, "SESSAO_DE_VERIFICACAO_INVALIDA");
+
+    expect(proximaEtapa(enviando, { tipo: "envioRecusado", erro })).toEqual({
+      etapa: "documento",
+      frente: FRENTE,
+      verso: VERSO,
+      aviso: "selfieVenceu",
+    });
+  });
+
+  it("documentoInvalidoApagaAsFotos", () => {
+    expect(proximaEtapa(enviando, { tipo: "envioRecusado", erro: recusa(422, "DOCUMENTO_INVALIDO") })).toEqual({
+      etapa: "documento",
+      aviso: "fotosIlegiveis",
+    });
+  });
+
+  it("fotosGrandesDemaisApagaAsFotos", () => {
+    expect(proximaEtapa(enviando, { tipo: "envioRecusado", erro: recusa(413, "REQUISICAO_INVALIDA") })).toEqual({
+      etapa: "documento",
+      aviso: "fotosGrandes",
+    });
+  });
+
+  it("menorNoEnvioEncerra", () => {
+    expect(proximaEtapa(enviando, { tipo: "envioRecusado", erro: recusa(422, "MENOR_DE_IDADE") })).toEqual({
+      etapa: "desfecho",
+      tipo: "menor",
+    });
+  });
+
+  it("limiteDeTaxaNoEnvioGuardaOsSegundos", () => {
+    expect(proximaEtapa(enviando, { tipo: "envioRecusado", erro: recusa(429, "LIMITE_DE_TAXA", 40) })).toEqual({
+      etapa: "limite",
+      segundos: 40,
+    });
+  });
+
+  it("limiteDeVerificacaoNoEnvioEOLimiteDoDia", () => {
+    expect(proximaEtapa(enviando, { tipo: "envioRecusado", erro: recusa(429, "LIMITE_DE_VERIFICACAO") })).toEqual({
+      etapa: "limite",
+      segundos: null,
+    });
+  });
+
+  it.each([
+    ["servico503", recusa(503, "CONFERENCIA_DE_DOCUMENTO_INDISPONIVEL")],
+    ["emAndamento409", recusa(409, "REQUISICAO_EM_ANDAMENTO")],
+    ["rede", new ErroHttp({ status: 0, codigo: "REDE" })],
+  ])("%s reenvia as mesmas fotos com a mesma sessão", (_nome, erro) => {
+    const fora = proximaEtapa(enviando, { tipo: "envioRecusado", erro });
+
+    expect(fora).toEqual({ etapa: "indisponivel", repetir: { tipo: "enviar", sessaoId: "s2", fotos: FOTOS } });
+    expect(proximaEtapa(fora, { tipo: "tentarDeNovo" })).toEqual(enviando);
+  });
+
+  it("eventoForaDoEnvioNaoMudaNada", () => {
+    expect(proximaEtapa(enviando, { tipo: "comecar", modo: "aws" })).toBe(enviando);
   });
 });

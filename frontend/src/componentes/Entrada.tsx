@@ -1,6 +1,15 @@
 import { useRef, useState, type SubmitEvent } from "react";
 import { validarApelido } from "../dominio/apelido";
-import { BOTAO_PRIMARIO, BOTAO_SECUNDARIO_SEM_MARGEM, CAMPO, DICA, ENTRADA_DE_TEXTO, ROTULO, TELA } from "./estilos";
+import {
+  BOTAO_PRIMARIO,
+  BOTAO_SECUNDARIO_SEM_MARGEM,
+  CAMPO,
+  DICA,
+  ENTRADA_DE_TEXTO,
+  ERRO_DE_CAMPO,
+  ROTULO,
+  TELA,
+} from "./estilos";
 import { Rodape } from "./Rodape";
 
 interface PropsEntrada {
@@ -103,7 +112,7 @@ export function Entrada({ comConvite, apelido = "", troca, enviando, erro, aoEnv
               Entrar neste convite encerra o terraço atual para as duas pessoas.
             </p>
           )}
-          <p className="erro-campo m-0 text-[0.875rem] leading-[1.45] text-coral empty:hidden" id="apelido-erro">
+          <p className={ERRO_DE_CAMPO} id="apelido-erro">
             {erroMostrado}
           </p>
         </div>

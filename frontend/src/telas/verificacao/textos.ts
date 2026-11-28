@@ -70,7 +70,28 @@ export const VERIFICACAO_DE_IDADE = {
     titulo: "Cadastro não concluído",
     texto: "O Duora é só para maiores de 18 anos. Encerramos o cadastro.",
   },
-  /** O envio do documento (a tela completa vem com o envio das fotos). */
-  documento: { titulo: "Falta pouco" },
+  /** O documento na faixa de dúvida: frente, verso e uma selfie nova, enviados de uma vez. */
+  documento: {
+    titulo: "Falta pouco",
+    texto:
+      "A selfie não bastou para confirmar sua idade. Envie fotos do seu RG ou da sua CNH, frente e verso, e faça uma selfie nova. A Didit, empresa de verificação de identidade, confere a data de nascimento e se o rosto do documento é o seu. A Didit apaga as imagens logo depois; guardamos só o resultado, a data e o método.",
+    frente: "Frente do documento",
+    verso: "Verso do documento",
+    dica: "Com boa luz, sem reflexo e com as quatro pontas aparecendo.",
+    escolherFoto: "Escolher foto",
+    trocarFoto: "Trocar foto",
+    fazerSelfie: "Fazer a selfie",
+    faltamFotos: "Escolha as fotos da frente e do verso.",
+    dicaDoEnvio: "Logo depois da selfie, enviamos tudo de uma vez.",
+    enviando: "Conferindo o documento… Pode levar até 30 segundos.",
+    naoLeu: "Não conseguimos ler o documento. Use boa luz, sem reflexo, com as quatro pontas aparecendo.",
+    selfieVenceu: "A selfie venceu antes do envio. Faça uma nova; as fotos continuam aqui.",
+    fotosIlegiveis: "Não conseguimos abrir as fotos. Tire as fotos de novo.",
+    /** O 413: as fotos já saem reduzidas, então só um arquivo fora do comum chega aqui. */
+    fotosGrandes: "As fotos ficaram grandes demais para enviar. Tire as fotos de novo.",
+    fotoIlegivel: "Não conseguimos abrir esta foto. Tire outra.",
+    conferenciaFora: "O serviço que confere o documento não respondeu. Tente de novo em instantes.",
+    envios: (n: number): string => `Envios restantes hoje: ${String(n)}`,
+  },
   tentativas: (n: number): string => `Tentativas restantes hoje: ${String(n)}`,
 } as const;
