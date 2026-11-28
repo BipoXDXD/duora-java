@@ -89,7 +89,7 @@ class OrientacaoJdbc implements RepositorioDeOrientacao {
     return false;
   }
 
-  private static DadosDeOrientacao dados(ResultSet rs) throws SQLException {
+  static DadosDeOrientacao dados(ResultSet rs) throws SQLException {
     return new DadosDeOrientacao(
         Orientacao.valueOf(rs.getString("orientacao")),
         Optional.ofNullable(rs.getString("descricao")).map(DescricaoCurta::new),

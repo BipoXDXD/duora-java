@@ -97,7 +97,7 @@ class NamoroJdbc implements RepositorioDeNamoro {
     return false;
   }
 
-  private static DadosDeNamoro dados(ResultSet rs) throws SQLException {
+  static DadosDeNamoro dados(ResultSet rs) throws SQLException {
     String descricao = rs.getString("descricao_genero");
     String[] interesses = (String[]) rs.getArray("interesses").getArray();
     Set<Genero> generos = EnumSet.noneOf(Genero.class);
