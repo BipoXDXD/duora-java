@@ -1,6 +1,6 @@
 // Textos fixos das telas de perfil. As mensagens de negócio (validação do servidor) vêm da API.
 
-import type { Intencao, Pronomes } from "../../api/perfil";
+import type { Intencao, Pronomes, Raio } from "../../api/perfil";
 
 /** A navegação entre as telas de perfil, no topo de cada uma. */
 export const NAVEGACAO_DO_PERFIL = {
@@ -97,6 +97,42 @@ export const ERROS_DO_PERFIL = {
 export const PREFERENCIAS = {
   titulo: "Preferências de encontro",
   tituloDaAba: "Preferências de encontro · Duora",
+  rotuloDaIdade: "Idade de quem você quer conhecer",
+  de: "De",
+  ate: "Até",
+  idadeInvalida: 'Use idades de 18 a 99, com "De" menor ou igual a "Até".',
+  rotuloDaDistancia: "Distância",
+  ativeALocalizacao: "Ative a localização para escolher uma distância.",
+  rotuloDoComoUsar: "Como usar a distância",
+  soDentroDoRaio: "Só pessoas dentro do raio",
+  maisPertoPrimeiro: "Prefiro quem está mais perto, mas aceito mais longe",
+  salvar: "Salvar preferências",
+  salvando: "Salvando…",
+  salvas: "Preferências salvas.",
+  versaoObsoleta: "Suas preferências mudaram em outro aparelho. Confira e salve de novo.",
+  falha: "Não conseguimos salvar suas preferências. Tente de novo em instantes.",
+} as const;
+
+export const ROTULO_DOS_RAIOS = {
+  ATE_5_KM: "Até 5 km",
+  ATE_20_KM: "Até 20 km",
+  ATE_50_KM: "Até 50 km",
+  SEM_LIMITE: "Sem limite",
+} as const satisfies Record<Raio, string>;
+
+export const LOCALIZACAO = {
+  titulo: "Localização",
+  explicacao: "Guardamos só uma área de cerca de 5 km, nunca o ponto exato.",
+  usar: "Usar minha localização",
+  esperando: "Esperando a permissão do navegador…",
+  gravando: "Ativando a localização…",
+  ativa: "Localização ativa (área aproximada)",
+  desativar: "Desativar localização",
+  desativando: "Desativando…",
+  falhou: 'Não conseguimos sua localização. A distância fica em "Sem limite".',
+  negada: "Para tentar de novo, libere a localização nas configurações do navegador.",
+  desativada: 'Localização desativada. A distância voltou para "Sem limite".',
+  falhaAoDesativar: "Não conseguimos desativar a localização. Tente de novo em instantes.",
 } as const;
 
 export const NAMORO = {
