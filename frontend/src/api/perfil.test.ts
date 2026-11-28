@@ -212,6 +212,18 @@ describe("obterPerfilPublico", () => {
     expect(await obterPerfilPublico("0193f1c2-7a4b-7c3d-8e5f-0a1b2c3d4e5f")).toBeNull();
   });
 
+  it("obterPerfilPublicoIdMalformadoViraNull", async () => {
+    responder(400, { codigo: "REQUISICAO_INVALIDA", mensagem: "Requisição inválida" });
+
+    expect(await obterPerfilPublico("nao-e-uuid")).toBeNull();
+  });
+
+  it("obterPerfilPublicoOutro400Propaga", async () => {
+    responder(400, { codigo: "CORPO_INVALIDO", mensagem: "Corpo inválido" });
+
+    await expect(obterPerfilPublico("nao-e-uuid")).rejects.toMatchObject({ status: 400, codigo: "CORPO_INVALIDO" });
+  });
+
   it("perfilPublicoComChaveExtraContinuaValido", async () => {
     const fetchFalso = responder(200, {
       apelido: "Bia",

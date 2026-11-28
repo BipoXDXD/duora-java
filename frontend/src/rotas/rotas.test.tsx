@@ -180,6 +180,25 @@ describe("criarRotas", () => {
     expect(fetchFalso.mock.calls.map(([entrada]) => entrada)).toContain("/api/perfis/conta-da-ana");
   });
 
+  it("perfisComIdMalformadoMostraPerfilIndisponivel", async () => {
+    // O back recusa o id que não é UUID com 400 REQUISICAO_INVALIDA: a tela é a mesma do 404.
+    const recusa = { codigo: "REQUISICAO_INVALIDA", mensagem: "Requisição inválida" };
+    stubarFetch((entrada) =>
+      Promise.resolve(
+        entrada === "/api/perfis/nao-e-uuid"
+          ? new Response(JSON.stringify(recusa), {
+              status: 400,
+              headers: { "Content-Type": "application/problem+json" },
+            })
+          : new Response(JSON.stringify(contaNoEstado("ATIVA")), { headers: { "Content-Type": "application/json" } }),
+      ),
+    );
+
+    abrirEm("/perfis/nao-e-uuid");
+
+    expect(await screen.findByRole("heading", { level: 1, name: "Perfil indisponível" })).toBeInTheDocument();
+  });
+
   it("primeiraCargaMostraCarregandoNaMolduraAteATelaChegar", async () => {
     // A leitura da conta, no guarda do /cadastro, nunca responde: a casca fica na primeira carga.
     abrirEm("/cadastro");
