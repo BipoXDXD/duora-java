@@ -57,7 +57,12 @@ import software.amazon.awssdk.services.sts.model.Credentials;
  */
 final class ProvaDeVidaAws implements ProvaDeVida, CredencialDoNavegador, AutoCloseable {
 
-  /** Só o que o navegador precisa: iniciar o streaming da prova de vida, nada mais. */
+  /**
+   * Só o que o navegador precisa: iniciar o streaming da prova de vida, nada mais. O {@code
+   * Resource} é {@code "*"} porque o Rekognition não aceita ARN de recurso nessa ação (ADR 0007): a
+   * restrição fica na ação única, nos 900 s da credencial e no {@code RoleSessionName} da
+   * tentativa.
+   */
   static final String POLITICA_DE_SESSAO =
       "{\"Version\":\"2012-10-17\",\"Statement\":[{\"Effect\":\"Allow\","
           + "\"Action\":\"rekognition:StartFaceLivenessSession\",\"Resource\":\"*\"}]}";
