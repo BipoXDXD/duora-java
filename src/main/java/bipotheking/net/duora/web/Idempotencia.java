@@ -11,6 +11,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.function.Supplier;
 import java.util.regex.Pattern;
 import org.jspecify.annotations.Nullable;
 import org.springframework.beans.factory.annotation.Value;
@@ -18,6 +19,8 @@ import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
+import org.springframework.transaction.support.TransactionTemplate;
 import tools.jackson.databind.json.JsonMapper;
 
 /**
@@ -31,6 +34,9 @@ import tools.jackson.databind.json.JsonMapper;
  * com a mesma chave recebe {@link CodigoWeb#REQUISICAO_EM_ANDAMENTO}; depois, a reserva é tida como
  * abandonada e a próxima requisição a retoma com um dono novo. O dono é um fencing token: quem
  * perdeu a reserva não conclui nem libera a de quem a retomou.
+ *
+ * <p>Quem não tem passo de fora entre a reserva e o efeito usa {@link #executar}, que faz esse
+ * roteiro inteiro.
  */
 @Component
 public class Idempotencia {
@@ -43,18 +49,68 @@ public class Idempotencia {
   private final Clock relogio;
   private final GeradorDeIds geradorDeIds;
   private final Duration reservaMaxima;
+  private final TransactionTemplate transacao;
 
   Idempotencia(
       JdbcClient jdbc,
       JsonMapper json,
       Clock relogio,
       GeradorDeIds geradorDeIds,
-      @Value("${duora.idempotencia.reserva-maxima}") Duration reservaMaxima) {
+      @Value("${duora.idempotencia.reserva-maxima}") Duration reservaMaxima,
+      TransactionTemplate transacao) {
     this.jdbc = jdbc;
     this.json = json;
     this.relogio = relogio;
     this.geradorDeIds = geradorDeIds;
     this.reservaMaxima = reservaMaxima;
+    this.transacao = transacao;
+  }
+
+  /**
+   * Roda o efeito uma vez por chave, numa transação própria. Sem chave, só roda o efeito numa
+   * transação nova. Com chave: se a mesma requisição já foi respondida, devolve a resposta sem
+   * rodar; senão roda o efeito e grava a resposta na mesma transação. Se o efeito falhar, a
+   * transação volta atrás, a chave é liberada e a exceção sai daqui, já fora da transação (como
+   * pede o {@code LimitesDeContaNova}).
+   *
+   * @throws IllegalStateException se chamado dentro de uma transação: a reserva e a liberação
+   *     precisam de transações próprias, e o efeito não pode se misturar com a de quem chama
+   * @throws ErroDeNegocio os mesmos de {@link #reservar}
+   */
+  public <T> T executar(
+      String escopo, @Nullable String chave, String impressao, Class<T> tipo, Supplier<T> efeito) {
+    if (TransactionSynchronizationManager.isActualTransactionActive()) {
+      throw new IllegalStateException("Idempotencia.executar não roda dentro de uma transação");
+    }
+    if (chave == null) {
+      return Objects.requireNonNull(transacao.execute(status -> efeito.get()), "resposta");
+    }
+    Reserva<T> reserva =
+        Objects.requireNonNull(
+            transacao.execute(status -> reservar(escopo, chave, impressao, tipo)), "reserva");
+    return switch (reserva) {
+      case Reserva.JaRespondida<T> respondida -> respondida.resposta();
+      case Reserva.Tua<T> tua -> efeitoReservado(escopo, chave, tua.dono(), efeito);
+    };
+  }
+
+  private <T> T efeitoReservado(String escopo, String chave, UUID dono, Supplier<T> efeito) {
+    try {
+      return Objects.requireNonNull(
+          transacao.execute(status -> {
+            T resposta = Objects.requireNonNull(efeito.get(), "resposta");
+            concluir(escopo, chave, dono, resposta);
+            return resposta;
+          }),
+          "resposta");
+    } catch (RuntimeException | Error falha) {
+      try {
+        transacao.executeWithoutResult(status -> liberar(escopo, chave, dono));
+      } catch (RuntimeException naoLiberou) {
+        falha.addSuppressed(naoLiberou);
+      }
+      throw falha;
+    }
   }
 
   /** O que {@link #reservar} decidiu sobre a chave. */
