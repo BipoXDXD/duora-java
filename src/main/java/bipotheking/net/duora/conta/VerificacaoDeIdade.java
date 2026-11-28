@@ -40,7 +40,7 @@ public class VerificacaoDeIdade {
   private static final String ESCOPO_DO_RESULTADO = "verificacao-resultado";
 
   /** A janela dos limites e da dúvida: 24 h corridas, a mesma do repositório. */
-  private static final Duration JANELA = Duration.parse("P1D");
+  static final Duration JANELA = Duration.parse("P1D");
 
   /** O {@code Retry-After} nunca sai zero nem negativo, mesmo com o relógio na borda da janela. */
   private static final Duration ESPERA_MINIMA = Duration.ofSeconds(1);
@@ -111,12 +111,26 @@ public class VerificacaoDeIdade {
       verificacoes.associarSessao(tentativa, sessao.id());
       return new SessaoDeCaptura(sessao.id(), sessao.regiao(), provaDeVida.modo(), credencial);
     } catch (FornecedorIndisponivel e) {
-      verificacoes.descartar(tentativa);
+      descartar(tentativa, conta, e);
       LOG.warn("Prova de vida indisponível ao abrir sessão da conta {}: {}", conta, e.getMessage());
       throw CodigoVerificacao.PROVA_DE_VIDA_INDISPONIVEL.erro();
     } catch (RuntimeException e) {
-      verificacoes.descartar(tentativa);
+      descartar(tentativa, conta, e);
       throw e;
+    }
+  }
+
+  /**
+   * Descarta a tentativa depois de uma falha sem trocar a exceção original. Se o descarte também
+   * falhar, a falha sai sempre no log de erro (uma {@link ErroDeNegocio} não guarda suprimidas) e
+   * vai como suprimida na original.
+   */
+  private void descartar(UUID tentativa, ContaId conta, RuntimeException original) {
+    try {
+      verificacoes.descartar(tentativa);
+    } catch (RuntimeException falha) {
+      LOG.error("Tentativa {} da conta {} não foi descartada", tentativa, conta, falha);
+      original.addSuppressed(falha);
     }
   }
 
@@ -172,8 +186,14 @@ public class VerificacaoDeIdade {
 
   private UUID reservar(ContaId conta, FinalidadeDaTentativa finalidade, Instant agora) {
     ReservaDeTentativa reserva =
-        transacao.execute(
-            status -> verificacoes.reservar(conta, finalidade, limites.limite(finalidade), agora));
+        transacao.execute(status -> {
+          ReservaDeTentativa feita =
+              verificacoes.reservar(conta, finalidade, limites.limite(finalidade), agora);
+          // A checagem de iniciar é só atalho: a conta pode ter mudado enquanto a reserva esperava
+          // a trava. Relida já com a trava, a recusa desfaz a tentativa inserida.
+          exigirAguardando(conta(conta));
+          return feita;
+        });
     return switch (reserva) {
       case ReservaDeTentativa.Feita feita -> feita.tentativa();
       case ReservaDeTentativa.Esgotada esgotada ->
@@ -185,6 +205,7 @@ public class VerificacaoDeIdade {
   private DesfechoDaVerificacao decidirSelfie(Tentativa tentativa, String sessaoId, UUID dono) {
     boolean concluida = false;
     try {
+      exigirNaoConcluida(tentativa);
       Conta conta = conta(tentativa.conta());
       exigirAguardando(conta);
       ResultadoDaVerificacao resultado = DecisaoDeIdade.pelaSelfie(lerResultado(sessaoId, conta));
@@ -247,7 +268,18 @@ public class VerificacaoDeIdade {
         .orElseThrow(() -> new IllegalStateException("Sessão de conta inexistente: " + id));
   }
 
-  private static void exigirAguardando(Conta conta) {
+  /**
+   * Tentativa já concluída não chama fornecedor de novo. A repetição dentro do prazo da
+   * idempotência devolve a resposta guardada antes daqui; depois dele, a sessão não serve mais.
+   */
+  static void exigirNaoConcluida(Tentativa tentativa) {
+    if (tentativa.resultado() != null) {
+      throw CodigoVerificacao.SESSAO_DE_VERIFICACAO_INVALIDA.erro();
+    }
+  }
+
+  /** Só a conta aguardando verificação abre sessão, conclui selfie ou envia documento. */
+  static void exigirAguardando(Conta conta) {
     if (conta.estado() != EstadoConta.AGUARDANDO_VERIFICACAO) {
       throw CodigoVerificacao.VERIFICACAO_FORA_DE_ORDEM.erro();
     }

@@ -19,12 +19,9 @@ import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
-import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
-import org.jspecify.annotations.Nullable;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 /**
@@ -45,9 +42,6 @@ public class ProvaDeVidaDeTeste implements ProvaDeVida, CredencialDoNavegador {
   private static final String REGIAO = "us-east-1";
   private static final Duration VALIDADE_DA_CREDENCIAL = Duration.ofMinutes(15);
 
-  /** Teto da retenção: um teste que esquece de liberar não trava a suíte. */
-  private static final Duration RETENCAO_MAXIMA = Duration.ofSeconds(10);
-
   private final Clock relogio;
   private final AtomicReference<ResultadoDaProva> padrao = new AtomicReference<>(concluida());
   private final Map<String, ResultadoDaProva> porSessao = new ConcurrentHashMap<>();
@@ -55,7 +49,7 @@ public class ProvaDeVidaDeTeste implements ProvaDeVida, CredencialDoNavegador {
   private final AtomicBoolean falhaNoResultado = new AtomicBoolean();
   private final AtomicInteger chamadasDeResultado = new AtomicInteger();
   private final List<Boolean> transacaoAtiva = new CopyOnWriteArrayList<>();
-  private final AtomicReference<@Nullable Retencao> retencao = new AtomicReference<>();
+  private final RetencaoDeTeste retencao = new RetencaoDeTeste();
 
   public ProvaDeVidaDeTeste(Clock relogio) {
     this.relogio = relogio;
@@ -109,7 +103,7 @@ public class ProvaDeVidaDeTeste implements ProvaDeVida, CredencialDoNavegador {
   public ResultadoDaProva resultado(String sessaoId) {
     registrarTransacao();
     chamadasDeResultado.incrementAndGet();
-    reter();
+    retencao.reter();
     if (falhaNoResultado.get()) {
       throw new FornecedorIndisponivel("prova de vida fora do ar (dublê)", null);
     }
@@ -151,27 +145,22 @@ public class ProvaDeVidaDeTeste implements ProvaDeVida, CredencialDoNavegador {
    * que duas requisições se sobrepõem sem depender de tempo.
    */
   public void segurar() {
-    retencao.set(new Retencao(new CountDownLatch(1), new CountDownLatch(1)));
+    retencao.segurar();
   }
 
   /** Espera uma leitura de resultado chegar ao dublê depois de {@link #segurar()}. */
   public boolean aguardarChamada(Duration limite) throws InterruptedException {
-    Retencao atual = retencao.get();
-    return atual != null && atual.chegou().await(limite.toMillis(), TimeUnit.MILLISECONDS);
+    return retencao.aguardarChamada(limite);
   }
 
   /** Solta as leituras seguradas por {@link #segurar()}. */
   public void liberar() {
-    Retencao atual = retencao.get();
-    if (atual != null) {
-      atual.liberacao().countDown();
-    }
+    retencao.liberar();
   }
 
   /** Volta ao padrão: sem programação, sem falhas, sem retenção e sem chamadas registradas. */
   public void zerar() {
-    liberar();
-    retencao.set(null);
+    retencao.zerar();
     padrao.set(concluida());
     porSessao.clear();
     falhaNaCriacao.set(false);
@@ -183,20 +172,4 @@ public class ProvaDeVidaDeTeste implements ProvaDeVida, CredencialDoNavegador {
   private void registrarTransacao() {
     transacaoAtiva.add(TransactionSynchronizationManager.isActualTransactionActive());
   }
-
-  private void reter() {
-    Retencao atual = retencao.get();
-    if (atual == null) {
-      return;
-    }
-    atual.chegou().countDown();
-    try {
-      atual.liberacao().await(RETENCAO_MAXIMA.toMillis(), TimeUnit.MILLISECONDS);
-    } catch (InterruptedException e) {
-      Thread.currentThread().interrupt();
-    }
-  }
-
-  /** Avisa que uma chamada chegou e a segura até a liberação. */
-  private record Retencao(CountDownLatch chegou, CountDownLatch liberacao) {}
 }
