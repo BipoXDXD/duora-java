@@ -22,7 +22,12 @@ import org.springframework.boot.test.system.CapturedOutput;
 import org.springframework.boot.test.system.OutputCaptureExtension;
 import org.springframework.web.client.RestClient;
 
-/** Passo 1 da Didit (ID Verification) contra o {@link ServidorDiditFalso}; nada vai à Didit. */
+/**
+ * Os dois passos da Didit contra o {@link ServidorDiditFalso}: o ID Verification (passo 1) e o Face
+ * Match (passo 2), com o que vai no multipart, como cada resposta é lida, o que vira {@link
+ * FornecedorIndisponivel}, os timeouts de cada passo, as métricas e o que nunca vai para o log.
+ * Nada vai à Didit.
+ */
 @ExtendWith(OutputCaptureExtension.class)
 class ConferenciaDeDocumentoDiditTest {
 
@@ -135,6 +140,42 @@ class ConferenciaDeDocumentoDiditTest {
     assertThat(rosto.arquivo("ref_image")).isEqualTo(BYTES_DO_RETRATO);
     assertThat(rosto.arquivo("user_image")).isEqualTo(SELFIE.bytes());
     assertThat(rosto.corpoComoTexto()).doesNotContain("vendor_data").doesNotContain("metadata");
+  }
+
+  @ParameterizedTest
+  @ValueSource(
+      strings = {
+        "{\"face_match\": {\"status\": \"Talvez\", \"score\": 85.5}}",
+        "{\"face_match\": {\"score\": 85.5}}",
+        "{\"request_id\": \"r-2\"}"
+      })
+  void faceMatchSemStatusConhecidoNaoConfereEAvisa(String corpo, CapturedOutput saida) {
+    responderAprovado();
+    didit.responder(CAMINHO_DO_ROSTO, 200, corpo);
+
+    assertThat(conferencia().conferir(FRENTE, VERSO, SELFIE).rostoConfere()).isFalse();
+    assertThat(saida.getOut()).contains("status desconhecido em rosto");
+  }
+
+  @Test
+  void faceMatchLentoViraIndisponivel() {
+    responderAprovado();
+    didit.responder(
+        CAMINHO_DO_ROSTO,
+        200,
+        "{\"face_match\": {\"status\": \"Approved\"}}",
+        Duration.ofSeconds(3));
+    ConferenciaDeDocumentoDidit comRostoCurto =
+        conferencia(Duration.ofSeconds(9), Duration.ofMillis(200));
+
+    long inicio = System.nanoTime();
+    FornecedorIndisponivel falha =
+        catchThrowableOfType(
+            FornecedorIndisponivel.class, () -> comRostoCurto.conferir(FRENTE, VERSO, SELFIE));
+    Duration decorrido = Duration.ofNanos(System.nanoTime() - inicio);
+
+    assertThat(falha).isNotNull();
+    assertThat(decorrido).isLessThan(Duration.ofSeconds(1));
   }
 
   @Test
@@ -407,14 +448,14 @@ class ConferenciaDeDocumentoDiditTest {
   }
 
   private ConferenciaDeDocumentoDidit conferencia(Duration leituraDoDocumento) {
+    return conferencia(leituraDoDocumento, Duration.ofSeconds(4));
+  }
+
+  private ConferenciaDeDocumentoDidit conferencia(
+      Duration leituraDoDocumento, Duration leituraDoRosto) {
     ConfiguracaoDidit config =
         new ConfiguracaoDidit(
-            didit.uri(),
-            CHAVE,
-            30,
-            Duration.ofSeconds(1),
-            leituraDoDocumento,
-            Duration.ofSeconds(4));
+            didit.uri(), CHAVE, 30, Duration.ofSeconds(1), leituraDoDocumento, leituraDoRosto);
     return ConferenciaDeDocumentoDidit.comTimeouts(
         RestClient.builder(), config, new MedicaoDeFornecedor(metricas));
   }
