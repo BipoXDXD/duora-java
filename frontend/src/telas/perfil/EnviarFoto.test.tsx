@@ -7,6 +7,8 @@ import { EnviarFoto } from "./EnviarFoto";
 
 const SEM_FOTO: FotoDoPerfil = { aprovada: null, pendente: null, recusadaEm: null };
 const URLS = { nitida: "/api/fotos/p/nitida", borrada: "/api/fotos/p/borrada" };
+const PENDENTE = { estado: "PENDENTE", url: "/api/fotos/p/nitida" };
+const APROVADA = { estado: "APROVADA", url: "/api/fotos/p/nitida" };
 
 const PERFIL: Perfil = {
   versao: 2,
@@ -26,9 +28,13 @@ interface Envio {
   arquivo: FormDataEntryValue | null;
 }
 
-/** O POST da foto responde `respostas` (uma por chamada, a última se repete). */
-function prepararFetch(respostas: { status: number; corpo?: unknown }[]) {
+/**
+ * O POST da foto responde `respostas` (uma por chamada, a última se repete); o DELETE responde
+ * `remocao` e conta em `remocoes`.
+ */
+function prepararFetch(respostas: { status: number; corpo?: unknown }[], remocao = 204) {
   const envios: Envio[] = [];
+  const remocoes: string[] = [];
   vi.stubGlobal(
     "fetch",
     vi.fn<typeof fetch>((entrada, opcoes) => {
@@ -44,13 +50,24 @@ function prepararFetch(respostas: { status: number; corpo?: unknown }[]) {
           new Response(JSON.stringify(dados ?? null), { status, headers: { "Content-Type": tipo } }),
         );
       }
+      if (entrada === "/api/perfil/foto" && opcoes?.method === "DELETE") {
+        remocoes.push("DELETE");
+        return Promise.resolve(
+          remocao === 204
+            ? new Response(null, { status: 204 })
+            : new Response(JSON.stringify({ codigo: "INTERNO" }), {
+                status: remocao,
+                headers: { "Content-Type": "application/problem+json" },
+              }),
+        );
+      }
       if (entrada === "/api/perfil") {
         return Promise.resolve(Response.json(PERFIL));
       }
       return Promise.reject(new Error("pedido inesperado"));
     }),
   );
-  return envios;
+  return Object.assign(envios, { remocoes });
 }
 
 function renderizar(foto: FotoDoPerfil = SEM_FOTO) {
@@ -77,7 +94,7 @@ afterEach(() => {
 
 describe("EnviarFoto", () => {
   it("recusaAcimaDe5MBSemEnviar", async () => {
-    const envios = prepararFetch([{ status: 202 }]);
+    const envios = prepararFetch([{ status: 202, corpo: PENDENTE }]);
     renderizar();
 
     await userEvent.setup().upload(seletor(), jpeg(5_242_881));
@@ -88,7 +105,7 @@ describe("EnviarFoto", () => {
   });
 
   it("previaAntesDeEnviar", async () => {
-    const envios = prepararFetch([{ status: 202 }]);
+    const envios = prepararFetch([{ status: 202, corpo: PENDENTE }]);
     renderizar();
 
     await userEvent.setup().upload(seletor(), jpeg());
@@ -101,7 +118,7 @@ describe("EnviarFoto", () => {
   });
 
   it("enviaComIdempotencyKey", async () => {
-    const envios = prepararFetch([{ status: 202 }]);
+    const envios = prepararFetch([{ status: 202, corpo: PENDENTE }]);
     renderizar();
     const usuario = userEvent.setup();
 
@@ -113,6 +130,61 @@ describe("EnviarFoto", () => {
     expect(envios[0]?.chave).toMatch(/^[A-Za-z0-9-]{8,64}$/);
     expect(envios[0]?.arquivo).toBeInstanceOf(Blob);
     expect(enviada).toHaveFocus();
+  });
+
+  it("aprovadaPelaModeracaoAvisaQueJaAparece", async () => {
+    prepararFetch([{ status: 202, corpo: APROVADA }]);
+    renderizar();
+    const usuario = userEvent.setup();
+
+    await usuario.upload(seletor(), jpeg());
+    await usuario.click(await screen.findByRole("button", { name: "Enviar foto" }));
+
+    expect(await screen.findByText("Foto aprovada. Ela já aparece no seu perfil.")).toHaveFocus();
+  });
+
+  it("semFotoNaoOfereceRemover", () => {
+    prepararFetch([]);
+    renderizar();
+
+    expect(screen.queryByRole("button", { name: "Remover foto" })).not.toBeInTheDocument();
+  });
+
+  it("removerPedeConfirmacaoAntes", async () => {
+    const envios = prepararFetch([]);
+    renderizar({ aprovada: URLS, pendente: null, recusadaEm: null });
+    const usuario = userEvent.setup();
+
+    await usuario.click(screen.getByRole("button", { name: "Remover foto" }));
+
+    expect(screen.getByRole("dialog", { name: "Remover a foto?" })).toBeInTheDocument();
+    await usuario.click(screen.getByRole("button", { name: "Cancelar" }));
+    expect(envios.remocoes).toHaveLength(0);
+  });
+
+  it("removerConfirmadoApagaEAvisa", async () => {
+    const envios = prepararFetch([]);
+    renderizar({ aprovada: URLS, pendente: URLS, recusadaEm: null });
+    const usuario = userEvent.setup();
+
+    await usuario.click(screen.getByRole("button", { name: "Remover foto" }));
+    await usuario.click(screen.getByRole("button", { name: "Remover" }));
+
+    expect(await screen.findByText("Foto removida. Outras pessoas voltam a ver uma silhueta.")).toHaveFocus();
+    expect(envios.remocoes).toHaveLength(1);
+  });
+
+  it("falhaAoRemoverAvisa", async () => {
+    prepararFetch([], 503);
+    renderizar({ aprovada: URLS, pendente: null, recusadaEm: null });
+    const usuario = userEvent.setup();
+
+    await usuario.click(screen.getByRole("button", { name: "Remover foto" }));
+    await usuario.click(screen.getByRole("button", { name: "Remover" }));
+
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "Não conseguimos remover a foto agora. Tente de novo em instantes.",
+    );
   });
 
   it("pendenteSemAprovadaMostraLegenda", () => {
@@ -150,7 +222,10 @@ describe("EnviarFoto", () => {
   });
 
   it("indisponivelPermiteTentarDeNovoComAMesmaChave", async () => {
-    const envios = prepararFetch([{ status: 503, corpo: { codigo: "PROCESSAMENTO_INDISPONIVEL" } }, { status: 202 }]);
+    const envios = prepararFetch([
+      { status: 503, corpo: { codigo: "PROCESSAMENTO_INDISPONIVEL" } },
+      { status: 202, corpo: PENDENTE },
+    ]);
     renderizar();
     const usuario = userEvent.setup();
     await usuario.upload(seletor(), jpeg());

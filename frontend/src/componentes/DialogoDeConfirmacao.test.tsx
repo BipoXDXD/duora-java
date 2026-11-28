@@ -1,6 +1,6 @@
 import { act, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { useState, type ReactElement } from "react";
+import { useEffect, useRef, useState, type ReactElement } from "react";
 import { describe, expect, it, vi } from "vitest";
 import { DialogoDeConfirmacao } from "./DialogoDeConfirmacao";
 
@@ -39,6 +39,45 @@ function Cenario({
           setAberto(false);
         }}
         enviando={enviando}
+      />
+    </>
+  );
+}
+
+/** Quem usa confirma e leva o foco para um aviso, como a tela da foto depois de remover. */
+function CenarioComAviso(): ReactElement {
+  const [etapa, setEtapa] = useState<"fechado" | "aberto" | "feito">("fechado");
+  const aviso = useRef<HTMLParagraphElement>(null);
+  useEffect(() => {
+    if (etapa === "feito") {
+      aviso.current?.focus();
+    }
+  }, [etapa]);
+  return (
+    <>
+      <button
+        type="button"
+        onClick={() => {
+          setEtapa("aberto");
+        }}
+      >
+        Abrir
+      </button>
+      <p ref={aviso} tabIndex={-1}>
+        {etapa === "feito" ? "Feito." : ""}
+      </p>
+      <DialogoDeConfirmacao
+        aberto={etapa === "aberto"}
+        titulo="Excluir sua conta?"
+        texto="Apagamos seus dados pessoais agora. Não dá para desfazer."
+        acao="Excluir conta"
+        aoConfirmar={() => {
+          setEtapa("feito");
+        }}
+        aoCancelar={() => {
+          setEtapa("fechado");
+        }}
+        enviando={false}
       />
     </>
   );
@@ -96,6 +135,17 @@ describe("DialogoDeConfirmacao", () => {
     expect(screen.getByRole("button", { name: "Abrir" })).toHaveFocus();
   });
 
+  it("fecharNaoTiraOFocoQueQuemUsaMoveu", async () => {
+    const usuario = userEvent.setup();
+    render(<CenarioComAviso />);
+    await usuario.click(screen.getByRole("button", { name: "Abrir" }));
+
+    await usuario.click(screen.getByRole("button", { name: "Excluir conta" }));
+    await act(() => new Promise((resolver) => setTimeout(resolver, 0)));
+
+    expect(screen.getByText("Feito.")).toHaveFocus();
+  });
+
   it("acaoChamaAoConfirmar", async () => {
     const aoConfirmar = vi.fn<() => void>();
     const { usuario, dialogo } = await abrir({ aoConfirmar });
@@ -148,6 +198,7 @@ describe("DialogoDeConfirmacao", () => {
     act(() => {
       (dialogo as HTMLDialogElement).close();
     });
+    await act(() => new Promise((resolver) => setTimeout(resolver, 0)));
 
     expect(aoCancelar).toHaveBeenCalledOnce();
     expect(screen.getByRole("button", { name: "Abrir" })).toHaveFocus();

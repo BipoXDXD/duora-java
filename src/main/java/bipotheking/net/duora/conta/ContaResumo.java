@@ -18,6 +18,11 @@ public record ContaResumo(
     boolean verificada,
     @Nullable Instant ativadaEm) {
 
+  /** Se a conta está {@link EstadoConta#ATIVA}: verificada, sem suspensão nem exclusão. */
+  public boolean ativa() {
+    return estado == EstadoConta.ATIVA;
+  }
+
   /**
    * Anos completos em {@code hoje}; vazio enquanto o cadastro não gravou a data de nascimento.
    *

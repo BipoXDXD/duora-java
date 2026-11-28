@@ -1,6 +1,6 @@
 // Consultas do TanStack Query que mais de uma tela da casca lê: a mesma chave, o mesmo cache.
 
-import { queryOptions } from "@tanstack/react-query";
+import { queryOptions, type DataTag, type QueryClient, type UndefinedInitialDataOptions } from "@tanstack/react-query";
 import { obterConta } from "../api/estadoDaConta";
 import { obterVersoesLegais } from "../api/legal";
 import {
@@ -10,6 +10,7 @@ import {
   obterOrientacao,
   obterPerfilPublico,
   obterPreferencias,
+  type PerfilPublico,
 } from "../api/perfil";
 import { obterVerificacao } from "../api/verificacao";
 
@@ -45,6 +46,26 @@ export const consultaDoNamoro = queryOptions({ queryKey: ["perfil", "namoro"], q
 
 export const consultaDaOrientacao = queryOptions({ queryKey: ["perfil", "orientacao"], queryFn: obterOrientacao });
 
-export function consultaDoPerfilPublico(contaId: string) {
+/** null quando a pessoa não existe ou não está visível. */
+type ConsultaDoPerfilPublico = UndefinedInitialDataOptions<
+  PerfilPublico | null,
+  Error,
+  PerfilPublico | null,
+  string[]
+> & {
+  queryKey: DataTag<string[], PerfilPublico | null, Error>;
+};
+
+export function consultaDoPerfilPublico(contaId: string): ConsultaDoPerfilPublico {
   return queryOptions({ queryKey: ["perfis", contaId], queryFn: () => obterPerfilPublico(contaId) });
+}
+
+/**
+ * Ao sair, excluir a conta ou perder a sessão: tira do cache a conta e tudo de perfil (o próprio e
+ * os de outras pessoas), para a próxima sessão no mesmo aparelho não ver dados da anterior.
+ */
+export function esquecerASessao(cliente: QueryClient): void {
+  cliente.removeQueries({ queryKey: consultaDaConta.queryKey, exact: true });
+  cliente.removeQueries({ queryKey: ["perfil"] });
+  cliente.removeQueries({ queryKey: ["perfis"] });
 }

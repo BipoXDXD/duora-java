@@ -10,7 +10,7 @@ afterEach(() => {
 /**
  * O jsdom 27 só reflete o atributo `open` do <dialog>: faltam showModal(), close() e o pedido de
  * fechar do Esc. O mínimo do navegador: showModal() e close() mexem no `open` (close() avisa com o
- * evento `close`), e o Esc dispara `cancel` (cancelável) no modal aberto, que fecha se ninguém
+ * evento `close`, numa task seguinte), e o Esc dispara `cancel` (cancelável) no modal aberto, que fecha se ninguém
  * impedir. Topo, inércia do resto e foco inicial ficam com quem testa no navegador (e2e).
  */
 function completarODialogo(): void {
@@ -37,7 +37,10 @@ function completarODialogo(): void {
     }
     this.open = false;
     modais.delete(this);
-    this.dispatchEvent(new Event("close"));
+    // Como no navegador, o `close` chega numa task depois: os effects de quem fechou já rodaram.
+    setTimeout(() => {
+      this.dispatchEvent(new Event("close"));
+    }, 0);
   };
 
   document.addEventListener("keydown", (evento) => {

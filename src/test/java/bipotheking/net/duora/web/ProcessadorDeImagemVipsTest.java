@@ -50,6 +50,16 @@ class ProcessadorDeImagemVipsTest {
   }
 
   @Test
+  void copiaParaModeracaoEhJpegSemMetadadosComOTamanhoDaNitida() throws Exception {
+    try (ImagemProcessada imagem = processador().processar(fixture(RETRATO))) {
+      assertThat(ehJpeg(imagem.paraModeracao())).isTrue();
+      assertThat(vips("vipsheader", "-a", imagem.paraModeracao().toString()))
+          .doesNotContain("exif-data", "xmp-data");
+      assertThat(dimensoes(imagem.paraModeracao())).containsExactly(800, 1200);
+    }
+  }
+
+  @Test
   void orientacaoExifAplicada() throws Exception {
     try (ImagemProcessada imagem = processador().processar(fixture(RETRATO))) {
       assertThat(dimensoes(imagem.nitida())).containsExactly(800, 1200);
@@ -181,7 +191,7 @@ class ProcessadorDeImagemVipsTest {
   void temporariosApagados() throws Exception {
     try (ImagemProcessada imagem = processador().processar(fixture(RETRATO))) {
       assertThat(arquivosEm(raiz.resolve("tmp")))
-          .containsExactlyInAnyOrder(imagem.nitida(), imagem.borrada());
+          .containsExactlyInAnyOrder(imagem.nitida(), imagem.borrada(), imagem.paraModeracao());
     }
 
     assertThat(arquivosEm(raiz.resolve("tmp"))).isEmpty();
@@ -194,6 +204,32 @@ class ProcessadorDeImagemVipsTest {
     recusa(() -> processador().processar(new ByteArrayInputStream(inicio)));
 
     assertThat(arquivosEm(raiz.resolve("tmp"))).isEmpty();
+  }
+
+  /**
+   * Antes, a saída só era lida depois do {@code waitFor}: com mais de 64 KB o pipe enchia, o
+   * processo travava até o prazo e a imagem virava 503. Lida enquanto o processo roda, a saída que
+   * não é um número vira a recusa da imagem.
+   */
+  @Test
+  void saidaGrandeNaoTravaOProcesso() throws Exception {
+    Path tagarela =
+        script("vipsheader-tagarela", "head -c 200000 /dev/zero | tr '\\0' 'a'\necho\n");
+    ConfigDeImagens config =
+        new ConfigDeImagens(raiz, "vips", tagarela.toString(), PRAZO, ESPERA, 2);
+    ProcessadorDeImagemVips processador =
+        new ProcessadorDeImagemVips(config, new SimpleMeterRegistry());
+
+    ErroDeNegocio erro = recusa(() -> processador.processar(fixture(RETRATO)));
+
+    assertThat(erro.codigo()).isEqualTo(CodigoWeb.IMAGEM_INVALIDA);
+  }
+
+  @Test
+  void configSemPastaRecusada() {
+    assertThatThrownBy(() -> new ConfigDeImagens(null, "vips", "vipsheader", PRAZO, ESPERA, 2))
+        .isInstanceOf(NullPointerException.class)
+        .hasMessageContaining("duora.imagens.dir");
   }
 
   @Test
@@ -224,14 +260,14 @@ class ProcessadorDeImagemVipsTest {
   }
 
   private Path vipsFalso(String nome, String versao, String resto) throws IOException {
+    return script(
+        nome,
+        "if [ \"$1\" = \"--version\" ]; then echo \"vips-" + versao + "\"; exit 0; fi\n" + resto);
+  }
+
+  private Path script(String nome, String corpo) throws IOException {
     Path script = raiz.resolve(nome);
-    String corpo =
-        "#!/bin/sh\n"
-            + "if [ \"$1\" = \"--version\" ]; then echo \"vips-"
-            + versao
-            + "\"; exit 0; fi\n"
-            + resto;
-    Files.writeString(script, corpo, US_ASCII);
+    Files.writeString(script, "#!/bin/sh\n" + corpo, US_ASCII);
     Files.setPosixFilePermissions(script, PosixFilePermissions.fromString("rwx------"));
     return script;
   }
@@ -284,6 +320,14 @@ class ProcessadorDeImagemVipsTest {
     }
     return new String(cabecalho, 0, 4, US_ASCII).equals("RIFF")
         && new String(cabecalho, 8, 4, US_ASCII).equals("WEBP");
+  }
+
+  private static boolean ehJpeg(Path arquivo) throws IOException {
+    byte[] cabecalho;
+    try (InputStream entrada = Files.newInputStream(arquivo)) {
+      cabecalho = entrada.readNBytes(3);
+    }
+    return Arrays.equals(cabecalho, new byte[] {(byte) 0xFF, (byte) 0xD8, (byte) 0xFF});
   }
 
   private static int[] dimensoes(Path arquivo) throws Exception {

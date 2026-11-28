@@ -31,6 +31,7 @@ describe("PerfilDeOutraPessoa", () => {
 
     expect(await screen.findByRole("img", { name: "Foto de Ana" })).toHaveAttribute("src", ANA.foto);
     expect(screen.getByRole("heading", { level: 1, name: "Ana" })).toBeInTheDocument();
+    expect(screen.getAllByText("Ana")).toHaveLength(1);
     expect(document.title).toBe("Ana · Duora");
     expect(screen.getByRole("link", { name: "Minha conta" })).toHaveAttribute("href", "/conta");
     expect(screen.getByRole("link", { name: "Voltar ao terraço" })).toHaveAttribute("href", "/");

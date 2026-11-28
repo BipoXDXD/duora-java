@@ -53,6 +53,15 @@ export const FOTO = {
   enviar: "Enviar foto",
   enviando: "Enviando…",
   enviada: "Foto enviada. Ela aparece depois da aprovação.",
+  aprovada: "Foto aprovada. Ela já aparece no seu perfil.",
+  remover: "Remover foto",
+  removendo: "Removendo…",
+  removida: "Foto removida. Outras pessoas voltam a ver uma silhueta.",
+  removerTitulo: "Remover a foto?",
+  removerTexto:
+    "A foto sai do seu perfil e outras pessoas passam a ver uma silhueta. Você pode enviar outra quando quiser.",
+  removerConfirmar: "Remover",
+  removerFalhou: "Não conseguimos remover a foto agora. Tente de novo em instantes.",
   grande: "A foto pode ter até 5 MB. Escolha uma menor.",
   formato: "Envie uma foto em JPEG, PNG ou WebP.",
   invalida: "Não conseguimos abrir esta foto. Escolha outra.",
@@ -89,9 +98,11 @@ export const ROTULO_DAS_INTENCOES = {
 export const ERROS_DO_PERFIL = {
   semApelido: "Escreva um apelido.",
   apelidoLongo: "Use até 20 caracteres.",
+  apelidoInvisivel: "Tire os caracteres invisíveis do apelido. Eles costumam vir junto ao colar um texto.",
   descricaoDosPronomes: "Escreva seus pronomes com até 20 caracteres.",
   semIntencao: "Marque Amizade, Namoro ou as duas.",
   bioLonga: "Use até 280 caracteres.",
+  bioInvisivel: "Tire os caracteres invisíveis da bio. Eles costumam vir junto ao colar um texto.",
 } as const;
 
 export const PREFERENCIAS = {

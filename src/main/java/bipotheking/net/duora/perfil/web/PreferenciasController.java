@@ -2,7 +2,6 @@ package bipotheking.net.duora.perfil.web;
 
 import bipotheking.net.duora.conta.ContaAtual;
 import bipotheking.net.duora.conta.ContaId;
-import bipotheking.net.duora.nucleo.ErroDeNegocio;
 import bipotheking.net.duora.perfil.CodigoPerfil;
 import bipotheking.net.duora.perfil.FaixaEtaria;
 import bipotheking.net.duora.perfil.Raio;
@@ -62,8 +61,7 @@ class PreferenciasController {
     Raio raio = corpo.raio();
     Boolean obrigatorio = corpo.raioObrigatorio();
     if (raio == null || obrigatorio == null) {
-      throw new ErroDeNegocio(
-          CodigoWeb.CORPO_INVALIDO, "O corpo da requisição não está no formato esperado.");
+      throw CodigoWeb.corpoInvalido();
     }
     if (minima == null || maxima == null) {
       throw CodigoPerfil.FAIXA_ETARIA_INVALIDA.erro();

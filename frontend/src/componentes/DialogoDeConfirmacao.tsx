@@ -22,7 +22,7 @@ const CANCELAR = "Cancelar";
  * Confirmação de uma ação sem volta, no <dialog> nativo com showModal(): o navegador põe o diálogo no
  * topo, deixa o resto da página inerte (o foco fica preso nele) e trata o Esc como `cancel`. O estado
  * de aberto é de quem usa; o foco começa no Cancelar e, ao fechar, volta ao elemento que tinha o foco
- * quando o diálogo abriu (o botão de origem).
+ * quando o diálogo abriu (o botão de origem), salvo se quem usa já o levou para outro lugar.
  */
 export function DialogoDeConfirmacao({
   aberto,
@@ -70,7 +70,11 @@ export function DialogoDeConfirmacao({
     if (abertoAtual.current) {
       aoCancelar();
     }
-    if (origem.current?.isConnected) {
+    // O `close` chega numa task depois do close(): se quem usa já levou o foco para fora do diálogo
+    // (um aviso do resultado), devolver ao botão de origem tiraria o foco de lá.
+    const ativo = document.activeElement;
+    const focoSolto = ativo === null || ativo === document.body || dialogo.current?.contains(ativo) === true;
+    if (focoSolto && origem.current?.isConnected) {
       origem.current.focus();
     }
     origem.current = null;

@@ -18,10 +18,10 @@ O controlador dos dados é o responsável pelo Duora. Para dúvidas e pedidos so
 - **Apelido, intenção e bio:** para apresentar você nos encontros.
 - **Pronomes:** opcionais; aparecem para quem encontra você.
 - **Ajustes de busca (faixa de idade e raio de distância):** para mostrar só quem se encaixa no que você pediu.
-- **Foto:** reprocessada sem metadados e aprovada pela moderação. Quem ainda não é sua conexão vê uma versão borrada; só conexões veem a foto nítida.
+- **Foto:** reprocessada sem metadados e aprovada pela moderação. Uma cópia passa pela análise automática de imagens da Amazon Web Services, nos Estados Unidos, que não a guarda; se a análise apontar algo ou não responder, a foto espera a revisão de uma pessoa da equipe. Quem ainda não é sua conexão vê uma versão borrada; só conexões veem a foto nítida.
 - **Gênero e quem você quer conhecer:** dado sensível, tratado só com seu consentimento e só para o pareamento. Nunca aparece para ninguém e é apagado quando você desliga o namoro. Você pode apagar esses dados quando quiser; isso desliga o namoro.
 - **Orientação:** opcional. É dado sensível: só com seu consentimento, nunca entra no pareamento e só aparece para suas conexões se você escolher mostrar.
-- **Localização:** só com seu consentimento. Guardamos uma área de cerca de 5 km e descartamos o ponto exato. Outras pessoas veem só faixas de distância. Se você não usar o Duora por 90 dias, apagamos essa área.
+- **Localização:** só com seu consentimento. Guardamos uma área de cerca de 5 km e descartamos o ponto exato. Outras pessoas veem só faixas de distância. Se ela não for atualizada por 90 dias, apagamos essa área.
 - **Chat e imagens do encontro:** para o encontro acontecer e para a moderação analisar denúncias.
 - **Voz:** passa ao vivo entre as pessoas do encontro e não é gravada.
 - **Denúncias e bloqueios:** para proteger você e quem usa o Duora.
@@ -77,7 +77,7 @@ Recusamos o cadastro de quem tem menos de 18 anos. Para impedir uma nova tentati
 - **Resend:** envia nossos e-mails, sem rastreamento de abertura e de clique.
 - **Cloudflare Turnstile:** protege os formulários contra robôs.
 - **Hostinger:** hospeda o Duora em um servidor contratado.
-- **Amazon Web Services e Didit:** fazem a verificação de idade, como descrito acima.
+- **Amazon Web Services e Didit:** fazem a verificação de idade, como descrito acima. A Amazon Web Services também faz a análise automática das fotos de perfil.
 
 Quando um fornecedor fica fora do Brasil, o tratamento também acontece fora do país.
 

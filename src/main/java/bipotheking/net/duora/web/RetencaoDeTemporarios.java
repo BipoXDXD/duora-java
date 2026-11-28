@@ -18,13 +18,19 @@ import org.springframework.stereotype.Component;
 /**
  * Temporários do processador de imagens ({@code <dir>/tmp}) vivem uma hora pelo mtime: o normal é o
  * próprio processamento apagá-los, e esta política só varre o que um processo interrompido deixou.
- * Ao subir, a aplicação esvazia a pasta inteira, já que nenhum processamento sobrevive a um
- * reinício.
+ * Ao subir, a aplicação apaga só o que passou de {@link #IDADE_DE_ABANDONO}: no deploy sem parada,
+ * o contêiner antigo ainda processa na mesma pasta, e esvaziá-la inteira quebraria esses envios.
  */
 @Component
 class RetencaoDeTemporarios implements PoliticaDeRetencao {
 
   private static final Duration PRAZO = Duration.parse("PT1H");
+
+  /**
+   * Bem acima do maior processamento possível (prazo de 15 s, espera de 5 s e moderação de 4 s): um
+   * temporário mais velho que isso não tem mais dono.
+   */
+  static final Duration IDADE_DE_ABANDONO = Duration.ofMinutes(2);
 
   private final Path tmp;
   private final Clock relogio;
@@ -61,10 +67,8 @@ class RetencaoDeTemporarios implements PoliticaDeRetencao {
   }
 
   @EventListener(ApplicationReadyEvent.class)
-  void esvaziarNoBoot() {
-    for (Path arquivo : arquivos()) {
-      apagar(arquivo);
-    }
+  void apagarAbandonadosNoBoot() {
+    expirar(relogio.instant().minus(IDADE_DE_ABANDONO));
   }
 
   private List<Path> anterioresA(Instant limite) {

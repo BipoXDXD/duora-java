@@ -69,6 +69,8 @@ class MultipartEmMemoriaTest {
     assertThat(resposta.statusCode()).isEqualTo(413);
     assertThat(JsonPath.<String>read(resposta.body(), "$.codigo"))
         .isEqualTo("IMAGEM_GRANDE_DEMAIS");
+    assertThat(JsonPath.<String>read(resposta.body(), "$.mensagem"))
+        .isEqualTo("Cada foto do documento pode ter até 6 MB.");
   }
 
   /** Entre 5 MB e 6 MB, o Tomcat aceita e o caso de uso recusa a imagem. */
