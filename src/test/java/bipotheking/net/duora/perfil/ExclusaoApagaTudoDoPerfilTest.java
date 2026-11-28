@@ -41,7 +41,8 @@ class ExclusaoApagaTudoDoPerfilTest extends BancoDeTeste {
           "registro_acesso",
           "uso_conta_nova",
           "verificacao_idade",
-          "tentativa_verificacao");
+          "tentativa_verificacao",
+          "evento_conta");
 
   @Autowired private ExclusaoDeConta exclusao;
   @Autowired private ContasDeTeste contas;
