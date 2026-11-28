@@ -2,6 +2,7 @@ package bipotheking.net.duora.e2e;
 
 import static bipotheking.net.duora.e2e.Axe.assertSemViolacoes;
 import static com.microsoft.playwright.assertions.PlaywrightAssertions.assertThat;
+import static java.nio.charset.StandardCharsets.UTF_8;
 
 import bipotheking.net.duora.conta.ContasDeTeste;
 import bipotheking.net.duora.conta.EstadoConta;
@@ -76,7 +77,7 @@ class AxeContaIT extends ContaE2eBase {
 
   private static final String DOCUMENTO_NAO_LIDO =
       """
-      {"resultado":"REPETIR","pedeDocumento":true,"tentativasRestantesHoje":0,\
+      {"resultado":"REPETIR","pedeDocumento":false,"tentativasRestantesHoje":0,\
       "enviosDeDocumentoRestantesHoje":1}\
       """;
 
@@ -352,6 +353,20 @@ class AxeContaIT extends ContaE2eBase {
     verificacao.textoVisivel("Logo depois da selfie, enviamos tudo de uma vez.");
 
     assertSemViolacoes(verificacao.page(), "verificação: documento");
+  }
+
+  @Test
+  void verificacaoFotoIlegivel(Participantes participantes) {
+    VerificacaoPagina verificacao =
+        verificacaoSimulada(participantes, api -> api.comSituacao(SITUACAO_DO_DOCUMENTO));
+
+    // Bytes que nenhum navegador decodifica, com o tipo de um JPEG: a redução recusa a foto.
+    verificacao
+        .escolherFoto("Frente do documento", "isto não é uma imagem".getBytes(UTF_8))
+        .textoVisivel("Não conseguimos abrir esta foto. Tire outra.");
+    assertThat(verificacao.campoDaFoto("Frente do documento")).hasAttribute("aria-invalid", "true");
+
+    assertSemViolacoes(verificacao.page(), "verificação: foto ilegível");
   }
 
   @Test

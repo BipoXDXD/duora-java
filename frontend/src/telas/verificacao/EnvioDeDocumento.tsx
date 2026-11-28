@@ -4,6 +4,7 @@ import {
   BOTAO_SECUNDARIO_SEM_MARGEM,
   CAMPO,
   DICA,
+  ERRO_DE_CAMPO,
   ROTULO,
   seDisponivel,
 } from "../../componentes/estilos";
@@ -17,7 +18,6 @@ const TEXTOS = VERIFICACAO_DE_IDADE.documento;
 const PARAGRAFO = "m-0 text-texto-2 text-[1.0625rem] leading-[1.55]";
 const AVISO = "m-0 border-l-[3px] border-coral pl-(--e-4) text-marfim text-[1.0625rem] leading-[1.5]";
 const CONTAGEM = "m-0 text-texto-3 text-[0.9375rem]";
-const ERRO_DO_CAMPO = "m-0 text-[0.875rem] leading-[1.45] text-coral empty:hidden";
 
 /** A moldura tem a proporção de um RG ou de uma CNH (85,6 × 54 mm): a prévia cabe inteira, sem corte. */
 const MOLDURA =
@@ -120,6 +120,8 @@ function CampoDaFoto({ lado, rotulo, foto, idDaDica, aoEscolher }: PropsDoCampo)
   const idDaAcao = useId();
   const idDoErro = useId();
   const [ilegivel, setIlegivel] = useState(false);
+  // A última escolha: uma redução mais lenta, de uma escolha anterior, chega depois e é descartada.
+  const ultimaEscolha = useRef(0);
 
   async function escolher(evento: ChangeEvent<HTMLInputElement>): Promise<void> {
     const arquivo = evento.target.files?.[0];
@@ -128,14 +130,19 @@ function CampoDaFoto({ lado, rotulo, foto, idDaDica, aoEscolher }: PropsDoCampo)
     if (arquivo === undefined) {
       return;
     }
+    ultimaEscolha.current += 1;
+    const escolha = ultimaEscolha.current;
+    let reduzida: Blob | null;
     try {
-      const reduzida = await reduzirFoto(arquivo);
-      setIlegivel(false);
-      aoEscolher(lado, reduzida);
+      reduzida = await reduzirFoto(arquivo);
     } catch {
-      setIlegivel(true);
-      aoEscolher(lado, null);
+      reduzida = null;
     }
+    if (escolha !== ultimaEscolha.current) {
+      return;
+    }
+    setIlegivel(reduzida === null);
+    aoEscolher(lado, reduzida);
   }
 
   return (
@@ -169,7 +176,7 @@ function CampoDaFoto({ lado, rotulo, foto, idDaDica, aoEscolher }: PropsDoCampo)
       >
         {foto === undefined ? TEXTOS.escolherFoto : TEXTOS.trocarFoto}
       </label>
-      <p className={ERRO_DO_CAMPO} id={idDoErro}>
+      <p className={ERRO_DE_CAMPO} id={idDoErro}>
         {ilegivel ? TEXTOS.fotoIlegivel : ""}
       </p>
     </div>
@@ -180,10 +187,16 @@ function CampoDaFoto({ lado, rotulo, foto, idDaDica, aoEscolher }: PropsDoCampo)
 function Previa({ foto }: { foto: Blob }): ReactElement {
   const canvas = useRef<HTMLCanvasElement>(null);
   useEffect(() => {
-    if (canvas.current !== null) {
-      // Uma prévia que não desenha deixa a moldura vazia; a foto reduzida segue valendo para o envio.
-      desenharPrevia(canvas.current, foto).catch(() => undefined);
+    if (canvas.current === null) {
+      return undefined;
     }
+    // Trocar a foto desiste da prévia anterior, que não desenha por cima da nova.
+    const desistencia = new AbortController();
+    // Uma prévia que não desenha deixa a moldura vazia; a foto reduzida segue valendo para o envio.
+    desenharPrevia(canvas.current, foto, desistencia.signal).catch(() => undefined);
+    return () => {
+      desistencia.abort();
+    };
   }, [foto]);
   return <canvas ref={canvas} aria-hidden="true" className="block size-full object-contain" />;
 }

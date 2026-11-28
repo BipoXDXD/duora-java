@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { act, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { AvisoDoDocumento, LadoDoDocumento } from "./etapas";
@@ -8,7 +8,9 @@ import { VERIFICACAO_DE_IDADE } from "./textos";
 /** O jsdom não decodifica imagem: a redução devolve um blob conhecido e a prévia não desenha nada. */
 const fotos = vi.hoisted(() => ({
   reduzirFoto: vi.fn<(arquivo: File) => Promise<Blob>>(),
-  desenharPrevia: vi.fn<(canvas: HTMLCanvasElement, foto: Blob) => Promise<void>>(() => Promise.resolve()),
+  desenharPrevia: vi.fn<(canvas: HTMLCanvasElement, foto: Blob, desistencia: AbortSignal) => Promise<void>>(() =>
+    Promise.resolve(),
+  ),
 }));
 vi.mock("./fotos", () => fotos);
 
@@ -27,18 +29,34 @@ interface Opcoes {
 function abrir({ frente, verso, aviso, envios = 2 }: Opcoes = {}) {
   const aoEscolher = vi.fn<(lado: LadoDoDocumento, foto: Blob | null) => void>();
   const aoFazerSelfie = vi.fn<() => void>();
-  render(
+  const tela = (opcoes: Opcoes) => (
     <EnvioDeDocumento
-      {...(frente === undefined ? {} : { frente })}
-      {...(verso === undefined ? {} : { verso })}
-      {...(aviso === undefined ? {} : { aviso })}
+      {...(opcoes.frente === undefined ? {} : { frente: opcoes.frente })}
+      {...(opcoes.verso === undefined ? {} : { verso: opcoes.verso })}
+      {...(opcoes.aviso === undefined ? {} : { aviso: opcoes.aviso })}
       envios={envios}
       focar
       aoEscolher={aoEscolher}
       aoFazerSelfie={aoFazerSelfie}
-    />,
+    />
   );
-  return { aoEscolher, aoFazerSelfie };
+  const { rerender } = render(tela({ frente, verso, aviso }));
+  return {
+    aoEscolher,
+    aoFazerSelfie,
+    trocar: (opcoes: Opcoes) => {
+      rerender(tela(opcoes));
+    },
+  };
+}
+
+/** Uma promessa que o teste resolve quando quiser, para ordenar as reduções. */
+function adiada<T>() {
+  let resolver: (valor: T) => void = () => undefined;
+  const promessa = new Promise<T>((r) => {
+    resolver = r;
+  });
+  return { promessa, resolver };
 }
 
 function campo(rotulo: RegExp): HTMLInputElement {
@@ -119,10 +137,41 @@ describe("EnvioDeDocumento", () => {
 
     expect(campo(/Frente do documento/)).toHaveAccessibleName(`Frente do documento ${TEXTOS.trocarFoto}`);
     expect(campo(/Verso do documento/)).toHaveAccessibleName(`Verso do documento ${TEXTOS.escolherFoto}`);
-    expect(fotos.desenharPrevia).toHaveBeenCalledWith(expect.any(HTMLCanvasElement), FRENTE);
+    expect(fotos.desenharPrevia).toHaveBeenCalledWith(expect.any(HTMLCanvasElement), FRENTE, expect.any(AbortSignal));
     expect(document.querySelector("canvas")).toHaveAttribute("aria-hidden", "true");
     expect(criarUrl).not.toHaveBeenCalled();
     criarUrl.mockRestore();
+  });
+
+  it("previaAntigaDesisteQuandoAFotoTroca", () => {
+    const { trocar } = abrir({ frente: FRENTE });
+
+    trocar({ frente: VERSO });
+
+    const [primeira, segunda] = fotos.desenharPrevia.mock.calls;
+    expect(primeira?.[2].aborted).toBe(true);
+    expect(segunda?.[1]).toBe(VERSO);
+    expect(segunda?.[2].aborted).toBe(false);
+  });
+
+  it("escolhaAntigaNaoVenceAEscolhaNova", async () => {
+    const usuario = userEvent.setup();
+    const antiga = adiada<Blob>();
+    const nova = adiada<Blob>();
+    fotos.reduzirFoto.mockReturnValueOnce(antiga.promessa).mockReturnValueOnce(nova.promessa);
+    const { aoEscolher } = abrir();
+
+    const entrada = campo(/Frente do documento/);
+    await usuario.upload(entrada, ARQUIVO);
+    await usuario.upload(entrada, ARQUIVO);
+    await act(async () => {
+      nova.resolver(VERSO);
+      antiga.resolver(FRENTE);
+      await Promise.resolve();
+    });
+
+    expect(aoEscolher).toHaveBeenCalledTimes(1);
+    expect(aoEscolher).toHaveBeenCalledWith("frente", VERSO);
   });
 
   it("fotoIlegivelMostraErroNoCampo", async () => {

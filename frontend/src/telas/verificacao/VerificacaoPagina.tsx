@@ -179,6 +179,26 @@ function Etapas({
   });
   const abrirSessao = sessao.mutate;
 
+  /**
+   * A recusa da conferência ou do envio, já decidida pelo redutor (`resultado`). As de recarga vão para
+   * Minha conta; um desfecho, ou o 404 de sessão (que no envio pode ser um reenvio do que o servidor já
+   * concluiu), diz que a situação no servidor mudou; o menor some com a conta lida antes.
+   */
+  const tratarRecusa = (erro: unknown, resultado: Etapa, aoRecusar: () => void): void => {
+    if (erro instanceof ErroHttp && CODIGOS_DE_RECARGA.includes(erro.codigo)) {
+      navegarParaPagina(CAMINHO_DA_CONTA);
+      return;
+    }
+    const semSessao = erro instanceof ErroHttp && erro.codigo === "SESSAO_DE_VERIFICACAO_INVALIDA";
+    if (resultado.etapa === "desfecho" || semSessao) {
+      if (resultado.etapa === "desfecho" && resultado.tipo === "menor") {
+        clienteDeConsulta.removeQueries({ queryKey: consultaDaConta.queryKey, exact: true });
+      }
+      void clienteDeConsulta.invalidateQueries({ queryKey: consultaDaVerificacao.queryKey });
+    }
+    aoRecusar();
+  };
+
   const conferencia = useMutation({
     mutationFn: async (sessaoId: string) => {
       const desfecho = await concluirSelfie(sessaoId);
@@ -188,20 +208,9 @@ function Etapas({
     },
     gcTime: 0,
     onError: (erro, sessaoId) => {
-      if (erro instanceof ErroHttp && CODIGOS_DE_RECARGA.includes(erro.codigo)) {
-        navegarParaPagina(CAMINHO_DA_CONTA);
-        return;
-      }
-      // Uma recusa que vira desfecho (a mesma decisão do redutor) diz que a situação no servidor mudou.
-      const resultado = recusaDaConferencia(sessaoId, erro);
-      if (resultado.etapa === "desfecho") {
-        // O servidor encerrou o cadastro do menor: a conta lida antes não vale mais.
-        if (resultado.tipo === "menor") {
-          clienteDeConsulta.removeQueries({ queryKey: consultaDaConta.queryKey, exact: true });
-        }
-        void clienteDeConsulta.invalidateQueries({ queryKey: consultaDaVerificacao.queryKey });
-      }
-      despachar({ tipo: "conferenciaRecusada", erro });
+      tratarRecusa(erro, recusaDaConferencia(sessaoId, erro), () => {
+        despachar({ tipo: "conferenciaRecusada", erro });
+      });
     },
   });
   const conferir = conferencia.mutate;
@@ -223,25 +232,17 @@ function Etapas({
     },
     gcTime: 0,
     onError: (erro) => {
-      if (erro instanceof ErroHttp && CODIGOS_DE_RECARGA.includes(erro.codigo)) {
-        navegarParaPagina(CAMINHO_DA_CONTA);
+      const pedido = pedidoDeEnvio.current;
+      if (pedido === null) {
         return;
       }
-      const pedido = pedidoDeEnvio.current;
-      if (pedido !== null) {
-        const resultado = recusaDoEnvio(pedido, erro);
-        if (resultado.etapa === "desfecho") {
-          if (resultado.tipo === "menor") {
-            clienteDeConsulta.removeQueries({ queryKey: consultaDaConta.queryKey, exact: true });
-          }
-          void clienteDeConsulta.invalidateQueries({ queryKey: consultaDaVerificacao.queryKey });
+      tratarRecusa(erro, recusaDoEnvio(pedido, erro), () => {
+        // A selfie vencida (D14) descarta a tentativa no servidor, sem gastar o envio reservado na sessão.
+        if (erro instanceof ErroHttp && erro.codigo === "REFAZER_PROVA_DE_VIDA") {
+          definirEnvios((restantes) => restantes + 1);
         }
-      }
-      // A selfie vencida (D14) descarta a tentativa no servidor, sem gastar o envio reservado na sessão.
-      if (erro instanceof ErroHttp && erro.codigo === "REFAZER_PROVA_DE_VIDA") {
-        definirEnvios((restantes) => restantes + 1);
-      }
-      despachar({ tipo: "envioRecusado", erro });
+        despachar({ tipo: "envioRecusado", erro });
+      });
     },
     onSettled: () => {
       pedidoDeEnvio.current = null;
@@ -451,7 +452,8 @@ function ConteudoDaEtapa({
             despachar({ tipo: "concluiu" });
           }}
           aoFalhar={(falha) => {
-            despachar({ tipo: "falhou", falha });
+            // Os envios já contam a sessão desta selfie: zero quer dizer que era o último de hoje.
+            despachar({ tipo: "falhou", falha, semEnvio: etapa.finalidade === "DOCUMENTO" && envios === 0 });
           }}
           aoCancelar={() => {
             despachar({ tipo: "cancelou" });
@@ -463,8 +465,10 @@ function ConteudoDaEtapa({
       return etapa.finalidade === "DOCUMENTO" ? (
         <FalhaComRepeticao
           texto={VERIFICACAO_DE_IDADE.falhas[etapa.falha]}
-          tentativas={envios}
-          contagem={VERIFICACAO_DE_IDADE.documento.envios}
+          // Na falha de carregamento, a repetição reaproveita a sessão: não gasta envio, não há contagem.
+          {...(etapa.sessao === undefined
+            ? { tentativas: envios, contagem: VERIFICACAO_DE_IDADE.documento.envios }
+            : {})}
           aoRepetir={novaSelfie}
         />
       ) : (

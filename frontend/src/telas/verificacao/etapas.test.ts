@@ -367,13 +367,34 @@ describe("documento", () => {
     });
   });
 
-  it("fotoNovaGuardaOAviso", () => {
-    const documento: Etapa = { etapa: "documento", aviso: "naoLeu" };
+  it("fotoNovaLimpaOAviso", () => {
+    const documento: Etapa = { etapa: "documento", frente: FRENTE, verso: VERSO, aviso: "selfieVenceu" };
 
     expect(proximaEtapa(documento, { tipo: "foto", lado: "verso", foto: VERSO })).toEqual({
       etapa: "documento",
+      frente: FRENTE,
       verso: VERSO,
-      aviso: "naoLeu",
+    });
+  });
+
+  it("falhaNaSelfieDoDocumentoSemEnvioVaiParaAAnalise", () => {
+    const captura: Etapa = { etapa: "captura", sessao: SESSAO_DO_DOCUMENTO, finalidade: "DOCUMENTO", fotos: FOTOS };
+
+    expect(proximaEtapa(captura, { tipo: "falhou", falha: "tempo", semEnvio: true })).toEqual({
+      etapa: "desfecho",
+      tipo: "analise",
+    });
+  });
+
+  it("falhaDeCarregamentoSemEnvioGuardaASessao", () => {
+    const captura: Etapa = { etapa: "captura", sessao: SESSAO_DO_DOCUMENTO, finalidade: "DOCUMENTO", fotos: FOTOS };
+
+    expect(proximaEtapa(captura, { tipo: "falhou", falha: "carregamento", semEnvio: true })).toEqual({
+      etapa: "falhaDoDetector",
+      falha: "carregamento",
+      sessao: SESSAO_DO_DOCUMENTO,
+      finalidade: "DOCUMENTO",
+      fotos: FOTOS,
     });
   });
 

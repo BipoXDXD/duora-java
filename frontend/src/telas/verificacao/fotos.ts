@@ -56,10 +56,17 @@ export async function reduzirFoto(arquivo: File, ladoMaximo = 2000, qualidade = 
   }
 }
 
-/** A prévia da foto reduzida, desenhada direto no canvas da tela (sem URL blob: para revogar). */
-export async function desenharPrevia(canvas: HTMLCanvasElement, foto: Blob): Promise<void> {
+/**
+ * A prévia da foto reduzida, desenhada direto no canvas da tela (sem URL blob: para revogar). Com a
+ * desistência sinalizada (a foto trocou durante a decodificação), não desenha: a prévia antiga nunca
+ * cobre a nova.
+ */
+export async function desenharPrevia(canvas: HTMLCanvasElement, foto: Blob, desistencia: AbortSignal): Promise<void> {
   const bitmap = await decodificar(foto);
   try {
+    if (desistencia.aborted) {
+      return;
+    }
     desenhar(canvas, bitmap, LADO_DA_PREVIA);
   } finally {
     bitmap.close();

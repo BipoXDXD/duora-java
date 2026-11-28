@@ -984,6 +984,60 @@ describe("VerificacaoPagina", () => {
     expect(await screen.findByText("Envios restantes hoje: 1")).toBeInTheDocument();
   });
 
+  it("envioSemSessaoAtualizaASituacao", async () => {
+    const usuario = userEvent.setup();
+    const { clienteDeConsulta } = abrirAPagina({
+      situacao: SITUACAO_DO_DOCUMENTO,
+      sessoes: [json(201, SESSAO_DO_DOCUMENTO)],
+      documentos: [problema(404, "SESSAO_DE_VERIFICACAO_INVALIDA")],
+    });
+    const invalidar = vi.spyOn(clienteDeConsulta, "invalidateQueries");
+
+    await escolherAsFotos(usuario);
+    await fazerASelfieDoDocumento(usuario);
+
+    expect(await screen.findByRole("alert")).toHaveTextContent(DOCUMENTO.selfieVenceu);
+    expect(invalidar).toHaveBeenCalledWith({ queryKey: ["conta", "verificacao"] });
+  });
+
+  it("refazerDevolveOEnvioNaContagem", async () => {
+    const usuario = userEvent.setup();
+    abrirAPagina({
+      situacao: SITUACAO_DO_DOCUMENTO,
+      // A segunda selfie vem com a AWS: o Core falso deixa a falha acontecer.
+      sessoes: [json(201, SESSAO_DO_DOCUMENTO), json(201, { ...SESSAO_DO_DOCUMENTO, sessaoId: "s3", modo: "aws" })],
+      documentos: [problema(409, "REFAZER_PROVA_DE_VIDA")],
+    });
+
+    await escolherAsFotos(usuario);
+    await fazerASelfieDoDocumento(usuario);
+    await screen.findByText(DOCUMENTO.selfieVenceu);
+    await usuario.click(screen.getByRole("button", { name: DOCUMENTO.fazerSelfie }));
+    await screen.findByText("detector amplify");
+    act(() => {
+      coreDoAmplify.onError?.({ state: "TIMEOUT", error: new Error("tempo") });
+    });
+
+    expect(await screen.findByText("Envios restantes hoje: 1")).toBeInTheDocument();
+  });
+
+  it("falhaNaSelfieDoUltimoEnvioVaiParaAAnalise", async () => {
+    const usuario = userEvent.setup();
+    abrirAPagina({
+      situacao: { ...SITUACAO_DO_DOCUMENTO, enviosDeDocumentoRestantesHoje: 1 },
+      sessoes: [json(201, { ...SESSAO_DO_DOCUMENTO, modo: "aws" })],
+    });
+
+    await escolherAsFotos(usuario);
+    await usuario.click(screen.getByRole("button", { name: DOCUMENTO.fazerSelfie }));
+    await screen.findByText("detector amplify");
+    act(() => {
+      coreDoAmplify.onError?.({ state: "TIMEOUT", error: new Error("tempo") });
+    });
+
+    expect(await screen.findByRole("heading", { level: 2, name: "Conta em análise" })).toHaveFocus();
+  });
+
   it("fotosDoDocumentoNuncaVaoParaOStorage", async () => {
     const usuario = userEvent.setup();
     const criarUrl = vi.spyOn(URL, "createObjectURL");

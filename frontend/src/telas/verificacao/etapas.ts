@@ -34,7 +34,11 @@ export type Evento =
   | { tipo: "sessaoRecusada"; erro: unknown }
   /** O detector terminou a selfie: a da selfie vai para a conferência; a do documento, para o envio. */
   | { tipo: "concluiu" }
-  | { tipo: "falhou"; falha: FalhaDoDetector }
+  /**
+   * semEnvio: a selfie do documento que falhou gastou o último envio de hoje (a página conta os envios);
+   * sem a sessão para repetir, a conta fica em análise.
+   */
+  | { tipo: "falhou"; falha: FalhaDoDetector; semEnvio?: boolean }
   /** A pessoa desistiu da selfie: volta para onde estava (a tentativa já foi gasta no servidor). */
   | { tipo: "cancelou" }
   /** Pede (de novo) o resultado da selfie da sessão: a repetição depois de um 503 ou de um 409 em andamento. */
@@ -200,11 +204,17 @@ type Captura = Extract<Etapa, { etapa: "captura" }>;
 /**
  * A falha do detector. A de carregamento (o chunk não veio) não chegou a usar a sessão: ela fica guardada
  * para a repetição. Se a sessão tiver vencido, o detector falha de novo por tempo ou serviço, sem ela.
+ * Nas outras, a selfie do documento sem envio hoje não tem repetição: a conta fica em análise, como na
+ * volta no mesmo dia.
  */
-function falhaNaCaptura(captura: Captura, falha: FalhaDoDetector): Etapa {
-  return falha === "carregamento"
-    ? { etapa: "falhaDoDetector", falha, sessao: captura.sessao, ...alvoDe(captura) }
-    : { etapa: "falhaDoDetector", falha, ...alvoDe(captura) };
+function falhaNaCaptura(captura: Captura, falha: FalhaDoDetector, semEnvio: boolean): Etapa {
+  if (falha === "carregamento") {
+    return { etapa: "falhaDoDetector", falha, sessao: captura.sessao, ...alvoDe(captura) };
+  }
+  if (captura.finalidade === "DOCUMENTO" && semEnvio) {
+    return { etapa: "desfecho", tipo: "analise" };
+  }
+  return { etapa: "falhaDoDetector", falha, ...alvoDe(captura) };
 }
 
 function selfieConcluida(captura: Captura): Etapa {
@@ -239,23 +249,22 @@ function fimDaCaptura(captura: Captura, evento: Evento): Etapa {
     return selfieConcluida(captura);
   }
   if (evento.tipo === "falhou") {
-    return falhaNaCaptura(captura, evento.falha);
+    return falhaNaCaptura(captura, evento.falha, evento.semEnvio ?? false);
   }
   return evento.tipo === "cancelou" ? selfieCancelada(captura) : captura;
 }
 
 type Documento = Extract<Etapa, { etapa: "documento" }>;
 
+/** A foto nova do lado; o aviso anterior (de um envio que já passou) não vale mais e sai. */
 function trocarFoto(documento: Documento, lado: LadoDoDocumento, foto: Blob | null): Documento {
   const fotos = { frente: documento.frente, verso: documento.verso };
   fotos[lado] = foto ?? undefined;
   const { frente, verso } = fotos;
-  const { aviso } = documento;
   return {
     etapa: "documento",
     ...(frente === undefined ? {} : { frente }),
     ...(verso === undefined ? {} : { verso }),
-    ...(aviso === undefined ? {} : { aviso }),
   };
 }
 

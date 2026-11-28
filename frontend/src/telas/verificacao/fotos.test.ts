@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi, type MockInstance } from "vitest";
-import { reduzirFoto } from "./fotos";
+import { desenharPrevia, reduzirFoto } from "./fotos";
 
 /** O jsdom não decodifica imagem nem desenha: o bitmap e o canvas são falsos, e o teste lê o que pediram a eles. */
 function bitmap(width: number, height: number) {
@@ -74,6 +74,20 @@ describe("reduzirFoto", () => {
     vi.stubGlobal("createImageBitmap", vi.fn().mockRejectedValue(new DOMException("ruim", "InvalidStateError")));
 
     await expect(reduzirFoto(ARQUIVO)).rejects.toThrow("FOTO_ILEGIVEL");
+  });
+
+  it("previaDesistidaNaoDesenha", async () => {
+    const original = bitmap(800, 600);
+    vi.stubGlobal("createImageBitmap", vi.fn().mockResolvedValue(original));
+    const desistencia = new AbortController();
+    const canvas = document.createElement("canvas");
+
+    const previa = desenharPrevia(canvas, new Blob(["jpeg"]), desistencia.signal);
+    desistencia.abort();
+    await previa;
+
+    expect(desenho.drawImage).not.toHaveBeenCalled();
+    expect(original.close).toHaveBeenCalled();
   });
 
   it("canvasSemImagemRejeita", async () => {

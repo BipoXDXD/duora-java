@@ -68,6 +68,17 @@ final class VerificacaoPagina {
     return this;
   }
 
+  /** A entrada de arquivo do lado ("Frente do documento" ou "Verso do documento"). */
+  Locator campoDaFoto(String lado) {
+    return page.getByLabel(lado);
+  }
+
+  /** Escolhe um arquivo qualquer para o lado, como JPEG, sem esperar a redução terminar. */
+  VerificacaoPagina escolherFoto(String lado, byte[] bytes) {
+    campoDaFoto(lado).setInputFiles(new FilePayload("foto.jpg", "image/jpeg", bytes));
+    return this;
+  }
+
   /** Toca em "Fazer a selfie", já disponível com as duas fotos: abre a selfie do documento. */
   VerificacaoPagina fazerSelfieDoDocumento() {
     Locator fazer = botao("Fazer a selfie");
