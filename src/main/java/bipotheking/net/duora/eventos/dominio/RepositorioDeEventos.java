@@ -28,6 +28,9 @@ public interface RepositorioDeEventos {
   /** O menor {@code seq} ainda guardado da conta; vazio se ela não tem eventos. */
   OptionalLong menorSeq(ContaId conta);
 
+  /** O maior {@code seq} da conta, o do evento mais novo; vazio se ela não tem eventos. */
+  OptionalLong maiorSeq(ContaId conta);
+
   /**
    * Apaga todos os eventos da conta.
    *

@@ -82,6 +82,16 @@ class EventosJdbc implements RepositorioDeEventos {
   }
 
   @Override
+  public OptionalLong maiorSeq(ContaId conta) {
+    return jdbc.sql("select max(seq) from evento_conta where conta_id = :conta")
+        .param("conta", conta.valor())
+        .query(Long.class)
+        .optional()
+        .map(OptionalLong::of)
+        .orElseGet(OptionalLong::empty);
+  }
+
+  @Override
   public int apagarDaConta(ContaId conta) {
     return jdbc.sql("delete from evento_conta where conta_id = :conta")
         .param("conta", conta.valor())
