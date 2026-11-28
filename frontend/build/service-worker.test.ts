@@ -124,6 +124,13 @@ describe("build com todos os arquivos do shell", () => {
     expect(sw).not.toMatch(/^\s*(import|export)\b/m);
   });
 
+  it("swTemOuvintesDePushECliqueECapacidades", () => {
+    for (const evento of ["push", "notificationclick", "pushsubscriptionchange", "message"]) {
+      expect(sw).toContain(`addEventListener("${evento}"`);
+    }
+    expect(sw).toContain('"duora.capacidades"');
+  });
+
   it("a pasta .vite é apagada", () => {
     expect(existsSync(join(build.outDir, ".vite"))).toBe(false);
   });
