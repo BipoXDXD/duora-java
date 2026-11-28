@@ -54,6 +54,7 @@ O controlador dos dados é o responsável pelo Duora. Para dúvidas e pedidos so
 | Orientação | até você apagar ou excluir a conta |
 | Pares que não voltam a se encontrar | até a exclusão da conta |
 | Cenários que você já jogou | até a exclusão da conta |
+| Lugar na fila de espera | até você desistir, entrar num encontro ou passar 1 minuto sem a tela aberta |
 | Localização (área de cerca de 5 km) | até você desativar a localização ou excluir a conta; apagada 90 dias depois da última atualização |
 | Aceites dos termos, desta política e do consentimento biométrico | até a exclusão da conta |
 | Selfie e documento da verificação de idade | apagados logo após a checagem; fica só o resultado, a data e o método |
