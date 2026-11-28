@@ -25,6 +25,11 @@ final class VerificacaoPagina {
     return new VerificacaoPagina(page);
   }
 
+  /** A página já está no documento da /verificacao (a jornada de cadastro termina nele). */
+  static VerificacaoPagina de(Page page) {
+    return new VerificacaoPagina(page);
+  }
+
   Page page() {
     return page;
   }
